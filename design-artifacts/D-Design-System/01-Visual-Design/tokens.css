@@ -1,0 +1,188 @@
+/* CityFix — Design Tokens
+ * Apple-like calm confidence. Civic trust. Bangla-first.
+ * All values are CSS custom properties so any visual element can reference them.
+ */
+
+:root {
+  /* ---------- COLOR ---------- */
+
+  /* Primary — restrained blue-grey */
+  --color-primary: #2C5282;
+  --color-primary-hover: #2A4E73;
+  --color-primary-pressed: #234876;
+  --color-primary-soft: #EBF2F8;       /* tinted background for selected states */
+  --color-primary-on: #FFFFFF;          /* text on primary fill */
+
+  /* Ink — text */
+  --color-ink: #0F1419;                 /* primary text */
+  --color-ink-secondary: #4A5568;       /* secondary text, captions */
+  --color-ink-tertiary: #718096;        /* placeholder, muted */
+  --color-ink-disabled: #A0AEC0;
+  --color-ink-on-dark: #F7FAFC;         /* text on dark surfaces */
+
+  /* Surface — backgrounds */
+  --color-surface-page: #FAFAF7;        /* warm off-white app background */
+  --color-surface-card: #FFFFFF;        /* cards, modals */
+  --color-surface-raised: #F2F2F2;      /* fills, dividers, inputs */
+  --color-surface-sunken: #EDEDE8;      /* subtle sunken regions */
+  --color-surface-inverse: #0F1419;     /* dark surfaces (Habib's monitor, Rashid's outdoor mode) */
+
+  /* Border */
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E0;
+  --color-border-focus: var(--color-primary);
+
+  /* Status — muted, not saturated */
+  --color-status-submitted: #718096;    /* slate */
+  --color-status-submitted-soft: #EDF2F7;
+  --color-status-routed: #2C5282;       /* primary blue */
+  --color-status-routed-soft: var(--color-primary-soft);
+  --color-status-in-progress: #B7791F;  /* amber */
+  --color-status-in-progress-soft: #FFFAF0;
+  --color-status-resolved: #2F7A4F;     /* forest green */
+  --color-status-resolved-soft: #F0F8F4;
+  --color-status-paused: #B7791F;       /* amber, same family as in-progress */
+  --color-status-error: #C53030;
+  --color-status-error-soft: #FFF5F5;
+  --color-status-warning: #B7791F;
+  --color-status-warning-soft: #FFFAF0;
+
+  /* Category accents — for category icons in tiles */
+  --color-cat-streetlight: #B7791F;     /* amber — matches electrical */
+  --color-cat-pothole: #4A5568;          /* slate */
+  --color-cat-garbage: #2F7A4F;          /* green */
+  --color-cat-drain: #2C5282;            /* blue */
+  --color-cat-sanitation: #805AD5;       /* purple */
+  --color-cat-other: #718096;            /* grey */
+
+  /* Map */
+  --color-map-bg: #E9EEF6;
+  --color-map-road: #FFFFFF;
+  --color-map-water: #CFE3F5;
+  --color-map-park: #E0EFE3;
+  --color-map-pin-open: #C53030;
+  --color-map-pin-progress: #B7791F;
+  --color-map-pin-resolved: #2F7A4F;
+
+  /* ---------- TYPE ---------- */
+
+  --font-display: "Noto Sans Bengali", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-body: "Noto Sans Bengali", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-display-xl: 2.75rem;     /* 44px — hero titles */
+  --text-display-lg: 2rem;        /* 32px — H1 */
+  --text-display-md: 1.5rem;      /* 24px — H2 */
+  --text-display-sm: 1.25rem;     /* 20px — H3 */
+
+  --text-body-lg: 1.0625rem;      /* 17px — large body */
+  --text-body: 1rem;              /* 16px — base */
+  --text-body-sm: 0.9375rem;      /* 15px — small body */
+  --text-caption: 0.875rem;       /* 14px — captions */
+  --text-micro: 0.75rem;          /* 12px — micro labels */
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --tracking-tight: -0.022em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---------- SPACING (4px base) ---------- */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ---------- RADIUS ---------- */
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ---------- SHADOW ---------- */
+
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(15, 20, 25, 0.04);
+  --shadow-sm: 0 2px 4px rgba(15, 20, 25, 0.05), 0 1px 2px rgba(15, 20, 25, 0.03);
+  --shadow-md: 0 4px 12px rgba(15, 20, 25, 0.07), 0 1px 3px rgba(15, 20, 25, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 20, 25, 0.10), 0 2px 6px rgba(15, 20, 25, 0.05);
+  --shadow-modal: 0 24px 48px rgba(15, 20, 25, 0.16), 0 4px 12px rgba(15, 20, 25, 0.08);
+
+  /* ---------- LAYOUT ---------- */
+
+  --layout-mobile-max: 480px;
+  --layout-tablet-max: 1024px;
+  --layout-desktop: 1440px;
+
+  --header-height-mobile: 56px;
+  --header-height-desktop: 64px;
+  --sticky-cta-height: 64px;
+
+  /* Touch target */
+  --touch-min: 44px;
+  --touch-large: 56px;
+  --touch-cta: 64px;
+
+  /* Web layout sizing */
+  --card-max-width: 640px;       /* centered hero / confirmation card */
+  --report-side-panel: 480px;    /* home activity side panel (large) */
+  --report-side-panel-medium: 360px; /* home activity side panel (medium) */
+
+  /* ---------- MOTION ---------- */
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* ---------- Z-INDEX ---------- */
+
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-overlay: 50;
+  --z-modal: 100;
+  --z-toast: 200;
+}
+
+/* ---------- HIGH-CONTRAST OUTDOOR (Rashid's Status: In Progress) ---------- */
+
+.theme-outdoor {
+  --color-surface-page: #FFFFFF;
+  --color-surface-card: #FFFFFF;
+  --color-ink: #000000;
+  --color-ink-secondary: #000000;
+  --color-ink-tertiary: #1A1A1A;
+  --color-border: #000000;
+  --color-primary: #000000;
+  --color-primary-on: #FFFFFF;
+}
+
+/* ---------- DARK MODE (Habib's monitor, optional) ---------- */
+
+.theme-dark {
+  --color-surface-page: #0F1419;
+  --color-surface-card: #1A2027;
+  --color-surface-raised: #2D3748;
+  --color-ink: #F7FAFC;
+  --color-ink-secondary: #CBD5E0;
+  --color-ink-tertiary: #A0AEC0;
+  --color-border: #2D3748;
+}

@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * CityFix global styles.
+ *
+ * The design-token system (colors, type, spacing, radii, motion, themes
+ * including `.theme-outdoor` for Rashid's hands-busy page) lives in:
+ *   design-artifacts/D-Design-System/01-Visual-Design/tokens.css
+ *
+ * Importing it here keeps the source of truth in the design-system folder
+ * while making the variables globally available inside the Next.js app.
+ * Components should reference `var(--color-...)`, `var(--space-...)`, etc.
+ * — never hard-code values.
+ */
+@import url('../design-artifacts/D-Design-System/01-Visual-Design/tokens.css');
+
+/* Bangla-first typography baseline. */
+html, body {
+  font-family: var(--font-body);
+  background: var(--color-surface-page);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+}
+
+/* Bangla-script characters get Noto Sans Bengali via tokens.css @font-face. */
+[lang="bn"] {
+  font-family: var(--font-body);
+}

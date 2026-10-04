@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Queue Dashboard — CityFix Dispatch</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+    }
+    h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+    /* Top bar */
+    .topbar {
+      height: var(--header-height-desktop);
+      background: var(--color-surface-card);
+      border-bottom: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-5);
+    }
+
+    /* Stats strip */
+    .stat-card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+    .stat-label {
+      font-size: var(--text-caption);
+      color: var(--color-ink-secondary);
+      margin-bottom: var(--space-2);
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: var(--weight-semibold);
+      color: var(--color-ink);
+      line-height: 1;
+    }
+    .stat-delta {
+      font-size: var(--text-micro);
+      color: var(--color-status-resolved);
+      margin-top: var(--space-2);
+      font-weight: var(--weight-semibold);
+    }
+    .stat-delta.down { color: var(--color-status-error); }
+
+    /* Filter pills */
+    .filter-pill {
+      padding: 6px var(--space-3);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-medium);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      color: var(--color-ink-secondary);
+      cursor: pointer;
+    }
+    .filter-pill.active { background: var(--color-ink); color: var(--color-ink-on-dark); border-color: var(--color-ink); }
+
+    /* Ticket row */
+    .ticket-row {
+      display: flex; gap: var(--space-3);
+      padding: var(--space-3);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color var(--duration-fast) var(--ease-out);
+    }
+    .ticket-row:hover { border-color: var(--color-ink-tertiary); }
+    .ticket-row.selected { border-color: var(--color-primary); background: var(--color-primary-soft); }
+    .ticket-thumb {
+      width: 56px; height: 56px;
+      border-radius: var(--radius-xs);
+      flex-shrink: 0;
+    }
+
+    /* Status pills (compact) */
+    .pill {
+      display: inline-flex; align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: var(--weight-semibold);
+    }
+    .pill-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+    .pill-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+    .pill-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+    .pill-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+    .pill-bulk { background: var(--color-surface-raised); color: var(--color-ink-secondary); }
+
+    /* Detail pane */
+    .detail-pane {
+      background: var(--color-surface-card);
+      border-left: 1px solid var(--color-border);
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .action-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--space-2);
+      width: 100%;
+      height: var(--touch-large);
+      border-radius: var(--radius-sm);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      border: none;
+    }
+    .action-btn-primary { background: var(--color-primary); color: white; }
+    .action-btn-secondary { background: white; color: var(--color-primary); border: 1px solid var(--color-primary); }
+  </style>
+</head>
+<body>
+
+<div style="max-width: 1440px; margin: 0 auto; min-height: 100vh; background: var(--color-surface-page);">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <span style="width: 10px; height: 10px; background: var(--color-primary); border-radius: 50%;"></span>
+      <strong style="font-size: var(--text-body-lg);">CityFix Dispatch</strong>
+      <span style="color: var(--color-ink-tertiary); font-size: var(--text-caption);">·</span>
+      <span style="font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ঢাকা উত্তর সিটি কর্পোরেশন</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: var(--space-4);">
+      <span style="font-size: var(--text-body-sm); color: var(--color-ink); font-weight: var(--weight-medium);">ওয়ার্ড ১৪ · মিরপুর</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <div style="width: 32px; height: 32px; background: var(--color-primary-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: var(--weight-semibold); color: var(--color-primary); font-size: var(--text-caption);">হ</div>
+      <span style="font-size: var(--text-body-sm);">হাবিব</span>
+    </div>
+  </div>
+
+  <!-- Main: 3-region layout -->
+  <div style="display: grid; grid-template-columns: 240px 480px 1fr; min-height: calc(100vh - 64px);">
+
+    <!-- Filter rail -->
+    <aside style="background: var(--color-surface-card); border-right: 1px solid var(--color-border); padding: var(--space-5);">
+
+      <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-3);">
+        ফিল্টার
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: var(--space-1);">
+        <button class="filter-pill active" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">সব <span style="background: var(--color-ink-on-dark); color: var(--color-ink); padding: 1px 6px; border-radius: 8px; font-size: 10px;">১৭</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">নতুন <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৫</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">বরাদ্দ হয়নি <span style="background: var(--color-status-error-soft); color: var(--color-status-error); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৩</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">চলমান <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৮</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">আজকের সমাধান <span style="background: var(--color-status-resolved-soft); color: var(--color-status-resolved); padding: 1px 6px; border-radius: 8px; font-size: 10px;">১</span></button>
+      </div>
+
+      <div style="margin-top: var(--space-6); font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-3);">
+        কীবোর্ড
+      </div>
+      <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); line-height: 1.8;">
+        <div style="display: flex; justify-content: space-between;"><span>পরবর্তী</span><kbd style="font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; background: var(--color-surface-raised); border-radius: 4px;">J</kbd></div>
+        <div style="display: flex; justify-content: space-between;"><span>আগের</span><kbd style="font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; background: var(--color-surface-raised); border-radius: 4px;">K</kbd></div>
+        <div style="display: flex; justify-content: space-between;"><span>বরাদ্দ</span><kbd style="font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; background: var(--color-surface-raised); border-radius: 4px;">A</kbd></div>
+        <div style="display: flex; justify-content: space-between;"><span>খোলা</span><kbd style="font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; background: var(--color-surface-raised); border-radius: 4px;">↵</kbd></div>
+      </div>
+    </aside>
+
+    <!-- List region -->
+    <main style="background: var(--color-surface-page); padding: var(--space-5); overflow-y: auto;">
+
+      <!-- Stats strip -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-bottom: var(--space-5);">
+        <div class="stat-card">
+          <div class="stat-label">আজকের নতুন</div>
+          <div class="stat-value">৫</div>
+          <div class="stat-delta">↑ ২ গতকালের চেয়ে</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">বরাদ্দহীন</div>
+          <div class="stat-value">৩</div>
+          <div class="stat-delta down">মনোযোগ দরকার</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">চলমান</div>
+          <div class="stat-value">৮</div>
+          <div class="stat-delta">গত সপ্তাহের সমান</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">গড় সমাধানের সময়</div>
+          <div class="stat-value">৩.২ দিন</div>
+          <div class="stat-delta">↓ ০.৪ দিন ভালো</div>
+        </div>
+      </div>
+
+      <!-- List header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+        <h3 style="margin: 0; font-size: var(--text-body-lg);">সব রিপোর্ট</h3>
+        <span style="font-size: var(--text-caption); color: var(--color-ink-tertiary);">17 of 17</span>
+      </div>
+
+      <!-- Ticket rows -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+
+        <!-- Row 1 — selected -->
+        <div class="ticket-row selected">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #B7791F22, #B7791F66);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">রাস্তার আলো নেই · পোল #14B</div>
+              <span class="pill pill-routed">রাউট</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px; display: flex; align-items: center; gap: var(--space-2);">
+              <span>ওয়ার্ড ১৪</span>
+              <span>·</span>
+              <span>২৩ মিনিট আগে</span>
+              <span class="pill pill-bulk" style="font-size: 10px;">৪ জন</span>
+            </div>
+          </div>
+          <div style="width: 8px; height: 8px; background: var(--color-status-error); border-radius: 50%; align-self: center;"></div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="ticket-row">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #4A556822, #4A556844);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">রাস্তায় বড় গর্ত</div>
+              <span class="pill pill-submitted">নতুন</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px;">
+              ওয়ার্ড ১৪ · ৪৫ মিনিট আগে
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="ticket-row">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #2C528222, #2C528266);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">ড্রেনে পানি জমেছে</div>
+              <span class="pill pill-in-progress">চলমান</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px;">
+              ওয়ার্ড ১৪ · ক্রু এ · ২ ঘণ্টা আগে
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="ticket-row">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #805AD522, #805AD566);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">বেসিনে আবর্জনা</div>
+              <span class="pill pill-resolved">সমাধান</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px;">
+              ওয়ার্ড ১৪ · ক্রু সি · ৩ ঘণ্টা আগে
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 5 -->
+        <div class="ticket-row">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #B7791F22, #B7791F66);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">ট্রাফিক সিগন্যাল নষ্ট</div>
+              <span class="pill pill-submitted">নতুন</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px;">
+              ওয়ার্ড ১৪ · ৪ ঘণ্টা আগে
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 6 -->
+        <div class="ticket-row">
+          <div class="ticket-thumb" style="background: linear-gradient(135deg, #4A556822, #4A556844);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: var(--space-2);">
+              <div style="font-weight: var(--weight-semibold); font-size: var(--text-body-sm);">ফুটপাত ভাঙা</div>
+              <span class="pill pill-in-progress">চলমান</span>
+            </div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 4px;">
+              ওয়ার্ড ১৪ · ক্রু বি · ৫ ঘণ্টা আগে
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Detail pane -->
+    <aside class="detail-pane" style="padding: var(--space-5);">
+
+      <!-- Hero -->
+      <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-5);">
+        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #B7791F22, #B7791F66); border-radius: var(--radius-sm);"></div>
+        <div style="flex: 1; min-width: 0;">
+          <h2 style="margin: 0 0 var(--space-1); font-size: var(--text-display-sm);">রাস্তার আলো নেই</h2>
+          <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
+            <span class="pill pill-routed">রাউট</span>
+            <span class="pill pill-bulk" style="font-size: 11px;">৪ জন রিপোর্টার</span>
+          </div>
+          <div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">
+            ওয়ার্ড ১৪, মিরপুর · #TIX-1234
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-5); padding: var(--space-4); background: var(--color-surface-page); border-radius: var(--radius-md);">
+        <div>
+          <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase;">বিভাগ</div>
+          <div style="margin-top: 4px; font-weight: var(--weight-medium);">বৈদ্যুতিক</div>
+        </div>
+        <div>
+          <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase;">জমা হয়েছে</div>
+          <div style="margin-top: 4px; font-weight: var(--weight-medium);">২৩ মিনিট আগে</div>
+        </div>
+        <div>
+          <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase;">SLA উইন্ডো</div>
+          <div style="margin-top: 4px; font-weight: var(--weight-medium);">৪৮ ঘণ্টা</div>
+        </div>
+        <div>
+          <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase;">রিপোর্টার</div>
+          <div style="margin-top: 4px; font-weight: var(--weight-medium);">রহিম এইচ. · ৩ অন্যান্য</div>
+        </div>
+      </div>
+
+      <!-- Dispatcher note -->
+      <div style="background: var(--color-primary-soft); border-left: 3px solid var(--color-primary); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); margin-bottom: var(--space-5);">
+        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px;">
+          নোট যোগ করুন
+        </div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-ink); line-height: 1.5;">
+          পোল #14B এর ফিউজ বক্স চেক করুন, লাইন ২-এ সমস্যা হতে পারে।
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        <button class="action-btn action-btn-primary">
+          ক্রুতে বরাদ্দ করুন
+        </button>
+        <button class="action-btn action-btn-secondary">
+          বিভাগে রাউট করুন
+        </button>
+      </div>
+
+      <div style="margin-top: var(--space-4); display: flex; gap: var(--space-4); justify-content: center;">
+        <a href="#" style="font-size: var(--text-caption); color: var(--color-ink-secondary); text-decoration: none;">সদৃশ হিসেবে চিহ্নিত করুন</a>
+        <span style="color: var(--color-ink-tertiary);">·</span>
+        <a href="#" style="font-size: var(--text-caption); color: var(--color-ink-secondary); text-decoration: none;">ঊর্ধ্বতন কর্তৃপক্ষে প্রেরণ</a>
+      </div>
+
+      <div style="margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-border); text-align: center; font-size: var(--text-caption); color: var(--color-ink-tertiary);">
+        শেষ আপডেট: ১২ মিনিট আগে · হাবিব (ডিসপ্যাচার)
+      </div>
+
+    </aside>
+
+  </div>
+
+</div>
+
+</body>
+</html>

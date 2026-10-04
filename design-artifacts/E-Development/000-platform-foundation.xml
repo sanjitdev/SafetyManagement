@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Feature PRD: WO-000 Platform Foundation (000-platform-foundation.xml)
+  Created: 2026-10-04
+  Author: Mimir (Mimir PRD workflow)
+  Lane: Standalone WDS v1.0.0
+
+  This is the per-requirement feature spec for WO-000. It enumerates the
+  platform-layer requirements that every persona Work Order consumes.
+
+  Cross-references:
+    - design-artifacts/E-Development/WO-000-platform-foundation.md   (source WO)
+    - design-artifacts/E-Development/000-PRD.md                        (master PRD)
+    - design-artifacts/E-Development/000-tech-audit.md                (pinned tech stack)
+    - design-artifacts/A-Product-Brief/01-product-brief.md           (vision)
+    - design-artifacts/B-Trigger-Map/06-feature-impact.md            (FIA features)
+
+  Build order: this WO is gating. WO-001..004 cannot start until every
+  requirement below is implemented + verified.
+-->
+<feature-prd id="WO-000" name="platform-foundation" status="draft">
+
+  <metadata>
+    <created>2026-10-04</created>
+    <author>Mimir</author>
+    <priority>critical</priority>
+    <gating>true</gating>
+    <depends-on>none</depends-on>
+    <blocks>
+      <block>WO-001</block>
+      <block>WO-002</block>
+      <block>WO-003</block>
+      <block>WO-004</block>
+    </blocks>
+  </metadata>
+
+  <overview>
+    The cross-cutting platform layer that every persona WO sits on top of:
+    shared data model, authentication, per-city configuration, dedup engine,
+    status trail, push notifications, audit log, polling infrastructure,
+    i18n framework. Produces APIs + data models; consumes no UI.
+  </overview>
+
+  <requirements>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-001: Data model                                      -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-001" name="data-model" priority="critical">
+      <description>
+        Single shared `Ticket` entity + per-city config entities, enforced
+        in PostgreSQL via Prisma. Internal-only fields are hidden from
+        citizen queries via API layer (not via DB row-level security in v1
+        — simpler and adequate for the pilot).
+      </description>
+
+      <acceptance>
+        <criterion>Single `Ticket` entity with fields: id, city_id, category_id, ward_id, reporter_id, assigned_crew_id, status, photo_urls (ordered JSONB array), location (lat/lng + reverse-geocoded label), note, created_at, status_trail (JSONB array of {status, actor_id, timestamp, note?})</criterion>
+        <criterion>Status enum: submitted → routed → in_progress → resolved. Closed/cancelled is terminal.</criterion>
+        <criterion>Per-city config entities: City, Ward (with GeoJSON polygon), Category, Department, Language</criterion>
+        <criterion>Internal-only fields (assigned_crew_id, internal notes, before-photos from Rashid's perspective) hidden from citizen queries via API layer</criterion>
+        <criterion>Prisma migration runs cleanly against an empty Postgres; seed script creates Dhaka city + template categories</criterion>
+      </acceptance>
+
+      <verification>
+        - npx prisma migrate dev runs cleanly
+        - npm run db:seed creates the Dhaka fixture
+        - Unit test: GET /api/tickets/:id as citizen does NOT include assigned_crew_id
+        - Unit test: GET /api/tickets/:id as dispatcher DOES include assigned_crew_id
+      </verification>
+
+      <specs-referenced>
+        <spec path="design-artifacts/C-UX-Scenarios/01-rahim-the-reporter/1.11-report-submitted-confirmation/1.11-report-submitted-confirmation.md">status trail visibility contract</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/02-habib-the-handler/2.6-resolve-confirmation/2.6-resolve-confirmation.md">status transitions</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/03-rashid-the-resolver/3.3-status-in-progress/3.3-status-in-progress.md">status enum source-of-truth</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/04-aamir-the-administrator/4.4-departments-categories/4.4-departments-categories.md">per-city config schema</spec>
+      </specs-referenced>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-002: Authentication & roles                          -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-002" name="auth-roles" priority="critical">
+      <description>
+        Four-role model (citizen / dispatcher / crew / admin). HTTP-only
+        signed session cookies. Argon2 password hashing. WebAuthn mandatory
+        for admin writes. Citizen OTP via SMS (provider abstraction;
+        concrete provider chosen in WO-004).
+      </description>
+
+      <acceptance>
+        <criterion>Four roles enforced at the API layer; no custom-role builder in v1</criterion>
+        <criterion>Citizen registration: phone (unique per city), NID (validated format), name, password (min-length policy), OTP verification</criterion>
+        <criterion>OTP: SMS-based, ≤ 5 min TTL, single-use, retry-cap documented</criterion>
+        <criterion>WebAuthn mandatory for any admin write action; optional for dispatcher/crew in v1</criterion>
+        <criterion>Dispatcher + crew sessions bind to (city, ward, department); cross-scope queries denied at API layer</criterion>
+        <criterion>Argon2 password hashing (via @node-rs/argon2)</criterion>
+        <criterion>@simplewebauthn/server + /browser for WebAuthn</criterion>
+        <criterion>HTTP-only SameSite=Lax Secure signed session cookies</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: citizen can register, verify OTP, log in, see their own tickets only
+        - Integration test: dispatcher session bound to ward X cannot read tickets from ward Y
+        - Integration test: admin write action without WebAuthn is rejected
+        - Unit test: argon2 hash verification round-trip
+      </verification>
+
+      <specs-referenced>
+        <spec path="design-artifacts/C-UX-Scenarios/01-rahim-the-reporter/1.3-registration/1.3-registration.md">registration fields</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/01-rahim-the-reporter/1.4-verification-otp/1.4-verification-otp.md">OTP contract</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/04-aamir-the-administrator/4.6-user-provisioning/4.6-user-provisioning.md">role definitions, WebAuthn policy</spec>
+      </specs-referenced>
+
+      <libraries>
+        <lib name="@node-rs/argon2">password hashing</lib>
+        <lib name="@simplewebauthn/server">WebAuthn server-side</lib>
+        <lib name="@simplewebauthn/browser">WebAuthn browser-side</lib>
+        <lib name="otpauth">TOTP generation/verification</lib>
+      </libraries>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-003: Per-city configuration                          -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-003" name="per-city-config" priority="critical">
+      <description>
+        City is a first-class entity. Every ticket, user, category, ward
+        belongs to a city. Dhaka template pre-populates categories,
+        departments, ward template, language defaults.
+      </description>
+
+      <acceptance>
+        <criterion>`City` is first-class; foreign keys cascade-restrict (never delete a city with tickets)</criterion>
+        <criterion>Dhaka template seeds: 5 categories (streetlight, pothole, drainage, garbage, other), 3 departments, 50 wards template, Bangla default</criterion>
+        <criterion>Per-user language override allowed; falls back to city default</criterion>
+        <criterion>Ward polygons stored as GeoJSON; served from GET /api/cities/:id/wards</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: POST /api/cities creates a city from Dhaka template
+        - Integration test: GET /api/cities/:id/wards returns the ward list with valid GeoJSON
+        - Unit test: per-user language preference overrides city default
+      </verification>
+
+      <specs-referenced>
+        <spec path="design-artifacts/C-UX-Scenarios/04-aamir-the-administrator/4.4-departments-categories/4.4-departments-categories.md">per-city config schema</spec>
+      </specs-referenced>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-004: Dedup engine                                    -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-004" name="dedup-engine" priority="critical">
+      <description>
+        When a new report is submitted within X meters of an existing open
+        ticket of the same category, the API returns the existing ticket
+        and a `dedup_match: true` flag instead of creating a duplicate.
+        Dedup is a **prompt**, not auto-merge (Feature #3 design rationale).
+      </description>
+
+      <acceptance>
+        <criterion>POST /api/tickets with location within X meters of same-category open ticket returns {dedup_match: true, existing_ticket: {...}} instead of creating new</criterion>
+        <criterion>Dedup radius default = 50m (configurable per city via Aamir; pinned in PRD)</criterion>
+        <criterion>Every dedup attempt logged to audit log (actor, both ticket IDs, distance, category, accepted/rejected)</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: two POSTs to /api/tickets at same location within 50m → second returns dedup_match
+        - Integration test: two POSTs at 100m distance → second creates new ticket
+        - Unit test: audit log entry created on every dedup attempt
+      </verification>
+
+      <deferred-to-prd>
+        <item>Photo retention policy (legal/privacy decision)</item>
+        <item>Specific OTP SMS provider (provider abstraction; chosen in WO-004)</item>
+      </deferred-to-prd>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-005: Status trail                                    -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-005" name="status-trail" priority="critical">
+      <description>
+        Every status transition records {from_status, to_status, actor_id,
+        timestamp, optional note} on the ticket. Citizen query returns
+        trail with internal actors anonymized.
+      </description>
+
+      <acceptance>
+        <criterion>Every transition appends a trail entry atomically with the status change</criterion>
+        <criterion>Citizen-facing serializer maps actor_id to "City corporation" (anonymized)</criterion>
+        <criterion>Dispatcher/crew/admin serializers expose the actual actor</criterion>
+        <criterion>Status transitions are atomic (single Postgres transaction)</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: POST /api/tickets/:id/transition writes trail entry
+        - Unit test: citizen-facing serializer omits actor_id detail
+        - Unit test: invalid transition (e.g., submitted → resolved skipping routed) returns 409
+      </verification>
+
+      <specs-referenced>
+        <spec path="design-artifacts/C-UX-Scenarios/03-rashid-the-resolver/3.3-status-in-progress/3.3-status-in-progress.md">status enum</spec>
+        <spec path="design-artifacts/C-UX-Scenarios/01-rahim-the-reporter/1.11-report-submitted-confirmation/1.11-report-submitted-confirmation.md">trail visibility contract</spec>
+      </specs-referenced>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-006: Push notifications (transport)                  -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-006" name="push-notifications" priority="high">
+      <description>
+        Per WO-000 acceptance criteria + tech-audit §3: Web Push API (VAPID)
+        transport. Service-worker delivery. Subscribed per-citizen per-their-
+        own-tickets (privacy). UI consumption (when subscribed) lives in
+        WO-001 and WO-002.
+      </description>
+
+      <acceptance>
+        <criterion>POST /api/v1/push/subscribe accepts a citizen's Web Push subscription; stored per (citizen_id, ticket_id scope)</criterion>
+        <criterion>On every status transition, the platform sends push to all subscribed citizens for that ticket</criterion>
+        <criterion>At-least-once delivery with idempotency token (status transition timestamp + ticket_id)</criterion>
+        <criterion>DELETE /api/v1/push/subscribe removes subscription</criterion>
+        <criterion>VAPID keys generated at deploy time and stored as env vars (PUBLIC_VAPID_KEY, PRIVATE_VAPID_KEY)</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: subscription persisted; transition triggers push
+        - Unit test: idempotency token prevents duplicate sends on retry
+      </verification>
+
+      <deferred>
+        FCM (Android native) and APNs (iOS native) — deferred until native wrappers ship
+      </deferred>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-007: Audit log                                       -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-007" name="audit-log" priority="high">
+      <description>
+        Every ticket transition and every per-city config change is written
+        to an append-only audit log. Records: {entity_type, entity_id,
+        action, actor_id, before_value, after_value, timestamp}.
+      </description>
+
+      <acceptance>
+        <criterion>Append-only AuditEntry table; no UPDATE/DELETE allowed at the API layer</criterion>
+        <criterion>GET /api/audit?entity_type=ticket&entity_id=X returns paginated audit entries (admin-only)</criterion>
+        <criterion>Audit records include before/after JSON snapshots of the changed fields</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: ticket transition writes audit entry with before/after
+        - Integration test: per-city config update (e.g., category rename) writes audit entry
+        - Unit test: DELETE on audit row is rejected
+      </verification>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-008: Polling infrastructure                          -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-008" name="polling-infrastructure" priority="medium">
+      <description>
+        Clients poll every 10-30s for status changes. WebSocket deferred to
+        v1.1. Polling rate-limited per actor and per ticket.
+      </description>
+
+      <acceptance>
+        <criterion>GET /api/tickets/:id returns {ticket, trail, last_poll_cursor}</criterion>
+        <criterion>GET /api/tickets?city_id=X&updated_since=cursor returns tickets updated since cursor</criterion>
+        <criterion>Polling rate-limited: max 1 req/sec per (actor_id, ticket_id); 429 with retry-after on overflow</criterion>
+      </acceptance>
+
+      <verification>
+        - Integration test: 2 rapid GETs within 1s to /api/tickets/:id → second is 429
+        - Integration test: last_poll_cursor updates correctly across polls
+      </verification>
+
+      <deferred>WebSocket push deferred to v1.1</deferred>
+    </requirement>
+
+    <!-- ============================================================ -->
+    <!-- PLAT-REQ-009: i18n framework                                  -->
+    <!-- ============================================================ -->
+    <requirement id="PLAT-REQ-009" name="i18n" priority="medium">
+      <description>
+        Bangla-first, English-secondary. Per-user language preference stored
+        on the user; falls back to city default.
+      </description>
+
+      <acceptance>
+        <criterion>Translation key registry at /lib/i18n/keys.ts (typed, tree-shakeable)</criterion>
+        <criterion>Per-user language override; falls back to city default; falls back to English</criterion>
+        <criterion>Server-side rendering uses Accept-Language header as the seed when no user preference exists</criterion>
+        <criterion>Bangla is default for Dhaka city; English secondary</criterion>
+      </acceptance>
+
+      <verification>
+        - Unit test: t('home.greeting', 'bn') returns Bangla string
+        - Unit test: user override beats city default beats English fallback
+      </verification>
+    </requirement>
+
+  </requirements>
+
+  <cross-cutting>
+    <do-not-change>
+      <item>Web-first layout + Rashid phone-fallback (Phase B, 2026-10-04)</item>
+      <item>Bangla-first, English-secondary i18n strategy (Phase 1 lock)</item>
+      <item>Four-role model (citizen / dispatcher / crew / admin); no custom-role builder in v1</item>
+      <item>WebAuthn mandatory for admin writes (Phase 1 lock)</item>
+      <item>Dedup is a prompt, not auto-merge (Feature #3 design rationale)</item>
+      <item>Internal-fields-hidden-from-citizens boundary on every schema addition</item>
+      <item>Polling (10–30s) for v1; WebSocket deferred to v1.1</item>
+    </do-not-change>
+
+    <performance>
+      <item>POST /api/tickets returns in ≤ 300 ms p95 (without photo upload)</item>
+      <item>GET /api/tickets/:id returns in ≤ 100 ms p95</item>
+      <item>GET /api/cities/:id/wards (GeoJSON) returns in ≤ 200 ms p95</item>
+    </performance>
+
+    <security>
+      <item>Argon2 password hashing (per audit §4)</item>
+      <item>HTTP-only SameSite=Lax Secure session cookies</item>
+      <item>CSRF protection on state-changing endpoints</item>
+      <item>Per-citizen push subscription scope (privacy)</item>
+      <item>Rate limiting on auth endpoints (OTP, login) to prevent brute force</item>
+    </security>
+  </cross-cutting>
+
+  <out-of-scope>
+    <item>Any UI page (the platform layer is API + data only)</item>
+    <item>Map rendering — MapLibre integration lands in WO-001 / WO-002</item>
+    <item>File-upload UX — lands in WO-001 (citizen photo) and WO-003 (before/after)</item>
+    <item>Push subscription UI prompt — lands in WO-001</item>
+    <item>Aamir's provisioning UI — lands in WO-004</item>
+    <item>Map tile provider configuration — lands in WO-001 (dev uses OSM, prod-if-load-justifies)</item>
+  </out-of-scope>
+
+  <build-order>
+    <step id="1" name="Prisma schema + initial migration">PLAT-REQ-001</step>
+    <step id="2" name="Argon2 + session-cookie auth scaffolding">PLAT-REQ-002</step>
+    <step id="3" name="Per-city config seeding (Dhaka template)">PLAT-REQ-003</step>
+    <step id="4" name="Status trail (atomic transitions + serialization)">PLAT-REQ-005</step>
+    <step id="5" name="Audit log writer + query API">PLAT-REQ-007</step>
+    <step id="6" name="Dedup engine + prompt-on-match flow">PLAT-REQ-004</step>
+    <step id="7" name="Web Push transport (subscription + send)">PLAT-REQ-006</step>
+    <step id="8" name="Polling API + rate limiting">PLAT-REQ-008</step>
+    <step id="9" name="i18n framework + Bangla translation key registry">PLAT-REQ-009</step>
+    <step id="10" name="WebAuthn-for-admin-writes enforcement">PLAT-REQ-002 (admin sub-feature)</step>
+    <step id="11" name="Smoke tests + browser verification (Playwright)">cross-cutting</step>
+  </build-order>
+
+  <reference-files>
+    <file path="design-artifacts/E-Development/WO-000-platform-foundation.md">source Work Order</file>
+    <file path="design-artifacts/E-Development/000-PRD.md">master PRD</file>
+    <file path="design-artifacts/E-Development/000-tech-audit.md">pinned tech stack</file>
+    <file path="design-artifacts/A-Product-Brief/01-product-brief.md">vision</file>
+    <file path="design-artifacts/B-Trigger-Map/06-feature-impact.md">FIA features #2, #3, #5, #6, #10, #11, #16, #22</file>
+  </reference-files>
+
+</feature-prd>

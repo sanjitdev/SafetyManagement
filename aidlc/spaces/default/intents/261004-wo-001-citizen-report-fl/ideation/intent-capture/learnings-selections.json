@@ -1,0 +1,25 @@
+{
+  "stage_slug": "intent-capture",
+  "space": "default",
+  "intent": "261004-wo-001-citizen-report-fl",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "scope": "project",
+      "heading": "WO-001 intent framing",
+      "text": "Civic observability is the visibility layer that makes silence unmaintainable; trust signals (status trail, push, feel-heard feedback) are how observability translates into restored trust. (learned 2026-10-04)"
+    },
+    {
+      "candidate_id": "c2",
+      "scope": "project",
+      "heading": "WO-001 target customer",
+      "text": "The design optimisation target is the Rahim archetype (Persona 02); the broader Dhaka-tech-comfortable cohort is the post-pilot acceptance population, not the v1 surface. (learned 2026-10-04)"
+    },
+    {
+      "candidate_id": "c3",
+      "scope": "project",
+      "heading": "Per-Bolt cadence",
+      "text": "For feature-scope work, the per-Bolt design-log entry is the leanest cadence that still satisfies team.md Mandated; no additional daily or weekly cadence is required. (learned 2026-10-04)"
+    }
+  ]
+}

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityFix — Component Library</title>
+
+  <!-- Google Fonts: Noto Sans Bengali for proper Bangla glyphs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- CityFix tokens -->
+  <link rel="stylesheet" href="tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+    }
+    h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); }
+    h1 { font-size: var(--text-display-lg); font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
+    h2 { font-size: var(--text-display-md); font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
+    h3 { font-size: var(--text-display-sm); font-weight: var(--weight-semibold); }
+    .label-mono { font-family: var(--font-mono); }
+
+    /* Section styling */
+    .section { padding: var(--space-7) var(--space-5); max-width: 1100px; margin: 0 auto; }
+    .section + .section { border-top: 1px solid var(--color-border); }
+    .section-eyebrow {
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+      color: var(--color-ink-tertiary);
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      margin-bottom: var(--space-2);
+    }
+    .section-desc { color: var(--color-ink-secondary); margin-bottom: var(--space-5); max-width: 720px; }
+
+    /* Token card */
+    .swatch {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+    }
+    .swatch-color {
+      width: 56px; height: 56px; border-radius: var(--radius-xs);
+      flex-shrink: 0;
+    }
+    .swatch-meta { font-size: var(--text-caption); color: var(--color-ink-secondary); }
+    .swatch-name { font-weight: var(--weight-semibold); color: var(--color-ink); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: var(--space-2);
+      height: var(--touch-large);
+      padding: 0 var(--space-5);
+      border-radius: var(--radius-sm);
+      font-weight: var(--weight-semibold);
+      font-size: var(--text-body);
+      transition: background var(--duration-fast) var(--ease-out);
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--color-primary); color: var(--color-primary-on); }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-primary:disabled { background: var(--color-ink-disabled); cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--color-primary); border-color: var(--color-primary); }
+    .btn-secondary:hover { background: var(--color-primary-soft); }
+    .btn-tertiary { background: transparent; color: var(--color-primary); height: auto; padding: var(--space-2) var(--space-3); }
+    .btn-tertiary:hover { background: var(--color-primary-soft); }
+    .btn-cta { height: var(--touch-cta); padding: 0 var(--space-6); font-size: var(--text-body-lg); border-radius: var(--radius-sm); background: var(--color-primary); color: var(--color-primary-on); }
+
+    /* Input */
+    .input-field {
+      width: 100%;
+      height: var(--touch-large);
+      padding: 0 var(--space-4);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-body);
+      font-family: var(--font-body);
+      color: var(--color-ink);
+      transition: border-color var(--duration-fast) var(--ease-out);
+    }
+    .input-field:focus { outline: none; border-color: var(--color-border-focus); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+    .input-field::placeholder { color: var(--color-ink-tertiary); }
+    .input-error { border-color: var(--color-status-error); }
+    .input-error:focus { box-shadow: 0 0 0 3px var(--color-status-error-soft); }
+    .label-block { display: block; font-size: var(--text-caption); font-weight: var(--weight-medium); color: var(--color-ink); margin-bottom: var(--space-2); }
+    .helper-text { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2); }
+    .error-text { font-size: var(--text-caption); color: var(--color-status-error); margin-top: var(--space-2); }
+
+    /* Cards */
+    .card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      box-shadow: var(--shadow-xs);
+    }
+    .card-hero {
+      background: var(--color-surface-card);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Status pills */
+    .pill {
+      display: inline-flex; align-items: center;
+      gap: var(--space-1);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-wide);
+    }
+    .pill-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+    .pill-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+    .pill-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+    .pill-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+    .pill-paused { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* Status trail */
+    .trail { display: flex; flex-direction: column; gap: 0; }
+    .trail-step {
+      display: flex; gap: var(--space-3); padding-bottom: var(--space-4); position: relative;
+    }
+    .trail-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 11px; top: 24px; bottom: 0;
+      width: 2px;
+      background: var(--color-border);
+    }
+    .trail-marker {
+      width: 24px; height: 24px; border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: var(--weight-semibold);
+    }
+    .trail-marker.complete { background: var(--color-status-resolved); color: white; }
+    .trail-marker.complete::after { content: '✓'; }
+    .trail-marker.current { background: var(--color-primary); color: white; }
+    .trail-marker.current::after { content: '●'; }
+    .trail-marker.pending { background: var(--color-surface-raised); color: var(--color-ink-tertiary); border: 2px solid var(--color-border); }
+    .trail-marker.pending::after { content: '○'; }
+    .trail-step.complete:not(:last-child)::after { background: var(--color-status-resolved); }
+    .trail-content { flex: 1; padding-top: 2px; }
+    .trail-title { font-weight: var(--weight-semibold); color: var(--color-ink); }
+    .trail-meta { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 2px; }
+
+    /* Photo block */
+    .photo-block {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: var(--color-surface-raised);
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-ink-tertiary);
+      font-size: var(--text-caption);
+      position: relative;
+      overflow: hidden;
+    }
+    .photo-block.before { background: linear-gradient(135deg, #B7791F22, #B7791F44); color: var(--color-status-in-progress); }
+    .photo-block.after { background: linear-gradient(135deg, #2F7A4F22, #2F7A4F44); color: var(--color-status-resolved); }
+    .photo-label {
+      position: absolute; top: var(--space-3); left: var(--space-3);
+      background: rgba(255,255,255,0.92);
+      padding: 4px var(--space-2);
+      border-radius: var(--radius-xs);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+      color: var(--color-ink);
+    }
+
+    /* Banner */
+    .banner {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-body-sm);
+      display: flex; gap: var(--space-3); align-items: flex-start;
+    }
+    .banner-info { background: var(--color-primary-soft); color: var(--color-primary); }
+    .banner-warning { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
+    .banner-error { background: var(--color-status-error-soft); color: var(--color-status-error); }
+
+    /* Filter pills */
+    .filter-pill {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-body-sm);
+      font-weight: var(--weight-medium);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      color: var(--color-ink-secondary);
+      cursor: pointer;
+    }
+    .filter-pill.active { background: var(--color-ink); color: var(--color-ink-on-dark); border-color: var(--color-ink); }
+
+    /* Mockup frame for display */
+    .frame {
+      max-width: 100%;
+      margin: 0 auto;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      background: var(--color-surface-card);
+    }
+    .frame-mobile { width: 390px; }
+    .frame-desktop { width: 100%; max-width: 1440px; }
+
+    /* Page title for navigation */
+    .nav {
+      position: sticky; top: 0; z-index: var(--z-sticky);
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-4) var(--space-5);
+    }
+    .nav-link { color: var(--color-ink-secondary); font-size: var(--text-caption); text-decoration: none; }
+    .nav-link:hover { color: var(--color-primary); }
+
+    /* Page hero */
+    .page-hero {
+      padding: var(--space-7) var(--space-5) var(--space-5);
+      text-align: center;
+    }
+    .page-hero h1 { font-size: var(--text-display-xl); margin-bottom: var(--space-3); }
+    .page-hero p { color: var(--color-ink-secondary); font-size: var(--text-body-lg); max-width: 640px; margin: 0 auto; }
+
+    /* Mobile app frame (for showing mobile screens) */
+    .mobile-frame {
+      width: 390px; height: 844px;
+      border: 8px solid #1A2027;
+      border-radius: 36px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: var(--color-surface-page);
+      position: relative;
+      margin: 0 auto;
+    }
+    .mobile-frame-status-bar {
+      height: 28px;
+      background: var(--color-surface-page);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-4);
+      font-size: 12px;
+      font-weight: var(--weight-semibold);
+      color: var(--color-ink);
+    }
+    .mobile-frame-content { height: calc(100% - 28px); overflow: hidden; }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <strong style="color: var(--color-ink);">CityFix</strong>
+      <span class="nav-link">Design tokens &amp; components</span>
+    </div>
+    <div class="flex gap-4">
+      <a class="nav-link" href="gallery.html">Gallery</a>
+      <a class="nav-link" href="mockups/01-welcome.html">Welcome</a>
+      <a class="nav-link" href="mockups/02-home-city-activity.html">Home</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Page hero -->
+<div class="page-hero">
+  <div class="section-eyebrow">Visual reference</div>
+  <h1>CityFix Component Library</h1>
+  <p>Every pattern used across the 33 pages, applied to a single set of design tokens. Apple-like calm confidence. Bangla-first. Civic trust.</p>
+</div>
+
+<!-- Tokens: Color -->
+<section class="section">
+  <div class="section-eyebrow">01</div>
+  <h2>Color</h2>
+  <p class="section-desc">A restrained palette: one primary blue-grey, near-black ink, a warm off-white surface, and four muted status colors. Bangla and English use the same palette — no language-specific color.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-primary);"></div><div><div class="swatch-name">Primary</div><div class="swatch-meta">#2C5282</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-ink);"></div><div><div class="swatch-name">Ink</div><div class="swatch-meta">#0F1419</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-surface-page); border: 1px solid var(--color-border);"></div><div><div class="swatch-name">Surface page</div><div class="swatch-meta">#FAFAF7</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-surface-card); border: 1px solid var(--color-border);"></div><div><div class="swatch-name">Surface card</div><div class="swatch-meta">#FFFFFF</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-submitted);"></div><div><div class="swatch-name">Submitted</div><div class="swatch-meta">#718096</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-routed);"></div><div><div class="swatch-name">Routed</div><div class="swatch-meta">#2C5282</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-in-progress);"></div><div><div class="swatch-name">In progress</div><div class="swatch-meta">#B7791F</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-resolved);"></div><div><div class="swatch-name">Resolved</div><div class="swatch-meta">#2F7A4F</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-error);"></div><div><div class="swatch-name">Error</div><div class="swatch-meta">#C53030</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-streetlight);"></div><div><div class="swatch-name">Streetlight</div><div class="swatch-meta">#B7791F</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-pothole);"></div><div><div class="swatch-name">Pothole</div><div class="swatch-meta">#4A5568</div></div></div>
+    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-garbage);"></div><div><div class="swatch-name">Garbage</div><div class="swatch-meta">#2F7A4F</div></div></div>
+  </div>
+</section>
+
+<!-- Tokens: Type -->
+<section class="section">
+  <div class="section-eyebrow">02</div>
+  <h2>Typography</h2>
+  <p class="section-desc">Noto Sans Bengali for proper Bangla glyphs at all weights. System-ui fallback for Latin. Generous line-height and tight letter-spacing on display text.</p>
+
+  <div class="card">
+    <div style="font-size: var(--text-display-xl); font-weight: var(--weight-semibold); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight);">আপনার শহরের আওয়াজ</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display XL — Hero titles (44px)</div>
+
+    <div style="margin-top: var(--space-5); font-size: var(--text-display-lg); font-weight: var(--weight-semibold); line-height: var(--leading-tight);">আমরা এটি সংশ্লিষ্ট বিভাগে পাঠিয়েছি</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display LG — H1 (32px)</div>
+
+    <div style="margin-top: var(--space-5); font-size: var(--text-display-md); font-weight: var(--weight-semibold);">আপনার রিপোর্ট গৃহীত হয়েছে</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display MD — H2 (24px)</div>
+
+    <div style="margin-top: var(--space-5); font-size: var(--text-body-lg);">We've routed it to the responsible department.</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body LG — 17px</div>
+
+    <div style="margin-top: var(--space-5); font-size: var(--text-body);">টিকেট #1234 · ওয়ার্ড ১৪, মিরপুর</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body — 16px (base)</div>
+
+    <div style="margin-top: var(--space-5); font-size: var(--text-caption); color: var(--color-ink-secondary);">২ ঘণ্টা আগে · দেখা হয়েছে ৩ বার</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Caption — 14px</div>
+
+    <div style="margin-top: var(--space-5); font-family: var(--font-mono); font-size: var(--text-body-sm);">#TIX-1234-XYZ</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Mono — ticket IDs</div>
+  </div>
+</section>
+
+<!-- Buttons -->
+<section class="section">
+  <div class="section-eyebrow">03</div>
+  <h2>Buttons</h2>
+  <p class="section-desc">Three styles — primary (filled), secondary (outlined), tertiary (text). Touch targets ≥ 56px. Primary CTA at 64px.</p>
+
+  <div class="card">
+    <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
+      <button class="btn btn-primary">রিপোর্ট পাঠান</button>
+      <button class="btn btn-primary" disabled>অক্ষম</button>
+      <button class="btn btn-secondary">আবার চেষ্টা করুন</button>
+      <button class="btn btn-tertiary">বাতিল</button>
+    </div>
+    <div style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
+      <button class="btn btn-cta">পরবর্তী কাজে যান</button>
+      <button class="btn btn-cta" style="background: var(--color-status-resolved);">সমাধান জমা দিন</button>
+    </div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-4);">
+      Default · Disabled · Secondary · Tertiary · CTA · CTA (success)
+    </div>
+  </div>
+</section>
+
+<!-- Inputs -->
+<section class="section">
+  <div class="section-eyebrow">04</div>
+  <h2>Inputs</h2>
+  <p class="section-desc">Labeled inputs with helper text. Validation states show inline error in red.</p>
+
+  <div class="card">
+    <div style="max-width: 420px;">
+      <label class="label-block">মোবাইল নম্বর</label>
+      <input class="input-field" placeholder="01XXXXXXXXX" />
+      <div class="helper-text">আমরা এই নম্বরে একটি কোড পাঠাব</div>
+
+      <div style="margin-top: var(--space-5);">
+        <label class="label-block">পাসওয়ার্ড</label>
+        <input class="input-field input-error" value="123" />
+        <div class="error-text">পাসওয়ার্ড কমপক্ষে ৮ অক্ষর হতে হবে</div>
+      </div>
+
+      <div style="margin-top: var(--space-5);">
+        <label class="label-block">নোট যোগ করুন (ঐচ্ছিক)</label>
+        <textarea class="input-field" style="height: 96px; padding: var(--space-3) var(--space-4); resize: vertical;" placeholder="কিছু বলতে চাইলে লিখুন…"></textarea>
+        <div class="helper-text">০ / ২০০</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Cards -->
+<section class="section">
+  <div class="section-eyebrow">05</div>
+  <h2>Cards</h2>
+  <p class="section-desc">Two patterns: standard card with internal padding, hero card with photo block. Subtle elevation. Generous border radius.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
+    <div class="card">
+      <div class="section-eyebrow" style="color: var(--color-ink-tertiary);">রিপোর্ট</div>
+      <h3 style="margin: 0 0 var(--space-2);">রাস্তার আলো নেই</h3>
+      <p style="margin: 0; font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ওয়ার্ড ১৪, মিরপুর · ২ ঘণ্টা আগে</p>
+      <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
+        <span class="pill pill-in-progress"><span class="pill-dot"></span>চলমান</span>
+        <span class="pill pill-submitted">৩ জন রিপোর্টার</span>
+      </div>
+    </div>
+
+    <div class="card-hero">
+      <div class="photo-block before" style="border-radius: 0;">
+        <span class="photo-label">আগে</span>
+        <span style="color: rgba(0,0,0,0.5);">Streetlight photo placeholder</span>
+      </div>
+      <div style="padding: var(--space-4);">
+        <h3 style="margin: 0 0 var(--space-2);">রাস্তার আলো</h3>
+        <p style="margin: 0; font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ওয়ার্ড ১৪, মিরপুর · টিকেট #1234</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Status pills -->
+<section class="section">
+  <div class="section-eyebrow">06</div>
+  <h2>Status pills</h2>
+  <p class="section-desc">Four status colors. Muted, not saturated. Each pill can include a small dot for scannability.</p>
+
+  <div class="card" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
+    <span class="pill pill-submitted"><span class="pill-dot"></span>জমা হয়েছে</span>
+    <span class="pill pill-routed"><span class="pill-dot"></span>রাউট হয়েছে</span>
+    <span class="pill pill-in-progress"><span class="pill-dot"></span>চলমান</span>
+    <span class="pill pill-resolved"><span class="pill-dot"></span>সমাধান</span>
+    <span class="pill pill-paused"><span class="pill-dot"></span>বিরতি</span>
+  </div>
+</section>
+
+<!-- Status trail -->
+<section class="section">
+  <div class="section-eyebrow">07</div>
+  <h2>Status trail</h2>
+  <p class="section-desc">4-step vertical timeline. Complete steps fill green, current step pulses primary, pending steps are outlined. The connector line fills green between complete steps.</p>
+
+  <div class="card" style="max-width: 480px;">
+    <div class="trail">
+      <div class="trail-step complete">
+        <div class="trail-marker complete"></div>
+        <div class="trail-content">
+          <div class="trail-title">জমা হয়েছে</div>
+          <div class="trail-meta">আজ ৭:৩২ PM</div>
+        </div>
+      </div>
+      <div class="trail-step complete">
+        <div class="trail-marker complete"></div>
+        <div class="trail-content">
+          <div class="trail-title">রাউট হয়েছে</div>
+          <div class="trail-meta">ওয়ার্ড ১৪, বৈদ্যুতিক বিভাগে</div>
+        </div>
+      </div>
+      <div class="trail-step">
+        <div class="trail-marker current"></div>
+        <div class="trail-content">
+          <div class="trail-title">চলমান</div>
+          <div class="trail-meta">ক্রু বি কাজ করছে</div>
+        </div>
+      </div>
+      <div class="trail-step">
+        <div class="trail-marker pending"></div>
+        <div class="trail-content">
+          <div class="trail-title">সমাধান</div>
+          <div class="trail-meta" style="color: var(--color-ink-tertiary);">অপেক্ষমান</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Photo blocks -->
+<section class="section">
+  <div class="section-eyebrow">08</div>
+  <h2>Photo blocks</h2>
+  <p class="section-desc">Single image (placeholder), before/after pair, multi-after horizontal scroll with +n indicator.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4);">
+    <div class="photo-block before">
+      <span class="photo-label">আগে</span>
+      <span style="color: rgba(0,0,0,0.5);">Before photo</span>
+    </div>
+    <div class="photo-block after">
+      <span class="photo-label">পরে</span>
+      <span style="color: rgba(0,0,0,0.5);">After photo</span>
+    </div>
+    <div style="position: relative;">
+      <div class="photo-block after">
+        <span class="photo-label">পরে</span>
+        <span style="color: rgba(0,0,0,0.5);">After photo 1</span>
+      </div>
+      <div style="position: absolute; top: var(--space-3); right: var(--space-3); background: rgba(15,20,25,0.85); color: white; padding: 4px var(--space-2); border-radius: var(--radius-xs); font-size: var(--text-micro); font-weight: var(--weight-semibold);">+২</div>
+    </div>
+  </div>
+</section>
+
+<!-- Banners -->
+<section class="section">
+  <div class="section-eyebrow">09</div>
+  <h2>Banners</h2>
+  <p class="section-desc">Slim info / warning / error banners used for offline, validation, and system messages.</p>
+
+  <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+    <div class="banner banner-info">
+      <span>ℹ</span>
+      <span>অফলাইনে জমা হয়েছে — সংযোগ ফিরে আসলে আপলোড হবে</span>
+    </div>
+    <div class="banner banner-warning">
+      <span>⚠</span>
+      <span>এই রিপোর্ট ৭ দিন ধরে চলমান — সাহায্য দরকার?</span>
+    </div>
+    <div class="banner banner-error">
+      <span>✕</span>
+      <span>সংযোগ ব্যর্থ — আবার চেষ্টা করুন</span>
+    </div>
+  </div>
+</section>
+
+<!-- Filter pills -->
+<section class="section">
+  <div class="section-eyebrow">10</div>
+  <h2>Filter pills</h2>
+  <p class="section-desc">Horizontal scrollable pill row. Active pill is filled with ink. Used in dispatcher dashboard, activity feed.</p>
+
+  <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+    <button class="filter-pill active">সব</button>
+    <button class="filter-pill">নতুন</button>
+    <button class="filter-pill">বরাদ্দ হয়নি</button>
+    <button class="filter-pill">চলমান</button>
+    <button class="filter-pill">আজকের সমাধান</button>
+  </div>
+</section>
+
+<!-- Modal -->
+<section class="section">
+  <div class="section-eyebrow">11</div>
+  <h2>Modal</h2>
+  <p class="section-desc">Used for assign-to-crew, resolve confirmation, and other high-stakes decisions. Centered, dimmed backdrop, clear hierarchy.</p>
+
+  <div style="position: relative; padding: var(--space-5); background: rgba(15,20,25,0.04); border-radius: var(--radius-lg);">
+    <div style="max-width: 480px; margin: 0 auto; background: var(--color-surface-card); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-modal);">
+      <h2 style="margin: 0 0 var(--space-2);">ক্রু নির্বাচন করুন</h2>
+      <p style="margin: 0 0 var(--space-5); color: var(--color-ink-secondary); font-size: var(--text-body-sm);">কোন ক্রু এই রিপোর্টটি পাবে?</p>
+      <div class="card" style="padding: var(--space-4); border-color: var(--color-primary); background: var(--color-primary-soft);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: var(--weight-semibold);">ক্রু বি</div>
+            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">বৈদ্যুতিক · ৩টি কাজ · ০.৮ কিমি দূরে</div>
+          </div>
+          <span class="pill pill-routed">সেরা ম্যাচ</span>
+        </div>
+      </div>
+      <div style="margin-top: var(--space-5); display: flex; gap: var(--space-3); justify-content: flex-end;">
+        <button class="btn btn-tertiary">বাতিল</button>
+        <button class="btn btn-primary">বরাদ্দ করুন</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<section class="section" style="padding-top: var(--space-7); padding-bottom: var(--space-7); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption);">
+  CityFix visual reference · Apple-like calm confidence · Bangla-first<br />
+  <a href="gallery.html" style="color: var(--color-primary); text-decoration: none;">View gallery →</a>
+</section>
+
+</body>
+</html>

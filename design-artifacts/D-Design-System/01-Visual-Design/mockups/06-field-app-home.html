@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Field App Home — Rashid — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+      min-height: 100vh;
+    }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+    /* Top bar */
+    .topbar {
+      height: var(--header-height-desktop);
+      background: var(--color-surface-card);
+      border-bottom: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-5);
+    }
+
+    /* Centered content column — Rashid's web-first pattern */
+    .content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: var(--space-6) var(--space-5);
+    }
+    @media (max-width: 480px) {
+      .content { padding: var(--space-5) var(--space-4); }
+    }
+
+    /* Greeting strip */
+    .greeting {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-4);
+    }
+    .greeting-text { font-size: var(--text-body); }
+    .greeting-text strong { font-weight: var(--weight-semibold); }
+    .refresh-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--color-ink-secondary);
+    }
+
+    /* Quick stats */
+    .stats {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      background: var(--color-surface-page);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-4);
+      font-size: var(--text-body-sm);
+      color: var(--color-ink-secondary);
+    }
+    .stats-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+    }
+    .pill-done { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+    .pill-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+
+    /* Queue list */
+    .queue { display: flex; flex-direction: column; gap: var(--space-2); }
+    .queue-row {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color var(--duration-fast) var(--ease-out);
+    }
+    .queue-row:hover { border-color: var(--color-ink-tertiary); }
+    .queue-thumb {
+      width: 72px; height: 72px;
+      border-radius: var(--radius-xs);
+      flex-shrink: 0;
+    }
+    .queue-body { flex: 1; min-width: 0; }
+    .queue-title { font-weight: var(--weight-semibold); font-size: var(--text-body-sm); }
+    .queue-meta { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 2px; }
+    .queue-meta-distance { color: var(--color-primary); font-weight: var(--weight-medium); }
+    .queue-side { text-align: right; flex-shrink: 0; }
+
+    .pill {
+      display: inline-flex; align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: var(--weight-semibold);
+    }
+    .pill-progress-row { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+    .pill-routed-row { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+    .pill-submitted-row { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+
+    /* Primary CTA — in-flow, not sticky */
+    .cta-wrap { margin-top: var(--space-5); }
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+      height: var(--touch-cta);
+      background: var(--color-primary);
+      color: var(--color-primary-on);
+      border: none; border-radius: var(--radius-sm);
+      font-size: var(--text-body-lg);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar (web-first, Rashid's field app) -->
+<div class="topbar">
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <span style="width: 10px; height: 10px; background: var(--color-primary); border-radius: 50%;"></span>
+    <strong style="font-size: var(--text-body-lg);">CityFix</strong>
+    <span style="color: var(--color-ink-tertiary); font-size: var(--text-caption);">·</span>
+    <span style="font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ঢাকা উত্তর · ক্রু এ</span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <span style="font-size: var(--text-body-sm); color: var(--color-ink-secondary);">আজকের কাজ</span>
+    <div style="width: 32px; height: 32px; background: var(--color-primary-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: var(--weight-semibold); color: var(--color-primary); font-size: var(--text-caption);">র</div>
+  </div>
+</div>
+
+<!-- Centered content column — 720px max-width, reflows to phone widths -->
+<div class="content">
+
+  <!-- Greeting strip -->
+  <div class="greeting">
+    <div class="greeting-text">
+      <strong>সুপ্রভাত, রশিদ</strong> · আজ ৪টি কাজ
+    </div>
+    <button class="refresh-btn" title="অবস্থান হালনাগাদ করুন / Refresh location">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+  </div>
+
+  <!-- Quick stats -->
+  <div class="stats">
+    <span class="stats-pill pill-done">২ সম্পন্ন</span>
+    <span style="color: var(--color-ink-tertiary);">·</span>
+    <span class="stats-pill pill-progress">১ চলমান</span>
+    <span style="color: var(--color-ink-tertiary); margin-left: auto; font-size: var(--text-caption);">সপ্তাহে: ১৪</span>
+  </div>
+
+  <!-- Queue list -->
+  <div class="queue">
+
+    <div class="queue-row">
+      <div class="queue-thumb" style="background: linear-gradient(135deg, #B7791F22, #B7791F66);"></div>
+      <div class="queue-body">
+        <div class="queue-title">রাস্তার আলো নেই · পোল #14B</div>
+        <div class="queue-meta">ওয়ার্ড ১৪, মিরপুর · <span class="queue-meta-distance">০.৪ কিমি</span> · ৮ মিনিট</div>
+      </div>
+      <div class="queue-side">
+        <span class="pill pill-progress-row">চলমান</span>
+      </div>
+    </div>
+
+    <div class="queue-row">
+      <div class="queue-thumb" style="background: linear-gradient(135deg, #4A556822, #4A556844);"></div>
+      <div class="queue-body">
+        <div class="queue-title">রাস্তায় বড় গর্ত</div>
+        <div class="queue-meta">ওয়ার্ড ১৪, মিরপুর · <span class="queue-meta-distance">০.৮ কিমি</span> · ১২ মিনিট</div>
+      </div>
+      <div class="queue-side">
+        <span class="pill pill-routed-row">রাউট</span>
+      </div>
+    </div>
+
+    <div class="queue-row">
+      <div class="queue-thumb" style="background: linear-gradient(135deg, #2C528222, #2C528266);"></div>
+      <div class="queue-body">
+        <div class="queue-title">ড্রেনে পানি জমেছে</div>
+        <div class="queue-meta">ওয়ার্ড ১৪, মিরপুর · <span class="queue-meta-distance">১.২ কিমি</span> · ১৮ মিনিট</div>
+      </div>
+      <div class="queue-side">
+        <span class="pill pill-routed-row">রাউট</span>
+      </div>
+    </div>
+
+    <div class="queue-row">
+      <div class="queue-thumb" style="background: linear-gradient(135deg, #805AD522, #805AD566);"></div>
+      <div class="queue-body">
+        <div class="queue-title">বেসিনে আবর্জনা</div>
+        <div class="queue-meta">ওয়ার্ড ১৪, মিরপুর · <span class="queue-meta-distance">২.১ কিমি</span> · ২৫ মিনিট</div>
+      </div>
+      <div class="queue-side">
+        <span class="pill pill-submitted-row">নতুন</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Primary CTA — in-flow, not sticky -->
+  <div class="cta-wrap">
+    <button class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      পরবর্তী কাজ শুরু করুন
+    </button>
+  </div>
+
+</div>
+
+</body>
+</html>

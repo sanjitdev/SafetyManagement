@@ -1,0 +1,112 @@
+wds-version: "1.0.0"
+project: "CityFix"
+created: "2026-09-18"
+rendering-tool: excalidraw
+
+phases:
+  product-brief: complete
+  trigger-map: complete
+  ux-scenarios: complete
+  ux-design: complete
+  visual-design: complete
+  development: in-progress  # 2026-10-04 — nextjs-14 scaffold live; tech-audit; master PRD + WO-000 PRD drafted; WO-000 platform layer implemented; ready for WO-001 build
+
+work-orders:
+  folder: design-artifacts/E-Development
+  count: 5
+  list:
+    - WO-000-platform-foundation.md        # gating platform WO; feature PRD + implementation done
+    - WO-001-citizen-report-flow.md        # Rahim — 14 web-first pages (large + medium)
+    - WO-002-dispatcher-queue.md           # Habib — 7 desktop pages
+    - WO-003-field-crew-app.md             # Rashid — 5 web-first pages with 390x844 phone fallback
+    - WO-004-admin-city-setup.md           # Aamir — 7 desktop pages
+  dependency-order:
+    - WO-000  # root — platform layer complete; persona WOs can build against it
+    - WO-001  # depends on WO-000
+    - WO-002  # depends on WO-000
+    - WO-003  # depends on WO-000
+    - WO-004  # depends on WO-000
+  prd-status: master-and-wo-000-drafted  # 000-PRD.md + 000-platform-foundation.xml; persona PRDs pending
+  implementation-status:
+    WO-000: complete  # platform layer in code (Prisma schema, auth, dedup, transitions, push subs, API routes)
+    WO-001: pending
+    WO-002: pending
+    WO-003: pending
+    WO-004: pending
+
+scaffold:
+  framework: nextjs-14-app-router
+  status: live
+  date: 2026-10-04
+  entry-route: app/page.tsx     # placeholder; replaced by WO-001 1.6 Home / City Activity
+  layout: app/layout.tsx        # root layout; Noto Sans Bengali; tokens.css imported
+  dev-command: npm run dev      # http://localhost:3000
+  build-command: npm run build
+  smoke-test: GET / -> 200      # confirmed
+
+tech-audit:
+  status: complete
+  date: 2026-10-04
+  file: design-artifacts/E-Development/000-tech-audit.md
+  lane: standalone-wds-v1.0.0
+  brownfield-state: greenfield
+  pinned-decisions:
+    - framework: nextjs-14-app-router-typescript-strict-tailwind
+    - map: maplibre-gl-js + openstreetmap (dev) / mapbox (prod-if-load-justifies)
+    - push: web-push-api (v1); fcm-apns deferred
+    - auth: http-only signed cookies; argon2 + simplewebauthn; four-role model; citizen otp; admin webauthn-mandatory
+    - data: postgres-16 + prisma; r2/minio/s3 blobs
+    - testing: extend existing playwright setup; per-WO route specs via compareMockupVsBuild
+  deferred-to-prd:
+    - otp-sms-provider  # stubbed in WO-000; chosen in WO-004
+    - photo-retention-policy  # legal/privacy; WO-000 PRD
+    - dedup-radius-default  # 50m recommendation; WO-000 PRD
+    - hosting-target-specifics  # cloudflare vs vercel vs railway; WO-001 PRD
+    - dispatcher-crew-scope-granularity  # (city, ward, department); WO-002 PRD
+
+output-folder: design-artifacts
+
+ux-design:
+  total-pages: 33
+  by-scenario:
+    rahim-the-reporter: 14
+    habib-the-handler: 7
+    rashid-the-resolver: 5
+    aamir-the-administrator: 7
+  artifact-pattern: spec-as-contract
+  wireframe-step: skipped-per-user
+  # Page specs nest under each scenario folder in C-UX-Scenarios/, e.g.
+  #   design-artifacts/C-UX-Scenarios/01-rahim-the-reporter/1.1-splash/1.1-splash.md
+  spec-folder-pattern: design-artifacts/C-UX-Scenarios/<NN-scenario>/<N.M-page>/<N.M-page>.md
+
+visual-design:
+  format: html + tailwind-cdn + tokens.css
+  mockups: 7
+  components-library: 1
+  tokens-file: tokens.css
+  mockup-folder: design-artifacts/D-Design-System/01-Visual-Design/mockups
+  visual-design-folder: design-artifacts/D-Design-System/01-Visual-Design
+  brand-personality: apple-like-calm-confidence
+  language: bangla-first
+  brief-supplement: design-artifacts/A-Product-Brief/03-visual-direction.md
+  # Web re-skin (2026-10-04): platform is web-first; Rashid's pages remain responsive.
+  viewports:
+    large: 1440x900        # primary design target; per --layout-desktop
+    medium: 1024x768       # collapse threshold; per --layout-tablet-max
+    responsive-phone: 390x844  # Rashid-only (Feature #4); verified at this width
+  # Coverage: 4 Rahim (01-04) at large+medium, 1 Habib (05) at large, 2 Rashid (06-07) at large+medium+phone.
+  # Committed baselines = 4*2 + 1 + 2*3 = 15.
+  baseline-count: 15
+  baseline-folder: tests-mockups/baselines/01-mockups.spec.ts
+
+admin-coverage:
+  source-persona: design-artifacts/B-Trigger-Map/05-persona-aamir-the-administrator.md
+  features-added:
+    - 19-ward-boundary-editor
+    - 20-user-provisioning-role-assignment
+    - 21-post-launch-adoption-dashboard
+    - 22-configuration-audit-trail
+  per-city-configuration-rescored: true
+  positive-forces-covered: 7-of-7
+  negative-forces-fully-covered: 4-of-7
+  negative-forces-partially-covered: 3-of-7

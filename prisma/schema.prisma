@@ -1,0 +1,307 @@
+// CityFix Prisma schema — WO-000 platform layer.
+//
+// Implements PLAT-REQ-001 (data model) + PLAT-REQ-003 (per-city config)
+// + PLAT-REQ-005 (status trail) + PLAT-REQ-007 (audit log) + the user
+// model half of PLAT-REQ-002 (auth).
+//
+// Postgres 16 only — see tech-audit §5.
+//
+// Internal-only fields (assigned_crew_id, internal_note) are NOT enforced
+// at the DB level in v1; the API layer hides them from citizen-facing
+// serializers. v1.1 may add Postgres row-level security if multi-tenant
+// isolation needs it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// Per-city configuration (PLAT-REQ-003)
+// =====================================================================
+
+model City {
+  id          String   @id @default(cuid())
+  slug        String   @unique              // e.g. "dhaka-north"
+  name        String                        // primary display name (Bangla or English)
+  nameBn      String?                       // Bangla display name if available
+  defaultLanguage String  @default("bn")   // PLAT-REQ-009: Bangla default for Dhaka
+  dedupRadiusMeters Int  @default(50)      // PLAT-REQ-004: 50m recommended
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wards       Ward[]
+  categories  Category[]
+  departments Department[]
+  users       User[]
+  tickets     Ticket[]
+}
+
+model Ward {
+  id        String   @id @default(cuid())
+  cityId    String
+  number    Int                          // ward number (1..N per city)
+  name      String                       // primary display name
+  nameBn    String?
+  // PLAT-REQ-003: Ward polygons stored as GeoJSON; consumed by WO-001/002 maps.
+  // Stored as text (GeoJSON Feature<Polygon>) in v1 to avoid PostGIS dep;
+  // v1.1 may promote to geometry column for spatial queries.
+  polygonGeoJson String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city       City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  tickets    Ticket[]
+  // Departments the dispatcher/crew can be scoped to within this ward.
+  // The (city, ward, department) triple is the dispatcher/crew scope key (PLAT-REQ-002).
+
+  @@unique([cityId, number])
+  @@index([cityId])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  cityId    String
+  slug      String                        // e.g. "streetlight-maintenance"
+  name      String
+  nameBn    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city      City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  categories Category[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  cityId       String
+  departmentId String?
+  slug         String                      // e.g. "streetlight"
+  name         String
+  nameBn       String?
+  // WO-003 UX Review revision #6: per-category photo cap override.
+  // Null means use the v1 default of 3; 2 = narrow category.
+  narrowCategoryPhotoCap Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  city       City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  tickets    Ticket[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+}
+
+// =====================================================================
+// Users + roles (PLAT-REQ-002)
+// =====================================================================
+
+enum Role {
+  citizen
+  dispatcher
+  crew
+  admin
+}
+
+model User {
+  id          String   @id @default(cuid())
+  cityId      String                       // every user belongs to exactly one city
+  role        Role
+  // Citizen fields (NULL for non-citizens)
+  phone       String?                      // unique per city
+  nid         String?                      // National ID; format validated
+  // All-roles fields
+  name        String
+  email       String?                      // dispatcher/crew/admin use email; citizens use phone
+  passwordHash String?                     // null until verified
+  // Dispatcher + crew scope binding (PLAT-REQ-002)
+  wardId        String?
+  departmentId  String?
+  // Per-user i18n override (PLAT-REQ-009); null → use city default
+  languageOverride String?
+  // WebAuthn (admin writes mandatory; dispatcher/crew optional in v1)
+  webAuthnChallenge String?
+  webAuthnCredentials Json?               // array of {credentialID, credentialPublicKey, counter}
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  city         City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  otps         OtpCode[]
+  pushSubscriptions PushSubscription[]
+  reportedTickets  Ticket[] @relation("TicketReporter")
+  assignedTickets  Ticket[] @relation("TicketAssignedCrew")
+  trailEntries     TicketTrailEntry[]
+  webauthnChallenges WebAuthnChallenge[]
+  auditEntries      AuditEntry[]
+
+  // Citizen phone unique per city (NOT global — different cities can have the same phone)
+  @@unique([cityId, phone])
+  @@unique([cityId, email])
+  @@index([role])
+  @@index([cityId, role])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String
+  // Hashed OTP — argon2 again, separate from password hash. Never store plaintext.
+  codeHash  String
+  // Scope: e.g. "registration" | "login" | "password-reset"
+  scope     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scope])
+  @@index([expiresAt])
+}
+
+model WebAuthnChallenge {
+  id         String   @id @default(cuid())
+  userId     String
+  challenge  String   // random server-side challenge; consumed on next assertion
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  // Bind dispatcher/crew to (city, ward, department) at login time.
+  // PLAT-REQ-002: cross-scope queries denied at API layer.
+  cityId     String
+  wardId     String?
+  departmentId String?
+  expiresAt  DateTime
+  // Web Push subscription endpoint(s) — many-per-session allowed
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  // Per WO-000 PLAT-REQ-006: per-citizen per-their-own-tickets only.
+  // The API layer enforces the scope at send time.
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// =====================================================================
+// Tickets (PLAT-REQ-001, PLAT-REQ-005, PLAT-REQ-004)
+// =====================================================================
+
+enum TicketStatus {
+  submitted
+  routed
+  in_progress
+  resolved
+  closed     // terminal
+  cancelled  // terminal
+}
+
+model Ticket {
+  id              String   @id @default(cuid())
+  cityId          String
+  wardId          String
+  categoryId      String
+  reporterId      String
+  assignedCrewId  String?                   // PLAT-REQ-001 internal-only (hidden from citizen serializer)
+  status          TicketStatus @default(submitted)
+  // GeoJSON point: { type: "Point", coordinates: [lng, lat] }
+  // Stored as text in v1; v1.1 may promote to geometry column.
+  locationLng     Float
+  locationLat     Float
+  // Reverse-geocoded label (Bangla + English) — populated by map provider at submit time
+  locationLabel   String?
+  locationLabelBn String?
+  // Reporter's free-text note (optional, max length per spec)
+  note            String?
+  // Photo URLs (ordered). The pre-resolve set is what citizens see on 1.12 detail.
+  // The post-resolve set (Rashid's before/after) lives separately in PLAT-REQ-007 audit log
+  // + as a structured column once PLAT-REQ-007 lands. For v1 we keep both in `photoUrls`
+  // and the API layer filters by role.
+  photoUrls       String[] @default([])
+  // Internal-only note (dispatcher/crew see; citizens do not)
+  internalNote    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  resolvedAt      DateTime?
+
+  city       City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  ward       Ward         @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reporter   User         @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assignedCrew User?      @relation("TicketAssignedCrew", fields: [assignedCrewId], references: [id], onDelete: SetNull)
+  trail      TicketTrailEntry[]
+
+  @@index([cityId, status])
+  @@index([cityId, wardId])
+  @@index([reporterId])
+  @@index([assignedCrewId])
+  @@index([updatedAt])
+  // PLAT-REQ-004 spatial index surrogate: a compound on (cityId, locationLat, locationLng)
+  // gives Postgres enough to use BRIN if we add one; for v1 we filter post-query in JS.
+  @@index([cityId, locationLat, locationLng])
+}
+
+model TicketTrailEntry {
+  id           String   @id @default(cuid())
+  ticketId     String
+  toStatus     TicketStatus
+  // The "from" status is implicit (previous entry's to_status, or the ticket's initial status for entry 0).
+  actorId      String                       // non-null; citizens see "City corporation" in serializer
+  note         String?
+  timestamp    DateTime @default(now())
+
+  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor        User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, timestamp])
+}
+
+// =====================================================================
+// Audit log (PLAT-REQ-007) — every config change + every ticket transition
+// =====================================================================
+
+model AuditEntry {
+  id          String   @id @default(cuid())
+  entityType  String                       // "ticket" | "city" | "category" | ...
+  entityId    String
+  action      String                       // "ticket.transition" | "category.update" | ...
+  actorId     String
+  beforeValue Json?
+  afterValue  Json?
+  timestamp   DateTime @default(now())
+
+  actor       User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  // Append-only — no UPDATE/DELETE allowed at the API layer.
+  @@index([entityType, entityId])
+  @@index([actorId, timestamp])
+}

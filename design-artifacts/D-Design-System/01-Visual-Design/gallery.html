@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityFix — Visual Design Gallery</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+    }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+    .nav {
+      position: sticky; top: 0; z-index: var(--z-sticky);
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-4) var(--space-5);
+    }
+    .nav-link { color: var(--color-ink-secondary); font-size: var(--text-caption); text-decoration: none; }
+    .nav-link:hover { color: var(--color-primary); }
+
+    .mockup-card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+    }
+    .mockup-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    .mockup-preview {
+      background: var(--color-surface-page);
+      padding: 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .mockup-meta { padding: var(--space-4) var(--space-5); }
+    .mockup-title { font-weight: var(--weight-semibold); font-size: var(--text-body); margin-bottom: var(--space-1); }
+    .mockup-desc { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-bottom: var(--space-3); line-height: 1.5; }
+    .mockup-link {
+      font-size: var(--text-caption);
+      color: var(--color-primary);
+      text-decoration: none;
+      font-weight: var(--weight-semibold);
+    }
+    .mockup-link:hover { text-decoration: underline; }
+    .viewport-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--color-ink-tertiary);
+      background: var(--color-surface-raised);
+      padding: 2px 8px;
+      border-radius: var(--radius-xs);
+      margin-right: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    .section-eyebrow {
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+      color: var(--color-ink-tertiary);
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      margin-bottom: var(--space-2);
+    }
+
+    /* Responsive iframe containers */
+    .iframe-large { width: 100%; height: 900px; border: none; background: var(--color-surface-page); display: block; }
+    .iframe-medium { width: 100%; height: 768px; border: none; background: var(--color-surface-page); display: block; }
+    .iframe-half { width: 100%; height: 500px; border: none; background: var(--color-surface-page); display: block; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <span style="width: 10px; height: 10px; background: var(--color-primary); border-radius: 50%;"></span>
+      <strong style="color: var(--color-ink);">CityFix</strong>
+      <span class="nav-link">Visual design</span>
+    </div>
+    <div style="display: flex; gap: var(--space-4);">
+      <a class="nav-link" href="components.html">Components</a>
+      <a class="nav-link" href="tokens.css">tokens.css</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div style="padding: var(--space-8) var(--space-5) var(--space-6); text-align: center;">
+  <div class="section-eyebrow">Visual design · 2026-10-04 (web re-skin)</div>
+  <h1 style="font-size: var(--text-display-xl); margin: 0 0 var(--space-3);">CityFix — Mockups</h1>
+  <p style="font-size: var(--text-body-lg); color: var(--color-ink-secondary); max-width: 680px; margin: 0 auto; line-height: 1.55;">
+    Apple-like calm confidence. Bangla-first. Civic trust. 7 hero mockups re-skinned for the web — large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+  </p>
+  <div style="margin-top: var(--space-4);">
+    <span class="viewport-tag">1440 × 900 · large</span>
+    <span class="viewport-tag">1024 × 768 · medium</span>
+    <span class="viewport-tag">≤ 480 · Rashid responsive</span>
+  </div>
+</div>
+
+<!-- Component library entry -->
+<section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-7);">
+  <div style="background: var(--color-surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-6); display: flex; justify-content: space-between; align-items: center; gap: var(--space-5); flex-wrap: wrap;">
+    <div>
+      <h2 style="margin: 0 0 var(--space-2); font-size: var(--text-display-md);">Component library</h2>
+      <p style="margin: 0; color: var(--color-ink-secondary); font-size: var(--text-body);">
+        Every pattern, every state, applied to a single token set. Buttons, inputs, cards, status pills, status trail, photo blocks, banners, modals, filter pills.
+      </p>
+    </div>
+    <a href="components.html" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-5); background: var(--color-primary); color: white; border-radius: var(--radius-sm); text-decoration: none; font-weight: var(--weight-semibold);">
+      Open library
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+</section>
+
+<!-- Mockups grid — each mockup shown at large viewport -->
+<section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-8);">
+  <div class="section-eyebrow" style="margin-bottom: var(--space-5);">7 hero mockups</div>
+
+  <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-5);">
+
+    <!-- 01 Welcome -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/01-welcome.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">01 — Welcome</div>
+        <div class="mockup-desc">First impression. Two-column hero: brand mark + tagline + CTA on the left, abstract city map on the right. At medium the illustration collapses. Defines brand voice for new citizens.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/01-welcome.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 02 Home / City Activity -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/02-home-city-activity.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">02 — Home / City Activity (Rahim · web)</div>
+        <div class="mockup-desc">Citizen hub. Persistent map + side-panel activity feed + top-bar Report CTA. At medium the side panel collapses below the map. The mobile FAB is replaced by a persistent top-bar action.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/02-home-city-activity.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 03 Report Submitted -->
+    <div class="mockup-card">
+      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5);">
+        <iframe src="mockups/03-report-submitted.html" style="width: 700px; height: 800px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">03 — Report Submitted</div>
+        <div class="mockup-desc">First concrete answer. Centered card on neutral background: hero check, 4-step status trail, ticket ID, two CTAs. Defines status-trail pattern.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/03-report-submitted.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 04 My Reports Detail -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/04-my-reports-detail.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">04 — My Reports Detail</div>
+        <div class="mockup-desc">The trust moment. Two-column layout: before/after photos + status trail on the left, metadata + feedback prompt on the right. At medium the metadata stacks below the trail. Defines photo handling.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/04-my-reports-detail.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 05 Daily Queue Dashboard — desktop, full width -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">05 — Daily Queue Dashboard (Habib · desktop)</div>
+        <div class="mockup-desc">Dispatcher's cockpit. 3-region layout: filter rail · ticket list · detail pane. Defines the desktop pattern. Web-only at large viewport.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <br/>
+        <a href="mockups/05-daily-queue-dashboard.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 06 Field App Home — Rashid, web-first with phone fallback -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/06-field-app-home.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">06 — Field App Home (Rashid · web + phone)</div>
+        <div class="mockup-desc">Field crew's start of day. Top bar + 720px content column: greeting strip with one-shot location refresh, quick-stats panel, today's queue list, in-flow "Start next job" CTA. Reflows cleanly to 390px phone widths.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <span class="viewport-tag">390 × 844 · phone fallback</span>
+        <br/>
+        <a href="mockups/06-field-app-home.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 07 Status: In Progress — Rashid, full-bleed, .theme-outdoor -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/07-status-in-progress.html" class="iframe-large" scrolling="auto"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">07 — Status: In Progress (Rashid · hands-busy)</div>
+        <div class="mockup-desc">Hands-busy live work view. Full-bleed page (no chrome) in the .theme-outdoor high-contrast palette — near-white surfaces, pure-black ink, designed for direct-sunlight readability. Top strip with minimize + timer, hero block, step log, progress note composer, big "Fixed — take photo" CTA.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <span class="viewport-tag">390 × 844 · phone fallback</span>
+        <br/>
+        <a href="mockups/07-status-in-progress.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Coverage matrix -->
+<section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-7);">
+  <div class="section-eyebrow" style="margin-bottom: var(--space-4);">What's covered</div>
+  <div style="background: var(--color-surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5);">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-5);">
+      <div>
+        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Surface</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
+          <li>Web entry (Welcome)</li>
+          <li>Web hub (Home)</li>
+          <li>Web confirmation (Submitted)</li>
+          <li>Web trust moment (Detail)</li>
+          <li>Desktop work surface (Dashboard)</li>
+          <li>Field app home (Rashid)</li>
+          <li>Hands-busy live work (Rashid)</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Components</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
+          <li>Buttons (3 styles × states)</li>
+          <li>Inputs (label, helper, error)</li>
+          <li>Cards &amp; hero cards</li>
+          <li>Status pills (4 statuses)</li>
+          <li>Status trail (4-step timeline)</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Components cont.</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
+          <li>Photo blocks (single, pair, multi)</li>
+          <li>Banners (info, warning, error)</li>
+          <li>Filter pills</li>
+          <li>Modal</li>
+          <li>Map placeholder</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Web patterns</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
+          <li>Two-column hero (welcome)</li>
+          <li>Map + side panel (home)</li>
+          <li>Centered confirmation card</li>
+          <li>Gallery + metadata (detail)</li>
+          <li>3-region desktop (dashboard)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer style="padding: var(--space-7) var(--space-5); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption); border-top: 1px solid var(--color-border);">
+  CityFix visual design · Tokens + 7 hero mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
+</footer>
+
+</body>
+</html>

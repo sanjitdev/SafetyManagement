@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Reports Detail — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+    }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+    /* Top bar — matches mockup 05 pattern */
+    .topbar {
+      height: var(--header-height-desktop);
+      background: var(--color-surface-card);
+      border-bottom: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-5);
+    }
+
+    /* Two-column at large, single column at medium */
+    .content {
+      max-width: var(--layout-desktop);
+      margin: 0 auto;
+      padding: var(--space-6) var(--space-5);
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: var(--space-6);
+    }
+    @media (max-width: 1024px) {
+      .content {
+        grid-template-columns: 1fr;
+        padding: var(--space-5) var(--space-4);
+      }
+    }
+
+    /* Pills */
+    .pill {
+      display: inline-flex; align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+    }
+    .pill-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+    .pill-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+    .pill-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+
+    /* Photo pair (before / after) */
+    .photo-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+    }
+    .photo-block {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+    }
+    .photo-block-label {
+      position: absolute;
+      top: var(--space-2); left: var(--space-2);
+      background: rgba(15, 20, 25, 0.72);
+      color: white;
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+      padding: 2px 8px;
+      border-radius: var(--radius-xs);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Status trail */
+    .trail {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+    .trail-step {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      position: relative;
+    }
+    .trail-step + .trail-step { margin-top: var(--space-4); }
+    .trail-step::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 24px;
+      bottom: -16px;
+      width: 2px;
+      background: var(--color-border);
+    }
+    .trail-step:last-child::before { display: none; }
+    .trail-step.done::before { background: var(--color-status-resolved); }
+    .trail-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--color-surface-raised);
+      color: var(--color-ink-tertiary);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+    }
+    .trail-step.done .trail-dot { background: var(--color-status-resolved); color: var(--color-ink-on-dark); }
+    .trail-step.current .trail-dot { background: var(--color-primary); color: var(--color-primary-on); }
+    .trail-title { font-weight: var(--weight-semibold); font-size: var(--text-body-sm); }
+    .trail-time { font-size: var(--text-caption); color: var(--color-ink-tertiary); margin-top: 2px; }
+
+    /* Metadata card */
+    .meta-card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-5);
+    }
+    .meta-label {
+      font-size: var(--text-micro);
+      color: var(--color-ink-tertiary);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .meta-value { margin-top: 4px; font-weight: var(--weight-medium); }
+
+    /* Feedback prompt */
+    .feedback {
+      background: var(--color-primary-soft);
+      border-left: 3px solid var(--color-primary);
+      padding: var(--space-4);
+      border-radius: var(--radius-sm);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <span style="width: 10px; height: 10px; background: var(--color-primary); border-radius: 50%;"></span>
+    <strong style="font-size: var(--text-body-lg);">CityFix</strong>
+    <span style="color: var(--color-ink-tertiary); font-size: var(--text-caption);">·</span>
+    <span style="font-size: var(--text-body-sm); color: var(--color-ink-secondary);">আমার রিপোর্টসমূহ</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: var(--space-3);">
+    <a href="#" style="font-size: var(--text-body-sm); color: var(--color-ink-secondary); text-decoration: none;">আমার রিপোর্ট</a>
+    <a href="#" style="font-size: var(--text-body-sm); color: var(--color-ink-secondary); text-decoration: none;">হোম</a>
+    <div style="width: 32px; height: 32px; background: var(--color-primary-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: var(--weight-semibold); color: var(--color-primary); font-size: var(--text-caption);">র</div>
+  </div>
+</div>
+
+<!-- Two-column content -->
+<div class="content">
+
+  <!-- LEFT — gallery + trail -->
+  <div>
+
+    <!-- Hero -->
+    <div style="margin-bottom: var(--space-5);">
+      <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2);">
+        <span class="pill pill-resolved">সমাধান</span>
+        <span style="font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-ink-tertiary);">#TIX-1234</span>
+      </div>
+      <h1 style="margin: 0 0 var(--space-2); font-size: var(--text-display-md);">রাস্তার আলো নেই · পোল #14B</h1>
+      <div style="font-size: var(--text-body); color: var(--color-ink-secondary);">
+        ওয়ার্ড ১৪, মিরপুর · ৪ দিন আগে জমা
+      </div>
+    </div>
+
+    <!-- Before / after photo pair -->
+    <div class="photo-pair" style="margin-bottom: var(--space-5);">
+      <div class="photo-block" style="background: linear-gradient(135deg, #B7791F22, #B7791F66);">
+        <div class="photo-block-label">আগে</div>
+      </div>
+      <div class="photo-block" style="background: linear-gradient(135deg, #2F7A4F22, #2F7A4F66);">
+        <div class="photo-block-label">পরে</div>
+      </div>
+    </div>
+
+    <!-- Status trail -->
+    <div class="trail">
+      <div style="font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-4);">
+        অগ্রগতি
+      </div>
+
+      <div class="trail-step done">
+        <div class="trail-dot">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div style="flex: 1;">
+          <div class="trail-title">জমা হয়েছে</div>
+          <div class="trail-time">৪ দিন আগে · আপনি</div>
+        </div>
+      </div>
+
+      <div class="trail-step done">
+        <div class="trail-dot">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div style="flex: 1;">
+          <div class="trail-title">বৈদ্যুতিক বিভাগে রাউট হয়েছে</div>
+          <div class="trail-time">৩ দিন আগে · ডিসপ্যাচার হাবিব</div>
+        </div>
+      </div>
+
+      <div class="trail-step done">
+        <div class="trail-dot">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div style="flex: 1;">
+          <div class="trail-title">মাঠ ক্রু কাজ শুরু করেছে</div>
+          <div class="trail-time">২ দিন আগে · ক্রু এ (রশিদ)</div>
+        </div>
+      </div>
+
+      <div class="trail-step current">
+        <div class="trail-dot">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div style="flex: 1;">
+          <div class="trail-title">সমাধান নিশ্চিত হয়েছে</div>
+          <div class="trail-time">১ দিন আগে · ক্রু এ</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT — metadata + feedback -->
+  <aside>
+
+    <div class="meta-card" style="margin-bottom: var(--space-4);">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+        <div>
+          <div class="meta-label">বিভাগ</div>
+          <div class="meta-value">বৈদ্যুতিক</div>
+        </div>
+        <div>
+          <div class="meta-label">ওয়ার্ড</div>
+          <div class="meta-value">১৪, মিরপুর</div>
+        </div>
+        <div>
+          <div class="meta-label">SLA</div>
+          <div class="meta-value">৪৮ ঘণ্টা</div>
+        </div>
+        <div>
+          <div class="meta-label">সমাধানের সময়</div>
+          <div class="meta-value">৩.২ দিন</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feedback">
+      <div style="font-weight: var(--weight-semibold); margin-bottom: var(--space-1);">সমাধান কি সন্তোষজনক?</div>
+      <div style="font-size: var(--text-body-sm); color: var(--color-ink-secondary); margin-bottom: var(--space-3);">
+        আপনার মতামত আমাদের ডিসপ্যাচারদের কাজের মান উন্নত করে।
+      </div>
+      <div style="display: flex; gap: var(--space-2);">
+        <button style="height: 40px; padding: 0 var(--space-4); border-radius: var(--radius-sm); border: 1px solid var(--color-primary); background: white; color: var(--color-primary); font-weight: var(--weight-semibold); cursor: pointer;">হ্যাঁ, সন্তুষ্ট</button>
+        <button style="height: 40px; padding: 0 var(--space-4); border-radius: var(--radius-sm); border: 1px solid var(--color-border-strong); background: white; color: var(--color-ink); font-weight: var(--weight-medium); cursor: pointer;">আরও বিস্তারিত</button>
+      </div>
+    </div>
+
+  </aside>
+
+</div>
+
+</body>
+</html>

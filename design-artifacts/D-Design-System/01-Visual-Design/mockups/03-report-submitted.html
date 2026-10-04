@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Submitted — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+      min-height: 100vh;
+    }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+    /* Page background — calm, neutral, app-wide */
+    .page {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--space-7) var(--space-5);
+      background: var(--color-surface-page);
+    }
+
+    /* Centered card — same width at both breakpoints */
+    .card {
+      width: 100%;
+      max-width: var(--card-max-width);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-7) var(--space-6) var(--space-6);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Hero check */
+    .hero-check {
+      width: 72px; height: 72px;
+      background: var(--color-status-resolved-soft);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto var(--space-4);
+    }
+
+    /* Status trail — vertical on card, same as before */
+    .trail {
+      background: var(--color-surface-page);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+    .trail-step {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      position: relative;
+    }
+    .trail-step + .trail-step { margin-top: var(--space-3); }
+    .trail-step::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 24px;
+      bottom: -12px;
+      width: 2px;
+      background: var(--color-border);
+    }
+    .trail-step:last-child::before { display: none; }
+    .trail-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--color-surface-raised);
+      color: var(--color-ink-tertiary);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-semibold);
+    }
+    .trail-step.done .trail-dot { background: var(--color-status-resolved); color: var(--color-ink-on-dark); }
+    .trail-step.current .trail-dot { background: var(--color-primary); color: var(--color-primary-on); }
+    .trail-step.done::before { background: var(--color-status-resolved); }
+    .trail-step.current::before { background: var(--color-status-resolved); }
+    .trail-title { font-weight: var(--weight-semibold); font-size: var(--text-body-sm); }
+    .trail-time { font-size: var(--text-caption); color: var(--color-ink-tertiary); margin-top: 2px; }
+
+    /* Ticket ID mono */
+    .ticket-id {
+      font-family: var(--font-mono);
+      background: var(--color-surface-page);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-caption);
+      color: var(--color-ink-secondary);
+    }
+    .ticket-id strong { color: var(--color-ink); font-weight: var(--weight-semibold); }
+
+    /* CTAs */
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center;
+      height: var(--touch-large);
+      background: var(--color-primary);
+      color: var(--color-primary-on);
+      border: none; border-radius: var(--radius-sm);
+      font-size: var(--text-body);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-secondary {
+      display: flex; align-items: center; justify-content: center;
+      height: var(--touch-large);
+      background: transparent;
+      color: var(--color-ink);
+      border: 1px solid var(--color-border-strong);
+      font-size: var(--text-body);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <div class="card">
+
+    <!-- Hero -->
+    <div style="text-align: center; margin-bottom: var(--space-6);">
+      <div class="hero-check">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--color-status-resolved);">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <h1 style="margin: 0 0 var(--space-2); font-size: var(--text-display-md);">আপনার রিপোর্ট গ্রহণ করা হয়েছে।</h1>
+      <p style="margin: 0; font-size: var(--text-body); color: var(--color-ink-secondary); line-height: 1.55;">
+        ধন্যবাদ। আমরা এটি সংশ্লিষ্ট বিভাগে পাঠিয়েছি।<br/>
+        অগ্রগতি এই পেজ থেকেই দেখতে পারবেন।
+      </p>
+    </div>
+
+    <!-- Ticket ID -->
+    <div style="display: flex; justify-content: center; margin-bottom: var(--space-5);">
+      <div class="ticket-id">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>টিকেট আইডি:</span>
+        <strong>#TIX-1234</strong>
+      </div>
+    </div>
+
+    <!-- Status trail -->
+    <div class="trail" style="margin-bottom: var(--space-6);">
+
+      <div class="trail-step done">
+        <div class="trail-dot">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div style="flex: 1;">
+          <div class="trail-title">জমা হয়েছে</div>
+          <div class="trail-time">এইমাত্র · আপনি</div>
+        </div>
+      </div>
+
+      <div class="trail-step current">
+        <div class="trail-dot">২</div>
+        <div style="flex: 1;">
+          <div class="trail-title">বৈদ্যুতিক বিভাগে রাউট হয়েছে</div>
+          <div class="trail-time">আনুমানিক ৪–৪৮ ঘণ্টা</div>
+        </div>
+      </div>
+
+      <div class="trail-step">
+        <div class="trail-dot">৩</div>
+        <div style="flex: 1;">
+          <div class="trail-title">মাঠ ক্রু কাজ শুরু করবে</div>
+          <div class="trail-time" style="opacity: 0.6;">পরবর্তী</div>
+        </div>
+      </div>
+
+      <div class="trail-step">
+        <div class="trail-dot">৪</div>
+        <div style="flex: 1;">
+          <div class="trail-title">সমাধান নিশ্চিত হবে</div>
+          <div class="trail-time" style="opacity: 0.6;">পরবর্তী</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CTAs -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+      <button class="btn-primary">রিপোর্ট দেখুন</button>
+      <button class="btn-secondary">হোমে ফিরে যান</button>
+    </div>
+
+    <!-- Trust line -->
+    <div style="margin-top: var(--space-5); display: flex; align-items: center; gap: var(--space-2); justify-content: center;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-ink-tertiary);">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span style="font-size: var(--text-caption); color: var(--color-ink-tertiary);">আপডেট হলে আমরা আপনাকে জানাব</span>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

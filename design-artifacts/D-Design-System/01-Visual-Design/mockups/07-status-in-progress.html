@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Status: In Progress — Rashid — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+
+  <style>
+    /* Apply outdoor high-contrast theme to the whole page */
+    body {
+      font-family: var(--font-body);
+      background: var(--color-surface-page);
+      color: var(--color-ink);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+      min-height: 100vh;
+    }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-bold); }
+
+    /* Page wrapper — full-bleed, no top bar, no chrome */
+    .page {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      padding: 0;
+    }
+
+    /* Top strip — in-flow, not sticky */
+    .top-strip {
+      height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-5);
+      border-bottom: 2px solid var(--color-border);
+    }
+    .minimize-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px;
+      background: transparent;
+      border: 2px solid var(--color-ink);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .timer {
+      font-family: var(--font-mono);
+      font-size: var(--text-display-sm);
+      font-weight: var(--weight-bold);
+      letter-spacing: 0.04em;
+    }
+
+    /* Content area — single column, large type */
+    .content {
+      flex: 1;
+      max-width: 720px;
+      width: 100%;
+      margin: 0 auto;
+      padding: var(--space-7) var(--space-5);
+    }
+    @media (max-width: 480px) {
+      .content { padding: var(--space-6) var(--space-4); }
+    }
+
+    /* Hero block */
+    .hero {
+      display: flex; gap: var(--space-5);
+      align-items: flex-start;
+      padding: var(--space-5);
+      background: var(--color-surface-card);
+      border: 2px solid var(--color-ink);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-6);
+    }
+    .hero-thumb {
+      width: 120px; height: 120px;
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #B7791F22, #B7791F66);
+    }
+    .hero-body { flex: 1; min-width: 0; }
+    .hero-title {
+      font-size: var(--text-display-md);
+      font-weight: var(--weight-bold);
+      margin: 0 0 var(--space-2);
+    }
+    .hero-sub {
+      font-size: var(--text-body-lg);
+      color: var(--color-ink-secondary);
+    }
+
+    /* Step log */
+    .steps {
+      display: flex; flex-direction: column; gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+    .step {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-surface-card);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-body);
+    }
+    .step-dot {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      color: var(--color-primary-on);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: var(--weight-bold);
+      flex-shrink: 0;
+    }
+
+    /* Note composer — single text input, prominent */
+    .composer {
+      margin-bottom: var(--space-6);
+    }
+    .composer-label {
+      font-size: var(--text-body-lg);
+      font-weight: var(--weight-semibold);
+      margin-bottom: var(--space-2);
+    }
+    .composer-input {
+      width: 100%;
+      padding: var(--space-4);
+      font-family: var(--font-body);
+      font-size: var(--text-body-lg);
+      background: var(--color-surface-card);
+      color: var(--color-ink);
+      border: 2px solid var(--color-ink);
+      border-radius: var(--radius-sm);
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* Bottom buttons */
+    .actions {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-3);
+      align-items: stretch;
+    }
+    .btn-secondary {
+      display: flex; align-items: center; justify-content: center;
+      height: var(--touch-cta);
+      padding: 0 var(--space-5);
+      background: transparent;
+      color: var(--color-ink);
+      border: 2px solid var(--color-ink);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-body);
+      font-weight: var(--weight-bold);
+      cursor: pointer;
+    }
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+      height: var(--touch-cta);
+      background: var(--color-ink);
+      color: var(--color-primary-on);
+      border: none; border-radius: var(--radius-sm);
+      font-size: var(--text-body-lg);
+      font-weight: var(--weight-bold);
+      cursor: pointer;
+    }
+    .btn-link {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: var(--touch-cta);
+      padding: 0 var(--space-4);
+      background: transparent;
+      color: var(--color-ink);
+      border: none;
+      font-size: var(--text-body);
+      font-weight: var(--weight-semibold);
+      cursor: pointer;
+      text-decoration: underline;
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body class="theme-outdoor">
+
+<div class="page">
+
+  <!-- Top strip — in-flow, not sticky. Minimizes to Field Home without stopping the job. -->
+  <div class="top-strip">
+    <button class="minimize-btn" aria-label="Minimize">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div style="font-size: var(--text-body-lg); font-weight: var(--weight-bold);">চলমান কাজ</div>
+    <div class="timer">০০:১৪:২২</div>
+  </div>
+
+  <!-- Content — full-bleed single column, large type, .theme-outdoor everywhere -->
+  <div class="content">
+
+    <!-- Hero block -->
+    <div class="hero">
+      <div class="hero-thumb"></div>
+      <div class="hero-body">
+        <h1 class="hero-title">রাস্তার আলো নেই · পোল #14B</h1>
+        <div class="hero-sub">ওয়ার্ড ১৪, মিরপুর · শুরু হয়েছে ১৪ মিনিট আগে</div>
+      </div>
+    </div>
+
+    <!-- Step log -->
+    <div class="steps">
+      <div class="step">
+        <div class="step-dot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div><strong>কাজ শুরু হয়েছে</strong> · ২:১৪ PM</div>
+      </div>
+    </div>
+
+    <!-- Progress note composer -->
+    <div class="composer">
+      <label class="composer-label" for="progress-note">অগ্রগতির নোট যোগ করুন (ঐচ্ছিক)</label>
+      <textarea id="progress-note" class="composer-input" placeholder="কী করলেন? যেমন: ফিউজ পরিবর্তন করেছি"></textarea>
+    </div>
+
+    <!-- Bottom actions — in-flow, full-width inside content area -->
+    <div class="actions">
+      <button class="btn-secondary">বিরতি দিন</button>
+      <button class="btn-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        সমাধান হয়েছে — ছবি তুলুন
+      </button>
+      <button class="btn-link">সমস্যা — প্রেরণ করুন</button>
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+</html>
