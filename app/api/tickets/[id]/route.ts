@@ -3,20 +3,21 @@
  *
  * PLAT-REQ-001: serializer hides internal fields from citizens.
  * PLAT-REQ-008: rate-limited 1/sec per (actor, ticket).
+ *
+ * Backend-agnostic: works on Prisma or the in-memory dev store.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { getSession } from '@/lib/auth/session';
+import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { requireSameCity, requireScope } from '@/lib/auth/guards';
 import { rateLimit } from '@/lib/platform/rate-limit';
-import { serializeTicketForRole, ticketInclude } from '@/lib/serializers/ticket';
+import { serializeTicketForRole } from '@/lib/serializers/ticket';
 
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session) {
     return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
   }
@@ -35,10 +36,7 @@ export async function GET(
     );
   }
 
-  const ticket = await prisma.ticket.findUnique({
-    where: { id },
-    include: ticketInclude,
-  });
+  const ticket = await db.ticket.findUnique({ where: { id } });
   if (!ticket) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
@@ -63,8 +61,13 @@ export async function GET(
     return NextResponse.json({ error: 'not_owner' }, { status: 403 });
   }
 
+  const withTrail = getTicketWithTrail(id);
+  if (!withTrail) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
   return NextResponse.json({
-    ticket: serializeTicketForRole(ticket, session.role, 'bn'),
-    last_poll_cursor: ticket.updatedAt.toISOString(),
+    ticket: serializeTicketForRole(withTrail, withTrail.trail, session.role, 'bn'),
+    last_poll_cursor: withTrail.updatedAt,
   });
 }

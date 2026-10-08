@@ -4,12 +4,12 @@
  * PLAT-REQ-007: append-only audit log. Every ticket transition and every
  * per-city config change recorded.
  *
- * The API layer never exposes UPDATE/DELETE on AuditEntry — enforced via
- * Prisma client wrappers if needed in v1.1. For now, the audit module is
- * the only place that writes audit entries.
+ * Backend-agnostic: writes to the in-memory dev store when
+ * CITYFIX_DEV_STORE is set, otherwise Prisma. The Prisma client
+ * (lib/db.ts) is unchanged.
  */
 
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db-switch';
 
 export interface AuditWriteInput {
   entityType: 'ticket' | 'city' | 'category' | 'department' | 'ward' | 'user';
@@ -21,18 +21,14 @@ export interface AuditWriteInput {
 }
 
 export async function writeAudit(input: AuditWriteInput): Promise<void> {
-  await prisma.auditEntry.create({
+  await db.audit.create({
     data: {
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
       actorId: input.actorId,
-      beforeValue: input.beforeValue
-        ? JSON.parse(JSON.stringify(input.beforeValue))
-        : undefined,
-      afterValue: input.afterValue
-        ? JSON.parse(JSON.stringify(input.afterValue))
-        : undefined,
+      beforeValue: input.beforeValue ?? null,
+      afterValue: input.afterValue ?? null,
     },
   });
 }

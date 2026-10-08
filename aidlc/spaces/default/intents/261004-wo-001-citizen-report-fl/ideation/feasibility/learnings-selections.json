@@ -1,0 +1,71 @@
+{
+  "stage_slug": "feasibility",
+  "space": "default",
+  "intent": "261004-wo-001-citizen-report-fl",
+  "selections": [
+    {
+      "candidate_id": "c1",
+      "source_heading": "Interpretations",
+      "text": "Feasibility pre-narrows hosting to Vercel because the WO-001 PRD gate is the right place to ratify a host, not later; the PRD gate still owns the final word (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c2",
+      "source_heading": "Interpretations",
+      "text": "Indefinite photo retention with citizen-initiated delete is the citizen-agency reading of the \"feel heard\" trust signal; PII cost is bounded by a 365-day unread-photo lifecycle policy, not by forced deletion (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c3",
+      "source_heading": "Interpretations",
+      "text": "The 50m dedup radius and the city-boundary geofence are orthogonal: the geofence is a pre-submit guard, the dedup is a post-pin policy; the geofence reject UX path is the design gap flagged in R-1 (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c4",
+      "source_heading": "Deviations",
+      "text": "Bilingual toggle on splash/welcome is a surface deviation from the default Bangla-only read of project.md; both locales are fully authored, the toggle just lets the citizen pick (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c5",
+      "source_heading": "Deviations",
+      "text": "OTP SMS provider selection was pulled into feasibility from tech-audit's \"real provider chosen in WO-004\" because the citizen registration flow needs an end-to-end testable SMS path; the provider interface in lib/ keeps WO-004 free to swap implementations (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c6",
+      "source_heading": "Tradeoffs",
+      "text": "Mapbox free → paid was chosen over OSM raster everywhere because the free tier covers the v1 pilot (50k loads/month) and the overage path (Mapbox usage alert + OSM brownout fallback) is cheap to operate (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c7",
+      "source_heading": "Tradeoffs",
+      "text": "Online-only submit was chosen over optimistic local draft / service-worker patterns because the ≤ 60s target assumes an active network and the cost of offline support (IndexedDB queue, sync conflict resolution) is high for a v1 surface (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    },
+    {
+      "candidate_id": "c8",
+      "source_heading": "Tradeoffs",
+      "text": "Dedup-decline is logged as a structured event AND flagged for city-side review; the structured event is privacy-respecting and the flag surfaces possible duplicates to the WO-002 dispatcher for a manual dedup decision (learned 2026-10-04)",
+      "heading": "## Corrections",
+      "scope": "project",
+      "source": "orchestrator"
+    }
+  ]
+}

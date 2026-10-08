@@ -38,11 +38,20 @@ export default defineConfig({
   // but the per-WO route tests (future tests/02-*.spec.ts) do. Setting
   // reuseExistingServer means `next dev` from a manual `npm run dev` will
   // be reused instead of restarted.
+  //
+  // `dev:feat` sets `CITYFIX_DEV_STORE=1` via cross-env, which flips the
+  // in-memory dev-store on. Without it, /api/dev/login returns 404 and
+  // every authenticated-flow test fails on its first request. The
+  // mockup-only suite (tests/01-mockups.spec.ts) doesn't care, so we
+  // always set the flag here.
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run dev:feat',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
+    env: {
+      CITYFIX_DEV_STORE: '1',
+    },
   },
 
   use: {

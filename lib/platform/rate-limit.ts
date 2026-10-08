@@ -15,8 +15,13 @@ interface Bucket {
 }
 
 const buckets = new Map<string, Bucket>();
+// PLAT-REQ-008: max 1 req/sec per (actor, ticket) in production.
+// In dev mode we widen the burst to absorb React strict mode's
+// double-invocation of useEffect, which otherwise causes 429s on
+// first page load. The steady-state refill rate is unchanged.
+const IS_DEV = process.env.NODE_ENV !== 'production';
 const RATE = 1; // tokens per second
-const CAPACITY = 1; // burst capacity
+const CAPACITY = IS_DEV ? 4 : 1; // burst capacity
 
 export interface RateLimitResult {
   allowed: boolean;

@@ -9,52 +9,51 @@
  *
  * The v1 split: this module exports one serializer per role. The route
  * handler picks based on the session.
+ *
+ * Backend-agnostic: takes a plain object shape (the same field names appear
+ * in both Prisma's Ticket and the dev-store DevTicket) plus a `trail`
+ * array of trail entries. The serializer does not touch the DB.
  */
 
-import type { Ticket, TicketTrailEntry, Prisma } from '@prisma/client';
-import type { Role } from '@prisma/client';
+import type { Role, TicketStatus } from '@prisma/client';
 
 const ANONYMIZED_ACTOR_LABEL = {
-  bn: 'সিটি কর্পোরেসন',
+  bn: 'সিটি কর্পোরেশন',
   en: 'City corporation',
 } as const;
 
-/**
- * The set of fields visible to citizens. Anything not in this list is
- * hidden from citizen serializers (PLAT-REQ-001).
- */
-const CITIZEN_VISIBLE_FIELDS = [
-  'id',
-  'cityId',
-  'wardId',
-  'categoryId',
-  'status',
-  'locationLng',
-  'locationLat',
-  'locationLabel',
-  'locationLabelBn',
-  'note',
-  // Photo URLs: only "before" photos (the citizen's own) are visible to
-  // citizens; "after" photos (Rashid's proof) are hidden until resolved
-  // and even then only on the 1.4 detail page via the public bucket.
-  // The API layer filters them separately.
-  'photoUrls',
-  'createdAt',
-  'resolvedAt',
-] as const satisfies readonly (keyof Ticket)[];
+export interface TrailEntryLike {
+  toStatus: TicketStatus;
+  actorId: string;
+  note: string | null;
+  timestamp: Date | string;
+}
 
-const INTERNAL_HIDDEN_FROM_CITIZEN = [
-  'assignedCrewId',
-  'internalNote',
-  'reporterId',
-] as const satisfies readonly (keyof Ticket)[];
+export interface TicketLike {
+  id: string;
+  cityId: string;
+  wardId: string;
+  categoryId: string;
+  status: TicketStatus;
+  locationLng: number;
+  locationLat: number;
+  locationLabel: string | null;
+  locationLabelBn: string | null;
+  note: string | null;
+  photoUrls: string[];
+  createdAt: Date | string;
+  resolvedAt: Date | string | null;
+  assignedCrewId: string | null;
+  internalNote: string | null;
+  reporterId: string;
+}
 
 export interface SerializedTicketTrailEntry {
-  toStatus: TicketTrailEntry['toStatus'];
+  toStatus: TicketStatus;
   /** Anonymized for citizens; real actor for dispatcher/crew/admin. */
   actorLabel: string;
   note: string | null;
-  timestamp: Date;
+  timestamp: string;
 }
 
 export interface SerializedTicket {
@@ -62,15 +61,15 @@ export interface SerializedTicket {
   cityId: string;
   wardId: string;
   categoryId: string;
-  status: Ticket['status'];
+  status: TicketStatus;
   locationLng: number;
   locationLat: number;
   locationLabel: string | null;
   locationLabelBn: string | null;
   note: string | null;
   photoUrls: string[];
-  createdAt: Date;
-  resolvedAt: Date | null;
+  createdAt: string;
+  resolvedAt: string | null;
   // Internal-only fields exposed only to non-citizen roles:
   assignedCrewId: string | null;
   internalNote: string | null;
@@ -79,47 +78,76 @@ export interface SerializedTicket {
 }
 
 export function serializeTicketForRole(
-  ticket: Ticket & { trail: TicketTrailEntry[] },
+  ticket: TicketLike,
+  trail: TrailEntryLike[],
   role: Role,
   language: 'bn' | 'en' = 'bn',
 ): SerializedTicket {
   const isCitizen = role === 'citizen';
-  const trail: SerializedTicketTrailEntry[] = ticket.trail.map((entry) => ({
+  const serializedTrail: SerializedTicketTrailEntry[] = trail.map((entry) => ({
     toStatus: entry.toStatus,
     actorLabel: isCitizen
       ? ANONYMIZED_ACTOR_LABEL[language]
       : entry.actorId, // dispatcher/crew/admin see the real actor id
     note: entry.note,
-    timestamp: entry.timestamp,
+    timestamp: typeof entry.timestamp === 'string'
+      ? entry.timestamp
+      : entry.timestamp.toISOString(),
   }));
 
   if (isCitizen) {
     return {
-      // Pick only citizen-visible fields; omit the rest.
-      ...Object.fromEntries(
-        CITIZEN_VISIBLE_FIELDS.map((k) => [k, ticket[k]]),
-      ),
+      id: ticket.id,
+      cityId: ticket.cityId,
+      wardId: ticket.wardId,
+      categoryId: ticket.categoryId,
+      status: ticket.status,
+      locationLng: ticket.locationLng,
+      locationLat: ticket.locationLat,
+      locationLabel: ticket.locationLabel,
+      locationLabelBn: ticket.locationLabelBn,
+      note: ticket.note,
+      photoUrls: ticket.photoUrls,
+      createdAt: typeof ticket.createdAt === 'string'
+        ? ticket.createdAt
+        : ticket.createdAt.toISOString(),
+      resolvedAt: ticket.resolvedAt
+        ? (typeof ticket.resolvedAt === 'string'
+            ? ticket.resolvedAt
+            : ticket.resolvedAt.toISOString())
+        : null,
       // Internal fields explicitly nulled out:
       assignedCrewId: null,
       internalNote: null,
-      reporterId: ticket!.reporterId, // citizens see their own id (it's them)
-      trail,
-    } as SerializedTicket;
+      reporterId: ticket.reporterId, // citizens see their own id (it's them)
+      trail: serializedTrail,
+    };
   }
 
   // Dispatcher / crew / admin: full visibility.
   return {
-    ...ticket,
-    trail,
+    id: ticket.id,
+    cityId: ticket.cityId,
+    wardId: ticket.wardId,
+    categoryId: ticket.categoryId,
+    status: ticket.status,
+    locationLng: ticket.locationLng,
+    locationLat: ticket.locationLat,
+    locationLabel: ticket.locationLabel,
+    locationLabelBn: ticket.locationLabelBn,
+    note: ticket.note,
+    photoUrls: ticket.photoUrls,
+    createdAt: typeof ticket.createdAt === 'string'
+      ? ticket.createdAt
+      : ticket.createdAt.toISOString(),
+    resolvedAt: ticket.resolvedAt
+      ? (typeof ticket.resolvedAt === 'string'
+          ? ticket.resolvedAt
+          : ticket.resolvedAt.toISOString())
+      : null,
+    assignedCrewId: ticket.assignedCrewId,
+    internalNote: ticket.internalNote,
+    reporterId: ticket.reporterId,
+    trail: serializedTrail,
   };
 }
-
-/**
- * Use this when querying a ticket by id for serialization — drops in the
- * trail with actors included.
- */
-export const ticketInclude = {
-  trail: {
-    orderBy: { timestamp: 'asc' as const },
-  },
-} satisfies Prisma.TicketInclude;

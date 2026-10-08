@@ -11,12 +11,26 @@
   --color-primary-hover: #2A4E73;
   --color-primary-pressed: #234876;
   --color-primary-soft: #EBF2F8;       /* tinted background for selected states */
-  --color-primary-on: #FFFFFF;          /* text on primary fill */
+  --color-on-primary: #FFFFFF;          /* text on primary fill */
+
+  /* Status semantic tokens (consumed by app surfaces) */
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-warning-soft: #FEF3C7;
+  --color-danger: #B91C1C;
+
+  /* Headline scale aliases (consumed via CSS-var references) */
+  --text-h1: 1.5rem;     /* 24px */
+  --text-h2: 1.25rem;    /* 20px */
+  --text-h3: 1.125rem;   /* 18px */
+
+  color-scheme: light;
 
   /* Ink — text */
   --color-ink: #0F1419;                 /* primary text */
   --color-ink-secondary: #4A5568;       /* secondary text, captions */
   --color-ink-tertiary: #718096;        /* placeholder, muted */
+  --color-ink-muted: #6B7280;           /* alias of ink-tertiary for legacy code */
   --color-ink-disabled: #A0AEC0;
   --color-ink-on-dark: #F7FAFC;         /* text on dark surfaces */
 
@@ -172,17 +186,161 @@
   --color-ink-tertiary: #1A1A1A;
   --color-border: #000000;
   --color-primary: #000000;
-  --color-primary-on: #FFFFFF;
+  --color-on-primary: #FFFFFF;
 }
 
-/* ---------- DARK MODE (Habib's monitor, optional) ---------- */
+/* ---------- DARK MODE (Habib's monitor, citizen-selectable) ---------- */
 
 .theme-dark {
-  --color-surface-page: #0F1419;
-  --color-surface-card: #1A2027;
-  --color-surface-raised: #2D3748;
-  --color-ink: #F7FAFC;
+  /* Surfaces */
+  --color-surface-page: #0B1220;
+  --color-surface-card: #111827;
+  --color-surface-raised: #1F2937;
+  --color-surface-sunken: #0F172A;
+  --color-surface-inverse: #F7FAFC;
+  --color-bg: #0B1220;
+
+  /* Ink */
+  --color-ink: #F9FAFB;
   --color-ink-secondary: #CBD5E0;
-  --color-ink-tertiary: #A0AEC0;
-  --color-border: #2D3748;
+  --color-ink-tertiary: #9CA3AF;
+  --color-ink-muted: #9CA3AF;
+  --color-ink-disabled: #4B5563;
+  --color-ink-on-dark: #F9FAFB;
+
+  /* Borders */
+  --color-border: #374151;
+  --color-border-strong: #4B5563;
+  --color-border-focus: #14B8A6;
+
+  /* Brand — lighter teal for AA contrast on dark surfaces */
+  --color-primary: #14B8A6;
+  --color-primary-hover: #0D9488;
+  --color-primary-pressed: #0F766E;
+  --color-primary-soft: #134E4A;
+  --color-on-primary: #052E2B;
+
+  /* Status semantic tokens */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-warning-soft: #422006;
+  --color-danger: #EF4444;
+
+  /* Status pills (status trail) */
+  --color-status-submitted: #9CA3AF;
+  --color-status-submitted-soft: #1F2937;
+  --color-status-routed: #5EAAD8;
+  --color-status-routed-soft: #0F2A44;
+  --color-status-in-progress: #FBBF24;
+  --color-status-in-progress-soft: #422006;
+  --color-status-resolved: #34D399;
+  --color-status-resolved-soft: #064E3B;
+  --color-status-paused: #FBBF24;
+  --color-status-error: #F87171;
+  --color-status-error-soft: #450A0A;
+  --color-status-warning: #FBBF24;
+  --color-status-warning-soft: #422006;
+
+  /* Category accents (lighter for dark backgrounds) */
+  --color-cat-streetlight: #FBBF24;
+  --color-cat-pothole: #CBD5E0;
+  --color-cat-garbage: #34D399;
+  --color-cat-drain: #5EAAD8;
+  --color-cat-sanitation: #C4B5FD;
+  --color-cat-other: #9CA3AF;
+
+  /* Map */
+  --color-map-bg: #0F172A;
+  --color-map-road: #1F2937;
+  --color-map-water: #0C4A6E;
+  --color-map-park: #064E3B;
+  --color-map-pin-open: #F87171;
+  --color-map-pin-progress: #FBBF24;
+  --color-map-pin-resolved: #34D399;
+
+  /* Shadow: deeper for dark surfaces */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
+  --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
+
+/* ---------- SYSTEM prefers-color-scheme: dark ---------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark) {
+    /* When the user has not picked an explicit appearance, mirror the OS.
+     * This block re-uses the same tokens as .theme-dark above; we duplicate
+     * (rather than extend .theme-dark) so future light-only tweaks to
+     * :root don't accidentally re-flow into the system-dark path.
+     */
+    --color-surface-page: #0B1220;
+    --color-surface-card: #111827;
+    --color-surface-raised: #1F2937;
+    --color-surface-sunken: #0F172A;
+    --color-surface-inverse: #F7FAFC;
+    --color-bg: #0B1220;
+
+    --color-ink: #F9FAFB;
+    --color-ink-secondary: #CBD5E0;
+    --color-ink-tertiary: #9CA3AF;
+    --color-ink-muted: #9CA3AF;
+    --color-ink-disabled: #4B5563;
+    --color-ink-on-dark: #F9FAFB;
+
+    --color-border: #374151;
+    --color-border-strong: #4B5563;
+    --color-border-focus: #14B8A6;
+
+    --color-primary: #14B8A6;
+    --color-primary-hover: #0D9488;
+    --color-primary-pressed: #0F766E;
+    --color-primary-soft: #134E4A;
+    --color-on-primary: #052E2B;
+
+    --color-success: #22C55E;
+    --color-warning: #F59E0B;
+    --color-warning-soft: #422006;
+    --color-danger: #EF4444;
+
+    --color-status-submitted: #9CA3AF;
+    --color-status-submitted-soft: #1F2937;
+    --color-status-routed: #5EAAD8;
+    --color-status-routed-soft: #0F2A44;
+    --color-status-in-progress: #FBBF24;
+    --color-status-in-progress-soft: #422006;
+    --color-status-resolved: #34D399;
+    --color-status-resolved-soft: #064E3B;
+    --color-status-paused: #FBBF24;
+    --color-status-error: #F87171;
+    --color-status-error-soft: #450A0A;
+    --color-status-warning: #FBBF24;
+    --color-status-warning-soft: #422006;
+
+    --color-cat-streetlight: #FBBF24;
+    --color-cat-pothole: #CBD5E0;
+    --color-cat-garbage: #34D399;
+    --color-cat-drain: #5EAAD8;
+    --color-cat-sanitation: #C4B5FD;
+    --color-cat-other: #9CA3AF;
+
+    --color-map-bg: #0F172A;
+    --color-map-road: #1F2937;
+    --color-map-water: #0C4A6E;
+    --color-map-park: #064E3B;
+    --color-map-pin-open: #F87171;
+    --color-map-pin-progress: #FBBF24;
+    --color-map-pin-resolved: #34D399;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
+    --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+
+    color-scheme: dark;
+  }
 }

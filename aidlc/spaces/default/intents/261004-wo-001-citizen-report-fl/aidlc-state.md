@@ -4,24 +4,24 @@
 - **Project**: WO-001 citizen report flow: 14 pages on web-first viewports; depends on WO-000 platform layer
 - **Project Description Source**: project-description.json
 - **Project Type**: Brownfield
-- **Scope**: feature
+- **Scope**: mvp
 - **Start Date**: 2026-10-04T10:21:04Z
 - **State Version**: 8
-- **Active Agent**: aidlc-product-agent
+- **Active Agent**: aidlc-design-agent
 - **Worktree Path**:
 - **Bolt Refs**:
 - **Practices Affirmed Timestamp**:
 
 ## Scope Configuration
-- **Stages to Execute**: 0.1, 0.2, 0.3, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7
-- **Stages to Skip**: none
+- **Stages to Execute**: 0.1, 0.2, 0.3, 1.1, 1.3, 1.4, 1.6, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
+- **Stages to Skip**: 1.2 (market-research), 1.5 (team-formation), 1.7 (approval-handoff), 4.1 (deployment-pipeline), 4.2 (environment-provisioning), 4.3 (deployment-execution), 4.4 (observability-setup), 4.5 (incident-response), 4.6 (performance-validation), 4.7 (feedback-optimization)
 - **Depth**: Standard
 - **Test Strategy**: Standard
 - **Review Override**: 
 - **Guard Policy**: strict (from team.md)
-- **Sensors**: on (from scope feature)
-- **Learnings**: on (from scope feature)
-- **Summary Confirmation**: on (from scope feature)
+- **Sensors**: on (from scope mvp)
+- **Learnings**: on (from scope mvp)
+- **Summary Confirmation**: on (from scope mvp)
 
 ## Workspace State
 - **Project Root**: .
@@ -30,9 +30,9 @@
 - **Build System**: npm (package.json)
 
 ## Execution Plan Summary
-- **Total Stages**: 33
-- **Completed**: 4
-- **In Progress**: market-research
+- **Total Stages**: 23
+- **Completed**: 6
+- **In Progress**: rough-mockups
 
 ## Runtime State
 - **Revision Count**: 0
@@ -47,10 +47,10 @@
 - **Ideation**: Active
 - **Inception**: Pending
 - **Construction**: Pending
-- **Operation**: Pending
+- **Operation**: Skipped
 
 ## Stage Progress
-<!-- Checkbox states: [ ] not started, [-] in progress, [?] awaiting approval (gate open), [R] revising (user rejected gate), [x] completed, [S] skipped via --stage/--phase jump -->
+<!-- Checkbox states: [ ] not started, [-] in progress, [x] completed, [S] skipped via --stage/--phase jump -->
 
 ### INITIALIZATION PHASE
 - [x] workspace-scaffold — EXECUTE
@@ -59,12 +59,12 @@
 
 ### IDEATION PHASE
 - [x] intent-capture — EXECUTE
-- [-] market-research — EXECUTE
-- [ ] feasibility — EXECUTE
-- [ ] scope-definition — EXECUTE
-- [ ] team-formation — EXECUTE
-- [ ] rough-mockups — EXECUTE
-- [ ] approval-handoff — EXECUTE
+- [S] market-research — SKIP
+- [x] feasibility — EXECUTE
+- [x] scope-definition — EXECUTE
+- [ ] team-formation — SKIP
+- [-] rough-mockups — EXECUTE
+- [ ] approval-handoff — SKIP
 
 ### INCEPTION PHASE
 - [ ] reverse-engineering — EXECUTE
@@ -88,22 +88,22 @@ Per unit: [TBD]
 - [ ] ci-pipeline — EXECUTE
 
 ### OPERATION PHASE
-- [ ] deployment-pipeline — EXECUTE
-- [ ] environment-provisioning — EXECUTE
-- [ ] deployment-execution — EXECUTE
-- [ ] observability-setup — EXECUTE
-- [ ] incident-response — EXECUTE
-- [ ] performance-validation — EXECUTE
-- [ ] feedback-optimization — EXECUTE
+- [ ] deployment-pipeline — SKIP
+- [ ] environment-provisioning — SKIP
+- [ ] deployment-execution — SKIP
+- [ ] observability-setup — SKIP
+- [ ] incident-response — SKIP
+- [ ] performance-validation — SKIP
+- [ ] feedback-optimization — SKIP
 
 ## Current Status
 - **Lifecycle Phase**: IDEATION
-- **Current Stage**: market-research
-- **Next Stage**: feasibility
+- **Current Stage**: rough-mockups
+- **Next Stage**: reverse-engineering
 - **Status**: Running
-- **Last Updated**: 2026-10-04T12:05:04Z
+- **Last Updated**: 2026-10-06T06:50:26Z
 
 ## Session Resume Point
-- **Last Completed Stage**: intent-capture
-- **Next Action**: Execute Market Research
+- **Last Completed Stage**: scope-definition
+- **Next Action**: Execute Rough Mockups
 - **Pending Artifacts**: none

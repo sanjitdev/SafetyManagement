@@ -10,12 +10,15 @@
  *
  * Implementation: haversine on (cityId, categoryId, status IN open statuses).
  * v1.1: switch to PostGIS ST_DWithin if/when polygon queries arrive.
+ *
+ * Backend-agnostic: queries the in-memory dev store when CITYFIX_DEV_STORE
+ * is set, otherwise Prisma.
  */
 
-import type { Ticket } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db-switch';
+import type { TicketStatus } from '@prisma/client';
 
-const OPEN_STATUSES = ['submitted', 'routed', 'in_progress'] as const;
+const OPEN_STATUSES: TicketStatus[] = ['submitted', 'routed', 'in_progress'];
 const EARTH_RADIUS_M = 6_371_000;
 
 function haversineMeters(
@@ -40,27 +43,28 @@ export interface DedupCheckInput {
 }
 
 export interface DedupMatch {
-  existingTicket: Ticket;
+  existingTicketId: string;
+  existingTicketStatus: TicketStatus;
   distanceMeters: number;
+  existingLocationLat: number;
+  existingLocationLng: number;
+  existingCreatedAt: string;
 }
 
 export async function checkDedup(input: DedupCheckInput): Promise<DedupMatch | null> {
-  const city = await prisma.city.findUnique({
-    where: { id: input.cityId },
-    select: { dedupRadiusMeters: true },
-  });
+  const city = await db.city.findUnique({ where: { id: input.cityId } });
   const radius = city?.dedupRadiusMeters ?? 50; // PLAT-REQ-004: 50m default
 
-  // Bounding-box pre-filter on (locationLat, locationLng) so Postgres can use
-  // the compound index. 1 degree of latitude ≈ 111 km; we convert radius → degrees.
+  // Bounding-box pre-filter on (locationLat, locationLng) so the index
+  // can narrow. 1 degree of latitude ≈ 111 km; we convert radius → degrees.
   const latDelta = radius / 111_000;
   const lngDelta = radius / (111_000 * Math.cos((input.locationLat * Math.PI) / 180));
 
-  const candidates = await prisma.ticket.findMany({
+  const candidates = await db.ticket.findMany({
     where: {
       cityId: input.cityId,
       categoryId: input.categoryId,
-      status: { in: [...OPEN_STATUSES] },
+      status: { in: OPEN_STATUSES },
       locationLat: {
         gte: input.locationLat - latDelta,
         lte: input.locationLat + latDelta,
@@ -70,7 +74,7 @@ export async function checkDedup(input: DedupCheckInput): Promise<DedupMatch | n
         lte: input.locationLng + lngDelta,
       },
     },
-    take: 20, // bounding box may over-include; refine with haversine
+    take: 20,
   });
 
   let best: DedupMatch | null = null;
@@ -80,7 +84,17 @@ export async function checkDedup(input: DedupCheckInput): Promise<DedupMatch | n
       { lat: t.locationLat, lng: t.locationLng },
     );
     if (d <= radius && (!best || d < best.distanceMeters)) {
-      best = { existingTicket: t, distanceMeters: d };
+      best = {
+        existingTicketId: t.id,
+        existingTicketStatus: t.status,
+        distanceMeters: d,
+        existingLocationLat: t.locationLat,
+        existingLocationLng: t.locationLng,
+        existingCreatedAt:
+          typeof t.createdAt === 'string'
+            ? t.createdAt
+            : (t.createdAt as Date).toISOString(),
+      };
     }
   }
   return best;

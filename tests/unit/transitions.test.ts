@@ -5,24 +5,24 @@
  * edges documented in WO-000; invalid edges throw InvalidTransitionError and
  * the atomic update + trail entry + audit entry are all attempted in order.
  *
- * Mocks Prisma so the test is pure logic — no DB.
+ * Mocks the db-switch so the test is pure logic — no DB.
  */
 
 import { describe, expect, it, vi } from 'vitest';
 
-// Mock the @/lib/db module so transitions.ts sees a fake Prisma client.
+// Mock the @/lib/db-switch module so transitions.ts sees a fake db.
 const ticketFindUnique = vi.fn();
 const ticketUpdate = vi.fn();
-const ticketTrailEntryCreate = vi.fn();
+const trailCreate = vi.fn();
 
-vi.mock('@/lib/db', () => ({
-  prisma: {
+vi.mock('@/lib/db-switch', () => ({
+  db: {
     ticket: {
       findUnique: ticketFindUnique,
       update: ticketUpdate,
     },
-    ticketTrailEntry: {
-      create: ticketTrailEntryCreate,
+    trail: {
+      create: trailCreate,
     },
   },
 }));
@@ -95,7 +95,7 @@ describe('platform transitions', () => {
       categoryId: 'cat1',
     });
     ticketUpdate.mockResolvedValueOnce({ id: 't1', status: 'routed' });
-    ticketTrailEntryCreate.mockResolvedValueOnce({ id: 'trail1' });
+    trailCreate.mockResolvedValueOnce({ id: 'trail1' });
 
     await transitionTicket({
       ticketId: 't1',
@@ -108,7 +108,7 @@ describe('platform transitions', () => {
       where: { id: 't1' },
       data: { status: 'routed' },
     });
-    expect(ticketTrailEntryCreate).toHaveBeenCalledWith({
+    expect(trailCreate).toHaveBeenCalledWith({
       data: {
         ticketId: 't1',
         toStatus: 'routed',
@@ -126,7 +126,7 @@ describe('platform transitions', () => {
       categoryId: 'cat1',
     });
     ticketUpdate.mockResolvedValueOnce({ id: 't1', status: 'resolved' });
-    ticketTrailEntryCreate.mockResolvedValueOnce({ id: 'trail2' });
+    trailCreate.mockResolvedValueOnce({ id: 'trail2' });
 
     await transitionTicket({
       ticketId: 't1',
@@ -138,7 +138,7 @@ describe('platform transitions', () => {
       where: { id: 't1' },
       data: {
         status: 'resolved',
-        resolvedAt: expect.any(Date),
+        resolvedAt: expect.any(String),
       },
     });
   });

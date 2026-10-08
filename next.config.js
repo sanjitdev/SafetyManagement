@@ -23,6 +23,14 @@ const nextConfig = {
     // Maplibre pulls in its own CSS at runtime; we import it inside the
     // client component that uses it. This keeps client bundles reasonable.
     optimizePackageImports: ['maplibre-gl'],
+    // Native modules: argon2 ships a prebuilt .node binary; prisma's query
+    // engine must run from node_modules at runtime. Webpack would otherwise
+    // try to bundle the .node file and crash with "Unexpected character".
+    serverComponentsExternalPackages: [
+      '@node-rs/argon2',
+      '@prisma/client',
+      'argon2',
+    ],
   },
 
   // Headers — set sensible defaults for the civic-platform posture.

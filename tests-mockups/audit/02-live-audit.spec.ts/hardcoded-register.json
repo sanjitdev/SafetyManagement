@@ -1,0 +1,212 @@
+[
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "background-color",
+    "value": "rgb(250, 250, 247)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "header",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "header",
+    "id": "",
+    "cls": "",
+    "prop": "background-color",
+    "value": "rgb(255, 255, 255)"
+  },
+  {
+    "tag": "header",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235) rgb(229, 231, 235) rgb(226, 232, 240)"
+  },
+  {
+    "tag": "header",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(74, 85, 104)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(74, 85, 104)"
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(226, 232, 240)"
+  },
+  {
+    "tag": "button",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "main",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "main",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "main",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "div",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "a",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  },
+  {
+    "tag": "span",
+    "id": "",
+    "cls": "",
+    "prop": "color",
+    "value": "rgb(15, 20, 25)"
+  },
+  {
+    "tag": "span",
+    "id": "",
+    "cls": "",
+    "prop": "background-color",
+    "value": "rgb(44, 82, 130)"
+  },
+  {
+    "tag": "span",
+    "id": "",
+    "cls": "",
+    "prop": "border-color",
+    "value": "rgb(229, 231, 235)"
+  },
+  {
+    "tag": "span",
+    "id": "",
+    "cls": "",
+    "prop": "fill",
+    "value": "rgb(0, 0, 0)"
+  }
+]

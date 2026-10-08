@@ -224,6 +224,32 @@ Closed all four queued items from the previous entry. After this, every spec and
 
 **Status:** All four Phase B queued items closed. Specs ↔ mockups ↔ Work Orders ↔ Playwright baselines are aligned. Phase 3 (Development) is fully unblocked for `/mimir`.
 
+### 2026-10-07 — WO-001 Ideation: rough-mockups stage complete
+
+The AIDLC intent `261004-wo-001-citizen-report-fl` reached the rough-mockups stage of the Ideation phase. The stage produced 12 ASCII / grayscale wireframes covering the v1 must-ship pages 1.1–1.12, an end-to-end flow diagram, and an information-architecture outline.
+
+**Stage decisions locked in (from `rough-mockups-questions.md`):**
+- Q1-A — Fresh capture is the default entry; returning citizens reach My Reports via a top-right link.
+- Q2-A — Strict linear 6-step submit (location → photo → category → note → submit → confirmation → detail).
+- Q3-B — Splash = animated logo + tagline; Welcome = civic hero illustration + bilingual CTA pair.
+- Q4-A — Bilingual toggle is persistent top-right on every page; locale persists across screens and sessions.
+- Q5-C — Geofence reject UX is two-step: detect → boundary overlay with citizen's pin + shaded supported area → "Move pin to supported area" or "Cancel". Closes feasibility R-1.
+- Q6-D — Dedup-prompt surface is a new pre-submit summary route (1.10b, /report/summary) between 1.10 and 1.11. Conditional banner when `dedup_match: true` returns from `lib/platform/dedup.ts`. Decline acknowledgement is a brief toast on 1.11 ("your decline was noted").
+- Q7-A — 1.12 visual anchor is a status trail as a vertical timeline; photos grouped below; photo delete is a per-photo action.
+- Q8-A — Rough mockups stay ASCII / grayscale; visual-regression gating fires in Refined Mockups. Pixel baselines stay out of this stage.
+
+**Stage artifacts:**
+- `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/rough-mockups/rough-mockups.md` — wireframes + flow + IA.
+- `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/rough-mockups/rough-mockups-questions.md` — answered.
+- `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/rough-mockups/memory.md` — interpretations, deviations, tradeoffs, open questions.
+
+**Decisions forwarded to Refined Mockups + Domain Design:**
+- /report/summary is a new route (1.10b) that the IA + Refined Mockups must adopt; Domain Design must model the dedup prompt as a pre-submit summary state, not a modal.
+- The geofence reject UX (Q5-C) is the R-1 mitigation; Domain Design should expose the city boundary on a debug overlay for the WO-002 dispatcher.
+- 1.14 push notification has no ASCII wireframe in this stage; it is a system-native push. Refined Mockups can either keep it as a reference diagram or skip it.
+
+**Status:** Rough mockups complete. Next stage: **reverse-engineering** (Inception phase). No code changes; no Playwright baselines updated; `tsc --noEmit` clean; `npm run test:unit` 14/14; `npm run test:mockups` 15/15.
+
 ### 2026-10-04 — Work Orders written (Development phase ready for Mimir)
 
 Five Work Orders written to `design-artifacts/E-Development/`:
@@ -410,5 +436,96 @@ Data + auth + API surface for every cross-cutting PLAT-REQ. Files added under `p
 | 33 | Post-launch Adoption Dashboard | Aamir — Sets up Chattogram | ✓ approved (spec-as-contract) |
 
 **UX Design phase: complete. 33 of 33 pages spec'd.** All pages follow the spec-as-contract pattern (no wireframes). Wireframe step was explicitly skipped by user based on prior conversation. Each spec is implementation-ready for Mimir's build phase.
+
+### 2026-10-07 — Token-surface fix + system-driven light/dark mode
+
+Two related issues from QA review of the running dev server:
+
+1. **Primary-CTA contrast bug**: `tokens.css` defined `--color-primary-on` but
+   25+ JSX consumers read `--color-on-primary`. Browsers silently fell back to
+   inherited black, so every primary button rendered with black-on-dark-blue
+   text — unreadable.
+
+2. **Dark/light mode support missing**: `.theme-outdoor` and `.theme-dark`
+   classes were declared in `tokens.css` but never applied to any element;
+   no `prefers-color-scheme` listener, no toggle, no persistence.
+
+Resolution:
+
+- `design-artifacts/D-Design-System/01-Visual-Design/tokens.css`:
+  renamed `--color-primary-on` → `--color-on-primary` (the name 25+ sites
+  already use); added 6 missing tokens (`--color-success`, `--color-warning`/
+  `-soft`, `--color-danger`, `--color-ink-muted`, `--text-h1/h2/h3`);
+  expanded `.theme-dark` block with full surface/ink/brand/status/category
+  overrides; added a `prefers-color-scheme: dark` media block mirroring the
+  same overrides so the OS hint is honored when the user has not picked
+  explicitly; added `color-scheme: light` and `color-scheme: dark`
+  declarations so native form controls (scrollbars, autofill) follow.
+
+- `lib/theme/appearance.ts` (new): pure helper with `Appearance =
+  'light' | 'dark' | 'system'`, localStorage-backed read/write, the
+  resolve function (`system + systemPrefersDark → light|dark`), and a
+  constant for the three theme class names. No React imports.
+
+- `app/appearance-boot.tsx` (new): synchronous inline `<script>` rendered
+  in `<body>` BEFORE the React tree. Reads localStorage, resolves
+  `prefers-color-scheme`, applies the correct theme class to `<html>` before
+  first paint to prevent FOUC. Mirrors the design of the future
+  `app/language-boot.tsx`.
+
+- `lib/theme/ThemeProvider.tsx` (new): client React provider exposing
+  `useTheme()`. Hydrates from localStorage on mount; listens to
+  `prefers-color-scheme` changes; writes back on user toggle; syncs the
+  `<html>` class list whenever the preference or system hint changes.
+
+- `app/layout.tsx`: renders `<AppearanceBoot />` then wraps children in
+  `<ThemeProvider>`. `themeColor` updated to `#2C5282` (matches the new
+  `--color-primary`); `color-scheme: light dark` added so the browser
+  chrome can adapt.
+
+- `components/ThemeToggle.tsx` (new): three-state segmented control
+  (light / dark / system) with sun/moon/monitor icons. Renders as
+  `role="radiogroup"` with `role="radio"` buttons for accessibility.
+  i18n labels come from `lib/i18n/keys.ts`.
+
+- `components/ReportHeaderActions.tsx` (new): thin client wrapper that
+  renders the toggle in a server-component context (used by the
+  `/report/*` layout's sticky header).
+
+- `app/page.tsx`, `app/home/page.tsx`, `app/report/layout.tsx`: mounted
+  the toggle in three sites — welcome (top-right), home (top-bar right
+  cluster), and the report sticky header.
+
+- `lib/i18n/keys.ts`: added `theme.toggle.aria_label`, `theme.option.{light,
+  dark, system}`, `theme.option.{light, dark, system}_short`,
+  `theme.option.system_hint` — both `bn` and `en` authored.
+
+- `tests/unit/appearance.test.ts` (new): 10 tests covering validators,
+  resolver, theme class names, and localStorage round-trip with a tiny
+  fake-storage polyfill (vitest is in `node` environment).
+
+Verification:
+- `npx tsc --noEmit` — clean.
+- `npm run test:unit` — 57/57 passing (47 pre-existing + 10 new).
+- `npm run test:mockups` — 15/15 baselines still pass; mockups are static
+  HTML files, not the live app, so the token rename did not affect them
+  (no baseline re-capture needed).
+- Dev server: `CITYFIX_DEV_STORE=1 npx next dev` boots cleanly on port
+  3001; `/`, `/home`, `/report/location` all return 200; the rendered
+  HTML confirms `color: var(--color-on-primary)` on the primary CTA, the
+  AppearanceBoot inline script, the ThemeProvider, and the visible
+  toggle (system active by default).
+
+Decisions baked in:
+- Theme is client-only via localStorage; no `User.appearanceOverride` column.
+  Easy to add server-side in WO-004 if needed.
+- `.theme-outdoor` (Rashid's high-contrast) remains an explicit class —
+  not user-selectable in v1; surfaced via the design tokens but not the
+  toggle.
+- 24 hard-coded color lines across 7 files were intentionally NOT touched
+  in this pass — they're audit-follow-up and out of scope for the bug
+  fix. They will look wrong in dark mode until addressed in a follow-up
+  Bolt.
+
 
 

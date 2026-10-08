@@ -37,3 +37,42 @@ h1, h2, h3, h4 {
 [lang="bn"] {
   font-family: var(--font-body);
 }
+
+/*
+ * Home / City Activity grid (app/home/page.tsx).
+ *
+ * Two-region layout: map on the left, side panel on the right at ≥1025px;
+ * stacked (map top, side panel below) at narrower widths. Defined here
+ * (rather than as an inline <style> block in the page) so the rule ships
+ * with the global stylesheet and can't be out-prioritised by the page's
+ * own inline `style` attribute on the same node.
+ */
+.home-grid {
+  display: grid;
+  grid-template-rows: minmax(360px, 1fr) minmax(320px, 1fr);
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+@media (min-width: 1025px) {
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 480px;
+    grid-template-rows: 1fr;
+    grid-auto-flow: column;
+  }
+}
+
+/*
+ * Brand link (app/home/page.tsx) — keep "CityFix" + dot visible on
+ * narrow viewports by hiding the city name span when the brand can't
+ * fit it. The text-overflow ellipsis fallback in the inline style
+ * only fires once the parent <Link> would otherwise overflow its
+ * container; this media query provides an earlier, friendlier cut.
+ */
+@media (max-width: 640px) {
+  .home-brand-city {
+    display: none;
+  }
+}

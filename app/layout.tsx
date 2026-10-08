@@ -12,6 +12,8 @@
 
 import type { Metadata } from 'next';
 import './globals.css';
+import { AppearanceBoot } from './appearance-boot';
+import { ThemeProvider } from '@/lib/theme/ThemeProvider';
 
 export const metadata: Metadata = {
   title: {
@@ -30,7 +32,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0E5A4A', // matches --color-primary in tokens.css
+  themeColor: '#2C5282', // matches --color-primary in tokens.css
+  colorScheme: 'light dark',
 };
 
 export default function RootLayout({
@@ -39,7 +42,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="bn" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -48,7 +51,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <AppearanceBoot />
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

@@ -12,7 +12,8 @@
 
 import { cookies } from 'next/headers';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db-switch';
+import { isDevStore } from '@/lib/dev-store';
 import type { Role } from '@prisma/client';
 
 export const SESSION_COOKIE = 'cityfix_session';
@@ -70,27 +71,28 @@ export async function getSession(): Promise<SessionContext | null> {
   const sessionId = unpack(raw);
   if (!sessionId) return null;
 
-  const session = await prisma.session.findUnique({
+  const session = await db.session.findUnique({
     where: { id: sessionId },
   });
   if (!session) return null;
-  if (session.expiresAt < new Date()) {
+  const expiresAt =
+    session.expiresAt instanceof Date ? session.expiresAt : new Date(session.expiresAt);
+  if (expiresAt < new Date()) {
     // expired; clean up
-    await prisma.session.delete({ where: { id: sessionId } }).catch(() => {});
+    await db.session.delete({ where: { id: sessionId } }).catch(() => {});
     return null;
   }
 
   // Update last-seen (fire-and-forget; do not block the request).
-  prisma.session
+  db.session
     .update({
       where: { id: sessionId },
       data: { lastSeenAt: new Date() },
     })
     .catch(() => {});
 
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, role: true, cityId: true },
   });
   if (!user) return null;
 
@@ -115,7 +117,7 @@ export async function createSession(args: {
   departmentId: string | null;
 }): Promise<{ sessionId: string; cookieValue: string; expiresAt: Date }> {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  const session = await prisma.session.create({
+  const session = await db.session.create({
     data: {
       userId: args.userId,
       cityId: args.cityId,
@@ -124,15 +126,18 @@ export async function createSession(args: {
       expiresAt,
     },
   });
+  // In dev mode the cookie is a raw id (dev-session.ts reads it as-is).
+  // In prod the cookie is `<id>.<hmac>` to detect tampering.
+  const cookieValue = isDevStore() ? session.id : pack(session.id);
   return {
     sessionId: session.id,
-    cookieValue: pack(session.id),
+    cookieValue,
     expiresAt,
   };
 }
 
 export async function destroySession(sessionId: string): Promise<void> {
-  await prisma.session.delete({ where: { id: sessionId } }).catch(() => {});
+  await db.session.delete({ where: { id: sessionId } }).catch(() => {});
 }
 
 export function generateSessionId(): string {

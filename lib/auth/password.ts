@@ -22,8 +22,14 @@ const ARGON2_OPTIONS = {
 };
 
 export async function hashPassword(plaintext: string): Promise<string> {
-  if (plaintext.length < 12) {
-    throw new Error('Password must be at least 12 characters');
+  // Per UX spec 1.3-registration: minimum 8 chars, ≥1 digit. The 12-char
+  // floor the platform layer initially proposed was overruled by the
+  // citizen UX posture — the spec is the source of truth for v1.
+  if (plaintext.length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
+  if (!/\d/.test(plaintext)) {
+    throw new Error('Password must contain at least one digit');
   }
   return hash(plaintext, ARGON2_OPTIONS);
 }

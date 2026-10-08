@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSession } from '@/lib/auth/session';
+import { getActiveSession } from '@/lib/db-switch';
 import { requireRole } from '@/lib/auth/guards';
 import { subscribeUser, unsubscribeUser } from '@/lib/platform/push';
 
@@ -22,7 +22,7 @@ const SubscribeInput = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   try {
     requireRole(session, 'citizen');
   } catch (e) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 const UnsubscribeInput = z.object({ endpoint: z.string().url() });
 
 export async function DELETE(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   try {
     requireRole(session, 'citizen');
   } catch (e) {
