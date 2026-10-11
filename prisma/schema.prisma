@@ -249,6 +249,14 @@ model Ticket {
   photoUrls       String[] @default([])
   // Internal-only note (dispatcher/crew see; citizens do not)
   internalNote    String?
+  // Dedup-confirm linkage (DISP-006). When the dispatcher
+  // confirms a dedup-decline flag, the citizen's ticket is closed
+  // and `duplicateOfId` is set to the existing ticket's id.
+  // `closeReason` records WHY the ticket was closed
+  // ('duplicate' for confirmed dedups; 'cancelled' for dispatcher-
+  // cancelled tickets; 'resolved' for the normal close path).
+  duplicateOfId   String?
+  closeReason     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   resolvedAt      DateTime?
@@ -258,7 +266,11 @@ model Ticket {
   category   Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   reporter   User         @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: Restrict)
   assignedCrew User?      @relation("TicketAssignedCrew", fields: [assignedCrewId], references: [id], onDelete: SetNull)
+  duplicateOf  Ticket?    @relation("TicketDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates   Ticket[]   @relation("TicketDuplicates")
   trail      TicketTrailEntry[]
+  dedupFlagsAsFlagged     DedupFlag[] @relation("DedupFlagFlaggedTicket")
+  dedupFlagsAsOriginal    DedupFlag[] @relation("DedupFlagOriginalTicket")
 
   @@index([cityId, status])
   @@index([cityId, wardId])
@@ -268,6 +280,7 @@ model Ticket {
   // PLAT-REQ-004 spatial index surrogate: a compound on (cityId, locationLat, locationLng)
   // gives Postgres enough to use BRIN if we add one; for v1 we filter post-query in JS.
   @@index([cityId, locationLat, locationLng])
+  @@index([duplicateOfId])
 }
 
 model TicketTrailEntry {
@@ -304,4 +317,40 @@ model AuditEntry {
   // Append-only — no UPDATE/DELETE allowed at the API layer.
   @@index([entityType, entityId])
   @@index([actorId, timestamp])
+}
+
+// =====================================================================
+// Dedup-decline flags (DISP-006) — citizen-declined dedup candidates
+// that the dispatcher confirms or dismisses.
+// =====================================================================
+
+enum DedupFlagStatus {
+  pending
+  confirmed
+  dismissed
+}
+
+model DedupFlag {
+  id                String   @id @default(cuid())
+  cityId            String
+  wardId            String                          // denormalised from the flagged ticket
+  departmentId      String?                         // denormalised from the flagged ticket's category
+  ticketId          String                          // the citizen's new ticket (the one that was flagged)
+  originalTicketId  String                          // the existing ticket it was near
+  citizenReason     String?                         // optional free-text the citizen provided on decline
+  status            DedupFlagStatus @default(pending)
+  flaggedAt         DateTime @default(now())
+  resolvedById      String?
+  resolvedAt        DateTime?
+
+  ticket         Ticket  @relation("DedupFlagFlaggedTicket", fields: [ticketId], references: [id], onDelete: Cascade)
+  originalTicket Ticket  @relation("DedupFlagOriginalTicket", fields: [originalTicketId], references: [id], onDelete: Cascade)
+
+  // One pending flag per (ticketId) — a ticket can be flagged
+  // against multiple originals across time, but only one
+  // pending flag at a time. Resolved flags stay for audit.
+  @@index([cityId, status])
+  @@index([cityId, wardId, status])
+  @@index([ticketId, status])
+  @@index([originalTicketId])
 }

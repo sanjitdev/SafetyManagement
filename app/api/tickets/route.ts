@@ -144,6 +144,8 @@ export async function POST(req: NextRequest) {
   // If the citizen declined a dedup match and re-submitted, log a separate
   // event the city-side review queue can surface in WO-002. The declined
   // ticket id and the new one stay linked by `(cityId, categoryId, coords)`.
+  // The decline ALSO creates a `DedupFlag` row (DISP-006) so the
+  // dispatcher can confirm / dismiss from /dispatcher/dedup.
   if (input.dedupDeclineTicketId) {
     await writeAudit({
       entityType: 'ticket',
@@ -154,6 +156,26 @@ export async function POST(req: NextRequest) {
         declinedMatchTicketId: input.dedupDeclineTicketId,
       },
     });
+    // Look up the original ticket so we can denormalise its
+    // ward / department for the dispatcher's scope filter.
+    const original = await db.ticket.findUnique({
+      where: { id: input.dedupDeclineTicketId },
+    });
+    if (original) {
+      const originalCategory = await db.category.findUnique({
+        where: { id: original.categoryId },
+      });
+      await db.dedupFlag.create({
+        data: {
+          cityId: created.cityId,
+          wardId: created.wardId,
+          departmentId: originalCategory?.departmentId ?? null,
+          ticketId: created.id,
+          originalTicketId: original.id,
+          citizenReason: null,
+        },
+      });
+    }
   }
 
   // Best-effort: subscribe the reporter for push on this ticket. The push

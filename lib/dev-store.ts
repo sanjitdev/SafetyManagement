@@ -112,6 +112,12 @@ export interface DevTicket {
   note: string | null;
   photoUrls: string[];
   internalNote: string | null;
+  // Dedup-confirm linkage (DISP-006). When the dispatcher
+  // confirms a dedup-decline flag, the citizen's ticket is closed
+  // and `duplicateOfId` is set to the existing ticket's id.
+  // `closeReason` records WHY the ticket was closed.
+  duplicateOfId: string | null;
+  closeReason: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
@@ -126,6 +132,20 @@ export interface DevAuditEntry {
   beforeValue: Record<string, unknown> | null;
   afterValue: Record<string, unknown> | null;
   timestamp: string;
+}
+
+export interface DevDedupFlag {
+  id: string;
+  cityId: string;
+  wardId: string;
+  departmentId: string | null;
+  ticketId: string;
+  originalTicketId: string;
+  citizenReason: string | null;
+  status: 'pending' | 'confirmed' | 'dismissed';
+  flaggedAt: string;
+  resolvedById: string | null;
+  resolvedAt: string | null;
 }
 
 export interface DevSession {
@@ -161,6 +181,7 @@ interface Store {
   audit: DevAuditEntry[];
   sessions: Map<string, DevSession>;
   otps: Map<string, DevOtpCode>;
+  dedupFlags: Map<string, DevDedupFlag>;
 }
 
 declare global {
@@ -335,17 +356,201 @@ function seed(): Store {
     languageOverride: null,
   });
 
+  // Seed home-feed demo tickets so the /home page renders non-empty
+  // states for the four filter pills (Bolt 002-002 visual baselines).
+  // Statuses: one submitted, one in_progress, one resolved, one closed.
+  // The `closed` row is not exposed as a pill — it is included so the
+  // `all` pill visibly contains it and the per-status pills do not.
+  //
+  // NOTE: these seed tickets share the dev ward with the unit tests
+  // under `tests/unit/dev-store.test.ts`. To avoid colliding with
+  // those test fixtures (which create their own tickets with
+  // `cat_streetlight`), the seed here is keyed to a different
+  // `categoryId` (`cat_other`) that no test uses. The home page's
+  // `ActivityCard` reads the localised category name via
+  // `serializeTicketForRole`, so `cat_other` is a deliberate,
+  // visible choice for the citizen ("Other" / "অন্যান্য") and not
+  // a debug-only marker.
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const tickets = new Map<string, DevTicket>();
+  const trail: DevTrailEntry[] = [];
+  const seedTickets: DevTicket[] = [
+    {
+      id: 'ticket_seed_submitted_1',
+      cityId,
+      wardId,
+      categoryId: catIds.other,
+      reporterId: citizenId,
+      assignedCrewId: null,
+      status: 'submitted',
+      locationLng: DHAKA_CENTER.lng + 0.004,
+      locationLat: DHAKA_CENTER.lat + 0.003,
+      locationLabel: 'Mirpur 10, near the bazaar',
+      locationLabelBn: 'মিরপুর ১০, বাজারের কাছে',
+      note: 'Streetlight has been out for 3 nights. The intersection is dangerous after dark.',
+      photoUrls: [],
+      internalNote: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 1 * day).toISOString(),
+      updatedAt: new Date(now - 1 * day).toISOString(),
+      resolvedAt: null,
+    },
+    {
+      id: 'ticket_seed_routed_1',
+      cityId,
+      wardId,
+      categoryId: catIds.streetlight,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'routed',
+      locationLng: DHAKA_CENTER.lng + 0.002,
+      locationLat: DHAKA_CENTER.lat + 0.002,
+      locationLabel: 'Mirpur 12, side road',
+      locationLabelBn: 'মিরপুর ১২, পাশের সড়ক',
+      note: 'Streetlight pole leaning after the storm. Live wires may be exposed.',
+      photoUrls: [],
+      internalNote: 'Crew dispatched; please verify the wire casing before starting work.',
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 2 * day).toISOString(),
+      updatedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      resolvedAt: null,
+    },
+    {
+      id: 'ticket_seed_inprogress_1',
+      cityId,
+      wardId,
+      categoryId: catIds.pothole,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'in_progress',
+      locationLng: DHAKA_CENTER.lng - 0.002,
+      locationLat: DHAKA_CENTER.lat + 0.001,
+      locationLabel: 'Mirpur 14, main road',
+      locationLabelBn: 'মিরপুর ১৪, প্রধান সড়ক',
+      note: 'Deep pothole near the bus stop. Two motorcycles have fallen.',
+      photoUrls: [],
+      internalNote: 'Crew dispatched; ETA tomorrow morning.',
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 4 * day).toISOString(),
+      updatedAt: new Date(now - 1 * day).toISOString(),
+      resolvedAt: null,
+    },
+    {
+      id: 'ticket_seed_resolved_1',
+      cityId,
+      wardId,
+      categoryId: catIds.drainage,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'resolved',
+      locationLng: DHAKA_CENTER.lng + 0.001,
+      locationLat: DHAKA_CENTER.lat - 0.002,
+      locationLabel: 'Mirpur 11, side lane',
+      locationLabelBn: 'মিরপুর ১১, পাশের গলি',
+      note: 'Drainage blocked; water pooling after rain.',
+      photoUrls: [],
+      internalNote: 'Cleared by waste-management crew.',
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 10 * day).toISOString(),
+      updatedAt: new Date(now - 2 * day).toISOString(),
+      resolvedAt: new Date(now - 2 * day).toISOString(),
+    },
+    {
+      id: 'ticket_seed_closed_1',
+      cityId,
+      wardId,
+      categoryId: catIds.garbage,
+      reporterId: citizenId,
+      assignedCrewId: null,
+      status: 'closed',
+      locationLng: DHAKA_CENTER.lng - 0.004,
+      locationLat: DHAKA_CENTER.lat - 0.003,
+      locationLabel: 'Mirpur 13, residential block',
+      locationLabelBn: 'মিরপুর ১৩, আবাসিক ব্লক',
+      note: 'Garbage has not been collected for a week.',
+      photoUrls: [],
+      internalNote: 'Duplicate of an earlier ticket; closed by dispatcher.',
+      duplicateOfId: null,
+      closeReason: 'duplicate',
+      createdAt: new Date(now - 20 * day).toISOString(),
+      updatedAt: new Date(now - 5 * day).toISOString(),
+      resolvedAt: null,
+    },
+  ];
+  for (const t of seedTickets) tickets.set(t.id, t);
+  // One trail entry per seed ticket so getTicketWithTrail has rows.
+  // For tickets already past `submitted`, add a `routed` trail entry
+  // (dispatcher) and — for in_progress/resolved — a final trail entry
+  // matching the ticket's current status. This mirrors the production
+  // trail shape the crew sees on the detail page.
+  for (const t of seedTickets) {
+    trail.push({
+      id: `trail_seed_${t.id}`,
+      ticketId: t.id,
+      toStatus: 'submitted',
+      actorId: t.reporterId,
+      note: null,
+      timestamp: t.createdAt,
+    });
+    if (t.status === 'routed') {
+      trail.push({
+        id: `trail_seed_${t.id}_route`,
+        ticketId: t.id,
+        toStatus: 'routed',
+        actorId: 'user_dispatcher_habib',
+        note: null,
+        timestamp: t.updatedAt,
+      });
+    } else if (t.status === 'in_progress') {
+      trail.push({
+        id: `trail_seed_${t.id}_route`,
+        ticketId: t.id,
+        toStatus: 'routed',
+        actorId: 'user_dispatcher_habib',
+        note: null,
+        timestamp: new Date(
+          new Date(t.updatedAt).getTime() - 60 * 60 * 1000,
+        ).toISOString(),
+      });
+      trail.push({
+        id: `trail_seed_${t.id}_inprogress`,
+        ticketId: t.id,
+        toStatus: 'in_progress',
+        actorId: 'user_crew_rashid',
+        note: 'Crew on site; pothole marked for repair.',
+        timestamp: t.updatedAt,
+      });
+    } else if (t.status === 'resolved' || t.status === 'closed') {
+      trail.push({
+        id: `trail_seed_${t.id}_route`,
+        ticketId: t.id,
+        toStatus: 'routed',
+        actorId: 'user_dispatcher_habib',
+        note: null,
+        timestamp: new Date(
+          new Date(t.updatedAt).getTime() - 3 * 60 * 60 * 1000,
+        ).toISOString(),
+      });
+    }
+  }
+
   return {
     cities,
     wards,
     categories,
     departments,
     users,
-    tickets: new Map(),
-    trail: [],
+    tickets,
+    trail,
     audit: [],
     sessions: new Map(),
     otps: new Map(),
+    dedupFlags: new Map(),
   };
 }
 
@@ -531,12 +736,17 @@ export const devDb = {
       return typeof args.take === 'number' ? filtered.slice(0, args.take) : filtered;
     },
     create(args: {
-      data: Omit<DevTicket, 'id' | 'createdAt' | 'updatedAt' | 'resolvedAt'>;
+      data: Omit<DevTicket, 'id' | 'createdAt' | 'updatedAt' | 'resolvedAt' | 'duplicateOfId' | 'closeReason'> & {
+        duplicateOfId?: string | null;
+        closeReason?: string | null;
+      };
     }): DevTicket {
       const id = `tkt_${randomUUID().slice(0, 8)}`;
       const now = new Date().toISOString();
       const t: DevTicket = {
         ...args.data,
+        duplicateOfId: args.data.duplicateOfId ?? null,
+        closeReason: args.data.closeReason ?? null,
         id,
         createdAt: now,
         updatedAt: now,
@@ -666,6 +876,60 @@ export const devDb = {
           o.scope === args.where.scope &&
           o.createdAt >= args.where.since,
       ).length;
+    },
+  },
+  dedupFlag: {
+    findUnique(args: { where: { id: string } }): DevDedupFlag | null {
+      return getStore().dedupFlags.get(args.where.id) ?? null;
+    },
+    findMany(args: {
+      where?: {
+        cityId?: string;
+        status?: string;
+      };
+      orderBy?: { flaggedAt: 'asc' | 'desc' };
+    }): DevDedupFlag[] {
+      const all = [...getStore().dedupFlags.values()];
+      const filtered = all.filter((f) => {
+        for (const [k, v] of Object.entries(args.where ?? {})) {
+          if ((f as unknown as Record<string, unknown>)[k] !== v) return false;
+        }
+        return true;
+      });
+      filtered.sort((a, b) => {
+        const dir = args.orderBy?.flaggedAt === 'desc' ? -1 : 1;
+        return dir * (a.flaggedAt < b.flaggedAt ? -1 : 1);
+      });
+      return filtered;
+    },
+    create(args: {
+      data: Omit<DevDedupFlag, 'id' | 'flaggedAt' | 'status' | 'resolvedById' | 'resolvedAt'> & {
+        status?: 'pending' | 'confirmed' | 'dismissed';
+        resolvedById?: string | null;
+        resolvedAt?: string | null;
+      };
+    }): DevDedupFlag {
+      const id = `df_${randomUUID().slice(0, 8)}`;
+      const entry: DevDedupFlag = {
+        ...args.data,
+        id,
+        status: args.data.status ?? 'pending',
+        flaggedAt: new Date().toISOString(),
+        resolvedById: args.data.resolvedById ?? null,
+        resolvedAt: args.data.resolvedAt ?? null,
+      };
+      getStore().dedupFlags.set(id, entry);
+      return entry;
+    },
+    update(args: {
+      where: { id: string };
+      data: Partial<DevDedupFlag>;
+    }): DevDedupFlag {
+      const cur = getStore().dedupFlags.get(args.where.id);
+      if (!cur) throw new Error(`dedupFlag ${args.where.id} not found`);
+      const next: DevDedupFlag = { ...cur, ...args.data };
+      getStore().dedupFlags.set(args.where.id, next);
+      return next;
     },
   },
 };

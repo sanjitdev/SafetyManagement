@@ -274,6 +274,36 @@ export const db = {
             },
           }),
   },
+  dedupFlag: {
+    findUnique: (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.dedupFlag.findUnique(args)
+        : prismaClient.dedupFlag.findUnique(args),
+    findMany: (args: {
+      where?: { cityId?: string; status?: string };
+      orderBy?: { flaggedAt: 'asc' | 'desc' };
+    }) =>
+      isDevStore()
+        ? devDb.dedupFlag.findMany(args as never)
+        : prismaClient.dedupFlag.findMany(args as never),
+    create: (args: {
+      data: {
+        cityId: string;
+        wardId: string;
+        departmentId: string | null;
+        ticketId: string;
+        originalTicketId: string;
+        citizenReason: string | null;
+      };
+    }) =>
+      isDevStore()
+        ? devDb.dedupFlag.create({ data: args.data })
+        : prismaClient.dedupFlag.create({ data: args.data as never }),
+    update: (args: { where: { id: string }; data: Record<string, unknown> }) =>
+      isDevStore()
+        ? devDb.dedupFlag.update(args as never)
+        : prismaClient.dedupFlag.update(args as never),
+  },
 };
 
 export async function getActiveSession() {
