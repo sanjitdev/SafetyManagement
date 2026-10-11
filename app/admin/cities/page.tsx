@@ -139,6 +139,12 @@ export default function AdminCitiesPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/audit"
+            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+          >
+            {t('admin.audit.title', null, lang)}
+          </Link>
           <button
             type="button"
             className="text-xs text-slate-600"

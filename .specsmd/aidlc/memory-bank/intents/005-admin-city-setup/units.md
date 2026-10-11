@@ -74,11 +74,11 @@ real-provider interface contract).
 
 ### Unit 004: audit-dashboard
 
-**Status**: `ready`
+**Status**: `done`
 **Brief**:
 `004-audit-dashboard/unit-brief.md`
 **Stories**:
-- `004-audit-dashboard/ADM-007-audit-dashboard.md` (ready)
+- `004-audit-dashboard/ADM-007-audit-dashboard.md` (done)
 
 **Estimated Complexity**: M (1 new
 read-only API + 1 new page + cursor
@@ -230,6 +230,86 @@ bolt's own code; 235/235 unit tests
 baselines (no UI changes); dev
 server 200. Next: Bolt 005-004
 (audit dashboard).
+
+**Bolt 005-004 (2026-10-12)** — admin
+audit dashboard — shipped.
+`app/api/v1/admin/audit/route.ts`
+(GET only; Zod-validated
+`actorId`, `action` comma-list,
+`entityType` comma-list against the
+closed ADR-012 union, `from`, `to`,
+`cursor`, `limit`; returns
+`{ entries, nextCursor }`; 401/403/
+400/500 via the established
+`ApiError` shape);
+`lib/admin/audit-query.ts` (the
+`buildWhere(input)` test seam +
+`clampLimit` + `listAuditEntries`
+with `take: limit + 1` "has more"
+detection + `hydrateActors` fan-out
+for `actorName` server-side);
+`lib/db-switch.ts` delta
+(`db.audit.findMany` mirroring the
+queue route's shape); `lib/dev-store.ts`
+delta (5 seed `AuditEntry` rows
+covering `otp_send_failed`,
+`ward_create`, `dedup_update`,
+`category_create`, `city_create`
+spanning -24h → -1m so the visual
+baseline is deterministic);
+`app/admin/audit/page.tsx` (auth
+gate via `/api/auth/status`, URL
+state via `useSearchParams` +
+`history.replaceState`, 30s polling
+with `cursorRef` stale-closure-safe
+pattern, 288px filter rail + flex-1
+table surface);
+`components/AdminAuditFilters.tsx`
+(uncontrolled inputs, single-select
+entity type for v1, `toLocalInput`
+datetime-local helper);
+`components/AdminAuditTable.tsx`
+(6-col table: timestamp locale-
+formatted per lang, actor, action,
+entity type chip, entity id
+truncated, expand chevron → before/
+after JSON in `<pre>` tags; 5
+skeleton rows on loading; single-
+row empty/error);
+`lib/i18n/keys.ts` delta (22 new
+`admin.audit.*` keys, bilingual
+`{ bn, en }`);
+`app/admin/cities/page.tsx` delta
+(header pill → `/admin/audit`).
+14 new Vitest checks in
+`tests/unit/audit-query.test.ts`
+(9 for `buildWhere` — default 7d
+window, actorId, action collapses
+to string vs `in:`, entityType same
+pattern, from/to override, cursor
+adds `createdAt.lt`, no cursor omits
+`lt`; 5 for `clampLimit` — 200→100,
+0→1, undefined→50, NaN→50, 50→50);
+1 new Playwright spec
+`tests/18-admin-audit-light.spec.ts`
+(9 API checks: 401 no session, 403
+`forbidden_role` citizen, 200 admin
++ 5 entries + nextCursor null,
+`?actorId=user_admin_dncc` → 4,
+`?action=create` → 3,
+`?entityType=user` → 1,
+`?from=-10m&to=now` → 2,
+`?limit=2` → 2 + non-null cursor,
+`?entityType=garbage` → 400
+`invalid_input`; + 1 visual baseline
+`admin-audit-1440x900.png` with the
+first row open showing the
+`twilio_api_error` JSON). 249/249
+unit tests (235 + 14 new); 15/15
+mockups (no regression); tsc clean
+for the bolt's own code; dev server
+200. Intent 005 is **done** end to
+end.
 
 The unit decomposition is the 4 units from the
 `draft` phase, revised at entry to active

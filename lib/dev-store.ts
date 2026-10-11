@@ -637,7 +637,83 @@ function seed(): Store {
     users,
     tickets,
     trail,
-    audit: [],
+    /**
+     * Bolt 005-004 — audit dashboard seed. Five deterministic rows
+     * so the visual baseline captures a non-empty table.
+     * Timestamps are relative to `Date.now()` so the row order
+     * is stable across test runs.
+     */
+    audit: [
+      {
+        id: 'aud_seed_otp_fail',
+        entityType: 'user',
+        entityId: 'user_citizen_rahim',
+        action: 'otp_send_failed',
+        actorId: 'user_citizen_rahim',
+        beforeValue: null,
+        afterValue: {
+          phone: '+8801712345678',
+          provider: 'twilio',
+          error: 'twilio_api_error',
+        },
+        timestamp: new Date(now - 1 * 60_000).toISOString(),
+      },
+      {
+        id: 'aud_seed_ward_create',
+        entityType: 'ward',
+        entityId: 'ward_14',
+        action: 'create',
+        actorId: 'user_admin_dncc',
+        beforeValue: null,
+        afterValue: {
+          number: 14,
+          name: 'Ward 14',
+          nameBn: 'ওয়ার্ড ১৪',
+        },
+        timestamp: new Date(now - 5 * 60_000).toISOString(),
+      },
+      {
+        id: 'aud_seed_dedup_update',
+        entityType: 'city',
+        entityId: 'city_dhaka_north',
+        action: 'update',
+        actorId: 'user_admin_dncc',
+        beforeValue: { dedupRadiusMeters: 50 },
+        afterValue: { dedupRadiusMeters: 100 },
+        timestamp: new Date(now - 30 * 60_000).toISOString(),
+      },
+      {
+        id: 'aud_seed_category_create',
+        entityType: 'category',
+        entityId: 'cat_streetlight',
+        action: 'create',
+        actorId: 'user_admin_dncc',
+        beforeValue: null,
+        afterValue: {
+          slug: 'streetlight',
+          name: 'Streetlight',
+          nameBn: 'বাতি',
+          departmentId: 'dept_streetlight',
+        },
+        timestamp: new Date(now - 60 * 60_000).toISOString(),
+      },
+      {
+        id: 'aud_seed_city_create',
+        entityType: 'city',
+        entityId: 'city_dhaka_north',
+        action: 'create',
+        actorId: 'user_admin_dncc',
+        beforeValue: null,
+        afterValue: {
+          slug: 'dhaka-north',
+          name: 'Dhaka North City Corporation',
+          nameBn: 'ঢাকা উত্তর সিটি কর্পোরেশন',
+          defaultLanguage: 'bn',
+          dedupRadiusMeters: 50,
+        },
+        timestamp: new Date(now - 24 * 60 * 60_000).toISOString(),
+      },
+    ],
     sessions: new Map(),
     otps: new Map(),
     dedupFlags: new Map(),
@@ -1157,6 +1233,72 @@ export const devDb = {
       };
       getStore().audit.push(entry);
       return entry;
+    },
+    /**
+     * Bolt 005-004 — audit dashboard read surface. The dev-store
+     * audit shape is `DevAuditEntry` (timestamp as ISO string;
+     * `actorId` flat on the row). The `where` clause mirrors the
+     * Prisma `auditEntry.findMany` shape with the dev-friendly
+     * ISO-string bounds on `createdAt` (the dev store keeps
+     * timestamps as ISO; Date.parse is used for comparisons).
+     */
+    findMany(args: {
+      where?: {
+        actorId?: string;
+        action?: string | { in: string[] };
+        entityType?: string | { in: string[] };
+        createdAt?: { gte?: string; lte?: string; lt?: string };
+      };
+      orderBy?: { createdAt: 'asc' | 'desc' };
+      take?: number;
+    }): DevAuditEntry[] {
+      const all = [...getStore().audit];
+      const filtered = all.filter((row) => {
+        if (args.where?.actorId && row.actorId !== args.where.actorId) {
+          return false;
+        }
+        if (args.where?.action) {
+          if (typeof args.where.action === 'string') {
+            if (row.action !== args.where.action) return false;
+          } else if (!args.where.action.in.includes(row.action)) {
+            return false;
+          }
+        }
+        if (args.where?.entityType) {
+          if (typeof args.where.entityType === 'string') {
+            if (row.entityType !== args.where.entityType) return false;
+          } else if (!args.where.entityType.in.includes(row.entityType)) {
+            return false;
+          }
+        }
+        if (args.where?.createdAt) {
+          const t = Date.parse(row.timestamp);
+          if (
+            args.where.createdAt.gte !== undefined &&
+            t < Date.parse(args.where.createdAt.gte)
+          ) {
+            return false;
+          }
+          if (
+            args.where.createdAt.lte !== undefined &&
+            t > Date.parse(args.where.createdAt.lte)
+          ) {
+            return false;
+          }
+          if (
+            args.where.createdAt.lt !== undefined &&
+            t >= Date.parse(args.where.createdAt.lt)
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+      const dir = args.orderBy?.createdAt === 'asc' ? 1 : -1;
+      filtered.sort((a, b) => dir * (a.timestamp < b.timestamp ? -1 : 1));
+      return args.take !== undefined
+        ? filtered.slice(0, args.take)
+        : filtered;
     },
   },
   session: {

@@ -342,6 +342,30 @@ export const db = {
             },
           })
         : prismaClient.auditEntry.create({ data: args.data as never }),
+    /**
+     * Bolt 005-004 — audit dashboard read surface. The dev store's
+     * findMany is a thin filter+sort+slice; the Prisma path uses
+     * the real `auditEntry.findMany(...)`.
+     */
+    findMany: async (args: {
+      where?: {
+        actorId?: string;
+        action?: string | { in: string[] };
+        entityType?: string | { in: string[] };
+        createdAt?: { gte?: string; lte?: string; lt?: string };
+      };
+      orderBy?: { createdAt: 'asc' | 'desc' };
+      take?: number;
+    }) => {
+      if (isDevStore()) {
+        return devDb.audit.findMany(args as never);
+      }
+      return ((await prismaClient.auditEntry.findMany(
+        args as never,
+      )) as unknown) as Awaited<
+        ReturnType<typeof devDb.audit.findMany>
+      >;
+    },
   },
   session: {
     create: (args: {

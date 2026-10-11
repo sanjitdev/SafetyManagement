@@ -2,9 +2,9 @@
 unit: 004-audit-dashboard
 intent: 005-admin-city-setup
 phase: construction
-status: ready
+status: done
 created: 2026-10-12T05:30:00Z
-updated: 2026-10-12T05:30:00Z
+updated: 2026-10-12T22:00:00Z
 ---
 
 # Unit 004 — Audit Dashboard (Intent 005)

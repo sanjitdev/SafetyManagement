@@ -1141,6 +1141,42 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Dedup radius must be between 1 and 500 meters.',
   },
 
+  // WO-005 (Intent 005, Unit 004) — Audit dashboard (Bolt 005-004)
+  'admin.audit.title': { bn: 'অডিট লগ', en: 'Audit log' },
+  'admin.audit.subtitle': {
+    bn: 'প্ল্যাটফর্মের সব স্টেট-পরিবর্তনের অডিট ট্রেইল।',
+    en: 'Audit trail for every state change on the platform.',
+  },
+  'admin.audit.col.timestamp': { bn: 'সময়', en: 'Timestamp' },
+  'admin.audit.col.actor': { bn: 'কে', en: 'Actor' },
+  'admin.audit.col.action': { bn: 'কাজ', en: 'Action' },
+  'admin.audit.col.entityType': { bn: 'এন্টিটি', en: 'Entity' },
+  'admin.audit.col.entityId': { bn: 'আইডি', en: 'ID' },
+  'admin.audit.col.details': { bn: 'বিস্তারিত', en: 'Details' },
+  'admin.audit.filter.actor': {
+    bn: 'অভিনেতা (ID)',
+    en: 'Actor (ID)',
+  },
+  'admin.audit.filter.action': { bn: 'কাজ', en: 'Action' },
+  'admin.audit.filter.entityType': { bn: 'এন্টিটি ধরন', en: 'Entity type' },
+  'admin.audit.filter.from': { bn: 'শুরু', en: 'From' },
+  'admin.audit.filter.to': { bn: 'শেষ', en: 'To' },
+  'admin.audit.filter.apply': { bn: 'প্রয়োগ', en: 'Apply' },
+  'admin.audit.filter.reset': { bn: 'রিসেট', en: 'Reset' },
+  'admin.audit.empty': { bn: 'কোনো অডিট এন্ট্রি নেই', en: 'No audit entries' },
+  'admin.audit.error': {
+    bn: 'অডিট লোড করা যায়নি',
+    en: 'Could not load audit log',
+  },
+  'admin.audit.loading': { bn: 'লোড হচ্ছে...', en: 'Loading...' },
+  'admin.audit.loadMore': { bn: 'আরো লোড করুন', en: 'Load more' },
+  'admin.audit.back': {
+    bn: '← শহরসমূহে ফিরুন',
+    en: '← Back to cities',
+  },
+  'admin.audit.expand.before': { bn: 'আগে', en: 'Before' },
+  'admin.audit.expand.after': { bn: 'পরে', en: 'After' },
+
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
     bn: 'আজকের কাজ',

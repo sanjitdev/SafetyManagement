@@ -2336,3 +2336,273 @@ Playwright spec);
 `curl -fs http://localhost:3000/`
 200 (no new top-level routes).
 
+### 2026-10-12 — Bolt 005-004: Admin Audit Dashboard (DONE)
+
+**1. Bolt + Unit**
+
+`005-004-audit-dashboard` —
+Unit 004 of Intent 005
+(`005-admin-city-setup`). One
+`ddd-construction-bolt` per the
+unit-brief. Full record:
+`bolts/005-004-audit-dashboard/ddd-04-bolt-record.md`.
+
+**2. What shipped**
+
+The read-only `/admin/audit`
+dashboard: a 1 API + 1 page + 2
+components surface that lists every
+`AuditEntry` row in the system with
+filter + cursor pagination + 30 s
+polling on the first page.
+
+- `app/api/v1/admin/audit/route.ts` —
+  GET only; Zod-validated query
+  (`actorId`, `action` comma-list,
+  `entityType` comma-list against
+  the closed ADR-012 union, `from`,
+  `to`, `cursor`, `limit`); returns
+  `{ entries, nextCursor }`; 401
+  `unauthenticated` / 403
+  `forbidden_role` / 400
+  `invalid_input` / 500 `unhandled`
+  via the established `ApiError`
+  shape.
+- `lib/admin/audit-query.ts` — the
+  `buildWhere(input)` test seam +
+  `clampLimit(input)` (1..100,
+  default 50) + `listAuditEntries`
+  with `take: limit + 1` "has more"
+  detection + `hydrateActors` fan-
+  out (N+1 by actor, not by row) for
+  `actorName` server-side.
+- `lib/db-switch.ts` delta —
+  `db.audit.findMany` mirroring the
+  queue route's shape, with the
+  `isDevStore()` branch.
+- `lib/dev-store.ts` delta — 5
+  seed `AuditEntry` rows
+  (`aud_seed_otp_fail`,
+  `aud_seed_ward_create`,
+  `aud_seed_dedup_update`,
+  `aud_seed_category_create`,
+  `aud_seed_city_create`) spanning
+  -24 h → -1 m so the visual baseline
+  is deterministic + a 30-line
+  `findMany` filter loop.
+- `app/admin/audit/page.tsx` —
+  `'use client'`; auth gate via
+  `/api/auth/status`; URL state via
+  `useSearchParams` +
+  `history.replaceState`; 30 s
+  `setInterval` polling on the
+  current view with a `cursorRef`
+  pattern for stale-closure safety;
+  288 px filter rail + flex-1
+  table surface; bilingual labels
+  via the dispatcher's
+  `cityfix.preferred_language.v1`
+  key.
+- `components/AdminAuditFilters.tsx` —
+  uncontrolled inputs (state lives
+  in the URL, not the form); flushes
+  to the parent on `Apply`; single-
+  select `entityType` for v1 (multi
+  is v1.1); `toLocalInput` helper
+  for `datetime-local` ISO
+  conversion.
+- `components/AdminAuditTable.tsx` —
+  6-col table (timestamp locale-
+  formatted per lang, actor, action,
+  entity-type chip, entity id
+  truncated to 14 + ellipsis + a
+  `title` attr, expand chevron);
+  expand slot is a 2-col grid with
+  `beforeValue` + `afterValue` JSON
+  in `<pre>` tags; 5 skeleton rows
+  on loading; single-row empty/error.
+- `lib/i18n/keys.ts` delta — 22
+  new `admin.audit.*` keys, all
+  `{ bn, en }`.
+- `app/admin/cities/page.tsx`
+  delta — header pill
+  → `/admin/audit` in the same row
+  as the existing "Set up new city"
+  CTA.
+- `tests/unit/audit-query.test.ts` —
+  14 Vitest checks in 2 describe
+  blocks (`buildWhere` × 9,
+  `clampLimit` × 5).
+- `tests/18-admin-audit-light.spec.ts` —
+  9 API checks (401 no session,
+  403 `forbidden_role` citizen,
+  200 admin + 5 entries + nextCursor
+  null, `?actorId=user_admin_dncc` →
+  4, `?action=create` → 3,
+  `?entityType=user` → 1,
+  `?from=-10m&to=now` → 2,
+  `?limit=2` → 2 + non-null cursor,
+  `?entityType=garbage` → 400) + 1
+  visual baseline
+  (`admin-audit-1440x900.png`) at
+  1440×900 with the first row open
+  showing the `twilio_api_error`
+  JSON in the after-value pane.
+
+**3. Acceptance mapping**
+
+ADM-007's 7 acceptance criteria are
+all met:
+
+- A1 (list) → 9th Playwright test
+  (200 + 5 entries + nextCursor
+  null).
+- A2 (filter by actor) → 4th test
+  (`?actorId=user_admin_dncc` → 4).
+- A3 (filter by action) → 5th
+  test (`?action=create` → 3).
+- A4 (date range) → 7th test
+  (`?from=-10m&to=now` → 2).
+- A5 (cursor pagination) → 8th
+  test (`?limit=2` → 2 + non-null
+  cursor); cursor stability
+  (strict `<` not `<=`) covered
+  by the Vitest `buildWhere` test.
+- A6 (read-only) → static review:
+  only `export async function GET`
+  ships in the route file; no
+  `POST` / `PUT` / `DELETE`.
+- A7 (cross-role denial) → 1st +
+  2nd tests (401 + 403
+  `forbidden_role`).
+
+Plus 3 bolt-specific criteria:
+
+- ADR-012 closed union: the
+  `?entityType=garbage` test
+  (9th) returns 400
+  `invalid_input`.
+- `actorName` server-side: the
+  test's `actorName.toContain('admin')`
+  assertion on the 4 admin rows
+  confirms the `hydrateActors` fan-
+  out is wired.
+- Visual baseline non-empty:
+  `admin-audit-1440x900.png` shows
+  the 5 rows in the table with the
+  first row open.
+
+**4. Status**
+
+Intent 005 (Admin City Setup) is
+**done** end to end. 4/4 bolts
+shipped (005-001 + 005-002 + 005-003
++ 005-004). All 4 units are
+`done`; all 7 stories (ADM-001
+through ADM-007) are `done`. The
+audit dashboard is the only
+read-only admin surface in v1;
+the `requireRole('admin')`-only
+guard (no `requireWebAuthn`)
+matches the read-side vs write-
+side policy from Bolt 005-001.
+
+**5. Verification**
+
+- `npx tsc --noEmit` — clean for
+  the bolt's own code; 16
+  pre-existing errors in
+  `dispatcher/dedupFlag`, `crew`
+  ticket trail, and the
+  dispatcher map route remain out
+  of scope and are not regressions.
+- `npm run test:unit` — 249/249
+  (235 + 14 new `audit-query`
+  checks).
+- `npm run test:mockups` — 15/15
+  (no UI changes to global mockup
+  HTML).
+- `npx playwright test
+  tests/18-admin-audit-light.spec.ts`
+  — 9/9 + 1/1 visual (12.0 s).
+- `curl -fs http://localhost:3000/`
+  — 200.
+
+**6. Decision register delta**
+
+- **ADR-013 (new)**: read-side
+  vs write-side guard policy for
+  the audit dashboard. Established
+  in Bolt 005-001; reaffirmed here
+  with the explicit
+  `requireRole('admin')`-only
+  call. WebAuthn remains a write-
+  side property.
+- **ADR-010 (amended)**: the
+  closed `AuditEntry.entityType`
+  union gains explicit coverage
+  in the audit query API: the
+  Zod schema validates against
+  the 6-value union; unknown
+  values return 400
+  `invalid_input`. The Prisma
+  boundary uses `as never` to
+  bridge the dev store's wider
+  string shape; no production
+  type drift.
+- **ADR-011 (reaffirmed)**: the
+  `entityId` field is the raw
+  Prisma ID; the page truncates
+  the display to 14 chars +
+  ellipsis + a `title` attr with
+  the full ID for accessibility.
+
+**7. Risks + follow-ups**
+
+- **Dev-store seed reset on
+  server restart**: the dev
+  store's `seed()` only runs at
+  server start, so a fresh dev
+  server is required for the new
+  `AuditEntry` rows to appear.
+  Playwright's `webServer` config
+  manages this automatically;
+  manual smoke tests need a server
+  restart. Filed in
+  `bolts/005-004-audit-dashboard/ddd-04-bolt-record.md`
+  under "Risks observed".
+- **Visual baseline fragility**:
+  the `otp_send_failed` row's
+  `afterValue` is the deterministic
+  stub payload from
+  `lib/auth/otp.ts:58` (`{
+  error: 'twilio_api_error' }`);
+  any future change to the stub's
+  error shape would require re-
+  baselining. Filed in the bolt
+  record.
+- **CSV export** (WO-004 §4.7)
+  remains a v1.1 follow-up per
+  the unit-brief's out-of-scope
+  list.
+- **Real-time updates** (WebSocket
+  / SSE) for the audit log remain
+  a v1.1 follow-up; the 30 s
+  polling cycle is the v1
+  contract.
+
+**8. Next in trunk**
+
+The construction loop's next
+focus is determined by the
+in-flight intent queue; Bolt
+005-004 is the closing bolt of
+Intent 005. The audit dashboard
+is the only navigation touch-
+point that lands in this bolt
+(the `/admin/audit` header pill
+in `/admin/cities`). No
+follow-on bolt is required from
+Intent 005.
+
+
