@@ -28,6 +28,21 @@ Thumbs.db
 # WDS module internals — should never be touched by anything but the WDS sync tool
 .wds/.cache/
 
+# Next.js auto-generated TypeScript shim (regenerated on every build)
+next-env.d.ts
+
+# Per-developer MCP server config (consumes env-var secrets; not for the shared repo)
+.mcp.json
+
+# Per-developer AI agent tooling installations (not project code)
+# Per AGENTS.md, the WDS standalone install lives outside the repo; these
+# four trees are local CLI/framework state for the AI-DLC + WDS + BMad stack
+# and would be reinstalled per-developer via their respective installers.
+.puku-cli/
+.specsmd/
+_bmad/
+.wds/
+
 # BEGIN AI-DLC:gitignore
 # Logs
 logs
