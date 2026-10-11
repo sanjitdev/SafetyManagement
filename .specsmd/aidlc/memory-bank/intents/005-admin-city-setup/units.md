@@ -2,7 +2,7 @@
 intent: 005-admin-city-setup
 phase: construction
 status: in-progress
-updated: 2026-10-12T07:30:00Z
+updated: 2026-10-12T18:15:00Z
 ---
 
 # Admin City Setup - Unit Decomposition
@@ -36,14 +36,14 @@ work is zero).
 
 ### Unit 002: city-config
 
-**Status**: `ready`
+**Status**: `done`
 **Brief**:
 `002-city-config/unit-brief.md`
 **Stories**:
-- `002-city-config/ADM-002-wards.md` (ready)
-- `002-city-config/ADM-003-categories.md` (ready)
-- `002-city-config/ADM-004-departments.md` (ready)
-- `002-city-config/ADM-005-dedup-radius.md` (ready)
+- `002-city-config/ADM-002-wards.md` (done)
+- `002-city-config/ADM-003-categories.md` (done)
+- `002-city-config/ADM-004-departments.md` (done)
+- `002-city-config/ADM-005-dedup-radius.md` (done)
 
 **Estimated Complexity**: XL (4 new pages
 + 4 new API surfaces + a Leaflet.draw
@@ -128,6 +128,56 @@ at 1440x900) all pass. Next: Bolt 005-002
 (city-config UI + APIs + Dhaka template),
 then 005-003 (real OTP provider), then
 005-004 (audit dashboard).
+
+**Bolt 005-002 (2026-10-12)** —
+city-config UI + APIs + Dhaka template —
+shipped. 4 new admin pages
+(`/admin/cities`,
+`/admin/cities/<id>/setup`,
+`/admin/cities/<id>/taxonomy`,
+`/admin/cities/<id>/wards`)
+with bilingual copy via
+`lib/i18n/keys.ts`; 8 new admin API
+route handlers
+(`/api/v1/admin/cities`,
+`/api/v1/admin/cities/[id]`,
+`/api/v1/admin/cities/[id]/{categories,departments,wards}`,
++ the per-entity PATCH/DELETE siblings);
+`lib/admin/dhaka-template.ts` (8
+departments, 8 categories sorted by
+slug ASC, 3 placeholder wards,
+`DHAKA_TEMPLATE_VERSION = '2026-10-12-v1'`)
++ the `applyDhakaTemplate(cityId,
+actorId)` function that writes one
+`AuditEntry` per created entity with
+`afterValue.snapshotVersion =
+DHAKA_TEMPLATE_VERSION`;
+`lib/admin/ward-polygon.ts`
+(`validatePolygon(raw)` — closed-ring +
+vertex-count + range + no-holes
+checks); `lib/auth/guards.ts`
+additions (`requireRole` accepts a
+single role or role list, the existing
+2-arg form is preserved). All routes
+gate on `requireRole(session, 'admin')`
++ `requireWebAuthn(session)`; the dev
+seam short-circuits both for the admin
+persona only. 3 new Vitest suites
+(`dhaka-template.test.ts` — 10 tests,
+`ward-polygon.test.ts` — 6 tests,
+`admin-scope.test.ts` — 5 tests)
++ 1 Playwright spec
+(`17-admin-cities-light.spec.ts` — 11
+API checks + 4 visual baselines at
+1440x900) all pass. `npx tsc --noEmit`
+clean for the bolt's own code; the
+16 pre-existing errors in
+`dispatcher/dedupFlag`, `crew` ticket
+trail, and the dispatcher map route
+remain out of scope and are not
+regressions. Next: Bolt 005-003 (real
+OTP provider), then 005-004 (audit
+dashboard).
 
 The unit decomposition is the 4 units from the
 `draft` phase, revised at entry to active

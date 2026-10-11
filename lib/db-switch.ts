@@ -23,34 +23,196 @@ export const useDevStore = (): boolean => isDevStore();
 
 export const db = {
   city: {
-    findUnique: (args: { where: { id: string } }) =>
+    findUnique: async (args: { where: { id: string } }) =>
       isDevStore()
         ? devDb.city.findUnique(args)
-        : prismaClient.city.findUnique(args),
+        : (await prismaClient.city.findUnique(args)) as Awaited<
+            ReturnType<typeof devDb.city.findUnique>
+          >,
     findUniqueBySlug: (args: { where: { slug: string } }) =>
       isDevStore()
         ? devDb.city.findUniqueBySlug(args)
         : prismaClient.city.findUnique(args),
+    findMany: () =>
+      isDevStore()
+        ? devDb.city.findMany()
+        : prismaClient.city.findMany(),
+    create: async (args: {
+      data: {
+        slug: string;
+        name: string;
+        nameBn: string | null;
+        defaultLanguage: 'bn' | 'en';
+        dedupRadiusMeters: number;
+      };
+    }) =>
+      isDevStore()
+        ? devDb.city.create(args)
+        : (await prismaClient.city.create({
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.city.create>>,
+    update: async (args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        defaultLanguage: 'bn' | 'en';
+        dedupRadiusMeters: number;
+      }>;
+    }) =>
+      isDevStore()
+        ? devDb.city.update(args as never)
+        : (await prismaClient.city.update({
+            where: args.where,
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.city.update>>,
+    delete: (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.city.delete(args)
+        : prismaClient.city.delete(args),
   },
   ward: {
     findFirst: (args: { where: { cityId: string }; orderBy?: { number: 'asc' | 'desc' } }) =>
       isDevStore()
         ? devDb.ward.findFirst(args)
         : prismaClient.ward.findFirst(args),
-    findUnique: (args: { where: { id: string } }) =>
-      isDevStore()
-        ? devDb.ward.findUnique(args)
-        : prismaClient.ward.findUnique(args),
-  },
-  category: {
     findMany: (args: { where: { cityId: string } }) =>
       isDevStore()
+        ? devDb.ward.findMany(args)
+        : prismaClient.ward.findMany({ where: args.where }),
+    findUnique: async (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.ward.findUnique(args)
+        : (await prismaClient.ward.findUnique(args)) as Awaited<
+            ReturnType<typeof devDb.ward.findUnique>
+          >,
+    create: async (args: {
+      data: {
+        cityId: string;
+        number: number;
+        name: string;
+        nameBn: string | null;
+        polygonGeoJson: string | null;
+      };
+    }) =>
+      isDevStore()
+        ? devDb.ward.create(args)
+        : (await prismaClient.ward.create({
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.ward.create>>,
+    update: async (args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        polygonGeoJson: string | null;
+      }>;
+    }) =>
+      isDevStore()
+        ? devDb.ward.update(args as never)
+        : (await prismaClient.ward.update({
+            where: args.where,
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.ward.update>>,
+    delete: (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.ward.delete(args)
+        : prismaClient.ward.delete(args),
+  },
+  department: {
+    findMany: (args: { where: { cityId: string } }) =>
+      isDevStore()
+        ? devDb.department.findMany(args)
+        : prismaClient.department.findMany({ where: args.where }),
+    findUnique: async (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.department.findUnique(args)
+        : (await prismaClient.department.findUnique(args)) as Awaited<
+            ReturnType<typeof devDb.department.findUnique>
+          >,
+    create: async (args: {
+      data: {
+        cityId: string;
+        slug: string;
+        name: string;
+        nameBn: string | null;
+      };
+    }) =>
+      isDevStore()
+        ? devDb.department.create(args)
+        : (await prismaClient.department.create({
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.department.create>>,
+    update: async (args: {
+      where: { id: string };
+      data: Partial<{ name: string; nameBn: string | null; slug: string }>;
+    }) =>
+      isDevStore()
+        ? devDb.department.update(args as never)
+        : (await prismaClient.department.update({
+            where: args.where,
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.department.update>>,
+    delete: (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.department.delete(args)
+        : prismaClient.department.delete(args),
+    countByCity: (args: { where: { cityId: string } }) =>
+      isDevStore()
+        ? devDb.department.countByCity(args)
+        : prismaClient.department.count({ where: args.where }),
+  },
+  category: {
+    findMany: async (args: { where: { cityId: string } }) =>
+      isDevStore()
         ? devDb.category.findMany(args)
-        : prismaClient.category.findMany(args),
-    findUnique: (args: { where: { id: string } }) =>
+        : (await prismaClient.category.findMany(args)) as Awaited<
+            ReturnType<typeof devDb.category.findMany>
+          >,
+    findUnique: async (args: { where: { id: string } }) =>
       isDevStore()
         ? devDb.category.findUnique(args)
-        : prismaClient.category.findUnique(args),
+        : (await prismaClient.category.findUnique(args)) as Awaited<
+            ReturnType<typeof devDb.category.findUnique>
+          >,
+    create: async (args: {
+      data: {
+        cityId: string;
+        departmentId: string | null;
+        slug: string;
+        name: string;
+        nameBn: string | null;
+        narrowCategoryPhotoCap: number | null;
+      };
+    }) =>
+      isDevStore()
+        ? devDb.category.create(args)
+        : (await prismaClient.category.create({
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.category.create>>,
+    update: async (args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        departmentId: string | null;
+        narrowCategoryPhotoCap: number | null;
+      }>;
+    }) =>
+      isDevStore()
+        ? devDb.category.update(args as never)
+        : (await prismaClient.category.update({
+            where: args.where,
+            data: args.data as never,
+          })) as Awaited<ReturnType<typeof devDb.category.update>>,
+    delete: (args: { where: { id: string } }) =>
+      isDevStore()
+        ? devDb.category.delete(args)
+        : prismaClient.category.delete(args),
+    countByCity: (args: { where: { cityId: string } }) =>
+      isDevStore()
+        ? devDb.category.countByCity(args)
+        : prismaClient.category.count({ where: args.where }),
   },
   user: {
     findUnique: (args: { where: { id: string } }) =>
@@ -100,7 +262,7 @@ export const db = {
       isDevStore()
         ? devDb.ticket.findFirst(args as never)
         : prismaClient.ticket.findFirst(args as never),
-    findMany: (args: {
+    findMany: async (args: {
       where?: Partial<{
         cityId: string;
         categoryId: string;
@@ -114,7 +276,9 @@ export const db = {
     }) =>
       isDevStore()
         ? devDb.ticket.findMany(args as never)
-        : prismaClient.ticket.findMany(args as never),
+        : ((await prismaClient.ticket.findMany(args as never)) as unknown) as Awaited<
+            ReturnType<typeof devDb.ticket.findMany>
+          >,
     create: (args: {
       data: {
         cityId: string;

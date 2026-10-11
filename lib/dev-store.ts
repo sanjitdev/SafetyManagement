@@ -54,6 +54,7 @@ export interface DevWard {
   number: number;
   name: string;
   nameBn: string | null;
+  polygonGeoJson: string | null;
 }
 
 export interface DevCategory {
@@ -257,6 +258,32 @@ function seed(): Store {
     defaultLanguage: 'bn',
     dedupRadiusMeters: 50,
   });
+  // Bolt 005-002 — two extra cities for
+  // the admin's cities overview:
+  //   - Dhaka-South (a sister city
+  //     that already has a few rows
+  //     seeded so its status is "live")
+  //   - Chattogram (empty so the
+  //     "Apply Dhaka template" button
+  //     has a non-trivial visual baseline)
+  const dhakaSouthId = 'city_dhaka_south';
+  cities.set(dhakaSouthId, {
+    id: dhakaSouthId,
+    slug: 'dhaka-south',
+    name: 'Dhaka South City Corporation',
+    nameBn: 'ঢাকা দক্ষিণ সিটি কর্পোরেশন',
+    defaultLanguage: 'bn',
+    dedupRadiusMeters: 50,
+  });
+  const chittagongId = 'city_chittagong';
+  cities.set(chittagongId, {
+    id: chittagongId,
+    slug: 'chittagong',
+    name: 'Chattogram City Corporation',
+    nameBn: 'চট্টগ্রাম সিটি কর্পোরেশন',
+    defaultLanguage: 'bn',
+    dedupRadiusMeters: 50,
+  });
 
   const wards = new Map<string, DevWard>();
   wards.set(wardId, {
@@ -265,6 +292,7 @@ function seed(): Store {
     number: 14,
     name: 'Ward 14 — Mirpur',
     nameBn: 'ওয়ার্ড ১৪ — মিরপুর',
+    polygonGeoJson: null,
   });
 
   const departments = new Map<string, DevDepartment>();
@@ -652,6 +680,52 @@ export const devDb = {
         [...getStore().cities.values()].find((c) => c.slug === args.where.slug) ?? null
       );
     },
+    findMany(): DevCity[] {
+      const list = [...getStore().cities.values()];
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      return list;
+    },
+    create(args: {
+      data: {
+        slug: string;
+        name: string;
+        nameBn: string | null;
+        defaultLanguage: 'bn' | 'en';
+        dedupRadiusMeters: number;
+      };
+    }): DevCity {
+      const id = `city_${args.data.slug.replace(/-/g, '_')}`;
+      const city: DevCity = {
+        id,
+        slug: args.data.slug,
+        name: args.data.name,
+        nameBn: args.data.nameBn,
+        defaultLanguage: args.data.defaultLanguage,
+        dedupRadiusMeters: args.data.dedupRadiusMeters,
+      };
+      getStore().cities.set(id, city);
+      return city;
+    },
+    update(args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        defaultLanguage: 'bn' | 'en';
+        dedupRadiusMeters: number;
+      }>;
+    }): DevCity {
+      const existing = getStore().cities.get(args.where.id);
+      if (!existing) {
+        throw new Error(`city ${args.where.id} not found`);
+      }
+      const updated: DevCity = { ...existing, ...args.data };
+      getStore().cities.set(args.where.id, updated);
+      return updated;
+    },
+    delete(args: { where: { id: string } }): void {
+      getStore().cities.delete(args.where.id);
+    },
   },
   ward: {
     findFirst(args: {
@@ -668,18 +742,166 @@ export const devDb = {
       );
       return list[0] ?? null;
     },
+    findMany(args: { where: { cityId: string } }): DevWard[] {
+      const list = [...getStore().wards.values()].filter(
+        (w) => w.cityId === args.where.cityId,
+      );
+      list.sort((a, b) => a.number - b.number);
+      return list;
+    },
     findUnique(args: { where: { id: string } }): DevWard | null {
       return getStore().wards.get(args.where.id) ?? null;
+    },
+    create(args: {
+      data: {
+        cityId: string;
+        number: number;
+        name: string;
+        nameBn: string | null;
+        polygonGeoJson: string | null;
+      };
+    }): DevWard {
+      const id = `ward_${args.data.cityId.replace(/^city_/, '')}_${args.data.number}`;
+      const ward: DevWard = {
+        id,
+        cityId: args.data.cityId,
+        number: args.data.number,
+        name: args.data.name,
+        nameBn: args.data.nameBn,
+        polygonGeoJson: args.data.polygonGeoJson,
+      };
+      getStore().wards.set(id, ward);
+      return ward;
+    },
+    update(args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        polygonGeoJson: string | null;
+      }>;
+    }): DevWard {
+      const existing = getStore().wards.get(args.where.id);
+      if (!existing) {
+        throw new Error(`ward ${args.where.id} not found`);
+      }
+      const updated: DevWard = { ...existing, ...args.data };
+      getStore().wards.set(args.where.id, updated);
+      return updated;
+    },
+    delete(args: { where: { id: string } }): void {
+      getStore().wards.delete(args.where.id);
+    },
+  },
+  department: {
+    findMany(args: { where: { cityId: string } }): DevDepartment[] {
+      const list = [...getStore().departments.values()].filter(
+        (d) => d.cityId === args.where.cityId,
+      );
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      return list;
+    },
+    findUnique(args: { where: { id: string } }): DevDepartment | null {
+      return getStore().departments.get(args.where.id) ?? null;
+    },
+    create(args: {
+      data: {
+        cityId: string;
+        slug: string;
+        name: string;
+        nameBn: string | null;
+      };
+    }): DevDepartment {
+      const id = `dept_${args.data.cityId.replace(/^city_/, '')}_${args.data.slug.replace(/-/g, '_')}`;
+      const dept: DevDepartment = {
+        id,
+        cityId: args.data.cityId,
+        slug: args.data.slug,
+        name: args.data.name,
+        nameBn: args.data.nameBn,
+      };
+      getStore().departments.set(id, dept);
+      return dept;
+    },
+    update(args: {
+      where: { id: string };
+      data: Partial<{ name: string; nameBn: string | null; slug: string }>;
+    }): DevDepartment {
+      const existing = getStore().departments.get(args.where.id);
+      if (!existing) {
+        throw new Error(`department ${args.where.id} not found`);
+      }
+      const updated: DevDepartment = { ...existing, ...args.data };
+      getStore().departments.set(args.where.id, updated);
+      return updated;
+    },
+    delete(args: { where: { id: string } }): void {
+      getStore().departments.delete(args.where.id);
+    },
+    countByCity(args: { where: { cityId: string } }): number {
+      return [...getStore().departments.values()].filter(
+        (d) => d.cityId === args.where.cityId,
+      ).length;
     },
   },
   category: {
     findMany(args: { where: { cityId: string } }): DevCategory[] {
-      return [...getStore().categories.values()].filter(
+      const list = [...getStore().categories.values()].filter(
         (c) => c.cityId === args.where.cityId,
       );
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      return list;
     },
     findUnique(args: { where: { id: string } }): DevCategory | null {
       return getStore().categories.get(args.where.id) ?? null;
+    },
+    create(args: {
+      data: {
+        cityId: string;
+        departmentId: string | null;
+        slug: string;
+        name: string;
+        nameBn: string | null;
+        narrowCategoryPhotoCap: number | null;
+      };
+    }): DevCategory {
+      const id = `cat_${args.data.cityId.replace(/^city_/, '')}_${args.data.slug.replace(/-/g, '_')}`;
+      const cat: DevCategory = {
+        id,
+        cityId: args.data.cityId,
+        departmentId: args.data.departmentId,
+        slug: args.data.slug,
+        name: args.data.name,
+        nameBn: args.data.nameBn,
+        narrowCategoryPhotoCap: args.data.narrowCategoryPhotoCap,
+      };
+      getStore().categories.set(id, cat);
+      return cat;
+    },
+    update(args: {
+      where: { id: string };
+      data: Partial<{
+        name: string;
+        nameBn: string | null;
+        departmentId: string | null;
+        narrowCategoryPhotoCap: number | null;
+      }>;
+    }): DevCategory {
+      const existing = getStore().categories.get(args.where.id);
+      if (!existing) {
+        throw new Error(`category ${args.where.id} not found`);
+      }
+      const updated: DevCategory = { ...existing, ...args.data };
+      getStore().categories.set(args.where.id, updated);
+      return updated;
+    },
+    delete(args: { where: { id: string } }): void {
+      getStore().categories.delete(args.where.id);
+    },
+    countByCity(args: { where: { cityId: string } }): number {
+      return [...getStore().categories.values()].filter(
+        (c) => c.cityId === args.where.cityId,
+      ).length;
     },
   },
   user: {

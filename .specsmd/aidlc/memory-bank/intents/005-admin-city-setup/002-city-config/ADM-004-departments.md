@@ -3,9 +3,9 @@ story: ADM-004-departments
 unit: 002-city-config
 intent: 005-admin-city-setup
 phase: construction
-status: ready
+status: done
 created: 2026-10-12T05:30:00Z
-updated: 2026-10-12T05:30:00Z
+updated: 2026-10-12T18:15:00Z
 ---
 
 # Story: ADM-004 — Department Management

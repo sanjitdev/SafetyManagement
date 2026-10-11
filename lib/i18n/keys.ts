@@ -1004,6 +1004,143 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Security key verified',
   },
 
+  // Intent 005 (Unit 002) — Admin city-config surfaces
+  'admin.cities.title': { bn: 'শহরসমূহ', en: 'Cities' },
+  'admin.cities.subtitle': {
+    bn: 'আপনি যেসব শহর পরিচালনা করেন',
+    en: 'Cities you administer',
+  },
+  'admin.cities.status.live': { bn: 'সক্রিয়', en: 'Live' },
+  'admin.cities.status.setup': {
+    bn: 'সেটআপ চলমান',
+    en: 'Setup in progress',
+  },
+  'admin.cities.status.paused': { bn: 'বিরতি', en: 'Paused' },
+  'admin.cities.col.name': { bn: 'নাম', en: 'Name' },
+  'admin.cities.col.status': { bn: 'অবস্থা', en: 'Status' },
+  'admin.cities.col.dispatchers': {
+    bn: 'ডিসপ্যাচার',
+    en: 'Dispatchers',
+  },
+  'admin.cities.col.crews': { bn: 'ক্রু', en: 'Crews' },
+  'admin.cities.col.ticketsPerDay': {
+    bn: 'প্রতিদিনের রিপোর্ট',
+    en: 'Reports / day',
+  },
+  'admin.cities.cta.newCity': { bn: 'নতুন শহর', en: 'Set up new city' },
+  'admin.cities.cta.view': { bn: 'দেখুন', en: 'View' },
+  'admin.cities.empty': {
+    bn: 'কোনো শহর নেই। "নতুন শহর" বোতাম চাপুন।',
+    en: 'No cities yet. Click "Set up new city" to add one.',
+  },
+  'admin.cities.viewAdoption': {
+    bn: 'গ্রহণযোগ্যতা দেখুন',
+    en: 'View adoption',
+  },
+
+  'admin.setup.title': { bn: 'শহর সেটআপ', en: 'City setup' },
+  'admin.setup.field.name': { bn: 'নাম', en: 'Name' },
+  'admin.setup.field.nameBn': { bn: 'বাংলা নাম', en: 'Bangla name' },
+  'admin.setup.field.defaultLanguage': {
+    bn: 'ডিফল্ট ভাষা',
+    en: 'Default language',
+  },
+  'admin.setup.field.timezone': { bn: 'সময় অঞ্চল', en: 'Timezone' },
+  'admin.setup.field.contactEmail': {
+    bn: 'যোগাযোগের ইমেইল',
+    en: 'Contact email',
+  },
+  'admin.setup.applyDhakaTemplate': {
+    bn: 'ঢাকা টেমপ্লেট প্রয়োগ করুন',
+    en: 'Apply Dhaka template',
+  },
+  'admin.setup.applyDhakaTemplate.confirm': {
+    bn: 'এটি ঢাকার বিভাগ, ক্যাটাগরি ও ওয়ার্ড টেমপ্লেট এই শহরে যোগ করবে। বিদ্যমান সারি সংরক্ষিত থাকবে।',
+    en: 'This will add the Dhaka template of departments, categories, and ward template to this city. Existing rows are preserved.',
+  },
+  'admin.setup.cta.save': { bn: 'সংরক্ষণ', en: 'Save' },
+
+  'admin.taxonomy.title': {
+    bn: 'বিভাগ ও ক্যাটাগরি',
+    en: 'Departments & categories',
+  },
+  'admin.taxonomy.dedupRadius': {
+    bn: 'ডিডাপ ব্যাসার্ধ (মিটার)',
+    en: 'Dedup radius (m)',
+  },
+  'admin.taxonomy.dedupRadius.helper': {
+    bn: 'একই অবস্থানের কাছাকাছি রিপোর্টকে ডিডাপ হিসেবে চিহ্নিত করার দূরত্ব',
+    en: 'Distance within which nearby reports are flagged as duplicates',
+  },
+  'admin.taxonomy.departments': { bn: 'বিভাগ', en: 'Departments' },
+  'admin.taxonomy.categories': { bn: 'ক্যাটাগরি', en: 'Categories' },
+  'admin.taxonomy.cta.newDept': {
+    bn: 'নতুন বিভাগ',
+    en: 'New department',
+  },
+  'admin.taxonomy.cta.newCat': {
+    bn: 'নতুন ক্যাটাগরি',
+    en: 'New category',
+  },
+  'admin.taxonomy.orphanWarning': {
+    bn: 'এই বিভাগে {n}টি ক্যাটাগরি আবদ্ধ আছে। মুছে ফেলার আগে সেগুলো অন্য বিভাগে সরান।',
+    en: 'This department has {n} categories. Move them to another department before deleting.',
+  },
+  'admin.taxonomy.narrowCategory': {
+    bn: 'সংকীর্ণ ক্যাটাগরি',
+    en: 'Narrow category',
+  },
+  'admin.taxonomy.photoCap': {
+    bn: 'ছবির সীমা',
+    en: 'Photo cap',
+  },
+  'admin.taxonomy.deptContact': {
+    bn: 'যোগাযোগের তথ্য',
+    en: 'Contact info',
+  },
+  'admin.taxonomy.saveDedup': { bn: 'সংরক্ষণ', en: 'Save' },
+
+  'admin.wards.title': {
+    bn: 'ওয়ার্ড ও সীমানা',
+    en: 'Wards & boundaries',
+  },
+  'admin.wards.cta.newWard': { bn: 'নতুন ওয়ার্ড', en: 'New ward' },
+  'admin.wards.cta.save': { bn: 'ওয়ার্ড সংরক্ষণ', en: 'Save ward' },
+  'admin.wards.cta.cancel': { bn: 'বাতিল', en: 'Cancel' },
+  'admin.wards.cta.delete': { bn: 'মুছুন', en: 'Delete' },
+  'admin.wards.cta.edit': { bn: 'সম্পাদনা', en: 'Edit' },
+  'admin.wards.preview': {
+    bn: 'প্রকাশের আগে পূর্বরূপ',
+    en: 'Preview before publish',
+  },
+  'admin.wards.legend.published': {
+    bn: 'প্রকাশিত',
+    en: 'Published',
+  },
+  'admin.wards.legend.draft': { bn: 'খসড়া', en: 'Draft' },
+  'admin.wards.legend.dhaka': { bn: 'ঢাকা জেলা', en: 'Dhaka district' },
+  'admin.wards.instruction': {
+    bn: 'মানচিত্রে ক্লিক করে ওয়ার্ডের সীমানা আঁকুন, তারপর সংরক্ষণ বোতাম চাপুন।',
+    en: 'Click on the map to draw the ward boundary, then click Save.',
+  },
+  'admin.wards.error.notClosed': {
+    bn: 'বহুভুজ বন্ধ হয়নি। প্রথম বিন্দুতে ফিরে ক্লিক করুন।',
+    en: 'Polygon not closed. Click the first vertex to close.',
+  },
+  'admin.wards.delete.confirm': {
+    bn: 'এই ওয়ার্ড মুছে ফেলতে চান?',
+    en: 'Delete this ward?',
+  },
+
+  'admin.confirm.title': { bn: 'নিশ্চিত করুন', en: 'Confirm' },
+  'admin.confirm.cta.confirm': { bn: 'নিশ্চিত', en: 'Confirm' },
+  'admin.confirm.cta.cancel': { bn: 'বাতিল', en: 'Cancel' },
+
+  'admin.dedup.outOfRange': {
+    bn: 'ডিডাপ ব্যাসার্ধ ১ থেকে ৫০০ মিটারের মধ্যে হতে হবে।',
+    en: 'Dedup radius must be between 1 and 500 meters.',
+  },
+
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
     bn: 'আজকের কাজ',

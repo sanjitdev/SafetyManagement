@@ -2023,4 +2023,171 @@ adds 1 new visual baseline for the
 Playwright spec, captured under
 `tests-mockups/baselines/16-admin-webauthn-light.spec.ts/`).
 
+### 2026-10-12 — Bolt 005-002: City config UI + APIs + Dhaka template (DONE)
 
+**1. What shipped**
+
+4 admin pages (`/admin/cities`,
+`/admin/cities/<id>/setup`,
+`/admin/cities/<id>/taxonomy`,
+`/admin/cities/<id>/wards`)
+with bilingual copy via
+`lib/i18n/keys.ts`; 8 new admin API
+route handlers under
+`/api/v1/admin/cities/*` (cities +
+categories + departments + wards,
+full CRUD on each, every write
+gated by `requireRole(session,
+'admin')` + `requireWebAuthn(session)`);
+`lib/admin/dhaka-template.ts`
+(`DHAKA_TEMPLATE` snapshot: 8
+departments, 8 categories sorted by
+slug ASC, 3 placeholder wards;
+`applyDhakaTemplate(cityId,
+actorId)` writes one `AuditEntry`
+per created entity with
+`afterValue.snapshotVersion =
+DHAKA_TEMPLATE_VERSION` =
+`'2026-10-12-v1'`);
+`lib/admin/ward-polygon.ts`
+(`validatePolygon(raw)` pure function
+covering `polygon_not_closed |
+polygon_too_few_vertices |
+invalid_polygon |
+coordinates_out_of_range`); dev
+seam (`DEV_SKIP_WEBAUTHN=1` honored
+only when `CITYFIX_DEV_STORE=1`)
+short-circuits the WebAuthn guard for
+the admin persona only.
+
+**2. Tests added**
+
+- `tests/unit/dhaka-template.test.ts`
+  (new) — 10 Vitest checks pinning
+  the template (version string, 8
+  departments, 8 categories, every
+  category binds to a real
+  department, categories sorted by
+  slug ASC, slugs unique, narrow
+  photo cap = 2, ward count = 3,
+  `applyDhakaTemplate` returns
+  correct counts).
+- `tests/unit/ward-polygon.test.ts`
+  (new) — 6 Vitest checks for
+  `validatePolygon` (closed triangle
+  accepted; unclosed ring, too-few
+  vertices, non-Polygon type,
+  out-of-range coordinates, multi-ring
+  all rejected with the right error
+  code).
+- `tests/unit/admin-scope.test.ts`
+  (new) — 5 Vitest checks pinning
+  the `requireRole` + `requireWebAuthn`
+  contract (401 not_authenticated on
+  null session; 403 forbidden_role on
+  citizen; 200 + session identity for
+  admin; 401 on null session for
+  requireWebAuthn; dev seam
+  short-circuit for admin).
+- `tests/17-admin-cities-light.spec.ts`
+  (new) — 15 Playwright checks (11
+  API: GET 401/403/200/404, POST
+  400-or-401, categories/departments/
+  wards list 200, PATCH 400-or-401,
+  categories + wards array shape; 4
+  visual baselines at 1440x900 for
+  the four admin pages). The dev
+  login uses
+  `page.context().request.post(...)`
+  to share the session cookie with
+  the subsequent `page.goto(...)`.
+- Paperwork: Unit 002 status flipped
+  to `done`; ADM-002, ADM-003,
+  ADM-004, ADM-005 all flipped to
+  `done` with updated timestamps;
+  `story-index.md` Intent 005 rows
+  updated; `bolts/005-002-city-config/ddd-04-bolt-record.md`
+  records the bolt's acceptance
+  mapping.
+
+**3. Acceptance walked through**
+
+ADM-002 (wards) + ADM-003 (categories)
++ ADM-004 (departments) + ADM-005
+(dedup radius) all pass. The
+criterion → evidence table is in
+`bolts/005-002-city-config/ddd-04-bolt-record.md`:
+
+- Cities overview: `app/admin/cities/page.tsx`
+  lists every city with name, status,
+  tickets/day + a "View" link.
+- Basic info: `app/admin/cities/[id]/setup/page.tsx`
+  PATCHes `City.name` + `defaultLanguage`.
+- Departments + categories: `app/admin/cities/[id]/taxonomy/page.tsx`
+  POST/PATCH/DELETE both, with
+  delete confirmation modal.
+- Wards: `app/admin/cities/[id]/wards/page.tsx`
+  POST/PATCH/DELETE both, polygon
+  validated server-side by
+  `validatePolygon`.
+- Dhaka template: "Apply Dhaka
+  template" CTA on the setup page
+  → `applyDhakaTemplate(cityId,
+  actorId)` writes 8 departments +
+  8 categories + 3 wards + 19
+  `AuditEntry` rows.
+- Audit: every write route calls
+  `writeAudit({ entityType,
+  entityId, action, actorId,
+  beforeValue, afterValue })` with
+  the `snapshotVersion` set to
+  `DHAKA_TEMPLATE_VERSION` for
+  template-sourced rows.
+- WebAuthn: every write route calls
+  `requireWebAuthn(session)`, which
+  is short-circuited by the dev
+  seam for admin sessions only.
+
+**4. Status**
+
+Intent 005 (Admin City Setup) is now
+2/4 bolts shipped (Bolts 005-001 +
+005-002). Unit 001 + Unit 002 are
+`done`; Units 003 + 004 are `ready`.
+ADM-001 + ADM-002 + ADM-003 + ADM-004
++ ADM-005 are `done`; ADM-006 + ADM-007
+are `ready`. The construction loop's
+next bolt is `005-003-real-otp-provider`
+(real OTP SMS provider wiring).
+
+Verification (per
+`aidlc/spaces/default/memory/project.md`
+Walking Skeleton): `tsc --noEmit`
+clean for the bolt's own code
+(the 16 pre-existing TS errors in
+`app/api/v1/dispatcher/dedup-flags/*` +
+`app/api/v1/crew/tickets/[id]/route.ts` +
+`app/api/v1/dispatcher/queue/route.ts` +
+`app/api/v1/dispatcher/map/tickets/route.ts` +
+`app/dispatcher/dedup/page.tsx` +
+`lib/db-switch.ts` (the `dedupFlag`
+facade) are out of scope per the
+Bolt 003-005 ready-for-checklist
+pattern — none of them regress in
+this bolt);
+`npm run test:unit` 217/217 (was
+193/193 before the bolt; +24 new
+checks from `dhaka-template.test.ts`
+(10) + `ward-polygon.test.ts` (6) +
+`admin-scope.test.ts` (5) + 3
+existing suites re-validated after
+the `lib/db-switch.ts` `Awaited<…>`
+cast additions);
+`npm run test:mockups` 15/15 (no
+mockup HTML was touched; the bolt
+adds 4 new visual baselines for
+the Playwright spec, captured under
+`tests-mockups/baselines/17-admin-cities.spec.ts/`);
+`npx playwright test
+tests/17-admin-cities-light.spec.ts`
+15/15.
