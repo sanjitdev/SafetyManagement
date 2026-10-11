@@ -209,6 +209,11 @@ Photo Capture (1-3 photos) → Report: Category Pick → Report: Note
 Reports Detail** (before/after photos) → City Activity Feed →
 Resolution Notification (push).
 
+**Running it:** see [`docs/running.md`](docs/running.md) for the
+full quickstart (in-memory dev store, no Postgres required) plus
+production-mode setup, available scripts, dev-login shortcut, API
+surface, and troubleshooting.
+
 ### Scenario 2 — Habib runs his ward's morning queue (7 screens)
 
 Login (web) → **Daily Queue Dashboard** (3-region filter / list /
@@ -579,7 +584,7 @@ Tolerance is **0.005** (per `team.md`).
 ├── _progress/                # 00-design-log.md — the project's progress record
 ├── aidlc/                    # AI-DLC memory bank (intents, units, stories, bolts)
 │   └── spaces/default/memory/ # org.md, team.md, project.md, phase rules
-├── docs/                     # idea.md (canonical problem statement)
+├── docs/                     # idea.md (canonical problem statement) + running.md (run guide)
 ├── AGENTS.md                 # WDS / agent skill setup for this project
 └── README.md                 # ← you are here
 ```
@@ -690,6 +695,7 @@ Private project; all rights reserved.
 ### Footnotes
 
 - Canonical problem statement: [`docs/idea.md`](docs/idea.md)
+- How to run the project: [`docs/running.md`](docs/running.md)
 - Canonical persona profiles: `design-artifacts/B-Trigger-Map/0{2,3,4,5}-persona-*.md`
 - Canonical scenario specs: `design-artifacts/C-UX-Scenarios/00-ux-scenarios.md`
 - Canonical design tokens: `design-artifacts/D-Design-System/01-Visual-Design/tokens.css`
