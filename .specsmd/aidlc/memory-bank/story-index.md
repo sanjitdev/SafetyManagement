@@ -3,7 +3,7 @@ standard: story-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-12T18:15:00Z
+updated: 2026-10-12T19:15:00Z
 ---
 
 # Story Index
@@ -106,7 +106,7 @@ bolt is `005-001-webauthn-and-auth`
 | ADM-003-categories | 002-city-config | done | Category management | `intents/005-admin-city-setup/002-city-config/ADM-003-categories.md` |
 | ADM-004-departments | 002-city-config | done | Department management | `intents/005-admin-city-setup/002-city-config/ADM-004-departments.md` |
 | ADM-005-dedup-radius | 002-city-config | done | Dedup radius override | `intents/005-admin-city-setup/002-city-config/ADM-005-dedup-radius.md` |
-| ADM-006-real-otp | 003-real-otp-provider | ready | Real OTP SMS provider | `intents/005-admin-city-setup/003-real-otp-provider/ADM-006-real-otp.md` |
+| ADM-006-real-otp | 003-real-otp-provider | done | Real OTP SMS provider | `intents/005-admin-city-setup/003-real-otp-provider/ADM-006-real-otp.md` |
 | ADM-007-audit-dashboard | 004-audit-dashboard | ready | Audit dashboard | `intents/005-admin-city-setup/004-audit-dashboard/ADM-007-audit-dashboard.md` |
 
 ## Status legend

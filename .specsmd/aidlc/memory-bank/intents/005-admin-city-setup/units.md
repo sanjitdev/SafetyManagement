@@ -2,7 +2,7 @@
 intent: 005-admin-city-setup
 phase: construction
 status: in-progress
-updated: 2026-10-12T18:15:00Z
+updated: 2026-10-12T19:15:00Z
 ---
 
 # Admin City Setup - Unit Decomposition
@@ -58,11 +58,11 @@ identical APIs to ship in lockstep.
 
 ### Unit 003: real-otp-provider
 
-**Status**: `ready`
+**Status**: `done`
 **Brief**:
 `003-real-otp-provider/unit-brief.md`
 **Stories**:
-- `003-real-otp-provider/ADM-006-real-otp.md` (ready)
+- `003-real-otp-provider/ADM-006-real-otp.md` (done)
 
 **Estimated Complexity**: M (env-var
 selection of the real provider;
@@ -178,6 +178,58 @@ remain out of scope and are not
 regressions. Next: Bolt 005-003 (real
 OTP provider), then 005-004 (audit
 dashboard).
+
+**Bolt 005-003 (2026-10-12)** — real
+OTP SMS provider — shipped.
+`lib/auth/otp-provider/types.ts`
+(`OtpProvider` + `OtpResult`
+discriminated union + `OtpError`
+string-literal union);
+`lib/auth/otp-provider/stub.ts`
+(dev / test provider, always-delivered,
+`console.info` for dev visibility);
+`lib/auth/otp-provider/twilio.ts`
+(real provider, 3-attempt retry on
+5xx with `[100, 200, 400]` ms
+backoff, immediate-fail on 4xx,
+constructor-time env-var validation);
+`lib/auth/otp-provider/index.ts`
+(`getOtpProvider()` factory keyed on
+`OTP_PROVIDER`, module-singleton
+cache, `__resetOtpProviderForTests`
+test seam); `lib/auth/otp.ts`
+extended with public
+`sendOtp(phone, code, actorId)` —
+the helper never throws, writes an
+`AuditEntry` with
+`action: 'otp_send_failed'`,
+`entityType: 'user'` on failure
+(ADR-012 keeps the
+`AuditWriteInput.entityType` union
+closed);
+`app/api/v1/auth/send-otp/route.ts`
+wired with the new call site
+(returns `502 sms_provider_failure`
+on delivery failure);
+`.env.example` updated with the four
+Twilio vars + the rewritten
+`OTP_PROVIDER` comment; `twilio@^4`
+added to `package.json`. ADR-012
+filed in `standards/decision-index.md`
+(Context, Decision, Consequences,
+6 alternatives rejected, 4
+follow-ups deferred). 18 new
+Vitest checks in
+`tests/unit/otp-provider.test.ts`
+cover the factory, the stub, the
+Twilio env validation, the retry
+semantics, and the public helper.
+`npx tsc --noEmit` clean for the
+bolt's own code; 235/235 unit tests
+(no regressions); 15/15 mockup
+baselines (no UI changes); dev
+server 200. Next: Bolt 005-004
+(audit dashboard).
 
 The unit decomposition is the 4 units from the
 `draft` phase, revised at entry to active

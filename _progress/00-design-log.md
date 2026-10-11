@@ -2191,3 +2191,148 @@ the Playwright spec, captured under
 `npx playwright test
 tests/17-admin-cities-light.spec.ts`
 15/15.
+
+### 2026-10-12 — Bolt 005-003: Real OTP SMS provider (DONE)
+
+**1. What shipped**
+
+`lib/auth/otp-provider/types.ts`
+(`OtpProvider` interface + `OtpResult`
+discriminated union on `delivered` +
+`OtpError` string-literal union);
+`lib/auth/otp-provider/stub.ts`
+(`StubProvider`, always-delivered,
+`console.info` for dev visibility);
+`lib/auth/otp-provider/twilio.ts`
+(`TwilioProvider`, constructor-time
+env-var validation, 3-attempt retry
+on 5xx with `[100, 200, 400]` ms
+backoff, immediate-fail on 4xx);
+`lib/auth/otp-provider/index.ts`
+(`getOtpProvider()` factory keyed on
+`OTP_PROVIDER`, module-singleton
+cache, `__resetOtpProviderForTests`
+seam). `lib/auth/otp.ts` extended
+with the public
+`sendOtp(phone, code, actorId)` —
+the helper never throws; on a
+failure it writes an `AuditEntry`
+with `entityType: 'user'`,
+`action: 'otp_send_failed'`,
+`afterValue: { phone, provider,
+error }` (ADR-012). The
+`app/api/v1/auth/send-otp/route.ts`
+is wired with the new call site
+and returns `502
+sms_provider_failure` on delivery
+failure. `.env.example` updated
+with the four Twilio vars + the
+rewritten `OTP_PROVIDER` comment.
+`twilio@^4.23.0` added to
+`package.json`. ADR-012 filed in
+`standards/decision-index.md`
+(Context, Decision, Consequences,
+6 alternatives rejected, 4
+follow-ups deferred).
+
+**2. Tests added**
+
+- `tests/unit/otp-provider.test.ts`
+  (new) — 18 Vitest checks
+  covering: `StubProvider` (3 —
+  always-delivered, console.info,
+  name), `TwilioProvider` env
+  validation (4 — throws on each
+  missing var, calls
+  `messages.create` with the right
+  shape), retry semantics (3 —
+  5xx × 2 then 200 succeeds after
+  3 attempts, 5xx exhausted returns
+  `twilio_api_error`, 4xx has no
+  retry), factory (5 — unset /
+  `stub` / `twilio` / unknown
+  throws / caches), `sendOtp`
+  public helper (3 — success path,
+  provider_misconfigured on
+  constructor throw, audit-on-
+  failure).
+
+**3. Acceptance walked through**
+
+ADM-006 (real OTP SMS provider)
+all 5 acceptance criteria pass.
+The criterion → evidence table is
+in
+`bolts/005-003-real-otp-provider/ddd-04-bolt-record.md`:
+
+- Stub provider:
+  `tests/unit/otp-provider.test.ts`
+  "always returns delivered: true"
+  + "logs the code".
+- Twilio provider:
+  `tests/unit/otp-provider.test.ts`
+  "calls messages.create with
+  to / from / body when env is
+  complete" asserts the
+  `messages.create` argument
+  shape.
+- Twilio 5xx retry:
+  `tests/unit/otp-provider.test.ts`
+  "retries 3 times on 5xx then
+  succeeds on the 3rd attempt"
+  asserts `create` called 3×,
+  `sleeps === [100, 200]`, result
+  `delivered: true`.
+- Twilio 4xx no-retry:
+  `tests/unit/otp-provider.test.ts`
+  "does NOT retry on 4xx (invalid
+  phone → immediate fail)" asserts
+  `create` called 1×, result
+  `delivered: false, error:
+  'twilio_api_error'`.
+- Missing env: the
+  "throws on missing TWILIO_AUTH_TOKEN
+  at construction" check + the
+  "records provider_misconfigured
+  when the provider constructor
+  throws" check cover acceptance 5
+  end-to-end (constructor throws →
+  `sendOtp` catches → audit row
+  records `action: 'otp_send_failed',
+  error: 'provider_misconfigured'`
+  → route returns 502).
+
+**4. Status**
+
+Intent 005 (Admin City Setup) is now
+3/4 bolts shipped (Bolts 005-001 +
+005-002 + 005-003). Units 001 + 002
++ 003 are `done`; Unit 004 is
+`ready`. ADM-001 + ADM-002 + ADM-003
++ ADM-004 + ADM-005 + ADM-006 are
+`done`; ADM-007 (audit dashboard) is
+`ready`. The construction loop's
+next bolt is `005-004-audit-dashboard`
+(cursor-paginated, filterable
+`GET /api/v1/admin/audit` +
+`app/admin/audit/page.tsx` + 1
+visual baseline at 1440×900).
+
+Verification (per
+`aidlc/spaces/default/memory/project.md`
+Walking Skeleton): `tsc --noEmit`
+clean for the bolt's own code
+(the 16 pre-existing TS errors
+remain out of scope; no new
+errors from this bolt);
+`npm run test:unit` 235/235 (was
+217/217; +18 new from
+`otp-provider.test.ts`);
+`npm run test:mockups` 15/15
+(no UI changes; the bolt is
+library-level — no new page,
+no new API route, no new
+Playwright spec);
+`curl -fs http://localhost:3000/`
+200 (no new top-level routes).
+

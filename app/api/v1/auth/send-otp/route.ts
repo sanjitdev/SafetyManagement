@@ -10,18 +10,29 @@
  * it in without an SMS gateway. **Never** include the code in the prod
  * response.
  *
+ * Bolt 005-003 (Intent 005, Unit 003, Story ADM-006):
+ * the SMS delivery goes through the provider-agnostic
+ * `sendOtp(...)` helper (lib/auth/otp.ts), which delegates
+ * to the `OtpProvider` resolved by `getOtpProvider()`
+ * (lib/auth/otp-provider). When the configured provider
+ * cannot deliver (Twilio 5xx exhausted retries, 4xx, or
+ * a misconfiguration throw), `sendOtp` writes an
+ * `AuditEntry` (`action: 'otp_send_failed'`) and the
+ * route returns 502 `sms_provider_failure`.
+ *
  * Errors:
  *   - 400 invalid_input
  *   - 404 no_pending_user (no user with that phone in this city)
  *   - 429 resend_cooldown (less than 60s since the last send)
- *   - 5xx SMS provider failure
+ *   - 502 sms_provider_failure (Bolt 005-003)
+ *   - 5xx SMS provider failure (legacy wording; the same path)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isDevStore } from '@/lib/dev-store';
 import { db } from '@/lib/db-switch';
-import { generateOtp, hashOtp, OTP_TTL_MS } from '@/lib/auth/otp';
+import { generateOtp, hashOtp, OTP_TTL_MS, sendOtp } from '@/lib/auth/otp';
 import { rateLimit } from '@/lib/platform/rate-limit';
 import { writeAudit } from '@/lib/platform/audit';
 
@@ -124,8 +135,25 @@ export async function POST(req: NextRequest) {
     afterValue: { scope, ttlMs: OTP_TTL_MS },
   });
 
-  // SMS provider integration deferred to WO-004. In dev mode we surface
-  // the code in the response so the QA flow can complete.
+  // Bolt 005-003 (ADR-012): SMS delivery via the
+  // provider-agnostic factory. The OtpCode row is already
+  // persisted (the citizen can still try to verify the
+  // code from another channel), but a 502 here tells the
+  // client to surface a "try again later" CTA. `sendOtp`
+  // itself writes the `otp_send_failed` audit row on
+  // failure.
+  const sendResult = await sendOtp(phone, code, user.id);
+  if (!sendResult.delivered) {
+    return NextResponse.json(
+      { error: 'sms_provider_failure', detail: sendResult.error },
+      { status: 502 },
+    );
+  }
+
+  // In dev mode we surface the code in the response so the
+  // QA flow can complete. The StubProvider's `console.info`
+  // adds a second dev-visible breadcrumb; the JSON response
+  // still carries `dev_code` for the QA persona.
   const isDev = process.env.NODE_ENV !== 'production' || isDevStore();
   return NextResponse.json(
     {
