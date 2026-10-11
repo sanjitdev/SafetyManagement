@@ -9,11 +9,12 @@ updated: 2026-10-12T01:30:00Z
 
 ## Units Overview
 
-This intent is **in-progress** (2026-10-11).
+This intent is **in-progress** (2026-10-12).
 Unit briefs and story specs are in place for
-all 5 units. The deferred Unit 005 (map view)
-has paperwork only; no construction work in
-this intent.
+all 5 units. Unit 005 (map view) was
+promoted from v1.1 deferred to v1 ready and
+shipped in Bolt 003-005. Units 001-005
+delivery notes are below.
 
 ### Unit 001: auth-and-scope
 
@@ -92,15 +93,42 @@ checks),
 13 new i18n keys. See
 `../../bolts/003-004-dedup-decline-review/ddd-01-bolt-record.md`.
 
-### Unit 005: map-view (deferred to v1.1)
+### Unit 005: map-view
 
-**Status**: `deferred`
+**Status**: `done`
 **Brief**: `005-map-view/unit-brief.md`
 **Stories**:
-- `005-map-view/DISP-007-dispatcher-map.md`
+- `005-map-view/DISP-007-dispatcher-map.md` — `done`
 
 **Estimated Complexity**: M (1 API +
-1 page; reuses inherited `MapView`).
+1 page + 1 client-only component;
+reuses the inherited OSM raster basemap
++ Dhaka District polygon overlay).
+
+**Delivered in Bolt 003-005** (2026-10-12):
+new `GET /api/v1/dispatcher/map/tickets`
+API (status + bbox + cross-city guards,
+in-scope filter matching the queue route's
+ward + department shape), new page
+`app/dispatcher/map/page.tsx` (auth-gated
+3-region layout, status filter, 30s polling,
+side panel on pin click), new
+client-only `components/DispatcherMap.tsx`
+(MapLibre GL JS + OSM raster + circle
+layer colored by status + cluster source
+for > 50 pins + selected-pin ring), new
+Playwright spec
+`tests/13-dispatcher-map-light.spec.ts`
+(6 API checks + 1 visual baseline at
+1440x900 light theme English labels),
+14 new i18n keys under `dispatcher.map.*`,
+header pills added in `/dispatcher` and
+`/dispatcher/dedup` linking to the new
+map page. The unit-brief + story paperwork
+was promoted from v1.1 deferred to v1
+ready at the start of the bolt per the
+design log's bolt-progress note. See
+`../../bolts/003-005-dispatcher-map-view/ddd-01-bolt-record.md`.
 
 ## Status
 
@@ -109,7 +137,10 @@ Active build (2026-10-12). Intent 002
 intent is `in-progress`. The unit
 decomposition is the 5 units from the
 `draft` phase, revised at entry to active
-build and now fully specced.
+build and now fully specced. All 5 units
+have delivery notes; Unit 005 was promoted
+from v1.1 deferred to v1 ready and shipped
+in Bolt 003-005.
 
 **Bolt progress** (2026-10-12):
 
@@ -129,7 +160,15 @@ build and now fully specced.
   mirror + 3 new APIs + 1 new page +
   1 spec + 1 visual baseline + 1 unit test
   + 13 i18n keys).
-- `003-005-map-view` — deferred to v1.1.
+- `003-005-map-view` — ✅ complete
+  (1 new API + 1 new page + 1 new
+  client-only component + 1 spec + 1
+  visual baseline + 14 i18n keys +
+  header pills in `/dispatcher` and
+  `/dispatcher/dedup`). Promoted from
+  v1.1 deferred to v1 ready at the start
+  of the bolt per the design log's
+  bolt-progress note.
 
 The unit decomposition is the 5 units from the
 `draft` phase, revised at entry to active
@@ -184,12 +223,20 @@ build and now fully specced:
   on denial as a backfill-or-on-write
   decision — see bolt plan). The triage
   queue (Unit 002) excludes pending flags.
-- **Unit 005 — map-view (deferred to v1.1)**:
-  the unit-brief and story spec are filed
-  for the v1.1 hand-off. No construction
-  work in this intent. The story is `Should`
-  priority; the bolt plan records the
-  deferral.
+- **Unit 005 — map-view**: new API
+  `GET /api/v1/dispatcher/map/tickets` +
+  new page `app/dispatcher/map/page.tsx` +
+  new client-only `components/DispatcherMap.tsx`
+  (MapLibre + OSM raster + circle layer +
+  cluster source for > 50 pins). Filter
+  shape matches the Unit 002 queue route
+  (city + ward + department). Pin click
+  opens a side panel with ticket summary +
+  "View ticket" link to
+  `/dispatcher/tickets/[id]`. Status filter
+  (All / Submitted / Routed / In progress)
+  on the left rail; legend below. 30s
+  polling. Pin clustering for > 50 pins.
 
 The unit dependency graph:
 
@@ -205,8 +252,10 @@ The unit dependency graph:
 ```
 
 Unit 005 (map view) is independent of Units
-002-004; it depends only on Unit 001. It is
-deferred to v1.1 anyway.
+002-004; it depends only on Unit 001. It
+shipped in Bolt 003-005 after being promoted
+from v1.1 deferred to v1 ready per the
+design log's bolt-progress note.
 
 ## Stories owned
 
@@ -218,7 +267,7 @@ deferred to v1.1 anyway.
 | DISP-004 | reassign | 003 | `done` |
 | DISP-005 | internal-notes | 003 | `done` |
 | DISP-006 | dedup-decline-review | 004 | `done` |
-| DISP-007 | dispatcher-map | 005 | **`pending`** (v1.1) |
+| DISP-007 | dispatcher-map | 005 | `done` |
 
 ## Bolt plan
 
@@ -255,8 +304,12 @@ sequence:
    + visual baseline. Updates Unit 002's
    queue query (the SQL filter is already
    in place; this bolt enables it).
-5. **Bolt 003-005** (Unit 005): deferred.
-   No construction work in this intent.
+5. **Bolt 003-005** (Unit 005): new
+   `app/api/v1/dispatcher/map/tickets/route.ts`
+   + new `app/dispatcher/map/page.tsx` +
+   new `components/DispatcherMap.tsx` +
+   `tests/13-dispatcher-map-light.spec.ts`
+   + visual baseline.
 
 Each bolt is a `ddd-construction-bolt`
 (no separate Construction-KB bolts; per

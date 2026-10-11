@@ -925,6 +925,61 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Could not load flags',
   },
 
+  // WO-002 (Intent 003, Unit 005) — Dispatcher map view (DISP-007)
+  'dispatcher.map.title': {
+    bn: 'মানচিত্র',
+    en: 'Map',
+  },
+  'dispatcher.map.subtitle': {
+    bn: 'আপনার এলাকায় সক্রিয় রিপোর্টের পিন — স্ট্যাটাস অনুযায়ী রঙ',
+    en: 'Active reports in your area — colored by status',
+  },
+  'dispatcher.map.cta': { bn: 'মানচিত্র', en: 'Map' },
+  'dispatcher.map.legend.title': {
+    bn: 'পিনের রঙ',
+    en: 'Pin color',
+  },
+  'dispatcher.map.legend.submitted': {
+    bn: 'নতুন',
+    en: 'Submitted',
+  },
+  'dispatcher.map.legend.routed': {
+    bn: 'রাউট',
+    en: 'Routed',
+  },
+  'dispatcher.map.legend.in_progress': {
+    bn: 'চলমান',
+    en: 'In progress',
+  },
+  'dispatcher.map.legend.cluster': {
+    bn: 'ক্লাস্টার',
+    en: 'Cluster',
+  },
+  'dispatcher.map.side.title': {
+    bn: 'রিপোর্টের সারাংশ',
+    en: 'Ticket summary',
+  },
+  'dispatcher.map.side.view': {
+    bn: 'বিস্তারিত দেখুন',
+    en: 'View ticket',
+  },
+  'dispatcher.map.side.close': {
+    bn: 'বন্ধ',
+    en: 'Close',
+  },
+  'dispatcher.map.empty': {
+    bn: 'এই ফিল্টারে কোনো পিন নেই',
+    en: 'No pins match this filter',
+  },
+  'dispatcher.map.error': {
+    bn: 'মানচিত্র লোড করা যায়নি',
+    en: 'Could not load the map',
+  },
+  'status.heading': {
+    bn: 'অবস্থা',
+    en: 'Status',
+  },
+
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
     bn: 'আজকের কাজ',

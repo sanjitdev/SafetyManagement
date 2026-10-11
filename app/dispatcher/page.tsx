@@ -405,6 +405,22 @@ export default function DispatcherPage() {
               lang,
             )}
           </Link>
+          <Link
+            href="/dispatcher/map"
+            lang={lang}
+            data-testid="dispatcher-map-link"
+            style={{
+              fontSize: 'var(--text-body-sm)',
+              color: 'var(--color-ink-secondary)',
+              textDecoration: 'none',
+              fontWeight: 'var(--weight-semibold)',
+              padding: 'var(--space-1) var(--space-3)',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {t('dispatcher.map.cta', null, lang)}
+          </Link>
           <button
             type="button"
             onClick={toggleLang}

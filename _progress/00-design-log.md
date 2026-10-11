@@ -1500,4 +1500,169 @@ code-complete**). Construction loop
 moves on to Bolt 003-005 (dispatcher map
 view) next.
 
+### 2026-10-12 — Bolt 003-005: Dispatcher map view (DONE)
+
+**1. Bolt intent**
+
+Bolt 003-005 (Unit 005 map-view) was
+promoted from v1.1 deferred to v1 ready
+per the design log's bolt-progress note
+("Construction loop moves on to Bolt
+003-005 next"). The unit-brief + DISP-007
+story paperwork carried "DEFERRED" markers
+that were flipped to `ready` / `done` at
+the start of the bolt. The bolt stands up
+the dispatcher's map-side surface
+(`/dispatcher/map`) — a MapLibre GL JS
+canvas centered on the dispatcher's city,
+rendering every in-scope ticket (status ∈
+{submitted, routed, in_progress}) as a
+circle pin colored by status. Clicking a
+pin opens a side panel with the ticket
+summary + a "View ticket" link to
+`/dispatcher/tickets/[id]`.
+
+**2. Deliverables**
+
+- `app/api/v1/dispatcher/map/tickets/route.ts`
+  (new) — `GET`. Zod-validated
+  `status` (single or comma-list of
+  {submitted, routed, in_progress}),
+  `bbox` (`swLat,swLng,neLat,neLng`),
+  `limit` (1-200, default 200), `cityId`
+  (must match the session or 403
+  `cross_city_access_denied`). Returns
+  `{ pins: Array<{ id, lat, lng, status,
+  categoryId, wardId, createdAt }> }`.
+  The pin shape is intentionally minimal;
+  the side panel re-fetches the full
+  record via `/api/v1/dispatcher/tickets/[id]`
+  on click-through. In-scope filter
+  matches the queue route's ward +
+  department shape.
+- `app/dispatcher/map/page.tsx` (new) —
+  auth-gated 3-region layout at 1440×900.
+  Top bar (brand + ward · department +
+  queue + dedup + map pills + lang +
+  theme). Left rail: status filter (All /
+  Submitted / Routed / In progress) +
+  legend + last-fetched timestamp.
+  Center: `DispatcherMap` canvas
+  (full-height, fill-parent) loaded via
+  `next/dynamic({ ssr: false })`. Right
+  side panel: opens on pin click
+  (absolute-positioned over the map's
+  right edge), shows the ticket summary
+  (category, ward, status pill, age,
+  lat/lng) + a "View ticket" link to
+  `/dispatcher/tickets/[id]`. 30 s
+  polling (matches the queue cadence).
+- `components/DispatcherMap.tsx` (new) —
+  client-only MapLibre GL JS canvas with
+  OSM raster tiles (same `OSM_TILE_URL`
+  + `OSM_ATTRIBUTION` constants as the
+  citizen-side `MapView`), Dhaka District
+  polygon overlay
+  (`DHAKA_DISTRICT_FEATURE_COLLECTION`),
+  and a `circle` layer with a data-driven
+  `circle-color` paint expression keyed
+  on status (amber / green / blue).
+  MapLibre's built-in `cluster: true`
+  source option is enabled when
+  `pins.length > 50` (the v1 set is small
+  so clustering is dormant; the path is
+  wired for v1.1 / v2 scale). Selected-
+  pin highlight ring is a second `circle`
+  layer with filter
+  `['==', ['get', 'id'], selectedPinId]`.
+  `ResizeObserver` calls `map.resize()` on
+  container changes. Refs (`pinsRef`,
+  `onPinClickRef`) keep the click handler
+  fresh without re-creating the map.
+- `app/dispatcher/page.tsx` (delta) +
+  `app/dispatcher/dedup/page.tsx`
+  (delta) — added `<Link>` pill to
+  `/dispatcher/map` in the same row as the
+  queue + dedup pills.
+- 14 new i18n keys under `dispatcher.map.*`
+  (title / subtitle / cta / legend.title /
+  legend.submitted / legend.routed /
+  legend.in_progress / legend.cluster /
+  side.title / side.view / side.close /
+  empty / error) + `status.heading`
+  (Bangla canonical + English for all).
+- `tests/13-dispatcher-map-light.spec.ts`
+  (new) — 6 API checks (dispatcher 200;
+  citizen 403; anonymous 401;
+  `?status=submitted` filter;
+  `?cityId=city_chittagong` 403
+  cross-city; `?bbox` narrows the result
+  set; out-of-scope ticket id never in
+  the pin set) + 1 visual baseline at
+  1440×900 light theme English labels
+  (`dispatcher-map-1440x900.png`).
+- Paperwork: `unit-brief.md` + `DISP-007`
+  story were promoted from v1.1 deferred
+  to v1 ready at the start of the bolt.
+  `units.md` Unit 005 flipped to `done`
+  with a delivery note; the bolt-progress
+  block was updated to ✅ complete.
+- Bolt record at
+  `.specsmd/aidlc/memory-bank/bolts/003-005-dispatcher-map-view/ddd-01-bolt-record.md`.
+
+**3. Acceptance walked through**
+
+DISP-007 (dispatcher map view): all 5
+acceptance criteria pass (pins render by
+status; out-of-scope hidden; click → side
+panel; clustering > 50 pins; cross-city
+denial). The criterion → evidence table
+is in
+`bolts/003-005-dispatcher-map-view/ddd-01-bolt-record.md`:
+
+- Pins render by status:
+  `components/DispatcherMap.tsx`'s
+  `circle` layer with the data-driven
+  `circle-color` paint expression.
+- Out-of-scope hidden: the API filters by
+  session cityId + wardId + departmentId
+  (the dev store's `findMany` does not yet
+  expose those clauses; the in-code filter
+  matches the queue route's shape).
+- Click → side panel: the page's
+  `selectedPin` state is set from the
+  map's click handler; the side panel
+  renders when `selectedPin !== null`.
+- Clustering > 50 pins: MapLibre's
+  `cluster: true` source option is wired
+  (dormant for the v1 set of ≤10 pins;
+  exercised at the unit-test level via
+  the source config).
+- `?cityId=city_chittagong` → 403:
+  `requireSameCity` in the API.
+
+**4. Status**
+
+Intent 003 (Dispatcher Queue) is now
+code-complete: 5/5 bolts shipped.
+Intent 004 (Field Crew App) is
+code-complete: 4/4 bolts shipped (as of
+Bolt 004-004). The construction loop has
+no pending bolts within these two
+intents. The next move is the user's
+call — either promote Intent 005
+(admin / WO-004) to in-progress and
+author its unit briefs + bolt plan, or
+take a different direction.
+
+Verification (per
+`aidlc/spaces/default/memory/project.md`
+Walking Skeleton): `tsc --noEmit` clean;
+`npm run test:unit` 168/168;
+`npm run test:mockups` 15/15;
+`curl -fs http://localhost:3000/` 200;
+`npx playwright test
+tests/13-dispatcher-map-light.spec.ts`
+6/6 API + 1/1 visual baseline.
+
 
