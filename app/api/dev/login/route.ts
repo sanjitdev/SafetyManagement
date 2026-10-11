@@ -30,13 +30,16 @@ const VALID_ROLES: ReadonlySet<DevPersonaRole> = new Set([
 ]);
 
 // Where each persona lands after login. The citizen defaults to the
-// start of the submit flow; dispatcher / crew / admin land on a neutral
-// surface (home) because the demo Bolt has no dispatcher / crew UI yet —
-// tests drive those transitions through the transition API.
+// start of the submit flow; the dispatcher lands on the triage queue
+// (/dispatcher); the crew lands on the today's-assignments page
+// (/crew); the admin lands on /home — the admin console (Intent
+// 005) is deferred; the platform's /home page is the neutral
+// surface for the admin persona until the intent-specific page
+// ships.
 const REDIRECT_BY_ROLE: Record<DevPersonaRole, string> = {
   citizen: '/report/location',
-  dispatcher: '/home',
-  crew: '/home',
+  dispatcher: '/dispatcher',
+  crew: '/crew',
   admin: '/home',
 };
 
