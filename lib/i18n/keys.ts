@@ -736,6 +736,365 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'সিস্টেমের সেটিংস অনুসরণ করে',
     en: 'Follows your device',
   },
+
+  // WO-002 (Intent 003) — Dispatcher surfaces
+  'dispatcher.queue.title': {
+    bn: 'ট্রায়াজ সারি',
+    en: 'Triage queue',
+  },
+  'dispatcher.queue.subtitle': {
+    bn: 'নতুন ও রাউট হওয়া রিপোর্ট — বয়স অনুযায়ী সাজানো',
+    en: 'New and routed reports — sorted by age',
+  },
+  'dispatcher.queue.filter.all': { bn: 'সব', en: 'All' },
+  'dispatcher.queue.filter.submitted': { bn: 'শুধু নতুন', en: 'Submitted only' },
+  'dispatcher.queue.filter.routed': { bn: 'শুধু রাউট', en: 'Routed only' },
+  'dispatcher.queue.empty.title': {
+    bn: 'সারি খালি',
+    en: 'Queue is empty',
+  },
+  'dispatcher.queue.empty.subtitle': {
+    bn: 'এই মুহূর্তে আপনার এলাকায় কোনো নতুন বা রাউট হওয়া রিপোর্ট নেই।',
+    en: 'No new or routed reports in your area right now.',
+  },
+  'dispatcher.queue.error': {
+    bn: 'সারি লোড করা যায়নি',
+    en: 'Could not load the queue',
+  },
+  'dispatcher.queue.signin_required': {
+    bn: 'ট্রায়াজ সারি দেখতে লগইন করুন',
+    en: 'Sign in to view the triage queue',
+  },
+  'dispatcher.queue.row.age': {
+    bn: '{age} আগে',
+    en: '{age} ago',
+  },
+  'dispatcher.queue.row.view': { bn: 'বিস্তারিত', en: 'View ticket' },
+  'dispatcher.dedup.link': {
+    bn: 'সম্ভাব্য ডুপ্লিকেট ({n})',
+    en: 'Possible duplicates ({n})',
+  },
+  'dispatcher.dedup.title': {
+    bn: 'সম্ভাব্য ডুপ্লিকেট রিভিউ',
+    en: 'Possible duplicate review',
+  },
+
+  // WO-003 — Dispatcher ticket detail + transitions (Intent 003, Unit 003)
+  'dispatcher.detail.not_found': {
+    bn: 'এই রিপোর্টটি আপনার এখতিয়ারে নেই বা মুছে ফেলা হয়েছে।',
+    en: 'This report is outside your scope or has been removed.',
+  },
+  'dispatcher.detail.back_to_queue': {
+    bn: '← ট্রায়াজ সারিতে ফিরে যান',
+    en: '← Back to triage queue',
+  },
+  'dispatcher.detail.loading': {
+    bn: 'রিপোর্ট লোড হচ্ছে…',
+    en: 'Loading report…',
+  },
+  'dispatcher.detail.record': {
+    bn: 'রিপোর্টের বিবরণ',
+    en: 'Report record',
+  },
+  'dispatcher.detail.field.city': { bn: 'শহর', en: 'City' },
+  'dispatcher.detail.field.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'dispatcher.detail.field.category': { bn: 'বিভাগ', en: 'Category' },
+  'dispatcher.detail.field.location': { bn: 'অবস্থান', en: 'Location' },
+  'dispatcher.detail.field.note': { bn: 'নোট', en: 'Note' },
+  'dispatcher.detail.field.reporter': {
+    bn: 'রিপোর্টকারী',
+    en: 'Reporter',
+  },
+  'dispatcher.detail.field.crew': { bn: 'নিয়োজিত ক্রু', en: 'Assigned crew' },
+  'dispatcher.detail.field.created': {
+    bn: 'জমার সময়',
+    en: 'Filed',
+  },
+  'dispatcher.detail.trail': {
+    bn: 'অগ্রগতির ইতিহাস',
+    en: 'Status trail',
+  },
+  'dispatcher.detail.trail.actor': {
+    bn: 'কর্মী',
+    en: 'Actor',
+  },
+  'dispatcher.detail.internal_note': {
+    bn: 'অভ্যন্তরীণ নোট',
+    en: 'Internal note',
+  },
+  'dispatcher.detail.internal_note.help': {
+    bn: 'শুধু ডিসপ্যাচার দল দেখতে পায়। নাগরিক দেখতে পায় না।',
+    en: 'Visible to dispatchers only — never to the citizen.',
+  },
+  'dispatcher.detail.save_note': {
+    bn: 'নোট সংরক্ষণ করুন',
+    en: 'Save note',
+  },
+  'dispatcher.detail.transition.heading': {
+    bn: 'পরবর্তী পদক্ষেপ',
+    en: 'Next action',
+  },
+  'dispatcher.detail.transition.none': {
+    bn: 'এই মুহূর্তে কোনো পদক্ষেপ নেই',
+    en: 'No further action available',
+  },
+  'dispatcher.detail.transition.saving': {
+    bn: 'পাঠানো হচ্ছে…',
+    en: 'Submitting…',
+  },
+  'dispatcher.detail.reassign.heading': {
+    bn: 'পুনর্বণ্টন',
+    en: 'Reassign',
+  },
+  'dispatcher.detail.reassign.cta': {
+    bn: 'ওয়ার্ড / বিভাগ পরিবর্তন',
+    en: 'Change ward / category',
+  },
+  'dispatcher.detail.reassign.save': {
+    bn: 'সংরক্ষণ',
+    en: 'Save',
+  },
+  'dispatcher.detail.reassign.cancel': {
+    bn: 'বাতিল',
+    en: 'Cancel',
+  },
+  'dispatcher.transition.routed': {
+    bn: 'বিভাগে রাউট করুন',
+    en: 'Route to department',
+  },
+  'dispatcher.transition.cancelled': {
+    bn: 'রিপোর্ট বাতিল',
+    en: 'Cancel report',
+  },
+
+  // WO-004 — Dispatcher dedup-decline review (Intent 003, Unit 004)
+  'dispatcher.dedup.heading': {
+    bn: 'সম্ভাব্য ডুপ্লিকেট রিভিউ',
+    en: 'Possible duplicate review',
+  },
+  'dispatcher.dedup.subtitle': {
+    bn: 'নাগরিক যেসব রিপোর্ট ডুপ্লিকেট বলে প্রত্যাখ্যান করেছেন — সিদ্ধান্ত নিন।',
+    en: 'Reports the citizen has flagged as NOT duplicates — your call.',
+  },
+  'dispatcher.dedup.empty.title': {
+    bn: 'কোনো পেন্ডিং ফ্ল্যাগ নেই',
+    en: 'No pending flags',
+  },
+  'dispatcher.dedup.empty.subtitle': {
+    bn: 'এই মুহূর্তে কোনো নতুন সম্ভাব্য ডুপ্লিকেট নেই।',
+    en: 'No new possible duplicates right now.',
+  },
+  'dispatcher.dedup.row.distance': {
+    bn: '{distance}মিটার দূরে',
+    en: '{distance}m away',
+  },
+  'dispatcher.dedup.row.reason': {
+    bn: 'নাগরিকের মন্তব্য',
+    en: 'Citizen note',
+  },
+  'dispatcher.dedup.row.confirm': {
+    bn: 'ডুপ্লিকেট — বন্ধ করুন',
+    en: 'Confirm duplicate',
+  },
+  'dispatcher.dedup.row.dismiss': {
+    bn: 'আলাদা সমস্যা — বাতিল',
+    en: 'Dismiss — different issue',
+  },
+  'dispatcher.dedup.row.confirming': {
+    bn: 'নিশ্চিত হচ্ছে…',
+    en: 'Confirming…',
+  },
+  'dispatcher.dedup.row.dismissing': {
+    bn: 'বাতিল হচ্ছে…',
+    en: 'Dismissing…',
+  },
+  'dispatcher.dedup.row.error': {
+    bn: 'অনুরোধ ব্যর্থ — আবার চেষ্টা করুন',
+    en: 'Action failed — try again',
+  },
+  'dispatcher.dedup.signin_required': {
+    bn: 'ডুপ্লিকেট রিভিউ দেখতে লগইন করুন',
+    en: 'Sign in to review duplicates',
+  },
+  'dispatcher.dedup.loading': {
+    bn: 'লোড হচ্ছে…',
+    en: 'Loading…',
+  },
+  'dispatcher.dedup.error': {
+    bn: 'ফ্ল্যাগ লোড করা যায়নি',
+    en: 'Could not load flags',
+  },
+
+  // WO-003 (Intent 004) — Crew surfaces (today's assignments)
+  'crew.list.title': {
+    bn: 'আজকের কাজ',
+    en: "Today's assignments",
+  },
+  'crew.list.subtitle': {
+    bn: 'আপনার ওয়ার্ড ও বিভাগে বরাদ্দকৃত রিপোর্ট — বয়স অনুযায়ী সাজানো',
+    en: 'Reports routed to your ward and department — sorted by age',
+  },
+  'crew.list.filter.all': { bn: 'সব', en: 'All' },
+  'crew.list.filter.routed': { bn: 'শুধু রাউট', en: 'Routed only' },
+  'crew.list.filter.in_progress': {
+    bn: 'চলমান',
+    en: 'In progress only',
+  },
+  'crew.list.empty.title': {
+    bn: 'আজকের জন্য কোনো কাজ নেই',
+    en: 'No assignments today',
+  },
+  'crew.list.empty.subtitle': {
+    bn: 'আপনার ওয়ার্ড ও বিভাগে এই মুহূর্তে কোনো রিপোর্ট বরাদ্দ নেই।',
+    en: 'No reports are currently assigned to your ward and department.',
+  },
+  'crew.list.error': {
+    bn: 'কাজ লোড করা যায়নি',
+    en: 'Could not load assignments',
+  },
+  'crew.list.signin_required': {
+    bn: 'আজকের কাজ দেখতে লগইন করুন',
+    en: 'Sign in to view your assignments',
+  },
+  'crew.list.row.view': { bn: 'বিস্তারিত', en: 'Open' },
+  'crew.list.row.distance': {
+    bn: '{distance}মিটার দূরে',
+    en: '{distance}m away',
+  },
+  'crew.list.row.distance_pending': {
+    bn: 'অবস্থান শেয়ার করুন',
+    en: 'Share location',
+  },
+  'crew.list.row.age': {
+    bn: '{age} আগে',
+    en: '{age} ago',
+  },
+
+  // WO-003 (Intent 004) — Crew ticket detail + transition + photos
+  'crew.detail.not_found': {
+    bn: 'এই রিপোর্টটি আপনার এখতিয়ারে নেই বা মুছে ফেলা হয়েছে।',
+    en: 'This report is outside your scope or has been removed.',
+  },
+  'crew.detail.back_to_list': {
+    bn: '← আজকের কাজে ফিরে যান',
+    en: "← Back to today's assignments",
+  },
+  'crew.detail.loading': {
+    bn: 'রিপোর্ট লোড হচ্ছে…',
+    en: 'Loading report…',
+  },
+  'crew.detail.record': {
+    bn: 'রিপোর্টের বিবরণ',
+    en: 'Report record',
+  },
+  'crew.detail.field.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'crew.detail.field.category': { bn: 'বিভাগ', en: 'Category' },
+  'crew.detail.field.location': { bn: 'অবস্থান', en: 'Location' },
+  'crew.detail.field.note': { bn: 'নোট', en: 'Note' },
+  'crew.detail.field.reporter': { bn: 'রিপোর্টকারী', en: 'Reporter' },
+  'crew.detail.trail': { bn: 'অগ্রগতির ইতিহাস', en: 'Status trail' },
+  'crew.detail.photos': { bn: 'ছবি', en: 'Photos' },
+  'crew.detail.photos.empty': {
+    bn: 'কোনো ছবি নেই',
+    en: 'No photos yet',
+  },
+  'crew.detail.navigate': {
+    bn: 'নেভিগেট করুন',
+    en: 'Navigate',
+  },
+  'crew.detail.transition.heading': {
+    bn: 'পরবর্তী পদক্ষেপ',
+    en: 'Next action',
+  },
+  'crew.detail.transition.none': {
+    bn: 'এই মুহূর্তে কোনো পদক্ষেপ নেই',
+    en: 'No further action available',
+  },
+  'crew.detail.transition.saving': {
+    bn: 'পাঠানো হচ্ছে…',
+    en: 'Submitting…',
+  },
+  'crew.transition.in_progress': {
+    bn: 'কাজ শুরু করুন',
+    en: 'Mark in progress',
+  },
+  'crew.transition.resolved': {
+    bn: 'সমাধান হিসেবে চিহ্নিত করুন',
+    en: 'Mark resolved',
+  },
+  'crew.resolution_note.label': {
+    bn: 'সমাধানের বিবরণ',
+    en: 'Resolution note',
+  },
+  'crew.resolution_note.helper': {
+    bn: 'কী করা হয়েছে — সংক্ষেপে লিখুন (১০০০ অক্ষরের মধ্যে)',
+    en: 'Briefly describe what you did (max 1000 characters)',
+  },
+  'crew.resolution_note.required': {
+    bn: 'সমাধানের বিবরণ আবশ্যক',
+    en: 'Resolution note is required',
+  },
+  'crew.photo.heading': {
+    bn: 'সমাধানের ছবি যোগ করুন',
+    en: 'Add an after photo',
+  },
+  'crew.photo.input.label': {
+    bn: 'ছবির URL',
+    en: 'Photo URL',
+  },
+  'crew.photo.input.placeholder': {
+    bn: 'https://…',
+    en: 'https://…',
+  },
+  'crew.photo.submit': {
+    bn: 'ছবি যোগ করুন',
+    en: 'Add photo',
+  },
+  'crew.photo.saving': {
+    bn: 'যোগ হচ্ছে…',
+    en: 'Adding…',
+  },
+  'crew.photo.error.invalid_url': {
+    bn: 'সঠিক URL দিন',
+    en: 'Enter a valid URL',
+  },
+  'crew.transition.error.role_cannot': {
+    bn: 'এই পদক্ষেপ শুধু ডিসপ্যাচার নিতে পারে',
+    en: 'Only the dispatcher can perform this action',
+  },
+  'crew.transition.error.illegal': {
+    bn: 'এই অবস্থা থেকে এই পদক্ষেপ নেওয়া যায় না',
+    en: 'This transition is not allowed from the current status',
+  },
+  'crew.transition.error.generic': {
+    bn: 'পদক্ষেপ ব্যর্থ — আবার চেষ্টা করুন',
+    en: 'Action failed — try again',
+  },
+  // CREW-006 — offline-read cache banner copy. The
+  // banner surfaces on the list + detail page when the
+  // page is rendering a cached snapshot because the
+  // network failed (or the page is mid-fetch and the
+  // cached snapshot was the "first paint" source).
+  'crew.cache.banner': {
+    bn: 'ক্যাশড ডেটা দেখাচ্ছে — নেটওয়ার্ক ফিরে আসলে রিফ্রেশ হবে',
+    en: 'Showing cached data — refreshes when network returns',
+  },
+  'crew.cache.banner.detail': {
+    bn: 'ক্যাশড তথ্য — পুরোনো হতে পারে',
+    en: 'Cached — may be stale',
+  },
+  'crew.cache.last_updated': {
+    bn: 'শেষ আপডেট: {when}',
+    en: 'Last updated: {when}',
+  },
+  'crew.cache.empty': {
+    bn: 'এই মুহূর্তে কোনো অ্যাসাইনমেন্ট নেই',
+    en: 'No assignments right now',
+  },
+  'crew.cache.retry': {
+    bn: 'আবার চেষ্টা করুন',
+    en: 'Retry',
+  },
 };
 
 /**

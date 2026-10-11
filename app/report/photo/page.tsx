@@ -14,16 +14,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadDraft, saveDraft } from '@/lib/report-draft';
+import { derivePhotoCap, type CategorySummaryLike } from '@/lib/report-photo-cap';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
 
-const DEFAULT_PHOTO_CAP = 3;
-
 export default function PhotoPage() {
   const router = useRouter();
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [cap, setCap] = useState<number>(DEFAULT_PHOTO_CAP);
+  const [cap, setCap] = useState<number>(3);
   const [authed, setAuthed] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,15 +33,18 @@ export default function PhotoPage() {
         setAuthed(false);
         return;
       }
+      const data = (await res.json()) as { categories: CategorySummaryLike[] };
       setAuthed(true);
       const draft = loadDraft();
       if (draft?.photoUrls) {
         setPhotoUrls(draft.photoUrls);
       }
-      // The cap is normally pulled from the category, but at this step
-      // we don't yet know the category. The default of 3 holds; once
-      // /report/category is reached, the cap will be applied there.
-      setCap(DEFAULT_PHOTO_CAP);
+      // The cap is re-derived from the draft's categoryId on every
+      // mount: if the citizen bounced back from a later step (e.g.
+      // the category step), the cap narrows to the narrow-category
+      // photo cap (e.g. 2 for `cat_streetlight`). The default of 3
+      // holds when the draft has no categoryId yet.
+      setCap(derivePhotoCap(draft, data.categories));
     })();
   }, []);
 

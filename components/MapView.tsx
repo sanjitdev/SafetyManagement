@@ -1,210 +1,431 @@
 /**
- * Static SVG map (components/MapView.tsx).
+ * MapLibre GL JS backed map (components/MapView.tsx).
  *
- * A simplified city map used by the report flow. v1 keeps it as an SVG
- * so the feature is fully runnable in a browser without tile-server
- * dependencies; the production path (per tech-audit §2) swaps this for
- * MapLibre GL JS + OpenStreetMap raster tiles.
+ * The v1 production path for the report location step
+ * (1.7). Replaces the SVG placeholder with a real
+ * raster basemap (OpenStreetMap public tiles — free,
+ * no token), the Dhaka District polygon overlay
+ * (lib/geo/dhaka-district.ts), and a draggable
+ * MapLibre marker.
  *
- * The map shows:
- *   - A neutral city background
- *   - A ward polygon (the citizen's ward)
- *   - A draggable pin at the current location
- *   - A 50m dedup ring around the pin
+ * The component consumes the same prop surface as
+ * the SVG placeholder (lat, lng, center, width,
+ * height, draggable, onPinMove, showDedupRing,
+ * showBoundary) so the location page wiring is
+ * unaffected.
  *
- * The pin is draggable via pointer events; the parent receives onPinMove.
+ * Tile source:
+ *   - OpenStreetMap raster basemap
+ *     (https://tile.openstreetmap.org/{z}/{x}/{y}.png).
+ *   - No API key, no token, no auth. The OSM Tile
+ *     Usage Policy forbids heavy production use;
+ *     a production deployment at scale should
+ *     swap to a paid provider (Mapbox / MapTiler
+ *     / Stadia) or self-host.
+ *   - Attribution is rendered via the MapLibre
+ *     built-in `AttributionControl` so the credit
+ *     is always visible.
+ *
+ * The 50m dedup ring is rendered as a GeoJSON
+ * `Polygon` source + a `fill` + `line` layer (not
+ * as a MapLibre `circle` layer) so the ring
+ * deforms correctly with the map's projection at
+ * higher zoom levels.
+ *
+ * The Dhaka District polygon is rendered as a
+ * GeoJSON `Polygon` source with two layers: a
+ * translucent `fill` (so the basemap shows through)
+ * and a `line` outline. The polygon's data lives
+ * in `lib/geo/dhaka-district.ts`; the
+ * `pointInPolygon` helper (`lib/geo/polygon-test.ts`)
+ * is the in-bounds check used by the location page.
+ *
+ * The pin is a `maplibregl.Marker` (DOM element) so
+ * it can be dragged via the marker drag handler;
+ * the map's own `click` handler moves the pin to
+ * the click point.
  */
 
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import maplibregl, {
+  type LngLatLike,
+  type Map as MaplibreMap,
+  type Marker as MaplibreMarker,
+} from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
 
 interface MapViewProps {
   lat: number;
   lng: number;
-  // approximate bounds for the SVG viewport
+  // approximate centre for the initial view
   center: { lat: number; lng: number };
-  // width of map area in pixels (responsive)
-  width: number;
-  height: number;
-  // when true, dragging is enabled
+  // Optional container width in pixels. When omitted
+  // (or 0) the container fills its parent (100% width).
+  // The location page uses the fill-parent mode so
+  // the map covers the full grid track; tests that
+  // want a fixed-size map can still pass an explicit
+  // width / height.
+  width?: number;
+  height?: number;
+  // when true, the pin is draggable
   draggable?: boolean;
   onPinMove?: (lat: number, lng: number) => void;
-  // when true, the dedup ring is shown
+  // when true, the 50m dedup ring is shown around the pin
   showDedupRing?: boolean;
-  // when true, the city boundary is shaded to indicate the supported area
+  // when true, the Dhaka District polygon is shaded to
+  // indicate the supported area. The polygon is always
+  // outlined; this flag toggles the fill.
   showBoundary?: boolean;
 }
 
-const DEFAULT_CITY_CENTER = { lat: 23.789, lng: 90.4075 };
-const VISIBLE_DEG = 0.05; // ~5 km
+const DHAKA_DISTRICT_SOURCE_ID = 'dhaka-district';
+const DHAKA_DISTRICT_FILL_LAYER_ID = 'dhaka-district-fill';
+const DHAKA_DISTRICT_LINE_LAYER_ID = 'dhaka-district-line';
+const DEDUP_RING_SOURCE_ID = 'dedup-ring';
+const DEDUP_RING_FILL_LAYER_ID = 'dedup-ring-fill';
+const DEDUP_RING_LINE_LAYER_ID = 'dedup-ring-line';
 
-function project(lat: number, lng: number, center: { lat: number; lng: number }, width: number, height: number) {
-  const xRatio = (lng - (center.lng - VISIBLE_DEG / 2)) / VISIBLE_DEG;
-  const yRatio = 1 - (lat - (center.lat - VISIBLE_DEG / 2)) / VISIBLE_DEG;
+/**
+ * OpenStreetMap raster basemap. The free public tile
+ * CDN at `tile.openstreetmap.org`. No API key, no
+ * auth, no token. The OSM Tile Usage Policy forbids
+ * heavy production use; this is the v1 dev-demo +
+ * low-traffic production source. A production
+ * deployment at scale should swap to a paid provider
+ * (Mapbox / MapTiler / Stadia) or self-host.
+ *
+ * Attribution is rendered via the MapLibre
+ * `AttributionControl`; OSM requires the credit
+ * to be visible.
+ */
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+const OSM_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+/**
+ * Build a 50m-radius circle polygon around (lng, lat).
+ * Returns a closed GeoJSON Polygon. The 50m is in
+ * metres; we project to a local-tangent-plane so the
+ * circle is visually round at the latitude of Dhaka.
+ */
+function makeCirclePolygon(
+  centerLng: number,
+  centerLat: number,
+  radiusMeters: number,
+  steps = 64,
+): GeoJSON.Feature<GeoJSON.Polygon> {
+  const coords: [number, number][] = [];
+  const earthR = 6_378_137; // metres
+  const latRad = (centerLat * Math.PI) / 180;
+  // 1° of latitude ≈ 111_320 m; 1° of longitude at
+  // this latitude ≈ 111_320 * cos(latRad) m.
+  const dLat = (radiusMeters / 111_320) * (180 / Math.PI);
+  const dLng =
+    (radiusMeters / (111_320 * Math.cos(latRad))) * (180 / Math.PI);
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    coords.push([centerLng + dLng * Math.cos(angle), centerLat + dLat * Math.sin(angle)]);
+  }
   return {
-    x: xRatio * width,
-    y: yRatio * height,
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'Polygon', coordinates: [coords] },
   };
-}
-
-function unproject(x: number, y: number, center: { lat: number; lng: number }, width: number, height: number) {
-  const lng = center.lng - VISIBLE_DEG / 2 + (x / width) * VISIBLE_DEG;
-  const lat = center.lat - VISIBLE_DEG / 2 + (1 - y / height) * VISIBLE_DEG;
-  return { lat, lng };
 }
 
 export default function MapView({
   lat,
   lng,
-  center = DEFAULT_CITY_CENTER,
-  width = 720,
-  height = 480,
+  center,
+  width,
+  height,
   draggable = true,
   onPinMove,
   showDedupRing = false,
   showBoundary = false,
 }: MapViewProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MaplibreMap | null>(null);
+  const markerRef = useRef<MaplibreMarker | null>(null);
+  // Hold the latest `onPinMove` in a ref so the map
+  // event handlers always call the current callback
+  // without forcing the `useEffect` to re-run (which
+  // would tear down and re-create the map).
+  const onPinMoveRef = useRef(onPinMove);
+  onPinMoveRef.current = onPinMove;
 
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (!draggable) return;
-      e.currentTarget.setPointerCapture(e.pointerId);
-      setDragging(true);
-    },
-    [draggable],
-  );
+  // Decide whether the container should fill its
+  // parent (100%) or honour the explicit width /
+  // height props. A non-positive number is treated
+  // as "fill parent" so the default is responsive.
+  const fillParent = !width || !height || width <= 0 || height <= 0;
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      if (!dragging || !onPinMove) return;
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      if (x < 0 || y < 0 || x > width || y > height) return;
-      const { lat: nlat, lng: nlng } = unproject(x, y, center, width, height);
-      onPinMove(
-        Math.max(center.lat - VISIBLE_DEG / 2, Math.min(center.lat + VISIBLE_DEG / 2, nlat)),
-        Math.max(center.lng - VISIBLE_DEG / 2, Math.min(center.lng + VISIBLE_DEG / 2, nlng)),
-      );
-    },
-    [dragging, onPinMove, center, width, height],
-  );
+  // Initialise the map once on mount. Re-initialises
+  // only if the container ref changes; subsequent
+  // prop changes are handled by the `useEffect`s
+  // below.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [OSM_TILE_URL],
+            tileSize: 256,
+            attribution: OSM_ATTRIBUTION,
+          },
+        },
+        layers: [
+          {
+            id: 'osm-tiles-layer',
+            type: 'raster',
+            source: 'osm-tiles',
+          },
+        ],
+      },
+      center: [center.lng, center.lat] as LngLatLike,
+      zoom: 12,
+      attributionControl: false,
+    });
+    mapRef.current = map;
 
-  const handlePointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    setDragging(false);
+    map.addControl(
+      new maplibregl.AttributionControl({ compact: true }),
+      'bottom-right',
+    );
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+    // Dhaka District polygon. Always added so the
+    // outline is visible; the fill is toggled via
+    // the layer's `paint` property.
+    map.on('load', () => {
+      if (!map.getSource(DHAKA_DISTRICT_SOURCE_ID)) {
+        map.addSource(DHAKA_DISTRICT_SOURCE_ID, {
+          type: 'geojson',
+          data: DHAKA_DISTRICT_FEATURE_COLLECTION as GeoJSON.FeatureCollection,
+        });
+        map.addLayer({
+          id: DHAKA_DISTRICT_FILL_LAYER_ID,
+          type: 'fill',
+          source: DHAKA_DISTRICT_SOURCE_ID,
+          paint: {
+            'fill-color': '#0E5A4A',
+            'fill-opacity': showBoundary ? 0.08 : 0,
+          },
+        });
+        map.addLayer({
+          id: DHAKA_DISTRICT_LINE_LAYER_ID,
+          type: 'line',
+          source: DHAKA_DISTRICT_SOURCE_ID,
+          paint: {
+            'line-color': '#0E5A4A',
+            'line-width': 2,
+            'line-dasharray': [2, 2],
+          },
+        });
+      }
+
+      // 50m dedup ring. Always added; visibility is
+      // toggled via the layer's `layout.visibility`.
+      if (!map.getSource(DEDUP_RING_SOURCE_ID)) {
+        const ring = makeCirclePolygon(lng, lat, 50);
+        map.addSource(DEDUP_RING_SOURCE_ID, {
+          type: 'geojson',
+          data: ring,
+        });
+        map.addLayer({
+          id: DEDUP_RING_FILL_LAYER_ID,
+          type: 'fill',
+          source: DEDUP_RING_SOURCE_ID,
+          paint: {
+            'fill-color': '#E86357',
+            'fill-opacity': 0.15,
+          },
+          layout: {
+            visibility: showDedupRing ? 'visible' : 'none',
+          },
+        });
+        map.addLayer({
+          id: DEDUP_RING_LINE_LAYER_ID,
+          type: 'line',
+          source: DEDUP_RING_SOURCE_ID,
+          paint: {
+            'line-color': '#E86357',
+            'line-width': 1.5,
+            'line-dasharray': [1, 1],
+          },
+          layout: {
+            visibility: showDedupRing ? 'visible' : 'none',
+          },
+        });
+      }
+    });
+
+    // Marker (the draggable pin). Use MapLibre's
+    // default blue dot and overlay a coloured circle
+    // via a custom element so the visual matches the
+    // SVG placeholder's "primary circle + white
+    // centre" treatment.
+    const el = document.createElement('div');
+    el.setAttribute('data-testid', 'mapview-pin');
+    el.style.width = '28px';
+    el.style.height = '28px';
+    el.style.borderRadius = '50%';
+    el.style.background = 'var(--color-primary, #0E5A4A)';
+    el.style.border = '3px solid #fff';
+    el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
+    el.style.cursor = draggable ? 'grab' : 'default';
+    const marker = new maplibregl.Marker({ element: el, draggable })
+      .setLngLat([lng, lat])
+      .addTo(map);
+    markerRef.current = marker;
+
+    if (draggable) {
+      marker.on('dragend', () => {
+        const ll = marker.getLngLat();
+        onPinMoveRef.current?.(ll.lat, ll.lng);
+      });
+    }
+
+    // Click-to-move: click anywhere on the map to
+    // move the pin there. This is the v1 citizen
+    // ergonomic — no need to drag if a tap on the
+    // basemap is enough.
+    map.on('click', (e) => {
+      if (!onPinMoveRef.current) return;
+      onPinMoveRef.current(e.lngLat.lat, e.lngLat.lng);
+    });
+
+    // Re-measure the map when the parent container
+    // resizes. The location page's grid collapses at
+    // 1024px, so without this observer the map would
+    // keep its initial size after the collapse and
+    // overflow the new track width.
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) mapRef.current.resize();
+    });
+    if (containerRef.current) {
+      ro.observe(containerRef.current);
+    }
+
+    return () => {
+      ro.disconnect();
+      marker.remove();
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+    // We intentionally only initialise the map once.
+    // Subsequent prop changes are applied by the
+    // effects below; the map's lifecycle is bound to
+    // the component's mount/unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pin = project(lat, lng, center, width, height);
-  const ringRadiusPx = (50 / 111_000) * (width / VISIBLE_DEG) * 10; // ~50m ring scaled
+  // Keep the marker position in sync with the
+  // `lat` / `lng` props. This is the channel the
+  // location page uses to update the pin from
+  // external state (e.g. after a "Move to nearest
+  // in-boundary" CTA).
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    const current = marker.getLngLat();
+    if (current.lat !== lat || current.lng !== lng) {
+      marker.setLngLat([lng, lat]);
+    }
+  }, [lat, lng]);
+
+  // Centre the map when the `center` prop changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setCenter([center.lng, center.lat]);
+  }, [center.lat, center.lng]);
+
+  // Toggle the dedup ring visibility + position.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const visibility = showDedupRing ? 'visible' : 'none';
+      if (map.getLayer(DEDUP_RING_FILL_LAYER_ID)) {
+        map.setLayoutProperty(
+          DEDUP_RING_FILL_LAYER_ID,
+          'visibility',
+          visibility,
+        );
+      }
+      if (map.getLayer(DEDUP_RING_LINE_LAYER_ID)) {
+        map.setLayoutProperty(
+          DEDUP_RING_LINE_LAYER_ID,
+          'visibility',
+          visibility,
+        );
+      }
+      const source = map.getSource(DEDUP_RING_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (source) {
+        source.setData(makeCirclePolygon(lng, lat, 50));
+      }
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [showDedupRing, lat, lng]);
+
+  // Toggle the Dhaka District fill opacity. The
+  // line is always visible; the fill is gated by
+  // `showBoundary` (true when the pin is in-bounds,
+  // false when the geofence reject UX is showing).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      if (map.getLayer(DHAKA_DISTRICT_FILL_LAYER_ID)) {
+        map.setPaintProperty(
+          DHAKA_DISTRICT_FILL_LAYER_ID,
+          'fill-opacity',
+          showBoundary ? 0.08 : 0,
+        );
+      }
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [showBoundary]);
 
   return (
-    <svg
-      ref={svgRef}
-      width="100%"
-      height="100%"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="xMidYMid slice"
+    <div
+      ref={containerRef}
+      data-testid="mapview"
       style={{
-        display: 'block',
-        // Use design tokens for the map background so it follows the
-        // active theme. The faux-road grid below hardcodes light-mode
-        // stroke colors (#cdd6c8); a dark-theme stroke follows the
-        // surface-raised token in the dark override below.
-        background:
-          'linear-gradient(180deg, var(--color-map-bg) 0%, var(--color-surface-sunken) 100%)',
-        cursor: draggable ? (dragging ? 'grabbing' : 'grab') : 'default',
-        touchAction: 'none',
+        // When the parent passes an explicit width /
+        // height, honour them (used by tests and by
+        // the SVG-placeholder-style contract). When
+        // the parent doesn't, fill the parent
+        // container 100% so the map covers the full
+        // grid track.
+        width: fillParent ? '100%' : `${width}px`,
+        height: fillParent ? '100%' : `${height}px`,
         borderRadius: 'var(--radius-md)',
-        userSelect: 'none',
+        overflow: 'hidden',
+        background: 'var(--color-map-bg)',
       }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
       role="img"
       aria-label="Map showing your report location"
-    >
-      {/* Faux road grid */}
-      <g stroke="#cdd6c8" strokeWidth={1.2}>
-        {Array.from({ length: 7 }, (_, i) => (
-          <line
-            key={`h-${i}`}
-            x1={0}
-            x2={width}
-            y1={(i + 1) * (height / 8)}
-            y2={(i + 1) * (height / 8)}
-          />
-        ))}
-        {Array.from({ length: 9 }, (_, i) => (
-          <line
-            key={`v-${i}`}
-            y1={0}
-            y2={height}
-            x1={(i + 1) * (width / 10)}
-            x2={(i + 1) * (width / 10)}
-          />
-        ))}
-      </g>
-
-      {/* City boundary shaded — opt-in */}
-      {showBoundary && (
-        <rect
-          x={width * 0.18}
-          y={height * 0.18}
-          width={width * 0.64}
-          height={height * 0.64}
-          fill="rgba(14, 90, 74, 0.08)"
-          stroke="rgba(14, 90, 74, 0.4)"
-          strokeDasharray="6 6"
-          strokeWidth={2}
-          rx={12}
-        />
-      )}
-
-      {/* City label */}
-      <text
-        x={width / 2}
-        y={height * 0.1}
-        textAnchor="middle"
-        fill="var(--color-ink-secondary, #6b7280)"
-        fontSize={14}
-        style={{ fontFamily: 'var(--font-body)' }}
-      >
-        Dhaka North — Ward 14 (Mirpur)
-      </text>
-
-      {/* 50m dedup ring */}
-      {showDedupRing && (
-        <circle
-          cx={pin.x}
-          cy={pin.y}
-          r={ringRadiusPx}
-          fill="rgba(232, 99, 87, 0.15)"
-          stroke="rgba(232, 99, 87, 0.6)"
-          strokeDasharray="4 4"
-          strokeWidth={1.5}
-        />
-      )}
-
-      {/* Pin */}
-      <g transform={`translate(${pin.x}, ${pin.y})`}>
-        <circle r={14} fill="var(--color-primary, #0E5A4A)" />
-        <circle r={5} fill="#fff" />
-        <text
-          y={-22}
-          textAnchor="middle"
-          fontSize={12}
-          fontWeight={600}
-          fill="var(--color-ink, #111)"
-          style={{ fontFamily: 'var(--font-body)' }}
-        >
-          {lat.toFixed(4)}°N, {lng.toFixed(4)}°E
-        </text>
-      </g>
-    </svg>
+    />
   );
 }

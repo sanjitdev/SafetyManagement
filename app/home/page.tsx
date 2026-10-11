@@ -27,12 +27,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import {
+  applyStatusFilter,
+  filterToI18nKey,
+  type StatusFilter,
+} from '@/lib/home-filter';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const NOTIF_PROMPT_KEY = 'cityfix.notification_prompt_seen.v1';
 const POLL_INTERVAL_MS = 15_000;
-
-type StatusFilter = 'all' | 'submitted' | 'in_progress' | 'resolved';
 
 interface ActivityItem {
   id: string;
@@ -221,10 +224,10 @@ export default function HomePage() {
     };
   }, [signedIn, bootstrap, userId]);
 
-  const filteredTickets = useMemo(() => {
-    if (filter === 'all') return tickets;
-    return tickets.filter((t) => t.status === filter);
-  }, [tickets, filter]);
+  const filteredTickets = useMemo(
+    () => applyStatusFilter(tickets, filter),
+    [tickets, filter],
+  );
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -566,7 +569,7 @@ export default function HomePage() {
                     onClick={() => setFilter(f)}
                     lang={lang}
                   >
-                    {t(`home.filter.${f === 'submitted' ? 'new' : f === 'in_progress' ? 'in_progress' : f}`, null, lang)}
+                    {t(filterToI18nKey(f), null, lang)}
                   </FilterPill>
                 ),
               )}

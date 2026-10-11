@@ -20,10 +20,19 @@ import { useRouter } from 'next/navigation';
 import MapView from '@/components/MapView';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import {
+  DHAKA_DISTRICT_BBOX,
+  DHAKA_DISTRICT_RING,
+} from '@/lib/geo/dhaka-district';
+import { pointInPolygon } from '@/lib/geo/polygon-test';
+import {
   emptyDraft,
   loadDraft,
   saveDraft,
 } from '@/lib/report-draft';
+import {
+  clampToGeofence,
+  inGeofence,
+} from '@/lib/report-geofence';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -40,22 +49,28 @@ interface Bootstrap {
   }>;
 }
 
-// Approximate Dhaka North boundary used for the geofence UX (R-1).
-// In production this comes from the city's `polygonGeoJson` (PLAT-REQ-003).
-const CITY_BOUNDARY = {
-  southLat: 23.74,
-  northLat: 23.85,
-  westLng: 90.34,
-  eastLng: 90.48,
-};
-
-function inBoundary(lat: number, lng: number) {
-  return (
-    lat >= CITY_BOUNDARY.southLat &&
-    lat <= CITY_BOUNDARY.northLat &&
-    lng >= CITY_BOUNDARY.westLng &&
-    lng <= CITY_BOUNDARY.eastLng
-  );
+// In-bounds check for the report location step (R-1).
+//
+// v1 uses a hand-traced Dhaka District polygon
+// (lib/geo/dhaka-district.ts) as the primary
+// in-bounds test. The `DHAKA_NORTH_BBOX` constant
+// remains the backstop for the defensive UX
+// (the out-of-bounds card fires on a true
+// ray-casting miss; the bbox is the cheapest
+// sanity check before we render the basemap
+// out to the visible area).
+//
+// v1.1 will replace the constant with the
+// bootstrap-sourced `ward.polygonGeoJson`. The
+// helper API (`inGeofence` / `pointInPolygon`)
+// does not change.
+function isInBounds(lat: number, lng: number): boolean {
+  // Defensive bbox backstop (cheap; runs first).
+  if (!inGeofence(lat, lng, DHAKA_DISTRICT_BBOX)) {
+    return false;
+  }
+  // Polygon test (the real shape).
+  return pointInPolygon(lng, lat, DHAKA_DISTRICT_RING);
 }
 
 export default function LocationPage() {
@@ -129,7 +144,7 @@ export default function LocationPage() {
     );
   }
 
-  const outOfBounds = !inBoundary(lat, lng);
+  const outOfBounds = !isInBounds(lat, lng);
 
   function handleContinue() {
     if (!boot) return;
@@ -154,13 +169,14 @@ export default function LocationPage() {
   }
 
   function handleMoveToBoundary() {
-    // Snap to the nearest in-boundary point.
-    setLat(
-      Math.max(CITY_BOUNDARY.southLat, Math.min(CITY_BOUNDARY.northLat, lat)),
-    );
-    setLng(
-      Math.max(CITY_BOUNDARY.westLng, Math.min(CITY_BOUNDARY.eastLng, lng)),
-    );
+    // Snap to the nearest in-boundary point. Uses
+    // the polygon bbox (not the Dhaka North bbox)
+    // as the snap target so the citizen recovers
+    // to a point inside the full Dhaka District
+    // polygon, which is the v1 supported area.
+    const clamped = clampToGeofence(lat, lng, DHAKA_DISTRICT_BBOX);
+    setLat(clamped.lat);
+    setLng(clamped.lng);
   }
 
   return (
@@ -169,7 +185,16 @@ export default function LocationPage() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) 480px',
         gap: 0,
-        minHeight: 'calc(100vh - var(--header-height-desktop))',
+        // Use `height` (not minHeight) so the inner
+        // map's 100% resolves to a real pixel
+        // measurement. The viewport-based height
+        // gives the map a full-screen section; the
+        // media query below collapses to single
+        // column at 1024px and the height is
+        // reduced to auto so the section sizes to
+        // its content.
+        height: 'calc(100vh - var(--header-height-desktop))',
+        minHeight: 480,
       }}
       className="report-two-region"
     >
@@ -177,19 +202,40 @@ export default function LocationPage() {
         @media (max-width: 1024px) {
           .report-two-region {
             grid-template-columns: 1fr !important;
+            height: auto !important;
           }
         }
       `}</style>
 
-      <div style={{ position: 'relative', minHeight: 480 }}>
+      <div
+        style={{
+          position: 'relative',
+          // Fill the grid track vertically; the
+          // map's container is 100% × 100% so it
+          // covers the full section. The 480px
+          // min-height is a floor for very short
+          // viewports (e.g. phone landscape).
+          height: '100%',
+          minHeight: 480,
+        }}
+      >
         <MapView
           lat={lat}
           lng={lng}
           center={DHAKA_CENTER}
-          width={720}
-          height={480}
+          // No width/height — MapView fills the
+          // parent 100%. A ResizeObserver inside
+          // MapView re-measures the map when the
+          // responsive grid collapses at 1024px.
           draggable
-          showBoundary={outOfBounds}
+          // Show the polygon fill when the pin is
+          // in-bounds (the citizen sees a soft
+          // "you're inside the supported area"
+          // tint). The fill drops to 0 when the
+          // pin is out of bounds so the citizen's
+          // eye is drawn to the side card's
+          // warning.
+          showBoundary={!outOfBounds}
           onPinMove={(nlat, nlng) => {
             setLat(nlat);
             setLng(nlng);
