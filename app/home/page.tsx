@@ -15,9 +15,11 @@
  *     open if the user hasn't yet seen it.
  *   - Bilingual copy.
  *
- * Map: v1 uses an SVG placeholder with city wards and pin overlays. v1.1
- * will swap to MapLibre with OSM raster tiles. The placeholder mirrors
- * the welcome page's pin-map art so the visual story is consistent.
+ * Map: MapLibre GL JS + OpenStreetMap raster basemap +
+ * Dhaka District polygon overlay (components/CityActivityMap.tsx).
+ * Replaces the v1 SVG placeholder; pins are colored by status and
+ * match the activity feed's status pills so the two surfaces read
+ * as one consistent visual.
  */
 
 'use client';
@@ -32,6 +34,15 @@ import {
   filterToI18nKey,
   type StatusFilter,
 } from '@/lib/home-filter';
+import CityActivityMap, {
+  type CityActivityPin,
+} from '@/components/CityActivityMap';
+
+// DHAKA_CENTER — the home map's default focal point. Mirrors the
+// same constant used by `components/MapView.tsx` (the 1.7 location
+// page) and `components/DispatcherMap.tsx` (the 3.5 dispatcher
+// page), so all city-facing map surfaces share one anchor.
+const DHAKA_CENTER = { lat: 23.8069, lng: 90.3687 };
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const NOTIF_PROMPT_KEY = 'cityfix.notification_prompt_seen.v1';
@@ -467,7 +478,15 @@ export default function HomePage() {
             minHeight: 320,
           }}
         >
-          <CityMap tickets={tickets} lang={lang} />
+          <CityActivityMap
+            pins={tickets.map<CityActivityPin>((t) => ({
+              id: t.id,
+              lat: t.locationLat,
+              lng: t.locationLng,
+              status: t.status,
+            }))}
+            center={DHAKA_CENTER}
+          />
 
           {/* Location pill */}
           <div
@@ -1007,74 +1026,10 @@ function FeedSkeleton() {
   );
 }
 
-function CityMap({ tickets, lang }: { tickets: ActivityItem[]; lang: Language }) {
-  // Project lat/lng to SVG coords. Center on Dhaka (DHAKA_CENTER); scale
-  // a small window (~0.04° ≈ 4.4km) to fit the 600x360 viewbox.
-  const center = { lat: 23.8069, lng: 90.3687 };
-  const window = 0.06;
-  const project = (lat: number, lng: number) => {
-    const x = ((lng - center.lng) / window + 0.5) * 600;
-    const y = ((center.lat - lat) / window + 0.5) * 360;
-    return { x, y };
-  };
-  return (
-    <svg
-      viewBox="0 0 600 360"
-      preserveAspectRatio="xMidYMid slice"
-      style={{ width: '100%', height: '100%', display: 'block' }}
-      role="presentation"
-    >
-      <defs>
-        <pattern
-          id="cf-grid"
-          width="40"
-          height="40"
-          patternUnits="userSpaceOnUse"
-        >
-          <path
-            d="M 40 0 L 0 0 0 40"
-            fill="none"
-            stroke="var(--color-border)"
-            strokeWidth="0.5"
-          />
-        </pattern>
-      </defs>
-      <rect width="600" height="360" fill="var(--color-surface-raised)" />
-      <rect width="600" height="360" fill="url(#cf-grid)" />
-      {/* A few "roads" / "blocks" for context */}
-      <g stroke="var(--color-border)" strokeWidth="3" fill="none" opacity="0.6">
-        <path d="M0 90 L600 90" />
-        <path d="M0 180 L600 180" />
-        <path d="M0 270 L600 270" />
-        <path d="M150 0 L150 360" />
-        <path d="M300 0 L300 360" />
-        <path d="M450 0 L450 360" />
-      </g>
-      {/* Pins */}
-      {tickets.map((t) => {
-        const p = project(t.locationLat, t.locationLng);
-        const color =
-          t.status === 'resolved'
-            ? 'var(--color-status-resolved, #1f7a3f)'
-            : t.status === 'in_progress' || t.status === 'routed'
-              ? 'var(--color-status-in-progress, #1f6feb)'
-              : 'var(--color-primary)';
-        return (
-          <g key={t.id} transform={`translate(${p.x}, ${p.y})`}>
-            <circle r="10" fill="white" stroke={color} strokeWidth="2" />
-            <circle r="4" fill={color} />
-          </g>
-        );
-      })}
-      {/* Hint text */}
-      <text
-        x="20"
-        y="340"
-        fontSize="12"
-        fill="var(--color-ink-tertiary)"
-      >
-        {lang === 'bn' ? 'মিরপুর ১০' : 'Mirpur 10'}
-      </text>
-    </svg>
-  );
-}
+// CityMap (the v1 SVG placeholder) has been retired.
+// The home map is now `components/CityActivityMap.tsx`,
+// a MapLibre GL JS canvas backed by the same OSM raster
+// basemap + Dhaka District polygon as `MapView` (1.7) +
+// `DispatcherMap` (3.5). See the project memory
+// (`aidlc/spaces/default/memory/project.md →
+// Corrections`, learned 2026-10-11) for the rationale.
