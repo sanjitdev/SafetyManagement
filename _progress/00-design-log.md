@@ -1665,4 +1665,156 @@ Walking Skeleton): `tsc --noEmit` clean;
 tests/13-dispatcher-map-light.spec.ts`
 6/6 API + 1/1 visual baseline.
 
+### 2026-10-12 — Intent 005 promoted to in-progress (paperwork)
+
+**1. Decision**
+
+With Intent 003 (Dispatcher Queue) +
+Intent 004 (Field Crew App) both
+code-complete (5/5 + 4/4 bolts shipped),
+the next persona WO is Intent 005 (Admin
+City Setup / WO-004). The intent
+paperwork is promoted from `draft` to
+`in-progress` today.
+
+**2. Unit decomposition (4 units, 7 stories)**
+
+The 4-unit decomposition from the
+`draft` phase is reaffirmed with the
+following adjustments:
+
+- Unit 001 — `webauthn-and-auth`
+  (ADM-001). 4 new route handlers
+  (`/api/auth/webauthn/{register,login,
+  assertion,revoke}`) + a
+  `requireWebAuthn(session)` guard +
+  a client-only `WebAuthnCeremony`
+  component. Closes the gap from
+  WO-000 (the schema ships; the
+  route layer is Unit 001's job per
+  `decision-index.md` ADR-007).
+- Unit 002 — `city-config` (ADM-002,
+  ADM-003, ADM-004, ADM-005). The XL
+  unit. 4 new APIs (CRUD over `City`,
+  `Category`, `Department`, `Ward`)
+  + 4 new pages under `/admin/*` +
+  a Leaflet.draw ward-boundary
+  editor + the "Apply Dhaka
+  template" pre-population flow
+  (Feature #11 + cross-cutting
+  decision per the design log).
+  The unit ships 4 stories in
+  lockstep because the four CRUD
+  surfaces share enough scaffolding
+  that splitting them would triple
+  the per-Bolt paperwork cost.
+- Unit 003 — `real-otp-provider`
+  (ADM-006). Provider-agnostic
+  factory (`OTP_PROVIDER` env var)
+  with `stub` + `twilio` providers
+  in v1; the existing
+  `sendOtp(phone, code)` interface
+  in `lib/auth/otp.ts` is preserved.
+- Unit 004 — `audit-dashboard`
+  (ADM-007). Read-only view of
+  `AuditEntry` rows; cursor-
+  paginated; filterable by actor /
+  action / entityType / date range.
+  Every preceding unit writes at
+  least one `AuditEntry` row, so
+  the visual baseline captures a
+  non-empty table.
+
+The unit-briefs are filed at
+`intents/005-admin-city-setup/{001-
+webauthn-and-auth,002-city-config,
+003-real-otp-provider,004-audit-
+dashboard}/unit-brief.md`. The story
+specs are filed at the same paths:
+ADM-001 through ADM-007.
+
+**3. Bolt plan**
+
+`.specsmd/aidlc/memory-bank/bolts/plan-005.md`
+records the 4-bolt sequence:
+
+- `005-001-webauthn-and-auth` —
+  the 4 route handlers +
+  `requireWebAuthn` +
+  `WebAuthnCeremony` +
+  `tests/16-admin-webauthn-light.spec.ts`
+  (API checks + 1 visual baseline).
+- `005-002-city-config` — 4 APIs +
+  4 pages + Leaflet.draw editor +
+  Dhaka template +
+  `tests/17-admin-cities-light.spec.ts`
+  (API checks + 4 visual baselines
+  at 1440×900). The dev login
+  route's `?role=admin` redirect
+  flips from `/home` to
+  `/admin/cities` in this bolt.
+- `005-003-real-otp-provider` —
+  `lib/auth/otp-provider/*` +
+  `tests/unit/otp-provider.test.ts`.
+  No new pages; the citizen's
+  registration flow covers the
+  end-to-end behaviour.
+- `005-004-audit-dashboard` —
+  `GET /api/v1/admin/audit` +
+  `app/admin/audit/page.tsx` +
+  `tests/18-admin-audit-light.spec.ts`
+  (API checks + 1 visual baseline).
+  The dev seed adds 4-5
+  `AuditEntry` rows so the visual
+  baseline captures a non-empty
+  table.
+
+**4. Status sync**
+
+- `intents/005-admin-city-setup/units.md`
+  — `phase: construction,
+  status: in-progress`. Unit briefs
+  + stories listed under each
+  unit; all 4 units `ready`; all
+  7 stories `ready`.
+- `intents/index.md` —
+  Intent 003 + 004 flipped to
+  `complete`; Intent 005 to
+  `in-progress`.
+- `story-index.md` — Intent 003
+  + 004 stories flipped to
+  `done`; Intent 005 stories
+  flipped to `ready`.
+
+**5. Next move**
+
+The construction loop's next bolt
+is `005-001-webauthn-and-auth`.
+The WebAuthn route layer is the
+prerequisite for every Unit 002
+write (the `requireWebAuthn` guard
+gates every `/api/v1/admin/*`
+write); shipping Unit 002 first
+without Unit 001 would either
+require a temporary dev seam
+that bypasses the WebAuthn check
+(acceptable in dev with
+`DEV_SKIP_WEBAUTHN=1` but
+fragile in tests) or would block
+all of Unit 002's writes. The
+`DEV_SKIP_WEBAUTHN=1` test seam
+remains active throughout Bolt
+005-002's Playwright runs (so
+the dev persona can exercise the
+admin UI without a real
+WebAuthn ceremony); production
+never reads the env var.
+
+No source code changes in this
+entry — paperwork only. The
+commit is the Intent 005
+paperwork promotion (units.md +
+unit-briefs + story specs + bolt
+plan + standards sync).
+
 
