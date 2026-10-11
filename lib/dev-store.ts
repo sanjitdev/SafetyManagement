@@ -86,6 +86,10 @@ export interface DevUser {
   wardId: string | null;
   departmentId: string | null;
   languageOverride: 'bn' | 'en' | null;
+  /** Bolt 005-001 — WebAuthn-mandatory-for-admin-writes. */
+  webAuthnCredentials: DevWebAuthnCredential[] | null;
+  /** Bolt 005-001 — most-recent unconsumed challenge (cached). */
+  webAuthnChallenge: DevWebAuthnChallengePayload | null;
 }
 
 export interface DevTrailEntry {
@@ -170,6 +174,42 @@ export interface DevOtpCode {
   createdAt: string;
 }
 
+/**
+ * A registered WebAuthn credential (mirrors the
+ * `User.webAuthnCredentials` JSON column in production).
+ * Bolt 005-001.
+ */
+export interface DevWebAuthnCredential {
+  credentialID: string; // base64url
+  credentialPublicKey: Uint8Array;
+  counter: number;
+  transports?: string[];
+  registeredAt: string; // ISO 8601
+  name: string;
+}
+
+/**
+ * The most-recent unconsumed challenge for a user
+ * (mirrors the `User.webAuthnChallenge` JSON column in production).
+ * Bolt 005-001.
+ */
+export interface DevWebAuthnChallengePayload {
+  challenge: string;
+  expiresAt: string; // ISO
+}
+
+/**
+ * Server-side challenge ledger row (mirrors the `WebAuthnChallenge`
+ * Prisma table in production). Bolt 005-001.
+ */
+export interface DevWebAuthnChallenge {
+  id: string;
+  userId: string;
+  challenge: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
 interface Store {
   cities: Map<string, DevCity>;
   wards: Map<string, DevWard>;
@@ -182,6 +222,8 @@ interface Store {
   sessions: Map<string, DevSession>;
   otps: Map<string, DevOtpCode>;
   dedupFlags: Map<string, DevDedupFlag>;
+  /** Bolt 005-001 — server-side WebAuthn challenge ledger. */
+  webAuthnChallenges: Map<string, DevWebAuthnChallenge>;
 }
 
 declare global {
@@ -308,6 +350,8 @@ function seed(): Store {
     wardId,
     departmentId: null,
     languageOverride: null,
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
   });
   // Demo non-citizen personas for the e2e human-tester flow. They are
   // city-scoped and (for dispatcher/crew) ward-scoped — mirroring the
@@ -326,6 +370,8 @@ function seed(): Store {
     wardId,
     departmentId: deptIds.streetlight,
     languageOverride: null,
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
   });
   const crewId = 'user_crew_rashid';
   users.set(crewId, {
@@ -340,6 +386,8 @@ function seed(): Store {
     wardId,
     departmentId: deptIds.streetlight,
     languageOverride: null,
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
   });
   const adminId = 'user_admin_anwar';
   users.set(adminId, {
@@ -349,11 +397,25 @@ function seed(): Store {
     phone: '+8801711000003',
     nid: '4234567890',
     name: 'Anwar',
-    email: null,
+    // Bolt 005-001: the admin's email is the identifier the
+    // /api/auth/webauthn/login route uses to look up the
+    // admin before issuing a challenge. The design log
+    // (`4.1-admin-console-login` + the bolt's
+    // ddd-02-technical-design) pins this as
+    // `admin@cityfix.bd`.
+    email: 'admin@cityfix.bd',
     passwordHash: null,
     wardId: null,
     departmentId: null,
     languageOverride: null,
+    // Bolt 005-001: the dev admin starts with no registered
+    // WebAuthn credential. The first time the dev admin hits a
+    // /api/v1/admin/* write route (with the dev seam disabled),
+    // the guard returns 401 webauthn_required. The
+    // /admin/login page in Bolt 005-002 will prompt the dev
+    // admin to register a key.
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
   });
 
   // Seed home-feed demo tickets so the /home page renders non-empty
@@ -551,6 +613,7 @@ function seed(): Store {
     sessions: new Map(),
     otps: new Map(),
     dedupFlags: new Map(),
+    webAuthnChallenges: new Map(),
   };
 }
 
@@ -635,6 +698,21 @@ export const devDb = {
         ) ?? null
       );
     },
+    // Bolt 005-001 — used by the anonymous `/api/auth/webauthn/login`
+    // route to resolve the admin by email (the only stable
+    // identifier the browser has before a session is minted).
+    // Filters by email + role; returns the first matching user.
+    findFirstByEmail(args: {
+      where: { email: string; role: string };
+    }): DevUser | null {
+      return (
+        [...getStore().users.values()].find(
+          (u) =>
+            u.email === args.where.email &&
+            u.role === args.where.role,
+        ) ?? null
+      );
+    },
     create(args: {
       data: {
         id: string;
@@ -659,9 +737,72 @@ export const devDb = {
         wardId: args.data.wardId,
         departmentId: null,
         languageOverride: null,
+        webAuthnCredentials: null,
+        webAuthnChallenge: null,
       };
       getStore().users.set(u.id, u);
       return u;
+    },
+    /** Bolt 005-001. Returns the user's `webAuthnCredentials`
+     * (parsed array) + `webAuthnChallenge` (cached payload). */
+    webAuthn: {
+      readCredentials(userId: string): {
+        webAuthnCredentials: DevWebAuthnCredential[] | null;
+        webAuthnChallenge: DevWebAuthnChallengePayload | null;
+      } {
+        const u = getStore().users.get(userId);
+        if (!u) {
+          return { webAuthnCredentials: null, webAuthnChallenge: null };
+        }
+        return {
+          webAuthnCredentials: u.webAuthnCredentials,
+          webAuthnChallenge: u.webAuthnChallenge,
+        };
+      },
+      writeCredentials(
+        userId: string,
+        credentials: DevWebAuthnCredential[] | null,
+      ): void {
+        const u = getStore().users.get(userId);
+        if (!u) throw new Error(`user ${userId} not found`);
+        getStore().users.set(userId, { ...u, webAuthnCredentials: credentials });
+      },
+      writeChallenge(
+        userId: string,
+        challenge: DevWebAuthnChallengePayload | null,
+      ): void {
+        const u = getStore().users.get(userId);
+        if (!u) throw new Error(`user ${userId} not found`);
+        getStore().users.set(userId, { ...u, webAuthnChallenge: challenge });
+      },
+      bumpCounter(
+        userId: string,
+        credentialId: string,
+        newCounter: number,
+      ): void {
+        const u = getStore().users.get(userId);
+        if (!u) throw new Error(`user ${userId} not found`);
+        const list = u.webAuthnCredentials ?? [];
+        getStore().users.set(userId, {
+          ...u,
+          webAuthnCredentials: list.map((c) =>
+            c.credentialID === credentialId ? { ...c, counter: newCounter } : c,
+          ),
+        });
+      },
+      revokeCredential(
+        userId: string,
+        credentialId: string,
+      ): { removed: DevWebAuthnCredential; remaining: number } {
+        const u = getStore().users.get(userId);
+        if (!u) throw new Error(`user ${userId} not found`);
+        const list = u.webAuthnCredentials ?? [];
+        const target = list.find((c) => c.credentialID === credentialId);
+        if (!target) throw new Error(`credential ${credentialId} not found`);
+        const remaining = list.filter((c) => c.credentialID !== credentialId);
+        getStore().users.set(userId, { ...u, webAuthnCredentials: remaining });
+        return { removed: target, remaining: remaining.length };
+      },
     },
   },
   ticket: {
@@ -930,6 +1071,40 @@ export const devDb = {
       const next: DevDedupFlag = { ...cur, ...args.data };
       getStore().dedupFlags.set(args.where.id, next);
       return next;
+    },
+  },
+  /** Bolt 005-001 — server-side WebAuthn challenge ledger. */
+  webAuthnChallenge: {
+    create(args: {
+      userId: string;
+      challenge: string;
+      expiresAt: string;
+    }): DevWebAuthnChallenge {
+      const id = `wbc_${randomUUID().slice(0, 12)}`;
+      const row: DevWebAuthnChallenge = {
+        id,
+        userId: args.userId,
+        challenge: args.challenge,
+        expiresAt: args.expiresAt,
+        createdAt: new Date().toISOString(),
+      };
+      getStore().webAuthnChallenges.set(id, row);
+      return row;
+    },
+    findLatest(args: { userId: string }): DevWebAuthnChallenge | null {
+      const list = [...getStore().webAuthnChallenges.values()].filter(
+        (c) => c.userId === args.userId,
+      );
+      list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      return list[0] ?? null;
+    },
+    findById(args: {
+      userId: string;
+      id: string;
+    }): DevWebAuthnChallenge | null {
+      const row = getStore().webAuthnChallenges.get(args.id);
+      if (!row || row.userId !== args.userId) return null;
+      return row;
     },
   },
 };

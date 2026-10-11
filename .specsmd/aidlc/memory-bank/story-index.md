@@ -101,7 +101,7 @@ bolt is `005-001-webauthn-and-auth`
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|
-| ADM-001-webauthn | 001-webauthn-and-auth | ready | WebAuthn (mandatory for writes) | `intents/005-admin-city-setup/001-webauthn-and-auth/ADM-001-webauthn.md` |
+| ADM-001-webauthn | 001-webauthn-and-auth | done | WebAuthn (mandatory for writes) | `intents/005-admin-city-setup/001-webauthn-and-auth/ADM-001-webauthn.md` |
 | ADM-002-wards | 002-city-config | ready | Ward management (polygon draw) | `intents/005-admin-city-setup/002-city-config/ADM-002-wards.md` |
 | ADM-003-categories | 002-city-config | ready | Category management | `intents/005-admin-city-setup/002-city-config/ADM-003-categories.md` |
 | ADM-004-departments | 002-city-config | ready | Department management | `intents/005-admin-city-setup/002-city-config/ADM-004-departments.md` |

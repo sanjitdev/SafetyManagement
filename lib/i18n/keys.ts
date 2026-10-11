@@ -980,6 +980,30 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Status',
   },
 
+  // WO-004 (Intent 005) — Admin surfaces (WebAuthn ceremony)
+  // Bolt 005-001: the client ceremony UI. Both locales are
+  // fully authored (the bolt does not rely on a fallback).
+  'admin.webauthn.title': {
+    bn: 'নিরাপত্তা কী দিয়ে সাইন ইন',
+    en: 'Sign in with security key',
+  },
+  'admin.webauthn.instruction': {
+    bn: 'নিরাপত্তা কী ঢোকান, তারপর বোতাম চাপুন',
+    en: 'Insert your security key, then tap the button',
+  },
+  'admin.webauthn.error.no_credential': {
+    bn: 'কোনো নিরাপত্তা কী নিবন্ধিত নেই। প্রশাসকের সাথে যোগাযোগ করুন।',
+    en: 'No security key registered. Contact your administrator.',
+  },
+  'admin.webauthn.error.expired': {
+    bn: 'যাচাইকরণের মেয়াদ শেষ। আবার চেষ্টা করুন।',
+    en: 'Assertion expired. Try again.',
+  },
+  'admin.webauthn.success': {
+    bn: 'নিরাপত্তা কী যাচাই সম্পন্ন',
+    en: 'Security key verified',
+  },
+
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
     bn: 'আজকের কাজ',

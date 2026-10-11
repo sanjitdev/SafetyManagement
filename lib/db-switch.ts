@@ -63,6 +63,16 @@ export const db = {
       isDevStore()
         ? devDb.user.findFirst(args)
         : prismaClient.user.findFirst(args as never),
+    // Bolt 005-001 — used by the anonymous `/api/auth/webauthn/login`
+    // route to resolve the admin's `User` row from the email they
+    // typed in the browser. The dev store filters by email + role
+    // (no cityId scope at this stage because the admin is a
+    // cross-city actor); the Prisma path uses `findFirst` on the
+    // same shape.
+    findFirstByEmail: (args: { where: { email: string; role: string } }) =>
+      isDevStore()
+        ? devDb.user.findFirstByEmail(args)
+        : prismaClient.user.findFirst({ where: args.where } as never),
     create: (args: {
       data: {
         id: string;
@@ -303,6 +313,203 @@ export const db = {
       isDevStore()
         ? devDb.dedupFlag.update(args as never)
         : prismaClient.dedupFlag.update(args as never),
+  },
+  /**
+   * Bolt 005-001 — WebAuthn (mandatory for admin writes).
+   * Server-side challenge ledger + per-user credentials read/write.
+   * The dev store mirrors the Prisma surface in-process.
+   */
+  webAuthnChallenge: {
+    create: (args: {
+      userId: string;
+      challenge: string;
+      expiresAt: Date;
+    }) => {
+      const expiresAtIso = args.expiresAt.toISOString();
+      if (isDevStore()) {
+        return devDb.webAuthnChallenge.create({
+          userId: args.userId,
+          challenge: args.challenge,
+          expiresAt: expiresAtIso,
+        });
+      }
+      return prismaClient.webAuthnChallenge.create({
+        data: {
+          userId: args.userId,
+          challenge: args.challenge,
+          expiresAt: args.expiresAt,
+        },
+      });
+    },
+    findLatest: async (args: { userId: string }) => {
+      if (isDevStore()) {
+        return devDb.webAuthnChallenge.findLatest(args);
+      }
+      const row = await prismaClient.webAuthnChallenge.findFirst({
+        where: { userId: args.userId },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!row) return null;
+      return {
+        id: row.id,
+        userId: row.userId,
+        challenge: row.challenge,
+        expiresAt: row.expiresAt,
+      };
+    },
+    findById: async (args: { id: string; userId: string }) => {
+      if (isDevStore()) {
+        // The dev store's `devDb.webAuthnChallenge.findById`
+        // requires both id and userId. The assertion route
+        // passes `userId: ''` to mean "id-only lookup"
+        // (the id is globally unique — a wbc_<uuid> — so
+        // a userId is not necessary for the lookup itself;
+        // the domain service uses the row's userId as the
+        // authority afterward). We delegate to the lower-
+        // level `getStore()` for that one case.
+        if (args.userId === '') {
+          const { getStore } = await import('./dev-store');
+          const row = getStore().webAuthnChallenges.get(args.id);
+          if (!row) return null;
+          return {
+            id: row.id,
+            userId: row.userId,
+            challenge: row.challenge,
+            expiresAt: row.expiresAt,
+          };
+        }
+        return devDb.webAuthnChallenge.findById(args);
+      }
+      const row = await prismaClient.webAuthnChallenge.findUnique({
+        where: { id: args.id },
+      });
+      if (!row) return null;
+      if (args.userId !== '' && row.userId !== args.userId) return null;
+      return {
+        id: row.id,
+        userId: row.userId,
+        challenge: row.challenge,
+        expiresAt: row.expiresAt,
+      };
+    },
+  },
+  userWebAuthn: {
+    readCredentials: async (userId: string) => {
+      if (isDevStore()) {
+        return devDb.user.webAuthn.readCredentials(userId);
+      }
+      const row = await prismaClient.user.findUnique({
+        where: { id: userId },
+        select: {
+          webAuthnCredentials: true,
+          webAuthnChallenge: true,
+        },
+      });
+      if (!row) {
+        return { webAuthnCredentials: null, webAuthnChallenge: null };
+      }
+      return {
+        webAuthnCredentials: row.webAuthnCredentials as never,
+        webAuthnChallenge: row.webAuthnChallenge as never,
+      };
+    },
+    writeCredentials: async (
+      userId: string,
+      credentials: unknown,
+    ) => {
+      if (isDevStore()) {
+        devDb.user.webAuthn.writeCredentials(
+          userId,
+          credentials as never,
+        );
+        return;
+      }
+      await prismaClient.user.update({
+        where: { id: userId },
+        data: { webAuthnCredentials: credentials as never },
+      });
+    },
+    writeChallenge: async (
+      userId: string,
+      challenge: unknown,
+    ) => {
+      if (isDevStore()) {
+        devDb.user.webAuthn.writeChallenge(
+          userId,
+          challenge as never,
+        );
+        return;
+      }
+      await prismaClient.user.update({
+        where: { id: userId },
+        data: { webAuthnChallenge: challenge as never },
+      });
+    },
+    bumpCounter: async (
+      userId: string,
+      credentialId: string,
+      newCounter: number,
+    ) => {
+      if (isDevStore()) {
+        devDb.user.webAuthn.bumpCounter(userId, credentialId, newCounter);
+        return;
+      }
+      const row = await prismaClient.user.findUnique({
+        where: { id: userId },
+        select: { webAuthnCredentials: true },
+      });
+      const list = (row?.webAuthnCredentials ?? []) as Array<{
+        credentialID: string;
+        counter: number;
+      }>;
+      const updated = list.map((c) =>
+        c.credentialID === credentialId
+          ? { ...c, counter: newCounter }
+          : c,
+      );
+      await prismaClient.user.update({
+        where: { id: userId },
+        data: { webAuthnCredentials: updated as never },
+      });
+    },
+    revokeCredential: async (
+      userId: string,
+      credentialId: string,
+    ): Promise<{
+      removed: {
+        credentialID: string;
+        credentialPublicKey: Uint8Array;
+        counter: number;
+        name: string;
+        registeredAt: string;
+      };
+      remaining: number;
+    }> => {
+      if (isDevStore()) {
+        return devDb.user.webAuthn.revokeCredential(userId, credentialId);
+      }
+      const row = await prismaClient.user.findUnique({
+        where: { id: userId },
+        select: { webAuthnCredentials: true },
+      });
+      const list = ((row?.webAuthnCredentials ?? []) as unknown) as Array<{
+        credentialID: string;
+        credentialPublicKey: Uint8Array;
+        counter: number;
+        name: string;
+        registeredAt: string;
+      }>;
+      const target = list.find((c) => c.credentialID === credentialId);
+      if (!target) {
+        throw new Error(`credential ${credentialId} not found`);
+      }
+      const remaining = list.filter((c) => c.credentialID !== credentialId);
+      await prismaClient.user.update({
+        where: { id: userId },
+        data: { webAuthnCredentials: remaining as never },
+      });
+      return { removed: target, remaining: remaining.length };
+    },
   },
 };
 

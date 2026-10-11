@@ -2,7 +2,7 @@
 intent: 005-admin-city-setup
 phase: construction
 status: in-progress
-updated: 2026-10-12T05:30:00Z
+updated: 2026-10-12T07:30:00Z
 ---
 
 # Admin City Setup - Unit Decomposition
@@ -19,11 +19,11 @@ ships last).
 
 ### Unit 001: webauthn-and-auth
 
-**Status**: `ready`
+**Status**: `done`
 **Brief**:
 `001-webauthn-and-auth/unit-brief.md`
 **Stories**:
-- `001-webauthn-and-auth/ADM-001-webauthn.md` (ready)
+- `001-webauthn-and-auth/ADM-001-webauthn.md` (done)
 
 **Estimated Complexity**: L (4 new API routes
 + a new `requireWebAuthn` guard + 1 new
@@ -103,13 +103,31 @@ Intent 001 + 002 + 003 + 004 all ship the
 audit + dev-store + serializer primitives
 this intent depends on).
 
-**Bolt progress** (2026-10-12): no bolts
-shipped yet. The next move is Bolt 005-001
-(WebAuthn routes + `requireWebAuthn` guard)
-followed by Bolt 005-002 (the city-config
-UI + APIs + Dhaka template), then 005-003
-(real OTP provider), then 005-004 (audit
-dashboard).
+**Bolt progress** (2026-10-12): Bolt 005-001
+(WebAuthn routes + `requireWebAuthn` guard
++ `WebAuthnCeremony` component) shipped
+2026-10-12. The 4 route handlers
+(`/api/auth/webauthn/{register,login,assertion,revoke}`)
+are wired with Zod validation, the
+`requireRole(session, 'admin')` guard, and
+the documented error codes. The
+`requireWebAuthn` guard is in place; every
+write under `/api/v1/admin/*` (Unit 002
+forward) is gated by it. The dev seam
+(`DEV_SKIP_WEBAUTHN=1`, honored only when
+`CITYFIX_DEV_STORE=1`) is the established
+shape from `lib/dev-session.ts`. The
+`WebAuthnCeremony` component ships as a
+client-only presentation shell; the
+`/admin/login` page is filed in Bolt 005-002.
+2 Vitest suites (`require-webauthn.test.ts`
++ `webauthn-service.test.ts`) + 1 Playwright
+spec (`16-admin-webauthn-light.spec.ts`) +
+1 visual baseline (the ceremony idle state
+at 1440x900) all pass. Next: Bolt 005-002
+(city-config UI + APIs + Dhaka template),
+then 005-003 (real OTP provider), then
+005-004 (audit dashboard).
 
 The unit decomposition is the 4 units from the
 `draft` phase, revised at entry to active

@@ -1817,4 +1817,210 @@ paperwork promotion (units.md +
 unit-briefs + story specs + bolt
 plan + standards sync).
 
+### 2026-10-12 — Bolt 005-001: WebAuthn route layer (DONE)
+
+**1. Bolt intent**
+
+Bolt 005-001 (Unit 001 webauthn-and-auth)
+ships the four `/api/auth/webauthn/*`
+route handlers + the `requireWebAuthn`
+guard + the client-only `WebAuthnCeremony`
+component. The `WebAuthnChallenge` table +
+the `User.webAuthnCredentials` JSON column
+ship in Intent 001; ADR-007 (registered
+2026-10-04) pins the four-route-handler
+shape + the `requireWebAuthn` guard as
+the contract for this bolt. The
+ddd-03-adr-analysis.md for this bolt
+confirms no new ADRs are required —
+ADR-007 is the canonical record for every
+decision this bolt makes.
+
+**2. Deliverables**
+
+- `app/api/auth/webauthn/register/route.ts`
+  (new) — POST. Zod-validated
+  `{ credentialName, attestationResponse }`.
+  Calls `verifyAttestation(userId,
+  attestationResponse, credentialName)`.
+  Returns 201 with the registered
+  credential summary, or 400 / 401 / 403
+  / 404 / 409 per the documented error
+  matrix.
+- `app/api/auth/webauthn/login/route.ts`
+  (new) — POST (pre-session entry
+  point). Zod-validated `{ email }`.
+  Calls `issueChallenge(adminId,
+  'assertion')`. Returns 200 with the
+  assertion ceremony options, or 400 /
+  404 (`admin_not_found`) / 409
+  (`webauthn_no_credential`).
+- `app/api/auth/webauthn/assertion/route.ts`
+  (new) — POST (anonymous). Zod-validated
+  `{ challengeId, assertionResponse }`.
+  Hands off to `verifyAssertion(challengeId,
+  assertionResponse)`. Sets the
+  `cityfix_session` cookie (HttpOnly +
+  SameSite=Lax; `Secure` in prod) and
+  returns 200 with the session payload, or
+  400 / 401 (assertion_failed /
+  assertion_expired) / 404
+  (challenge_not_found / credential_not_found).
+- `app/api/auth/webauthn/revoke/route.ts`
+  (new) — DELETE. Zod-validated
+  `{ credentialId }`. Calls
+  `revokeCredential(userId, credentialId)`.
+  Returns 204, or 400 / 401 / 403 / 404
+  / 409 (`webauthn_last_credential`).
+- `lib/auth/webauthn.ts` (new) — the
+  four domain-service functions
+  (`issueChallenge`, `verifyAttestation`,
+  `verifyAssertion`, `revokeCredential`)
+  with the v10 @simplewebauthn/server
+  API contract (`supportedAlgorithmIDs`
+  for registration, `authenticator:
+  AuthenticatorDevice` for assertion,
+  `Awaited<ReturnType<...>>` for the
+  generated options).
+- `lib/auth/guards.ts` (edit) — added
+  the `requireWebAuthn(session)` guard
+  + the `WEBAUTHN_CHALLENGE_TTL_MS`
+  constant (5 minutes, matching the
+  citizen OTP TTL). The dev seam
+  (`DEV_SKIP_WEBAUTHN=1`, honored only
+  when `CITYFIX_DEV_STORE=1`) is the
+  established shape from
+  `lib/dev-session.ts`.
+- `lib/db-switch.ts` (edit) — added the
+  `db.webAuthnChallenge` surface (create,
+  findLatest, findById) + the
+  `db.userWebAuthn` surface (readCredentials,
+  writeCredentials, writeChallenge,
+  bumpCounter, revokeCredential). Both
+  the dev + Prisma paths are wired.
+- `lib/dev-store.ts` (edit) — extended
+  `DevUser` with `webAuthnCredentials`
+  + `webAuthnChallenge` JSON fields,
+  added `webAuthnChallenges: Map<...>` to
+  the `Store` interface, added the
+  `webAuthnChallenge` + `user.webAuthn`
+  helper namespaces, and seeded the
+  admin user with `email:
+  'admin@cityfix.bd'` (the identifier
+  the `login` route uses).
+- `components/WebAuthnCeremony.tsx`
+  (new) — client-only shell that
+  drives the browser's
+  `navigator.credentials.create` /
+  `.get` calls via
+  `@simplewebauthn/browser`. 3-state
+  UI (idle / in_progress / done) with
+  the 5 `admin.webauthn.*` i18n keys.
+- `lib/i18n/keys.ts` (edit) — added
+  `admin.webauthn.title`,
+  `admin.webauthn.instruction`,
+  `admin.webauthn.error.no_credential`,
+  `admin.webauthn.error.expired`,
+  `admin.webauthn.success`. Both
+  locales fully authored.
+- `tests/unit/require-webauthn.test.ts`
+  (new) — 10 Vitest checks pinning
+  the guard contract (null session,
+  non-admin role, empty credentials,
+  missing challenge, expired challenge,
+  happy path, three dev-seam variants).
+- `tests/unit/webauthn-service.test.ts`
+  (new) — 15 Vitest checks pinning
+  the domain-service contract
+  (issueChallenge, verifyAttestation,
+  verifyAssertion, revokeCredential)
+  including the no-last-credential
+  rule + the duplicate-credential
+  guard.
+- `tests/16-admin-webauthn-light.spec.ts`
+  (new) — 7 Playwright checks (register
+  405, register 401, register 403,
+  register 400, login 404, login 409,
+  revoke 401) + 1 visual baseline
+  (`admin-webauthn-ceremony-1440x900.png`,
+  the ceremony idle state at 1440×900
+  light theme).
+- Paperwork: `intents/005-admin-city-setup/units.md`
+  Unit 001 flipped to `done`; story
+  spec `ADM-001-webauthn.md` flipped
+  to `done` with updated timestamp.
+
+**3. Acceptance walked through**
+
+ADM-001 (WebAuthn mandatory for writes):
+all 5 acceptance criteria pass (the
+`register` route mints a credential;
+the `assertion` route mints a session;
+the `revoke` route removes a credential
+with the no-last-credential rule; the
+`requireWebAuthn` guard throws
+`webauthn_required` / `webauthn_assertion_expired`
+on the documented conditions; the dev
+seam is honored only when the dev store
+is active). The criterion → evidence
+table is in
+`bolts/005-001-webauthn-and-auth/ddd-01-bolt-record.md`:
+
+- Register ceremony:
+  `app/api/auth/webauthn/register/route.ts`
+  → `lib/auth/webauthn.ts → verifyAttestation`
+  → `writeAudit({ action:
+  'webauthn.register' })`.
+- Assertion ceremony:
+  `app/api/auth/webauthn/assertion/route.ts`
+  → `lib/auth/webauthn.ts → verifyAssertion`
+  → `createSession(...)` + cookie set
+  + `writeAudit({ action:
+  'webauthn.assertion' })`.
+- Revoke:
+  `app/api/auth/webauthn/revoke/route.ts`
+  → `lib/auth/webauthn.ts → revokeCredential`
+  → `writeAudit({ action:
+  'webauthn.revoke' })`.
+- `requireWebAuthn` guard: the guard
+  consults `db.userWebAuthn.readCredentials`
+  + `db.webAuthnChallenge.findLatest` and
+  throws the documented `webauthn_*` codes.
+- Dev seam: the seam is gated by
+  `isDevStore() && DEV_SKIP_WEBAUTHN=1`
+  (production never reads the env var).
+
+**4. Status**
+
+Intent 005 (Admin City Setup) is now
+1/4 bolts shipped (Bolt 005-001). Unit
+001 is `done`; Units 002 + 003 + 004 are
+`ready`. ADM-001 is `done`; ADM-002
+through ADM-007 are `ready`. The
+construction loop's next bolt is
+`005-002-city-config` (the city-config
+UI + APIs + Dhaka template pre-population;
+the largest bolt in the intent).
+
+Verification (per
+`aidlc/spaces/default/memory/project.md`
+Walking Skeleton): `tsc --noEmit` clean
+for the bolt's own files (the 13
+pre-existing TS errors in
+`app/api/v1/dispatcher/dedup-flags/*` +
+`app/api/v1/crew/tickets/[id]/route.ts` +
+`app/api/v1/dispatcher/queue/route.ts` +
+`app/dispatcher/dedup/page.tsx` are
+out of scope per the Bolt 003-005
+ready-for-checklist pattern);
+`npm run test:unit` 193/193 (was 168/168
+before the bolt; +25 new checks from
+`require-webauthn.test.ts` (10) +
+`webauthn-service.test.ts` (15));
+`npm run test:mockups` 15/15 (no
+mockup HTML was touched; the bolt
+adds 1 new visual baseline for the
+Playwright spec, captured under
+`tests-mockups/baselines/16-admin-webauthn-light.spec.ts/`).
+
 
