@@ -7,9 +7,12 @@
  * The library `otpauth` handles TOTP generation/verification — but for SMS we
  * generate a 6-digit random code and store its argon2 hash, then verify by
  * re-hashing the user-supplied code and constant-time comparing.
+ *
+ * Hashing goes through `hashSecret` (not `hashPassword`) — OTPs are short
+ * and do not need to satisfy the password policy guard.
  */
 
-import { hashPassword, verifyPassword } from './password';
+import { hashSecret, verifyPassword } from './password';
 
 export const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export const OTP_MAX_ATTEMPTS = 5;
@@ -22,8 +25,7 @@ export function generateOtp(): string {
 }
 
 export async function hashOtp(code: string): Promise<string> {
-  // Reuse argon2; the short length is fine — argon2 handles any string.
-  return hashPassword(code);
+  return hashSecret(code);
 }
 
 export async function verifyOtp(

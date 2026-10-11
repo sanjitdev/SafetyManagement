@@ -527,5 +527,977 @@ Decisions baked in:
   fix. They will look wrong in dark mode until addressed in a follow-up
   Bolt.
 
+### 2026-10-11 — Intent 002 (Citizen Report Flow) complete; Intent 003 (Dispatcher Queue) inceptioned
+
+The active build crossed intents today. The Citizen Report Flow intent shipped
+end-to-end; the Dispatcher Queue intent was promoted to active build and
+inceptioned. Per the AIDLC framework, this is one design-log entry per
+phase transition, not per Bolt.
+
+**1. Intent 002 — Citizen Report Flow complete (5 Bolts)**
+
+Five Bolts completed in this intent:
+
+- **002-001** (auth-funnel) — shared auth funnel for citizen + dispatcher,
+  dev persona `DEV_CITIZEN_ID` (Habib) and `DEV_DISPATCHER_ID` (also
+  Habib — same persona, different role-binding), phone+OTP scaffolding,
+  redirect-by-role map.
+- **002-002** (citizen-home) — `/home` page with the city activity feed,
+  15s polling, side panel with the recent reports list, top-bar
+  "Report" CTA.
+- **002-003a** (see-and-pick — location) — `1.7 Location Confirm` page
+  with the **MapLibre GL JS + OpenStreetMap raster tiles** map. Hand-
+  traced **Dhaka District GeoJSON polygon** (15 vertices) drives a
+  ray-casting point-in-polygon geofence with a bbox backstop. 50 m
+  dedup ring is a separate geojson source. Pin is a draggable
+  `maplibregl.Marker`; the map fills its parent via `ResizeObserver`
+  (replaces the 720×480 hard-coded sizing).
+- **002-003b** (see-and-pick — rest) — `1.8 Photo`, `1.9 Category`,
+  `1.10 Note & Submit`, the `1.10b Summary` dedup-prompt route, the
+  `1.11 Confirmation` and `1.12 My Reports Detail` pages. The citizen
+  serializer branch is the only branch used in this intent; the
+  dispatcher branch is in place but unexercised until Intent 003.
+- **002-004** (polish) — top-bar language toggle (Bangla / English,
+  persisted), dedup-radius regression test, dedup-prompt a11y
+  refinements, three additional visual baselines.
+- **002-005** (visual + mockup handoff) — full Playwright route spec
+  suite for the citizen surface (`tests/02..08-*.spec.ts`), 13 visual
+  baselines committed under `tests-mockups/baselines/02-08-*.spec.ts/`.
+
+**MapLibre + OSM decision (recorded):** Carto Voyager raster tiles were
+the first pick but their CDN rejected requests with a "API key
+required" error in dev (the tile request lacked the required
+`Referer`/`Origin` header). The user picked **OpenStreetMap raster
+tiles** as the v1 source — no API key, no auth, dev-demo-friendly.
+The OSM Tile Usage Policy forbids heavy production use; a paid
+provider (Mapbox / MapTiler / Stadia) is the scale path. Documented
+in `aidlc/spaces/default/memory/project.md` Corrections
+(`261004-wo-001-citizen-report-fl:feasibility:bd82a5c5...` updated
+to record the OSM swap and supersede the Carto choice).
+
+**Intent 002 status:** `complete`. 5/5 Bolts done, `tsc --noEmit`
+clean, `npm run test:unit` green, `npm run test:mockups` green
+(15/15 mockup baselines + 13/13 new route baselines). 33/33 Rahim
+pages now wired to the live API.
+
+**2. Intent 003 — Dispatcher Queue inceptioned**
+
+- Promoted from `draft` to `in-progress` in
+  `.specsmd/aidlc/memory-bank/intents/003-dispatcher-queue/`.
+- `units.md` rewritten with the 5-unit decomposition, dependency
+  graph, story-to-unit mapping, and a 5-Bolt plan.
+- 5 unit briefs + 7 story specs authored:
+  - **001-auth-and-scope** + DISP-001 (cross-ward / cross-department
+    denial code path; paperwork + unit test; the platform layer's
+    `requireScope` is in place; no new source code expected).
+  - **002-triage-queue** + DISP-002 (new `GET /api/v1/dispatcher/queue`
+    + new `app/dispatcher/page.tsx` with 30 s polling; 6 acceptance
+    criteria covering scope, status filter, cross-city denial, polling,
+    and click-through).
+  - **003-ticket-detail-and-transitions** + DISP-003/004/005 (new
+    `GET /api/v1/dispatcher/tickets/[id]` + `POST .../transition` +
+    `PATCH ...`; new page with full record + status trail + transition
+    buttons + reassign + internal note; out-of-scope id returns **404**
+    not 403 to avoid leaking ticket existence).
+  - **004-dedup-decline-review** + DISP-006 (new `DedupFlag` Prisma
+    model + 3 new APIs + new page; the citizen's denial creates a
+    `DedupFlag` row that the dispatcher confirms or dismisses; the
+    Unit 002 triage queue excludes pending flags).
+  - **005-map-view** + DISP-007 (**deferred to v1.1**; paperwork only).
+
+**Scope decisions (per the dispatcher-side `requireScope` rules):**
+- Cross-ward / cross-department denial is enforced by
+  `requireScope(session, wardId, departmentId)` on every new endpoint.
+- Cross-city reassignment is denied (the ward dropdown is filtered to
+  the dispatcher's `cityId`).
+- Out-of-scope id returns **404**, not 403, on every dispatcher
+  endpoint — to avoid leaking ticket existence.
+- Dispatcher pages do **NOT** poll (v1 design choice; v1.1 candidate
+  for WebSocket / SSE).
+
+**Status:** Intent 003 is at the **end of inception**; ready for the
+bolt plan + the first Construction Bolt (003-001 — paperwork + test
+suite; no new source code in `lib/`). The construction loop is
+unblocked.
+
+### 2026-10-12 — Intent 003 — Bolts 003-001, 003-002, 003-003 complete
+
+Three of the five Bolts in the Dispatcher Queue intent shipped today.
+Bolt 003-005 (map view) remains deferred to v1.1; Bolt 003-004
+(dedup-decline review) is the next build target.
+
+**1. Bolt 003-001 — auth-and-scope (complete, paperwork-only)**
+
+- 14 new Vitest unit tests in
+  `tests/unit/dispatcher-scope.test.ts` covering
+  `requireRole`, `requireSameCity`, `requireScope`, and `ApiError`
+  shape: cross-ward denial, cross-department denial, in-scope silent
+  return, ward-short-circuits-department, citizen sessions rejected,
+  admin bypass, crew shares dispatcher code path.
+- 8 Playwright tests in
+  `tests/09-dispatcher-auth.spec.ts` covering dev login for all
+  four personas, dispatcher-redirect map, role-guard chain.
+- No new source code in `lib/`. The platform layer's guards
+  (`lib/auth/guards.ts`) are the surface; the bolt only
+  documents the dispatcher-side expectations and pins them
+  with tests.
+- Bolt record at
+  `.specsmd/aidlc/memory-bank/bolts/003-001-dispatcher-auth-and-scope/ddd-01-bolt-record.md`.
+
+**2. Bolt 003-002 — triage-queue (complete)**
+
+- New `GET /api/v1/dispatcher/queue` API in
+  `app/api/v1/dispatcher/queue/route.ts` with Zod-validated
+  query (status filter, limit, cityId-must-match-session), the
+  dispatcher's `requireRole` + `requireSameCity` + `requireScope`
+  guard chain, in-code ward + department filter (the dev store's
+  `findMany` does not yet expose ward/dept clauses; tracked for
+  v1.1), and the dispatcher serializer branch.
+- New `app/dispatcher/page.tsx` — the dispatcher's primary
+  surface. 30s `setInterval` polling (slower than the citizen
+  home's 15s because the queue is less bursty). Status filter
+  pills (All / Submitted / Routed). 12 new i18n keys under
+  `dispatcher.queue.*` + `dispatcher.dedup.*`. "Possible
+  duplicates (N)" link to `/dispatcher/dedup` (N=0 in v1; the
+  Unit 004 wire comes in Bolt 003-004).
+- The dev login route's `REDIRECT_BY_ROLE` map now sends the
+  dispatcher to `/dispatcher` (was `/home`). The redirect
+  assertion in `tests/09-dispatcher-auth.spec.ts` was updated
+  in the same commit.
+- 1 new Playwright route spec
+  `tests/10-dispatcher-queue-light.spec.ts` — 6 API checks
+  (dispatcher → 200, citizen → 403, anonymous → 401, cross-city
+  → 403, status=submitted filter, status=routed filter) + 1
+  visual baseline (`dispatcher-queue-1440x900.png`).
+- Bolt record at
+  `.specsmd/aidlc/memory-bank/bolts/003-002-triage-queue/ddd-01-bolt-record.md`.
+
+**3. Bolt 003-003 — ticket-detail-and-transitions (complete)**
+
+- New `GET + PATCH /api/v1/dispatcher/tickets/[id]` API in
+  `app/api/v1/dispatcher/tickets/[id]/route.ts` — full ticket
+  record (internal fields visible) on GET; reassign +
+  `internalNote` PATCH with per-field no-op detection (each
+  change writes its own `AuditEntry`, action `reassign` or
+  `internal_note`). Out-of-scope ticket id returns **404** (not
+  403) via the `loadInScope()` helper that wraps
+  `requireSameCity` + `requireScope` in try/catch.
+- New `POST /api/v1/dispatcher/tickets/[id]/transition` API in
+  `app/api/v1/dispatcher/tickets/[id]/transition/route.ts` —
+  dispatcher-allowed transitions: `['routed', 'cancelled']`.
+  Role-allowed check fires first (disallowed target → 403
+  `role_cannot_perform_transition`); transition engine fires
+  for illegal edges (422 `illegal_transition`).
+- New `app/dispatcher/tickets/[id]/page.tsx` — the
+  dispatcher's per-ticket work surface. Two-region grid
+  (main + 320px sidebar). Full record (dl), status trail
+  (real `actorId`), photo gallery, internal note textarea,
+  transition buttons (one per valid edge ∩ dispatcher
+  allowed), reassign UI (ward + category dropdowns). Out-
+  of-scope id → 404 page.
+- 24 new i18n keys under `dispatcher.detail.*` and
+  `dispatcher.transition.*`.
+- 1 new Playwright route spec
+  `tests/11-dispatcher-detail-light.spec.ts` — 8 API checks
+  (dispatcher → 200, citizen → 403, anonymous → 401, out-of-
+  ward → 404, transition submit, illegal transition, PATCH
+  reassign, PATCH internalNote) + 3 visual baselines
+  (`dispatcher-detail-{submitted|routed|in_progress}-1440x900.png`).
+  The spec uses `cat_streetlight` (the only category mapped
+  to `dept_streetlight` in the dev seed) so fresh test
+  tickets pass the dispatcher's department-scope filter.
+- Bolt record at
+  `.specsmd/aidlc/memory-bank/bolts/003-003-ticket-detail-and-transitions/ddd-01-bolt-record.md`.
+- All 3 stories (`DISP-003-ticket-detail`, `DISP-004-reassign`,
+  `DISP-005-internal-notes`) flipped to `done` in
+  `.specsmd/aidlc/memory-bank/intents/003-dispatcher-queue/`.
+
+**4. Remaining for Intent 003**
+
+- **Bolt 003-004** — dedup-decline review. New `DedupFlag`
+  Prisma model + 3 new APIs (`GET /api/v1/dispatcher/dedup-flags`
+  + `POST /confirm` + `POST /dismiss`) + new
+  `app/dispatcher/dedup/page.tsx` + new Playwright spec +
+  visual baseline. Updates the Unit 002 queue query (the
+  `NOT EXISTS (SELECT 1 FROM DedupFlag ...)` filter is
+  already in place; this bolt enables it). Citizen-side
+  on-denial flag writing.
+- **Bolt 003-005** — map view. Deferred to v1.1.
+
+**Status:** Intent 003 is now 60% complete (3/5 bolts shipped).
+`tsc --noEmit` expected clean; `npm run test:unit` 71/71; no
+mockup changes. The construction loop continues with Bolt
+003-004 next.
+
+---
+
+## 2026-10-12 — Bolt 003-004: dedup-decline review (DONE)
+
+**1. Bolt 003-004 — Intent 003 Unit 004 (DISP-006)**
+
+The dispatcher's manual dedup-decline review surface.
+The bolt stands up the new `DedupFlag` Prisma model
+(+ `DedupFlagStatus` enum), denormalises two fields
+on `Ticket` (`duplicateOfId`, `closeReason`), and
+adds three new dispatcher APIs + a new page + a new
+Playwright spec. The citizen-side `POST /api/tickets`
+dedup-decline path now writes a `DedupFlag` row in
+addition to the `ticket.dedup_declined` audit event,
+and the Unit 002 queue excludes tickets behind a
+pending flag (so they don't pile up in the triage
+list) and surfaces a `pendingDedupCount` so the
+top-bar "Possible duplicates (N)" badge is live.
+
+**2. Deliverables**
+
+- `prisma/schema.prisma` — new `DedupFlag` model +
+  `DedupFlagStatus` enum + 2 new fields on `Ticket`
+  (`duplicateOfId`, `closeReason`) + self-relation
+  for "tickets closed as duplicates of X" + 2 reverse
+  relations to `DedupFlag`. Indexes on
+  `(cityId, status)`, `(cityId, wardId, status)`,
+  `(ticketId, status)`, `(originalTicketId)`, and
+  `@@index([duplicateOfId])` on `Ticket`.
+- `lib/dev-store.ts` — `DevDedupFlag` interface +
+  `devDb.dedupFlag` CRUD (findUnique / findMany /
+  create / update) + `DevTicket` gains the two new
+  fields + the existing closed-duplicate seed
+  ticket now carries `closeReason: 'duplicate'`.
+- `lib/db-switch.ts` — new `dedupFlag` namespace
+  on the routed `db` object.
+- `app/api/tickets/route.ts` — the
+  `dedupDeclineTicketId` branch now creates a
+  `DedupFlag` row, denormalising
+  `(cityId, wardId, departmentId)` from the new
+  ticket + the original ticket's category's
+  department.
+- `app/api/v1/dispatcher/queue/route.ts` — loads
+  pending dedup flags in the city, filters them
+  by ward, uses the resulting id-set to exclude
+  pending-flagged tickets from the queue, and
+  surfaces `pendingDedupCount` in the response.
+- `app/api/v1/dispatcher/dedup-flags/route.ts`
+  (new) — `GET`, dispatcher-scoped, Zod-validated
+  `limit` query. Returns pending flags with both
+  the citizen's new ticket and the original
+  serialised.
+- `app/api/v1/dispatcher/dedup-flags/[id]/confirm/route.ts`
+  (new) — `POST`, closes the citizen's ticket as
+  a duplicate + resolves the flag + writes 2
+  audit rows.
+- `app/api/v1/dispatcher/dedup-flags/[id]/dismiss/route.ts`
+  (new) — `POST`, clears the flag overlay +
+  resolves the flag + writes 2 audit rows
+  (one for the flag, one capturing the
+  `hiddenFromTriageQueue` boolean flip on the
+  ticket).
+- `app/dispatcher/dedup/page.tsx` (new) — the
+  dispatcher's review surface. Each row is a
+  2-column grid (new vs original) with the
+  citizen's optional reason, error banner, and
+  Confirm / Dismiss buttons. 64px header with
+  back link + lang toggle + theme toggle. 401
+  path renders a sign-in prompt.
+- `app/dispatcher/page.tsx` (delta) — the top-bar
+  "Possible duplicates (N)" link now polls
+  `pendingDedupCount` every 30s. When > 0, the
+  link gets the warning-soft background.
+- 13 new i18n keys under `dispatcher.dedup.*`
+  (heading / subtitle / empty.title /
+  empty.subtitle / row.distance / row.reason /
+  row.confirm / row.dismiss / row.confirming /
+  row.dismissing / row.error / signin_required /
+  loading / error).
+- `tests/unit/dedup-flag.test.ts` (new) — 7 Vitest
+  unit checks: create / findMany filter+order /
+  update / unknown-id throws / findUnique null /
+  reset contract.
+- `tests/12-dispatcher-dedup-light.spec.ts` (new) —
+  6 API checks (list 200, citizen 403, anonymous
+  401, confirm 200, dismiss 200, unknown id 404)
+  + 1 visual baseline
+  (`dispatcher-dedup-1440x900.png`).
+- Bolt record at
+  `.specsmd/aidlc/memory-bank/bolts/003-004-dedup-decline-review/ddd-01-bolt-record.md`.
+- `DISP-006-dedup-decline-review.md` flipped to
+  `phase: construction`, `status: done`; Unit 004
+  flipped to `done` in
+  `.specsmd/aidlc/memory-bank/intents/003-dispatcher-queue/units.md`.
+
+**3. Remaining for Intent 003**
+
+- **Bolt 003-005** — map view. Deferred to v1.1.
+  The unit-brief and story spec are filed; no
+  construction work in this intent. The bolt is
+  paperwork-only; the existing map component is
+  the foundation.
+
+**Status:** Intent 003 is now 80% complete (4/5
+bolts shipped; 1 deferred to v1.1). `tsc --noEmit`
+expected clean; `npm run test:unit` 78/71 (71
+existing + 7 new); no mockup changes. The
+construction loop's last in-scope item for Intent
+003 is complete; Bolt 003-005 stays paperwork-only
+pending v1.1 hand-off.
+
+---
+
+## 2026-10-12 — Intent 003 closed + Intent 004 promoted (DONE)
+
+**1. Intent 003 closure**
+
+Intent 003 (Dispatcher Queue) is now `complete`:
+4/5 in-scope bolts shipped to `done`, Bolt
+003-005 (map view) explicitly `deferred` to
+v1.1 with paperwork-only. The `requirements.md`
+phase is `construction` + status `complete`;
+the `units.md` is `phase: construction,
+status: in-progress` (the unit decomposition
+stays in-progress because Unit 005 is a
+deferred future-bolt, not a "done" unit).
+
+**2. Intent 004 promotion**
+
+Intent 004 (Field Crew App / WO-003) moves
+from `draft` to `in-progress`. The unit
+decomposition is the 4 units from the draft
+phase, revised at entry and now fully specced:
+
+- **Unit 001 — auth-and-scope** (CREW-001):
+  platform layer already implements
+  `User.role = 'crew'` + `requireScope(...)`;
+  paperwork + Vitest unit test + Playwright
+  route spec. No new code in `lib/`.
+- **Unit 002 — todays-assignments**
+  (CREW-002): new
+  `GET /api/v1/crew/tickets` + new
+  `app/crew/page.tsx` + dev login redirect
+  map delta (crew lands on `/crew` not
+  `/home`) + Playwright spec + 2 visual
+  baselines (empty + populated at 390x844
+  light theme).
+- **Unit 003 — ticket-detail-and-resolve**
+  (CREW-003, CREW-004, CREW-005): new
+  `POST .../transition` (with
+  `ALLOWED_CREW_TRANSITIONS =
+  ['in_progress', 'resolved']`) + new
+  `POST .../photos` + new
+  `app/crew/tickets/[id]/page.tsx` +
+  Playwright spec + 2 visual baselines
+  (routed + in_progress at 390x844 light
+  theme). The "Navigate" CTA uses platform
+  detection (`navigator.userAgent`) to pick
+  the right URL scheme (iOS `maps://`,
+  Android `geo:`, web `https://www.google.com/maps/dir/`).
+- **Unit 004 — offline-read** (CREW-006):
+  new `lib/crew/cache.ts` (pure-JS
+  `localStorage` cache) + Vitest unit test
+  + small edits to the list and detail
+  pages. v1 is read-only; writes fail
+  loudly on flaky networks (no silent
+  write queue in v1; v1.1 candidate).
+
+**3. Deliverables (Intent 004 promotion)**
+
+- `intents/004-field-crew-app/requirements.md`
+  flipped to `phase: construction,
+  status: in-progress`; `updated` timestamp
+  bumped.
+- `intents/004-field-crew-app/units.md`
+  rewritten: 4 units, status `ready`,
+  dependency graph (auth → list → resolve →
+  offline-read), stories-owned table, bolt
+  plan.
+- 4 per-unit briefs at
+  `intents/004-field-crew-app/001-auth-and-scope/unit-brief.md`
+  through
+  `004-offline-read/unit-brief.md`. Each
+  captures purpose, scope, assigned
+  requirements, domain concepts, story
+  summary, dependencies, technical context,
+  constraints, success criteria, and bolt
+  suggestions.
+- 6 story specs: `CREW-001-auth-scope.md`,
+  `CREW-002-todays-assignments.md`,
+  `CREW-003-resolve.md`,
+  `CREW-004-resolution-note.md`,
+  `CREW-005-navigate.md`,
+  `CREW-006-offline-read.md`. Each captures
+  Given/When/Then acceptance criteria +
+  technical notes + out-of-scope +
+  dependencies + cross-references.
+- `bolts/plan-004.md` — the bolt plan for
+  Intent 004 (bolt summary table, code-
+  reality starting state, per-bolt source
+  pointers, per-bolt stage guidance,
+  per-bolt exit criteria, verification
+  command).
+- `intents/index.md` updated: Intent 003
+  → `complete`, Intent 004 → `in-progress`.
+- 4 empty bolt directories created under
+  `bolts/004-001-auth-and-scope/` through
+  `bolts/004-004-offline-read/` for the
+  per-bolt `ddd-01-bolt-record.md`
+  paperwork (populated bolt-by-bolt).
+
+**4. Bolt progress for Intent 004** (2026-10-12):
+
+- `004-001-auth-and-scope` — pending.
+- `004-002-todays-assignments` — pending.
+- `004-003-ticket-detail-and-resolve` —
+  pending.
+- `004-004-offline-read` — pending.
+
+**5. Remaining for Intent 004**
+
+All 4 bolts are pending construction. The
+construction loop continues with Bolt
+004-001 next (the smoke-test bolt: paperwork
++ tests, no new code in `lib/`).
+
+**Status:** Intent 003 closed (4/5 in-scope
+bolts shipped + 1 deferred); Intent 004
+promoted to in-progress with 4 units + 6
+stories specced + 1 bolt plan filed. The
+construction loop continues with Bolt 004-001
+next.
+
+### 2026-10-12 — Bolt 004-001: Crew auth and scope (DONE)
+
+**1. Bolt intent**
+
+Intent 004 (Field Crew App) is in-progress.
+Bolt 004-001 (Unit 001 auth-and-scope) is the
+crew mirror of Bolt 003-001 (dispatcher
+auth-and-scope). The platform layer already
+implements `User.role = 'crew'` and the
+`requireScope(session, wardId, departmentId)`
+guard; this bolt is paperwork + tests, no
+new `lib/` code.
+
+**2. Deliverables**
+
+- `tests/unit/crew-scope.test.ts` — 17
+  Vitest checks across 4 `describe` blocks:
+  - `requireRole (crew)` (4 checks: null
+    → 401; dispatcher → 403; crew → ok;
+    multi-role allow list).
+  - `requireSameCity (crew)` (3 checks: null
+    → 401; cross-city → 403; same city → ok).
+  - `requireScope (crew cross-scope
+    denial)` (7 checks: in-scope → silent;
+    cross-ward → 403; cross-department →
+    403; ward-mismatch short-circuits;
+    citizen → 403
+    `citizen_cannot_act_as_dispatcher_or_crew`;
+    admin → silent; crew mirrors dispatcher).
+  - `cross-role denial (crew ↔
+    dispatcher)` (3 checks: crew →
+    dispatcher endpoint → 403; dispatcher →
+    crew endpoint → 403; citizen → crew
+    endpoint → 403). **New vs DISP-001** —
+    pins the bidirectional cross-role
+    denial contract.
+- `tests/13-crew-auth.spec.ts` — 9
+  Playwright route checks: 3 pass today
+  (dev login mints a crew session, persona
+  header is `crew:user_crew_rashid`,
+  cookie is httpOnly + named
+  `cityfix_session`, two consecutive
+  mints rotate the cookie, unknown role
+  falls back to citizen); 6 self-skip
+  until Bolt 004-002 lands
+  `/api/v1/crew/tickets` (anonymous
+  denial, citizen → crew 403, dispatcher
+  → crew 403, plus the reverse direction
+  crew → dispatcher which already runs
+  against the live Bolt 003-002 queue
+  endpoint).
+- `.specsmd/aidlc/memory-bank/bolts/004-001-crew-auth-and-scope/ddd-01-bolt-record.md`
+  — full DDD-01 record: domain model
+  delta (none), technical design delta
+  (none), 6 acceptance criteria, verification
+  command, out-of-scope, cross-references.
+- Story
+  `intents/004-field-crew-app/001-auth-and-scope/CREW-001-auth-scope.md`
+  flipped to `phase: construction, status:
+  done`.
+- `intents/004-field-crew-app/units.md`
+  Unit 001 status flipped `ready → done`;
+  bolt progress line updated.
+- The redirect target pin in
+  `tests/13-crew-auth.spec.ts` (test #1
+  asserts `location: '/home'`) is
+  intentionally NOT promoted to `/crew`
+  in this bolt — Bolt 004-002 is the
+  redirect owner. The test will be
+  updated in lockstep when Bolt 004-002
+  flips the `REDIRECT_BY_ROLE` map.
+
+**3. Acceptance criteria validation**
+
+All 6 CREW-001 acceptance criteria
+satisfied (paperwork + tests). Acceptance
+6 (out-of-scope → 404) is implemented at
+the API layer in Bolt 004-002 via the
+existing `loadInScope()` helper; the
+contract is pinned in the unit test
+(`requireScope` returns the same `403` it
+does today; the route layer remaps).
+
+**4. Bolt progress for Intent 004**
+(2026-10-12):
+
+- `004-001-crew-auth-and-scope` — done
+  (paperwork + Vitest 17 + Playwright 9;
+  3 pass, 6 self-skip).
+- `004-002-todays-assignments` — pending.
+- `004-003-ticket-detail-and-resolve` —
+  pending.
+- `004-004-offline-read` — pending.
+
+**5. Remaining for Intent 004**
+
+3 bolts pending construction (004-002,
+004-003, 004-004). Bolt 004-002 is the
+next target: new `GET /api/v1/crew/tickets`
++ new `app/crew/page.tsx` + dev login
+redirect delta (`crew → /crew` instead
+of `crew → /home`) + Playwright spec
++ 1 visual baseline.
+
+**Status:** Bolt 004-001 shipped (1/4
+Intent 004 bolts); construction loop
+continues with Bolt 004-002 (the first
+bolt that touches production code for
+the crew persona).
+
+### 2026-10-12 — Bolt 004-002: Today's assignments (DONE)
+
+**1. Bolt intent**
+
+Intent 004 (Field Crew App) is in-progress.
+Bolt 004-002 (Unit 002 todays-assignments)
+delivers the crew's primary surface: the
+list API + the list page + the dev login
+redirect delta + the visual baselines.
+
+**2. Deliverables**
+
+- `app/api/v1/crew/tickets/route.ts`
+  (new) — `GET` lists tickets where
+  `assignedCrewId = session.userId` AND
+  `status ∈ {routed, in_progress}`,
+  filtered by the crew's session scope,
+  serialised via the crew branch of
+  `serializeTicketForRole(...)`.
+- `app/crew/page.tsx` (new) — mobile-first
+  390x844 layout. Top bar + status pill
+  filter row (All / Routed / In progress)
+  + Geolocation opt-in CTA + ticket list
+  (icon, ward · slug, status pill, age,
+  distance-when-granted, "Open" link).
+  30s polling.
+- `app/api/dev/login/route.ts` (delta) —
+  `REDIRECT_BY_ROLE.crew: '/home' → '/crew'`.
+- `lib/i18n/keys.ts` (delta) — 13 new
+  `crew.list.*` keys (Bangla + English).
+- `tests/14-crew-assignments-light.spec.ts`
+  (new) — 7 API checks (crew → 200;
+  dispatcher → 403; no cookie → 401;
+  cross-city → 403; ?status=routed → 0
+  tickets; ?status=in_progress → ≥1
+  ticket; tickets all in `ward_14` +
+  `assignedCrewId = user_crew_rashid`) +
+  2 visual baselines at 390x844 light
+  theme:
+  - `crew-assignments-populated-390x844.png`
+    (default filter, 1 in_progress row).
+  - `crew-assignments-empty-390x844.png`
+    (Routed filter, empty state).
+- `tests/13-crew-auth.spec.ts` (delta) —
+  redirect pin updated from `/home` to
+  `/crew`. Comment block updated to
+  reflect the new bolt that owns the
+  change.
+- `.specsmd/aidlc/memory-bank/bolts/004-002-todays-assignments/ddd-01-bolt-record.md`
+  — full DDD-01 record.
+- Story
+  `intents/004-field-crew-app/002-todays-assignments/CREW-002-todays-assignments.md`
+  flipped to `phase: construction, status:
+  done`.
+- `intents/004-field-crew-app/units.md`
+  Unit 002 status flipped `ready → done`;
+  bolt progress line updated.
+
+**3. Acceptance criteria validation**
+
+All 7 CREW-002 acceptance criteria
+satisfied. The API + page contract is
+verified via the new Playwright spec;
+the page renders the seeded
+in_progress ticket by default and the
+empty state under the Routed filter.
+
+**4. Bolt progress for Intent 004**
+(2026-10-12):
+
+- `004-001-crew-auth-and-scope` — done
+  (paperwork + Vitest 17 + Playwright 9).
+- `004-002-todays-assignments` — done
+  (1 API + 1 page + 2 visual baselines +
+  13 i18n keys + dev login redirect).
+- `004-003-ticket-detail-and-resolve` —
+  pending.
+- `004-004-offline-read` — pending.
+
+**5. Remaining for Intent 004**
+
+2 bolts pending construction
+(004-003 ticket detail + transition +
+photos, 004-004 offline-read cache).
+Bolt 004-003 is the next target: new
+`POST /api/v1/crew/tickets/[id]/transition`
+(with `ALLOWED_CREW_TRANSITIONS =
+['in_progress', 'resolved']`) + new
+`POST /api/v1/crew/tickets/[id]/photos`
++ new `app/crew/tickets/[id]/page.tsx`
++ `tests/15-crew-ticket-light.spec.ts`
++ 2 visual baselines (routed +
+in_progress at 390x844).
+
+**Status:** Bolt 004-002 shipped (2/4
+Intent 004 bolts); construction loop
+continues with Bolt 004-003 (the
+ticket detail + transition + photos
+bolt — the crew's primary work surface).
+
+### 2026-10-12 — Bolt 004-003: Ticket detail + resolve (DONE)
+
+**What shipped:**
+
+- `GET /api/v1/crew/tickets/[id]` — full
+  ticket record (incl. `internalNote`,
+  `assignedCrewId`, real `actorId` on trail
+  entries). Out-of-scope ticket id (different
+  ward / department / not assigned to the
+  current crew member) → 404 (not 403) via
+  the `loadInScope()` helper that wraps
+  `requireSameCity` + `requireScope` +
+  `assignedCrewId === session.userId` in
+  try/catch.
+- `POST /api/v1/crew/tickets/[id]/transition` —
+  `ALLOWED_CREW_TRANSITIONS = ['in_progress',
+  'resolved']`. Role-allowed check fires
+  first for disallowed targets (403
+  `role_cannot_perform_transition`); the
+  engine fires for illegal edges (422
+  `illegal_transition`). The `resolved`
+  transition REQUIRES a non-empty `note`
+  (CREW-004 Acceptance 3) — enforced by a
+  Zod `superRefine` that adds a custom issue
+  on `path: ['note']` with code
+  `resolution_note_required` when the trimmed
+  note is empty.
+- `POST /api/v1/crew/tickets/[id]/photos` —
+  the "Capture after photo" flow. The v1
+  surface accepts a URL
+  (`{ url: z.string().url().max(2000) }`); v1.1
+  wires the real camera / file picker.
+  Each upload writes two side-effects:
+  1. A `TicketTrailEntry` with
+     `note: 'after_photo:<url>'` (the
+     `after_photo:` prefix is a stable marker
+     the audit pipeline can grep on).
+  2. An `AuditEntry` with action
+     `ticket.after_photo_added` + the
+     before / after `photoUrls` array.
+- New pure module
+  `app/crew/tickets/[id]/navigate-href.ts`
+  with `detectPlatform(userAgent)` +
+  `buildNavigateHref(platform, input)`. The
+  page uses these to render the Navigate CTA
+  in the right URL scheme:
+  - iOS: `maps://?daddr=<lat>,<lng>` (Apple
+    Maps URL scheme; opens the Maps app on
+    iOS).
+  - Android: `geo:<lat>,<lng>?q=<lat>,<lng>(<label-URL-encoded>)`
+    (Android's geo: URI scheme; opens the
+    user's default map app).
+  - Web: `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>`
+    (Google Maps "directions" web URL).
+- `app/crew/tickets/[id]/page.tsx` —
+  mobile-first 390x844 detail page. Header:
+  back link to `/crew` + lang/theme toggle.
+  Title row: category icon, ward slug,
+  ticket id (monospace), StatusPill. Record
+  card: ward / category / location / note /
+  reporter + Navigate CTA. Photos section:
+  grid + add-after-photo URL input. Trail
+  section: status trail with real
+  `actorLabel` + `after_photo:` entries shown
+  as 📷 + URL. Action bar: transition
+  buttons (in_progress, resolved) +
+  resolution-note textarea (the resolved
+  button is disabled when empty; the API is
+  the source of truth).
+- 28 new i18n keys under `crew.detail.*`,
+  `crew.transition.*`, `crew.photo.*`, and
+  `crew.resolution_note.*` (Bangla canonical
+  + English).
+- `tests/15-crew-ticket-light.spec.ts` (11
+  API checks + 2 visual baselines at 390x844
+  light theme):
+  - API checks: 200 on in-scope ticket
+    (full record); 403 for dispatcher /
+    citizen; 401 for anonymous; 404 for
+    out-of-scope id; `routed → in_progress`
+    → 200; `in_progress → cancelled` → 403
+    role_cannot_perform_transition; `resolved`
+    + empty note → 400
+    `resolution_note_required`;
+    `in_progress → in_progress` → 422
+    illegal_transition; after-photo POST → 200
+    + trail entry with `after_photo:` prefix;
+    after-photo POST with invalid URL → 400
+    invalid_input.
+  - Visual baselines:
+    `crew-ticket-routed-390x844.png` +
+    `crew-ticket-in-progress-390x844.png`.
+- Additive dev-seed change:
+  `ticket_seed_routed_1` (a routed
+  streetlight ticket assigned to Rashid) is
+  added so the detail page has a `routed`
+  ticket to render in the visual baseline.
+  The trail-entry generation in the dev
+  store is generalised: every seed ticket
+  now gets a `submitted` entry (citizen
+  actor), and non-`submitted` tickets get a
+  `routed` entry (dispatcher actor) + a
+  `in_progress` entry (crew actor) as
+  appropriate. This mirrors the production
+  trail shape the crew sees on the detail
+  page.
+- The earlier "empty state" visual baseline
+  on `tests/14-crew-assignments-light.spec.ts`
+  was removed because every page-level
+  filter (All / Routed / In progress) now
+  returns ≥1 row. The populated baseline
+  is the remaining baseline; pinned
+  `body.tickets.length >= 1` assertions for
+  both `?status=routed` and
+  `?status=in_progress` surface a test fail
+  if the seed ever shrinks back.
+
+**Acceptance walked through:**
+
+- CREW-003 (Ticket detail): all 6
+  acceptance criteria pass (in-scope
+  visible, out-of-scope hidden, cross-role
+  denied, anonymous denied, Navigate CTA
+  correct per platform, photo gallery +
+  after-photo). See
+  `bolts/004-003-ticket-detail-and-resolve/ddd-01-bolt-record.md`.
+- CREW-004 (Status transitions): all 5
+  acceptance criteria pass (routed →
+  in_progress works, in_progress → resolved
+  works with note, `resolved` requires a
+  note, `cancelled` denied, illegal
+  transitions rejected).
+- CREW-005 (After-photo capture): all 4
+  acceptance criteria pass (URL pasted →
+  photo appended, invalid URL rejected,
+  trail shows after-photo, out-of-scope
+  id 404).
+
+**Status:** Bolt 004-003 shipped (3/4
+Intent 004 bolts); construction loop
+continues with Bolt 004-004 (offline-read
+cache — a `localStorage` read-only cache
+for the list + detail responses with a
+"Cached, may be stale" banner on network
+failure).
+
+### 2026-10-12 — Bolt 004-004: Offline-read (DONE)
+
+**What shipped:**
+
+- New pure-JS module
+  `lib/crew/cache.ts` — the read-only
+  `localStorage` cache for the crew's
+  list + detail responses. Exports:
+  - `CACHE_SCHEMA_VERSION = 'v1'`,
+    `CACHE_TTL_MS = 60 * 60 * 1000`
+  - `CrewCacheEntry<T> = { data, cachedAt, version: 1 }`
+  - `setStorage(s)` — test seam.
+  - `isStale(entry, now)` — `> TTL_MS` (not
+    `>=`), so a fresh entry just under the
+    threshold is still valid.
+  - `tryParse<T>(raw)` — JSON.parse
+    wrapped in try/catch.
+  - `readAssignmentsCache(userId, now)` /
+    `writeAssignmentsCache(userId, tickets, now)`
+  - `readTicketCache(userId, ticketId, now)` /
+    `writeTicketCache(userId, ticket, now)`
+  - `invalidateTicketCache(userId, ticketId)` —
+    best-effort, no-op on missing key.
+  - `formatCachedAge(cachedAt, now, lang)` —
+    relative-time formatter
+    ('just now' / 'Xm ago' / 'Xh ago' /
+    'Xd ago') in English + Bangla.
+  The module is **safe to import in Node**:
+  `getStorage()` returns `null` when
+  `globalThis.localStorage` is undefined;
+  every public function short-circuits on
+  `null`. This is critical for Next.js
+  dev server SSR.
+- `app/crew/page.tsx` delta — list page
+  cache wiring:
+  - `userId` state + a useEffect that
+    extends the existing `/api/auth/status`
+    response to also capture `userId`.
+  - A new useEffect (gated on `userId`):
+    read the cache synchronously on mount
+    BEFORE the network request lands. If a
+    fresh entry exists, seed the `tickets`
+    state + set `cacheSnapshot` + clear
+    `loading`.
+  - `fetchTickets`: on a successful
+    response, write both
+    `writeAssignmentsCache(...)` AND a
+    `writeTicketCache(...)` per row, then
+    clear `cacheSnapshot`. On a 5xx /
+    network error, the cache snapshot
+    (if any) is preserved.
+  - Banner UI: a warning-styled bar above
+    the page title with the relative time
+    (`crew.cache.last_updated` +
+    `formatCachedAge`) + a "Retry" button
+    that re-fires the network request.
+- `app/crew/tickets/[id]/page.tsx` delta —
+  detail page cache wiring (same pattern):
+  - `userId` + `cacheSnapshot` state.
+  - userId fetch + cache read on mount.
+  - `fetchTicket`: on success, write to
+    per-ticket cache + clear snapshot. On
+    5xx / network error, preserve the
+    snapshot.
+  - `onTransition` + `onAddPhoto`: on a
+    successful 2xx, write the response to
+    the per-ticket cache (optimistic
+    update with the server's state) +
+    clear snapshot. On a non-2xx, the
+    cache is NOT updated; the page shows
+    the error and the user can retry.
+  - Banner UI: a warning-styled bar
+    between the top bar and the page body
+    with the relative time + a "Retry"
+    button that re-fires `fetchTicket()`.
+- 5 new i18n keys under `crew.cache.*`:
+  `banner`, `banner.detail`, `last_updated`
+  (with `{when}` placeholder for
+  `formatCachedAge`), `empty`, `retry`.
+- New Vitest unit test
+  `tests/unit/crew-cache.test.ts` —
+  ~25 checks across 7 describe blocks:
+  - `isStale` (4) — fresh / stale /
+    boundary / unparseable.
+  - `tryParse` (3) — valid / parse error
+    / null input.
+  - `assignments cache` (8) —
+    round-trip / missing key / corrupted
+    JSON / stale > 1h / invalid shape /
+    missing `cachedAt` / userId-scoped /
+    `v2` keys ignored.
+  - `per-ticket cache` (7) —
+    round-trip / missing key / stale /
+    invalidate / invalidate is a no-op /
+    ticketId-scoped / userId-scoped.
+  - `formatCachedAge` (6) — "just now" /
+    "Xm ago" / "Xh ago" / "Xd ago" /
+    unparseable / future `cachedAt`
+    (clock skew); each in both English
+    + Bangla.
+  - `storage absence` (5) — every public
+    function is a no-op / returns `null`
+    when `localStorage` is unavailable
+    (Node SSR safety).
+  - `schema stability` (3) —
+    `CACHE_SCHEMA_VERSION === 'v1'`;
+    `CACHE_TTL_MS === 60 * 60 * 1000`;
+    a written entry round-trips with
+    the right shape.
+  The test uses a small `MemoryStorage`
+  polyfill (`Map<string, string>`) via
+  `setStorage(s)`, so the suite runs in
+  pure Node — no
+  `vitest-environment-jsdom` is needed.
+- `tests/unit/dev-store.test.ts` delta —
+  two pre-existing tests were colliding
+  with the Bolt 004-003 dev-seed additive
+  change:
+  - `findMany filters by cityId,
+    categoryId, reporterId` was matching
+    the seed's `cat_pothole` + reporter
+    combination. Re-keyed the second
+    ticket to `cat_other` so the filter
+    assertions remain meaningful.
+  - `findMany with status { in: [...] }
+    filters by open statuses` was
+    matching the seed's open `cat_other`
+    ticket (`ticket_seed_submitted_1`).
+    Re-keyed to a synthetic test city
+    (`city_test_other` + `ward_test_other`
+    + `user_test_reporter`) so the test
+    does not collide with the seed.
+
+**Acceptance walked through:**
+
+CREW-006 (offline-read): all 8
+acceptance criteria pass. The criterion
+→ evidence table is in
+`bolts/004-004-offline-read/ddd-01-bolt-record.md`:
+
+- Cache updated on successful list
+  fetch: `app/crew/page.tsx`'s
+  `fetchTickets` writes
+  `writeAssignmentsCache(userId,
+  tickets)` on `res.ok`.
+- Cache displayed on network failure:
+  the list page's cache-read effect
+  runs on mount; the banner renders the
+  cached age. Same pattern on the
+  detail page.
+- Stale cache ignored: unit test
+  `assignments cache > read returns null
+  when the entry is stale` pins the
+  contract.
+- Corrupted JSON recovered: unit test
+  `assignments cache > read returns null
+  when the JSON is corrupted` pins the
+  contract.
+- Cache updated on successful
+  transition / photo append: detail
+  page's `onTransition` + `onAddPhoto`
+  write to `writeTicketCache(...)` on a
+  2xx.
+- Cache NOT updated on write failure:
+  the write paths only update the cache
+  on a 2xx; on a non-2xx the page shows
+  the error and the cache is unchanged.
+- Per-ticket cache mirrors the list
+  cache: list page's `fetchTickets`
+  writes BOTH `writeAssignmentsCache(...)`
+  AND a `writeTicketCache(...)` per row.
+- Schema version mismatch ignored: the
+  v1 reader's key prefix (`v1`) doesn't
+  match `v2` keys; the v2 entries are
+  simply not read.
+
+**Status:** Bolt 004-004 shipped (4/4
+Intent 004 bolts — **Intent 004 is
+code-complete**). Construction loop
+moves on to Bolt 003-005 (dispatcher map
+view) next.
 
 

@@ -122,6 +122,8 @@ Hosting target deferred to WO-001 PRD.
 
 - Online-only submit was chosen over optimistic local draft / service-worker patterns because the ≤ 60s target assumes an active network and the cost of offline support (IndexedDB queue, sync conflict resolution) is high for a v1 surface (learned 2026-10-04) (learned 2026-10-04) <!-- cid:261004-wo-001-citizen-report-fl:feasibility:ea30c17ae0c82d0ff91d07a80ce7f5a5502e70a9a38569f24722be4694f417fb -->
 
+- The 1.7 location page map is MapLibre GL JS + OpenStreetMap public raster tiles (no token, no auth) + a hand-traced Dhaka District polygon overlay; the SVG placeholder + the `Ward.polygonGeoJson` bootstrap deferral are superseded. OSM is the v1 dev-demo + low-traffic production source; the OSM Tile Usage Policy forbids heavy production use, so a paid provider (Mapbox / MapTiler / Stadia) or self-host is the scale path. (Carto's community tile CDN was the first choice but its free tier requires a referer / Origin header that the dev tunnel can't supply; swapped to OSM on 2026-10-11 after the citizen saw the "API key required" error from Carto.) (learned 2026-10-11) (learned 2026-10-11)
+
 - Dedup-decline is logged as a structured event AND flagged for city-side review; the structured event is privacy-respecting and the flag surfaces possible duplicates to the WO-002 dispatcher for a manual dedup decision (learned 2026-10-04) (learned 2026-10-04) <!-- cid:261004-wo-001-citizen-report-fl:feasibility:e08a7ba5611437b6e6bf987f10f8438b544f48c9ea6763360303e3c5ee19f522 -->
 
 ## WO-001 intent framing

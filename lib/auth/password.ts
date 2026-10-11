@@ -6,6 +6,11 @@
  *
  * Tune for civic-platform posture: moderate cost is fine — we don't run at
  * 100k logins/sec. OWASP 2024 recommendations: m=19 MiB, t=2, p=1.
+ *
+ * The password-policy guard (≥ 8 chars, ≥1 digit) is enforced at this
+ * module's public boundary so the service layer is the source of truth.
+ * OTPs and other short secrets use `hashSecret` directly to bypass the
+ * password policy while reusing the same argon2 primitive.
  */
 
 import { hash, verify } from '@node-rs/argon2';
@@ -31,6 +36,14 @@ export async function hashPassword(plaintext: string): Promise<string> {
   if (!/\d/.test(plaintext)) {
     throw new Error('Password must contain at least one digit');
   }
+  return hash(plaintext, ARGON2_OPTIONS);
+}
+
+/**
+ * Hash a short secret (OTP, magic-link token, etc.) using the same
+ * argon2 primitive. Bypasses the password policy guard.
+ */
+export async function hashSecret(plaintext: string): Promise<string> {
   return hash(plaintext, ARGON2_OPTIONS);
 }
 

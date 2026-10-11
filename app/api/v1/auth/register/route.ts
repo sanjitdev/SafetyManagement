@@ -32,8 +32,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/db';
-import { isDevStore, devDb, DEV_CITY_ID, getStore } from '@/lib/dev-store';
 import { db } from '@/lib/db-switch';
 import { hashPassword } from '@/lib/auth/password';
 import { createSession, SESSION_COOKIE } from '@/lib/auth/session';
@@ -124,21 +122,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Check phone uniqueness in this city before we try to create.
-  // In dev mode we scan the in-memory users; in prod we use Prisma.
-  let phoneTaken = false;
-  if (isDevStore()) {
-    const users = [...getStore().users.values()];
-    phoneTaken = users.some(
-      (u) => u.cityId === city.id && u.phone === phone && u.role === 'citizen',
-    );
-  } else {
-    const existing = await prisma.user.findFirst({
-      where: { cityId: city.id, phone, role: 'citizen' },
-      select: { id: true },
-    });
-    phoneTaken = existing !== null;
-  }
-  if (phoneTaken) {
+  // Goes through the `db` facade so the dev store's user scan and the
+  // prod Prisma findFirst are reached from the same call site.
+  const existing = await db.user.findFirst({
+    where: { cityId: city.id, phone, role: 'citizen' },
+  });
+  if (existing) {
     return NextResponse.json(
       { error: 'phone_already_registered' },
       { status: 409 },

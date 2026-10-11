@@ -23,6 +23,7 @@ import { isDevStore } from '@/lib/dev-store';
 import { db } from '@/lib/db-switch';
 import { generateOtp, hashOtp, OTP_TTL_MS } from '@/lib/auth/otp';
 import { rateLimit } from '@/lib/platform/rate-limit';
+import { writeAudit } from '@/lib/platform/audit';
 
 const SendInput = z.object({
   phone: z.string().min(11).max(20),
@@ -113,6 +114,14 @@ export async function POST(req: NextRequest) {
       scope,
       expiresAt,
     },
+  });
+
+  await writeAudit({
+    entityType: 'user',
+    entityId: user.id,
+    action: 'user.otp_issued',
+    actorId: user.id,
+    afterValue: { scope, ttlMs: OTP_TTL_MS },
   });
 
   // SMS provider integration deferred to WO-004. In dev mode we surface
