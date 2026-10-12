@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -57,6 +57,7 @@ const SAMPLE_POLYGON = JSON.stringify(
 );
 
 export default function WardsPage() {
+  const pathname = usePathname();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [lang, setLang] = useState<Language>('bn');
@@ -103,7 +104,8 @@ export default function WardsPage() {
       if (cancelled) return;
       setSignedIn(status.authenticated);
       if (!status.authenticated) {
-        window.location.href = '/login';
+        window.location.href =
+          '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
         return;
       }
       await refresh();

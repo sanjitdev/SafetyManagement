@@ -18,10 +18,11 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { safeNextPath } from '@/lib/safe-next';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -63,7 +64,17 @@ function validate(field: FieldKey, value: string, all: FormState): string | null
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterInner />
+    </Suspense>
+  );
+}
+
+function RegisterInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const nextPath = safeNextPath(params.get('next'), '/home');
   const [lang, setLang] = useState<Language>('bn');
   const [form, setForm] = useState<FormState>({
     phone: '',
@@ -153,9 +164,16 @@ export default function RegisterPage() {
       if (res.status === 201) {
         // Registration succeeded; the API minted a session cookie so the
         // verify page can identify the user. Route to /verify-otp with the
-        // phone so the page can render the masked subtitle.
+        // phone so the page can render the masked subtitle. We also
+        // forward the `?next=` deep link so the post-OTP redirect
+        // resumes the original intent (e.g. /report/location when a
+        // public visitor taps "Report what you see").
         const phone = encodeURIComponent(form.phone);
-        router.replace(`/verify-otp?phone=${phone}`);
+        const next =
+          nextPath === '/home'
+            ? ''
+            : `&next=${encodeURIComponent(nextPath)}`;
+        router.replace(`/verify-otp?phone=${phone}${next}`);
         return;
       }
       if (res.status === 409) {
@@ -463,7 +481,11 @@ export default function RegisterPage() {
             }}
           >
             <Link
-              href="/login"
+              href={
+                nextPath === '/home'
+                  ? '/login'
+                  : `/login?next=${encodeURIComponent(nextPath)}`
+              }
               lang={lang}
               style={{
                 fontSize: 'var(--text-body-sm)',

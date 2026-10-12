@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   serializeTicketForRole,
+  serializeTicketForPublic,
   type TicketLike,
   type TrailEntryLike,
 } from '@/lib/serializers/ticket';
@@ -132,5 +133,42 @@ describe('serializeTicketForRole — string-input compatibility', () => {
     const out = serializeTicketForRole(t, trail, 'citizen', 'bn');
     expect(out.status).toBe('resolved');
     expect(out.resolvedAt).toBe('2026-10-04T09:00:00.000Z');
+  });
+});
+
+describe('serializeTicketForPublic — v1.1 anonymous landing', () => {
+  it('strips every internal / PII field', () => {
+    const out = serializeTicketForPublic(baseTicket);
+    // Required surface fields are kept:
+    expect(out.id).toBe('tkt_123');
+    expect(out.cityId).toBe('city_dhaka_north');
+    expect(out.wardId).toBe('ward_14');
+    expect(out.categoryId).toBe('cat_streetlight');
+    expect(out.status).toBe('in_progress');
+    expect(out.locationLng).toBe(90.4075);
+    expect(out.locationLat).toBe(23.789);
+    expect(out.note).toBe('Light out near pole #14B');
+    expect(out.photoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    // Internal fields are NOT in the public type at all — this is
+    // a compile-time guarantee; we can also confirm the runtime
+    // values aren't present by checking that the keys are absent
+    // from a JSON round-trip:
+    const json = JSON.parse(JSON.stringify(out)) as Record<string, unknown>;
+    expect(json.reporterId).toBeUndefined();
+    expect(json.internalNote).toBeUndefined();
+    expect(json.assignedCrewId).toBeUndefined();
+    expect(json.trail).toBeUndefined();
+    expect(json.locationLabel).toBeUndefined();
+    expect(json.locationLabelBn).toBeUndefined();
+    expect(json.resolvedAt).toBeUndefined();
+  });
+
+  it('serializes ISO-string timestamps the same way as Date', () => {
+    const t: TicketLike = {
+      ...baseTicket,
+      createdAt: '2026-10-01T10:00:00.000Z',
+    };
+    const out = serializeTicketForPublic(t);
+    expect(out.createdAt).toBe('2026-10-01T10:00:00.000Z');
   });
 });

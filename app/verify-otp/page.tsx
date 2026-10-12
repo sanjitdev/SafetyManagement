@@ -26,6 +26,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { safeNextPath } from '@/lib/safe-next';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const CODE_LEN = 6;
@@ -83,6 +84,7 @@ function VerifyOtpInner() {
   const router = useRouter();
   const params = useSearchParams();
   const phoneParam = params.get('phone') ?? '';
+  const nextPath = safeNextPath(params.get('next'), '/home');
   const masked = useMemo(() => maskPhone(phoneParam), [phoneParam]);
 
   const [lang, setLang] = useState<Language>('bn');
@@ -218,7 +220,8 @@ function VerifyOtpInner() {
         body: JSON.stringify({ phone: phoneParam, code }),
       });
       if (res.status === 200) {
-        router.replace('/home');
+        // Honor the `?next=` deep link (sanitized by safeNextPath).
+        router.replace(nextPath);
         return;
       }
       if (res.status === 401) {

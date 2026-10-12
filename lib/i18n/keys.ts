@@ -64,6 +64,68 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'বাংলা · English',
   },
 
+  // v1.1 launch-polish — public landing (anonymous) at `/`
+  'public.eyebrow': {
+    bn: 'সরকারি প্ল্যাটফর্ম',
+    en: 'Government platform',
+  },
+  'public.hero.eyebrow': {
+    bn: 'আপনার শহর, আপনার কণ্ঠস্বর',
+    en: 'Your city, your voice',
+  },
+  'public.hero.headline': {
+    bn: 'শহরের সমস্যা<br/>রিপোর্ট করুন।',
+    en: 'Report what you see.<br/>See it fixed.',
+  },
+  'public.hero.subhead': {
+    bn: 'ভাঙা রাস্তার আলো, ড্রেনে আটকে থাকা পানি, জমে থাকা আবর্জনা — মানচিত্রে দেখুন, রিপোর্ট করুন, সমাধানের প্রমাণ পান।',
+    en: 'Broken streetlights, blocked drains, piled garbage — see them on the map, report them in a minute, and watch the city respond.',
+  },
+  'public.cta.report': {
+    bn: 'রিপোর্ট করুন',
+    en: 'Report what you see',
+  },
+  'public.cta.report.hint': {
+    bn: 'রিপোর্ট করতে ১ মিনিট লাগে — ফোন নম্বর লাগে না',
+    en: 'Takes 1 minute. No account required to start.',
+  },
+  'public.cta.register': { bn: 'নিবন্ধন', en: 'Register' },
+  'public.cta.login': { bn: 'লগ ইন', en: 'Log in' },
+  'public.feed.title': {
+    bn: 'শহরের সর্বশেষ',
+    en: 'Latest city activity',
+  },
+  'public.feed.subtitle': {
+    bn: 'নাম ও ঠিকানা গোপন রাখা হয়।',
+    en: 'Names and addresses are hidden.',
+  },
+  'public.feed.empty': {
+    bn: 'এখনো কোনো রিপোর্ট নেই — প্রথমটি আপনি করুন।',
+    en: 'No reports yet. Be the first to file one.',
+  },
+  'public.feed.loading': { bn: 'লোড হচ্ছে…', en: 'Loading…' },
+  'public.feed.error': {
+    bn: 'কার্যকলাপ লোড করা যায়নি',
+    en: 'Could not load activity',
+  },
+  'public.feed.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'public.activity.cta': {
+    bn: 'রিপোর্ট করতে নিবন্ধন করুন',
+    en: 'Register to file a report',
+  },
+  'public.trust.marker1': {
+    bn: 'ফ্রি · বিজ্ঞাপন নেই',
+    en: 'Free · no ads',
+  },
+  'public.trust.marker2': {
+    bn: 'বাংলাদেশি ডেটাতে থাকে',
+    en: 'Stays in Bangladesh',
+  },
+  'public.trust.marker3': {
+    bn: 'ব্যক্তিগত · নিরাপদ',
+    en: 'Private · secure',
+  },
+
   // WO-001 1.3 Registration
   'register.title': { bn: 'অ্যাকাউন্ট তৈরি করুন', en: 'Create account' },
   'register.subtitle': {

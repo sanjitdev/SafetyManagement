@@ -423,7 +423,7 @@ export default function CrewPage() {
             {t('crew.list.signin_required', null, lang)}
           </p>
           <Link
-            href="/login"
+            href={`/login?next=${encodeURIComponent('/crew')}`}
             style={{
               display: 'inline-block',
               padding: 'var(--space-3) var(--space-5)',

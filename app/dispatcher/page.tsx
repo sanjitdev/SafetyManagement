@@ -285,7 +285,7 @@ export default function DispatcherPage() {
             {t('dispatcher.queue.signin_required', null, lang)}
           </p>
           <Link
-            href="/login"
+            href={`/login?next=${encodeURIComponent('/dispatcher')}`}
             style={{
               display: 'inline-block',
               padding: 'var(--space-3) var(--space-5)',

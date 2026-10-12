@@ -72,7 +72,10 @@ export default function AdminCitiesPage() {
         if (cancelled) return;
         setSignedIn(status.authenticated);
         if (!status.authenticated) {
-          window.location.href = '/login';
+          // Forward `?next=/admin/cities` so the admin can resume after
+          // sign-in. (Admin accounts sign in via WebAuthn, but if a
+          // session has expired mid-page-load we want the same UX.)
+          window.location.href = '/login?next=' + encodeURIComponent('/admin/cities');
           return;
         }
         const res = await fetch('/api/v1/admin/cities', {

@@ -151,3 +151,51 @@ export function serializeTicketForRole(
     trail: serializedTrail,
   };
 }
+
+/**
+ * Public-facing ticket serializer for the anonymous landing page.
+ *
+ * The v1.1 launch-polish hotfix surfaces a read-only city activity feed
+ * for visitors who haven't registered yet. Every internal field is
+ * stripped: no `reporterId`, no `internalNote`, no `assignedCrewId`, no
+ * trail (the trail reveals dispatcher/crew action notes that are not
+ * for public consumption). `locationLabel` is also stripped because it
+ * can carry the citizen's home/work address; the ward is enough public
+ * granularity.
+ *
+ * Shape is intentionally narrower than `SerializedTicket` so an
+ * accidental leak cannot happen at a route boundary: a public
+ * serializer with fewer fields is safer than a citizen serializer
+ * with the wrong role.
+ */
+export interface PublicSerializedTicket {
+  id: string;
+  cityId: string;
+  wardId: string;
+  categoryId: string;
+  status: TicketStatus;
+  locationLng: number;
+  locationLat: number;
+  note: string | null;
+  photoUrls: string[];
+  createdAt: string;
+}
+
+export function serializeTicketForPublic(
+  ticket: TicketLike,
+): PublicSerializedTicket {
+  return {
+    id: ticket.id,
+    cityId: ticket.cityId,
+    wardId: ticket.wardId,
+    categoryId: ticket.categoryId,
+    status: ticket.status,
+    locationLng: ticket.locationLng,
+    locationLat: ticket.locationLat,
+    note: ticket.note,
+    photoUrls: ticket.photoUrls,
+    createdAt: typeof ticket.createdAt === 'string'
+      ? ticket.createdAt
+      : ticket.createdAt.toISOString(),
+  };
+}

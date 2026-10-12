@@ -13,6 +13,7 @@ Started: 2026-09-18
 - Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin) — tokens + components + 7 hero mockups (4 Rahim + 1 Habib + 2 Rashid)
 - Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 15/15 Playwright baselines passing; 255/255 unit tests)
 - Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
+- v2 Roadmap: **deck drafted 2026-10-12** (4 buckets: v1.1 follow-ups, multi-city, citizen engagement, internal tooling; see `_progress/v2-roadmap.md`; awaiting human pick of the first intent)
 
 ## Log
 
@@ -2836,5 +2837,67 @@ Verification on prod:
   the push-subscribe-v1.1 preamble
 - `.specsmd/aidlc/memory-bank/maintenance-log.md` —
   appended the 22:00 UTC sync entry (gitignored)
+
+### 2026-10-12 — v1.1 launch-polish hotfix (Bolt 005-005)
+
+Four launch defects closed before the next push to `main` so the
+prod URL stops being a dead-end for anonymous visitors:
+
+1. **OSM tiles blank in prod** — root cause: the `connect-src`
+   CSP entry listed `https://*.tile.openstreetmap.org` but the
+   browser fetches tiles from the **bare** `tile.openstreetmap.org`
+   host, not a subdomain. The wildcard only matched
+   `a.tile.…/b.tile.…/c.tile.…` and silently dropped every prod
+   tile request, so the home map rendered an empty canvas.
+   Fix: add the bare host explicitly. (`next.config.js:75`).
+   We are keeping OSM (per the v1 OSM policy in project memory,
+   2026-10-11); the scale path to Mapbox / MapTiler / Stadia
+   remains open for v1.1+.
+
+2. **`/` (home) was a dead-end for anonymous visitors** — the
+   route rendered a dev-only "Sign in as Rahim" placeholder in
+   prod. Now `/` is a server component that redirects
+   authenticated users to `/home` and otherwise renders
+   `components/PublicLandingExperience.tsx`: bilingual hero,
+   a status-coloured MapLibre city map of the seeded city, a
+   PII-stripped public activity feed polled from the new
+   `/api/v1/activity/public` endpoint, and a "Report what you
+   see" CTA that routes to `/register?next=/report/location`
+   (register-before-submit — a no-account report is the
+   wrong default for a civic-trust platform; the v1
+   "feel-heard" trust signal relies on a known reporter id).
+
+3. **`/api/v1/activity/public` is a new, PII-stripped feed** —
+   the public serializer (`serializeTicketForPublic` in
+   `lib/serializers/ticket.ts`) returns a narrower type than
+   the citizen serializer so an accidental role leak at a
+   route boundary is impossible. Stripped: `reporterId`,
+   `internalNote`, `assignedCrewId`, `trail`, `locationLabel`,
+   `locationLabelBn`, `resolvedAt`. No auth required;
+   per-IP rate-limited via the existing
+   `lib/platform/rate-limit.ts` token bucket. Polls every
+   30s (the public landing is read-only, so a slower cadence
+   than the authed home's 15s is fine).
+
+4. **`?next=` deep links across the auth flow** — register,
+   login, verify-otp, and the four role entry pages
+   (`/dispatcher`, `/crew`, `/admin/cities`, `/admin/audit`,
+   `/admin/cities/[id]/{setup,taxonomy,wards}`) all forward
+   the original destination through the auth flow so a public
+   visitor tapping "Report what you see" lands back in
+   `/report/location` after registering, and a returning
+   dispatcher tapping a deep-linked ticket page returns to
+   that page after re-authenticating. The `?next=` value is
+   sanitized by a new `lib/safe-next.ts` helper that rejects
+   absolute URLs, protocol-relative paths, backslash-prefixed
+   paths, embedded `://`, control characters, and the bare
+   `/` (open-redirect hardening; covered by 15 new unit
+   tests in `tests/unit/safe-next.test.ts`).
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 270/270 (up from 255 — added
+`serializeTicketForPublic` tests + 15 `safeNextPath`
+tests); `npm run test:mockups` 15/15 baselines still green.
+Auto-deploy will rebuild prod on the next push.
 
 

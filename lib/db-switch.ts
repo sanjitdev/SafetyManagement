@@ -37,6 +37,16 @@ export const db = {
       isDevStore()
         ? devDb.city.findMany()
         : prismaClient.city.findMany(),
+    findFirst: async (args: { orderBy?: { createdAt: 'asc' | 'desc' } } = {}) => {
+      if (isDevStore()) {
+        // The dev store keeps a single seeded city; `findMany` already
+        // sorts by name, so the first entry is the canonical "primary"
+        // city the bootstrap endpoint hands back.
+        const rows = devDb.city.findMany();
+        return rows[0] ?? null;
+      }
+      return prismaClient.city.findFirst(args);
+    },
     create: async (args: {
       data: {
         slug: string;

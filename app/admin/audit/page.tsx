@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AdminAuditFilters } from '@/components/AdminAuditFilters';
 import { AdminAuditTable } from '@/components/AdminAuditTable';
@@ -58,6 +59,7 @@ function writeFiltersToUrl(filters: AuditQueryFilters): string {
 }
 
 export default function AdminAuditPage() {
+  const pathname = usePathname();
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [filters, setFilters] = useState<AuditQueryFilters>({});
@@ -104,12 +106,14 @@ export default function AdminAuditPage() {
         if (cancelled) return;
         setSignedIn(status.authenticated);
         if (!status.authenticated) {
-          window.location.href = '/login';
+          window.location.href =
+            '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
         }
       } catch {
         if (cancelled) return;
         setSignedIn(false);
-        window.location.href = '/login';
+        window.location.href =
+          '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
       }
     })();
     return () => {

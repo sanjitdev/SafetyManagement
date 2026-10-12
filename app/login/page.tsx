@@ -18,20 +18,32 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { safeNextPath } from '@/lib/safe-next';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const LAST_PHONE_KEY = 'cityfix.last_phone.v1';
+const DEFAULT_NEXT = '/home';
 
 type FieldKey = 'phone' | 'password';
 type ErrorMap = Partial<Record<FieldKey, string>>;
 type ErrorState = 'wrong' | 'network' | 'locked';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const nextPath = safeNextPath(params.get('next'), DEFAULT_NEXT);
   const [lang, setLang] = useState<Language>('bn');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -111,7 +123,8 @@ export default function LoginPage() {
         } catch {
           // ignore
         }
-        router.replace('/home');
+        // Honor the `?next=` deep link (safeNextPath sanitized it).
+        router.replace(nextPath);
         return;
       }
       if (res.status === 401) {
@@ -452,7 +465,11 @@ export default function LoginPage() {
             }}
           >
             <Link
-              href="/register"
+              href={
+                nextPath === DEFAULT_NEXT
+                  ? '/register'
+                  : `/register?next=${encodeURIComponent(nextPath)}`
+              }
               lang={lang}
               style={{
                 fontSize: 'var(--text-body-sm)',

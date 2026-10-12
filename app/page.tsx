@@ -1,94 +1,91 @@
 /**
- * Home route — dev entry surface for the citizen report flow.
+ * Home route — public landing (`/`) for CityFix.
  *
- * In dev-store mode (CITYFIX_DEV_STORE=1), this page renders a
- * "Sign in as Rahim (demo citizen)" button that POSTs to /api/dev/login
- * and redirects into the report flow. In production, the page renders
- * the citizen Home view (1.6) — for now, a polite message pointing
- * at the dev mode.
+ * v1.1 launch-polish hotfix:
+ *   - Authenticated visitors land here only briefly (redirected to
+ *     `/home` so the citizen Home / City Activity surface remains
+ *     the primary authed surface).
+ *   - Anonymous visitors see a read-only city landing: bilingual
+ *     hero, status-coloured city map (MapLibre + OpenStreetMap),
+ *     and a PII-stripped public activity feed
+ *     (`/api/v1/activity/public`). The "Report what you see" CTA
+ *     routes to `/register?next=/report/location` — a citizen who
+ *     wants to file a report must register first; the report draft
+ *     is created in sessionStorage once they're authed.
  *
- * Mirrors the Phase B re-skin (2026-10-04): web-first, 1440 × 900 +
- * 1024 × 768. Uses the design tokens via globals.css / tokens.css.
+ * Server-side auth check: the route reads the session via
+ * `getActiveSession()` and returns an HTTP 307 redirect for
+ * authed users. This means the public landing is never painted
+ * for an authed user, and the redirect does not require a client
+ * component.
+ *
+ * In dev-store mode (`CITYFIX_DEV_STORE=1`) the existing
+ * "Sign in as Rahim" demo button is preserved — it's a useful
+ * walkthrough handle for local development and is not surfaced
+ * in production.
  */
 
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { getActiveSession } from '@/lib/db-switch';
 import { isDevStore } from '@/lib/dev-store';
-import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import PublicLandingExperience from '@/components/PublicLandingExperience';
 
-const LANG: Language = 'bn';
+export default async function HomePage() {
+  const session = await getActiveSession();
+  if (session) {
+    // Authed users go straight to their primary surface.
+    redirect('/home');
+  }
 
-export default function HomePage() {
-  const dev = isDevStore();
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--space-7) var(--space-5)',
-        position: 'relative',
-      }}
-    >
-      {/* Theme toggle — top-right of the welcome surface. */}
-      <div
+  // Dev-store only — the demo persona is a local dev affordance.
+  if (isDevStore()) {
+    return (
+      <main
         style={{
-          position: 'absolute',
-          top: 'var(--space-5)',
-          right: 'var(--space-5)',
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'var(--space-7) var(--space-5)',
         }}
       >
-        <ThemeToggle lang={LANG} variant="compact" />
-      </div>
-      <div style={{ maxWidth: 720, width: '100%' }}>
-        <div
-          style={{
-            display: 'inline-block',
-            width: 12,
-            height: 12,
-            background: 'var(--color-primary)',
-            borderRadius: '50%',
-            marginBottom: 'var(--space-3)',
-          }}
-          aria-hidden
-        />
-        <h1
-          style={{
-            fontSize: 'var(--text-display-lg)',
-            margin: '0 0 var(--space-3)',
-            color: 'var(--color-ink)',
-            fontWeight: 'var(--weight-semibold)',
-            letterSpacing: 'var(--tracking-tight)',
-          }}
-        >
-          CityFix
-        </h1>
-        <p
-          lang="bn"
-          style={{
-            fontSize: 'var(--text-h3)',
-            color: 'var(--color-ink-secondary)',
-            margin: '0 0 var(--space-5)',
-            lineHeight: 1.4,
-          }}
-        >
-          {t('home.tagline', null, LANG)}
-        </p>
-        <p
-          style={{
-            fontSize: 'var(--text-body-lg)',
-            color: 'var(--color-ink-secondary)',
-            lineHeight: 1.6,
-            margin: '0 0 var(--space-6)',
-          }}
-        >
-          {dev
-            ? 'Dev mode is on. The platform layer (auth, dedup, serializer, audit, i18n) runs against the in-memory store — no Postgres required. Sign in as the seeded demo citizen (Rahim) to walk the submit-report flow end-to-end.'
-            : 'CityFix is a citizen-powered city issue reporting platform. Production home view (1.6 Home / City Activity) lands with the WO-001 Bolt; this is the development placeholder.'}
-        </p>
-
-        {dev ? (
+        <div style={{ maxWidth: 720, width: '100%' }}>
+          <div
+            style={{
+              display: 'inline-block',
+              width: 12,
+              height: 12,
+              background: 'var(--color-primary)',
+              borderRadius: '50%',
+              marginBottom: 'var(--space-3)',
+            }}
+            aria-hidden
+          />
+          <h1
+            style={{
+              fontSize: 'var(--text-display-lg)',
+              margin: '0 0 var(--space-3)',
+              color: 'var(--color-ink)',
+              fontWeight: 'var(--weight-semibold)',
+              letterSpacing: 'var(--tracking-tight)',
+            }}
+          >
+            CityFix
+          </h1>
+          <p
+            style={{
+              fontSize: 'var(--text-body-lg)',
+              color: 'var(--color-ink-secondary)',
+              lineHeight: 1.6,
+              margin: '0 0 var(--space-6)',
+            }}
+          >
+            Dev mode is on. The platform layer (auth, dedup,
+            serializer, audit, i18n) runs against the in-memory store
+            — no Postgres required. Sign in as the seeded demo citizen
+            (Rahim) to walk the submit-report flow end-to-end.
+          </p>
           <div
             style={{
               display: 'flex',
@@ -141,36 +138,12 @@ export default function HomePage() {
                 Reset demo data
               </button>
             </form>
-            <div
-              style={{
-                marginTop: 'var(--space-5)',
-                padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--color-surface-raised)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-secondary)',
-              }}
-            >
-              Demo data seeded · City: Dhaka North · Ward 14 (Mirpur) · 5 categories · citizen Rahim (+8801711000000)
-            </div>
           </div>
-        ) : (
-          <div
-            style={{
-              display: 'inline-block',
-              padding: 'var(--space-2) var(--space-4)',
-              background: 'var(--color-surface-raised)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink-secondary)',
-            }}
-          >
-            v1 scaffold · start with <code>npm run dev:feat</code> to see the demo
-          </div>
-        )}
-      </div>
-    </main>
-  );
+        </div>
+      </main>
+    );
+  }
+
+  // Anonymous visitor in production → public landing.
+  return <PublicLandingExperience />;
 }

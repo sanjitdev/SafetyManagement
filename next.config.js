@@ -56,8 +56,11 @@ const nextConfig = {
             : []),
           // Content Security Policy — Vercel-hosted origin. Allows:
           //   - 'self' for scripts + styles (Next.js inlines its own)
-          //   - OSM tile servers (a/b/c.tile.openstreetmap.org) for the
-          //     MapLibre map
+          //   - OSM tile servers (the bare `tile.openstreetmap.org` host +
+          //     a/b/c.tile.openstreetmap.org subdomains) for the MapLibre
+          //     map. The bare host MUST be listed explicitly — `*.tile.…`
+          //     matches subdomains only, so without `tile.openstreetmap.org`
+          //     every prod tile request is blocked (silent blank map).
           //   - Nominatim for reverse geocoding
           //   - 'unsafe-inline' for styles (Tailwind + tokens.css; the
           //     nonced style approach is a v1.1 hardening)
@@ -70,7 +73,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
+              "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
