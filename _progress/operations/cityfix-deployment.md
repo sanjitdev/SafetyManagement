@@ -11,9 +11,9 @@
 | Platform | Vercel (Hobby) |
 | Project name | `cityfix` |
 | Owner | `super-max1` (personal account) |
-| Production URL (alias) | `https://cityfix-theta.vercel.app` |
-| Additional aliases | `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
-| Deployment URL (current build) | `https://cityfix-qm697ju94-super-max1.vercel.app` |
+| **Production URL (primary)** | **`https://cityfix-bd.vercel.app`** |
+| Additional aliases | `cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
+| Deployment URL (current build) | `https://cityfix-jjvjpv31z-super-max1.vercel.app` |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
@@ -25,8 +25,11 @@
 > subdomain is **owned by an unrelated Vercel project** (it serves a
 > different "CityFix - Fix Your City, Together" Vite SPA, last modified
 > 2026-10-01). It cannot be claimed by our project — Vercel subdomains
-> are first-come-first-served per owner. The alias above
-> (`cityfix-theta.vercel.app`) is our public URL for v1.
+> are first-come-first-served per owner. The primary public URL for
+> v1 is **`https://cityfix-bd.vercel.app`**; the older
+> `cityfix-theta.vercel.app` / `cityfix-super-max1.vercel.app` /
+> `cityfix-git-main-super-max1.vercel.app` aliases are kept as
+> fallbacks and for git-branch-based preview URLs.
 
 ## Deployment Protection
 
@@ -66,8 +69,8 @@ affect runtime behavior). Values are encrypted at rest.
 |---|---|---|
 | `DATABASE_URL` | `postgres://neondb_owner:npg_…@ep-empty-water-…pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require` | Pooled Neon URL |
 | `SESSION_SECRET` | 64-hex-char (32 random bytes) | Required: `lib/auth/session.ts` throws if < 32 chars |
-| `WEBAUTHN_RP_ID` | `cityfix-theta.vercel.app` | Hostname only, no scheme/port |
-| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-theta.vercel.app` | Full origin, must be https:// |
+| `WEBAUTHN_RP_ID` | `cityfix-bd.vercel.app` | Hostname only, no scheme/port |
+| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-bd.vercel.app` | Full origin, must be https:// |
 | `WEBAUTHN_RP_NAME` | `CityFix` | Display only |
 | `OTP_PROVIDER` | `stub` | Logs code to console; v1 doesn't ship real SMS |
 | `POLL_RATE_LIMIT_PER_SECOND` | `1` | Optional, has safe default |

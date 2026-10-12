@@ -14,10 +14,11 @@
 ## Outcome
 
 In one session we got from "code-complete trunk on `main`, no
-hosting target pinned" to "live on `https://cityfix-theta.vercel.app`
-(aliased to `cityfix-super-max1.vercel.app` and
+hosting target pinned" to "live on **`https://cityfix-bd.vercel.app`**
+(plus fallback aliases `cityfix-theta.vercel.app`,
+`cityfix-super-max1.vercel.app`, and
 `cityfix-git-main-super-max1.vercel.app`)", Postgres schema applied
-+ seeded, GitHub pushes auto-deploying. Four commits on `main`,
++ seeded, GitHub pushes auto-deploying. Five commits on `main`,
 four sequenced phases, two real bugs fixed mid-flight, and one
 infrastructure mistake (tsx missing from devDeps) patched in
 passing.
@@ -26,8 +27,10 @@ passing.
 > turned out to be already owned by an unrelated Vercel project
 > (a different "CityFix - Fix Your City, Together" Vite SPA).
 > Vercel subdomains are first-come-first-served and can't be
-> claimed once taken. The deployment record and this runbook use
-> the suffixed subdomains, which are the project's real aliases.
+> claimed once taken. We picked **`cityfix-bd.vercel.app`** as
+> the primary public URL (available, short, region-tagged for
+> the Bangladesh pilot) and kept the auto-generated suffixed
+> subdomains as fallbacks.
 
 The deploy pattern is reproducible — any future Vercel + Neon
 deploy for this project should follow the four phases below,
@@ -197,8 +200,8 @@ doesn't affect runtime. The full set:
 |---|---|---|
 | `DATABASE_URL` | pooled Neon URL | the chat transcript has it |
 | `SESSION_SECRET` | `openssl rand -hex 32` | 64 hex chars, ≥ 32 chars required |
-| `WEBAUTHN_RP_ID` | `cityfix-theta.vercel.app` | hostname only, no scheme |
-| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-theta.vercel.app` | full origin, must be https |
+| `WEBAUTHN_RP_ID` | `cityfix-bd.vercel.app` | hostname only, no scheme |
+| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-bd.vercel.app` | full origin, must be https |
 | `WEBAUTHN_RP_NAME` | `CityFix` | display only |
 | `OTP_PROVIDER` | `stub` | logs code to console for v1 |
 
@@ -210,13 +213,16 @@ Verify with `vercel env ls` — should show 18 rows.
 vercel --prod
 ```
 
-Output: `Production: https://cityfix-theta.vercel.app` (also
-aliased to `cityfix-super-max1.vercel.app` and
-`cityfix-git-main-super-max1.vercel.app`). Build time: ~2 min.
-The CLI also reports "Deployment Protection is on" — see
-Phase D notes. The bare `cityfix.vercel.app` was **not**
-acquired (Vercel subdomains are first-come-first-served and
-the name was already taken by another project).
+Output: `Production: https://cityfix-theta.vercel.app` (the
+auto-generated default; subsequently re-aliased to
+**`https://cityfix-bd.vercel.app`** as the primary public URL,
+plus `cityfix-super-max1.vercel.app` and
+`cityfix-git-main-super-max1.vercel.app` as fallbacks).
+Build time: ~2 min. The CLI also reports "Deployment
+Protection is on" — see Phase D notes. The bare
+`cityfix.vercel.app` was **not** acquired (Vercel subdomains
+are first-come-first-served and the name was already taken
+by another project).
 
 ### Step 5 — Prisma migration + seed
 

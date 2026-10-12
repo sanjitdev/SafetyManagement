@@ -2609,8 +2609,9 @@ Intent 005.
 ### 2026-10-12 — CityFix v1 deployed to Vercel + Neon
 
 Operations phase B/C/D completed. The v1 trunk is now live on
-`https://cityfix-theta.vercel.app` (also aliased to
-`cityfix-super-max1.vercel.app` and
+**`https://cityfix-bd.vercel.app`** (the primary public URL,
+with fallback aliases `cityfix-theta.vercel.app`,
+`cityfix-super-max1.vercel.app`, and
 `cityfix-git-main-super-max1.vercel.app`), backed by Neon Postgres
 (`icy-moon-71538414`, region `aws-us-east-2`). The bare
 `cityfix.vercel.app` subdomain is already claimed by an
@@ -2667,16 +2668,45 @@ The same push also corrected two things:
 
 1. **`cityfix.vercel.app` is owned by another project.** The
    bare subdomain was already taken by a different "CityFix -
-   Fix Your City, Together" Vite SPA. Our public URL is
-   `https://cityfix-theta.vercel.app` (and its aliases).
+   Fix Your City, Together" Vite SPA. Our public URL was the
+   auto-generated `cityfix-theta.vercel.app` (and its
+   aliases); this was later superseded by
+   `cityfix-bd.vercel.app` (see entry below).
 2. **`WEBAUTHN_RP_ID` + `WEBAUTHN_RP_ORIGIN` rotated in
    Vercel** for both Production and Preview environments so the
    RP ID matches the real hostname. The Development env kept
    its `localhost` values (correct for local dev). The next
    build picks them up automatically — no code change needed.
+   These values were rotated a second time to
+   `cityfix-bd.vercel.app` when that subdomain was claimed
+   (see entry below).
 
 Full deploy record + runbook:
 `_progress/operations/cityfix-deployment.md`,
 `_progress/operations/vercel-neon-deploy-runbook.md`.
+
+### 2026-10-12 — Primary URL switched to `cityfix-bd.vercel.app`
+
+The auto-generated `cityfix-theta.vercel.app` alias was
+working but reads like an internal placeholder, not a
+public-facing URL. Switched the primary production URL to
+**`https://cityfix-bd.vercel.app`** — short, region-tagged
+for the Bangladesh pilot, and free (the subdomain was
+unclaimed). Setup:
+
+1. `vercel alias set cityfix-jjvjpv31z-super-max1.vercel.app
+   cityfix-bd.vercel.app` → aliased the current production
+   build to the new subdomain.
+2. Rotated `WEBAUTHN_RP_ID` and `WEBAUTHN_RP_ORIGIN` on
+   Vercel (Production + Preview) to point at
+   `cityfix-bd.vercel.app` so the WebAuthn admin ceremony
+   doesn't reject the request with an origin-mismatch error.
+3. Updated the deploy record + runbook + this log to make
+   `cityfix-bd.vercel.app` the primary URL; kept the three
+   auto-generated suffixed aliases as fallbacks.
+
+No code change required — pure infrastructure move. The next
+push to `main` will continue to auto-deploy; the new alias
+will re-point at the latest build automatically.
 
 
