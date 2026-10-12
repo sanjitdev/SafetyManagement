@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
     () => undefined,
   );
 
-  const withTrail = getTicketWithTrail(created.id);
+  const withTrail = await getTicketWithTrail(created.id);
   if (!withTrail) {
     return NextResponse.json({ error: 'post_create_fetch_failed' }, { status: 500 });
   }
@@ -215,9 +215,24 @@ export async function GET(req: NextRequest) {
     reporterId: session.userId,
     orderBy: { createdAt: 'desc' },
   });
-  const serialized = tickets.map((t) => {
-    const withTrail = getTicketWithTrail(t.id)!;
-    return serializeTicketForRole(withTrail, withTrail.trail, session.role, 'bn');
-  });
+  const serialized = await Promise.all(
+    tickets.map(async (t) => {
+      const withTrail = await getTicketWithTrail(t.id);
+      if (!withTrail) {
+        return serializeTicketForRole(
+          t as never,
+          [],
+          session.role,
+          'bn',
+        );
+      }
+      return serializeTicketForRole(
+        withTrail,
+        withTrail.trail,
+        session.role,
+        'bn',
+      );
+    }),
+  );
   return NextResponse.json({ tickets: serialized });
 }

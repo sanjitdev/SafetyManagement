@@ -120,23 +120,25 @@ export async function GET(req: NextRequest) {
     return true;
   });
 
-  const tickets = filtered.slice(0, limit).map((t) => {
-    const withTrail = getTicketWithTrail(t.id);
-    if (!withTrail) {
+  const tickets = await Promise.all(
+    filtered.slice(0, limit).map(async (t) => {
+      const withTrail = await getTicketWithTrail(t.id);
+      if (!withTrail) {
+        return serializeTicketForRole(
+          t as never,
+          [],
+          session!.role,
+          'bn',
+        );
+      }
       return serializeTicketForRole(
-        t as never,
-        [],
+        withTrail,
+        withTrail.trail,
         session!.role,
         'bn',
       );
-    }
-    return serializeTicketForRole(
-      withTrail,
-      withTrail.trail,
-      session!.role,
-      'bn',
-    );
-  });
+    }),
+  );
 
   return NextResponse.json({ tickets });
 }

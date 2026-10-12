@@ -63,35 +63,37 @@ export async function GET(req: NextRequest) {
     .filter((f) => !session!.departmentId || f.departmentId === session!.departmentId)
     .slice(0, limit);
 
-  const flags = filtered.map((f) => {
-    const ticketWithTrail = getTicketWithTrail(f.ticketId);
-    const originalWithTrail = getTicketWithTrail(f.originalTicketId);
-    return {
-      id: f.id,
-      cityId: f.cityId,
-      wardId: f.wardId,
-      departmentId: f.departmentId,
-      citizenReason: f.citizenReason,
-      flaggedAt: f.flaggedAt,
-      status: f.status,
-      ticket: ticketWithTrail
-        ? serializeTicketForRole(
-            ticketWithTrail,
-            ticketWithTrail.trail,
-            session!.role,
-            'bn',
-          )
-        : null,
-      originalTicket: originalWithTrail
-        ? serializeTicketForRole(
-            originalWithTrail,
-            originalWithTrail.trail,
-            session!.role,
-            'bn',
-          )
-        : null,
-    };
-  });
+  const flags = await Promise.all(
+    filtered.map(async (f) => {
+      const ticketWithTrail = await getTicketWithTrail(f.ticketId);
+      const originalWithTrail = await getTicketWithTrail(f.originalTicketId);
+      return {
+        id: f.id,
+        cityId: f.cityId,
+        wardId: f.wardId,
+        departmentId: f.departmentId,
+        citizenReason: f.citizenReason,
+        flaggedAt: f.flaggedAt,
+        status: f.status,
+        ticket: ticketWithTrail
+          ? serializeTicketForRole(
+              ticketWithTrail,
+              ticketWithTrail.trail,
+              session!.role,
+              'bn',
+            )
+          : null,
+        originalTicket: originalWithTrail
+          ? serializeTicketForRole(
+              originalWithTrail,
+              originalWithTrail.trail,
+              session!.role,
+              'bn',
+            )
+          : null,
+      };
+    }),
+  );
 
   return NextResponse.json({ flags });
 }

@@ -66,7 +66,7 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  const beforeTicket = getTicketWithTrail(flag.ticketId);
+  const beforeTicket = await getTicketWithTrail(flag.ticketId);
   if (!beforeTicket) {
     return NextResponse.json({ error: 'flagged_ticket_missing' }, { status: 500 });
   }
@@ -108,7 +108,7 @@ export async function POST(
     afterValue: { hiddenFromTriageQueue: false },
   });
 
-  const refreshed = getTicketWithTrail(flag.ticketId);
+  const refreshed = await getTicketWithTrail(flag.ticketId);
   if (!refreshed) {
     return NextResponse.json(
       { error: 'post_dismiss_fetch_failed' },

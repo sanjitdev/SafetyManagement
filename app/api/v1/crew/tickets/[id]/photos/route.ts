@@ -110,7 +110,7 @@ export async function POST(
     afterValue: { photoUrls: after },
   });
 
-  const refreshed = getTicketWithTrail(ticket.id);
+  const refreshed = await getTicketWithTrail(ticket.id);
   if (!refreshed) {
     return NextResponse.json(
       { error: 'post_photo_fetch_failed' },

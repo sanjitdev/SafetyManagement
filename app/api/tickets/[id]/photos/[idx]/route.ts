@@ -75,7 +75,7 @@ export async function DELETE(
     afterValue: { photoCount: nextPhotos.length, deletedIdx: photoIdx },
   });
 
-  const refreshed = getTicketWithTrail(id);
+  const refreshed = await getTicketWithTrail(id);
   if (!refreshed) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }

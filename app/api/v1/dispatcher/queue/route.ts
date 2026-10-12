@@ -131,25 +131,27 @@ export async function GET(req: NextRequest) {
     return true;
   });
 
-  const tickets = filtered.slice(0, limit).map((t) => {
-    const withTrail = getTicketWithTrail(t.id);
-    if (!withTrail) {
-      // Should not happen for tickets returned by findMany, but the
-      // type is nullable. Fall back to a minimal trail.
+  const tickets = await Promise.all(
+    filtered.slice(0, limit).map(async (t) => {
+      const withTrail = await getTicketWithTrail(t.id);
+      if (!withTrail) {
+        // Should not happen for tickets returned by findMany, but the
+        // type is nullable. Fall back to a minimal trail.
+        return serializeTicketForRole(
+          t as never,
+          [],
+          session!.role,
+          'bn',
+        );
+      }
       return serializeTicketForRole(
-        t as never,
-        [],
+        withTrail,
+        withTrail.trail,
         session!.role,
         'bn',
       );
-    }
-    return serializeTicketForRole(
-      withTrail,
-      withTrail.trail,
-      session!.role,
-      'bn',
-    );
-  });
+    }),
+  );
 
   // DISP-006: surface the count of pending dedup-decline flags
   // in the dispatcher's scope so the "Possible duplicates (N)"

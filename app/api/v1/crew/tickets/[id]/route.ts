@@ -30,7 +30,7 @@ async function loadInScope(
   session: NonNullable<Awaited<ReturnType<typeof getActiveSession>>>,
   id: string,
 ) {
-  const withTrail = getTicketWithTrail(id);
+  const withTrail = await getTicketWithTrail(id);
   if (!withTrail) return null;
   try {
     requireSameCity(session, withTrail.cityId);

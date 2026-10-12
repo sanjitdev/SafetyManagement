@@ -12,7 +12,7 @@
 import { prisma as prismaClient } from './db';
 import { getSession as realGetSession } from './auth/session';
 import { devGetSession } from './dev-session';
-import { devDb, isDevStore, getTicketWithTrail, type DevTicketWithTrail } from './dev-store';
+import { devDb, isDevStore, getTicketWithTrail as devGetTicketWithTrail, type DevTicketWithTrail } from './dev-store';
 import type { Role, TicketStatus } from '@prisma/client';
 
 // Re-export the dev Db as a tagged type so callers can use it via the same
@@ -707,7 +707,74 @@ export async function getActiveSession() {
 }
 
 export type { DevTicketWithTrail };
-export { getTicketWithTrail };
+export { getTicketWithTrail as devGetTicketWithTrail } from './dev-store';
+
+/**
+ * Backend-agnostic `getTicketWithTrail`: dev-store
+ * delegate in dev, Prisma implementation in prod. Callers
+ * (activity, ticket detail, dispatcher, crew, dedup
+ * confirmation) `await` this. The shape is the union of
+ * the Prisma `Ticket` row + the trail + `departmentId`; the
+ * `serializeTicketForRole` consumer in `lib/serializers/ticket.ts`
+ * already handles `Date | string` for `createdAt` /
+ * `updatedAt` / `resolvedAt` and the trail entry timestamp.
+ *
+ * v1 launch readiness (2026-10-12): this was a critical
+ * gap where the read-side ticket endpoints returned 500 /
+ * 404 in production because `getTicketWithTrail` was
+ * only implemented for the dev store. The Prisma-side
+ * implementation queries the `Ticket` + matching
+ * `TicketTrailEntry` rows (ordered by timestamp) + the
+ * `Category.departmentId` in a single round trip and
+ * returns a `DevTicketWithTrail`-shaped object.
+ */
+export async function getTicketWithTrail(
+  id: string,
+): Promise<DevTicketWithTrail | null> {
+  if (isDevStore()) return devGetTicketWithTrail(id);
+  const t = await prismaClient.ticket.findUnique({
+    where: { id },
+    include: {
+      trail: { orderBy: { timestamp: 'asc' } },
+      category: { select: { departmentId: true } },
+    },
+  });
+  if (!t) return null;
+  return {
+    id: t.id,
+    cityId: t.cityId,
+    wardId: t.wardId,
+    categoryId: t.categoryId,
+    reporterId: t.reporterId,
+    assignedCrewId: t.assignedCrewId,
+    status: t.status,
+    locationLng: t.locationLng,
+    locationLat: t.locationLat,
+    locationLabel: t.locationLabel,
+    locationLabelBn: t.locationLabelBn,
+    note: t.note,
+    photoUrls: t.photoUrls,
+    internalNote: t.internalNote,
+    duplicateOfId: t.duplicateOfId,
+    closeReason: t.closeReason,
+    // Prisma returns Date objects; DevTicketWithTrail stores
+    // ISO strings. The serializer (lib/serializers/ticket.ts)
+    // already handles both shapes, so this is a type-only
+    // normalisation for the contract.
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    resolvedAt: t.resolvedAt ? t.resolvedAt.toISOString() : null,
+    trail: t.trail.map((e) => ({
+      id: e.id,
+      ticketId: e.ticketId,
+      toStatus: e.toStatus,
+      actorId: e.actorId,
+      note: e.note,
+      timestamp: e.timestamp.toISOString(),
+    })),
+    departmentId: t.category?.departmentId ?? null,
+  };
+}
 
 // Re-export common types for callers that don't want to import @prisma/client directly.
 export type { Role, TicketStatus };

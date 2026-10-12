@@ -61,7 +61,7 @@ export async function GET(
     return NextResponse.json({ error: 'not_owner' }, { status: 403 });
   }
 
-  const withTrail = getTicketWithTrail(id);
+  const withTrail = await getTicketWithTrail(id);
   if (!withTrail) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }

@@ -44,7 +44,7 @@ async function loadInScope(
   session: NonNullable<Awaited<ReturnType<typeof getActiveSession>>>,
   id: string,
 ) {
-  const withTrail = getTicketWithTrail(id);
+  const withTrail = await getTicketWithTrail(id);
   if (!withTrail) return null;
   // City guard (admins bypass — but this is a dispatcher
   // endpoint, so the requireRole in the caller rejects admins).
@@ -235,7 +235,7 @@ export async function PATCH(
     }
   }
 
-  const refreshed = getTicketWithTrail(id);
+  const refreshed = await getTicketWithTrail(id);
   if (!refreshed) {
     return NextResponse.json(
       { error: 'post_patch_fetch_failed' },

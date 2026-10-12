@@ -171,7 +171,7 @@ export async function POST(
     toStatus: parsed.data.toStatus as never,
   }).catch(() => undefined);
 
-  const refreshed = getTicketWithTrail(ticket.id);
+  const refreshed = await getTicketWithTrail(ticket.id);
   if (!refreshed) {
     return NextResponse.json(
       { error: 'post_transition_fetch_failed' },
