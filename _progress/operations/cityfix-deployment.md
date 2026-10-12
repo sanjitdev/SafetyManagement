@@ -89,6 +89,7 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 | `ff8dde3` | `fix: correct production URL in deploy docs` | WebAuthn env var rotation to `cityfix-theta.vercel.app`; doc URL fixes |
 | `fcbb88c` | `docs: log auto-deploy verification + WebAuthn env var rotation` | Auto-deploy end-to-end test green; deploy docs updated |
 | `d809fe5` | `chore: switch primary production URL to cityfix-bd.vercel.app` | Aliased current build to `cityfix-bd.vercel.app`; WebAuthn env vars rotated to match |
+| `11459db` | `fix(otp): surface dev_code in send-otp response while OTP_PROVIDER=stub` | Citizens on prod weren't receiving OTP codes (StubProvider only logs to Vercel function logs, which citizens can't see). send-otp route now always returns `dev_code` in the response so the verify-otp page's "Dev code" hint box renders the 6-digit code. The page hint text was updated to "(stub provider — production sends SMS via Twilio in v1.1)". Live-verified on https://cityfix-bd.vercel.app. |
 
 ## Verification (recorded 2026-10-12)
 

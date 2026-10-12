@@ -2723,4 +2723,51 @@ automatically to the new build via the tracked domain.
 
 Gotcha documented in `_progress/operations/vercel-domain-vs-alias.md`.
 
+### 2026-10-12 — OTP fix: surface `dev_code` in send-otp response
+
+Citizens on `https://cityfix-bd.vercel.app` reported "not
+receiving OTP" while completing the registration flow.
+Root cause: the StubProvider's `send()` only writes to
+`console.info` (Vercel function logs / CloudWatch), which
+the citizen cannot see. The send-otp route's response was
+also stripping the `dev_code` field in production mode
+(only surfacing it when `isDevStore` returned true), so the
+page's existing "Dev code" hint box had nothing to render.
+
+Fix (commit `11459db`):
+- `app/api/v1/auth/send-otp/route.ts`: always return
+  `dev_code: code` in the response. Comment marks the v1.1
+  swap point: when the real Twilio provider lands, the field
+  returns to the dev-only branch and the response shape
+  becomes `{ ok, ttlMs }` again.
+- `app/verify-otp/page.tsx`: updated the misleading
+  "(dev only — production sends SMS)" hint text to
+  "(stub provider — production sends SMS via Twilio in v1.1)"
+  so the path is obvious.
+
+Verification:
+- `npx tsc --noEmit` → clean
+- `npm run test:unit` → 255/255 passing (no regressions;
+  the otp-provider test only covers the provider layer, not
+  the route's response shape)
+- Auto-deploy: `git push origin main` → Vercel build
+  `cityfix-arfvksrld` Ready in 48s; `cityfix-bd.vercel.app`
+  auto-promoted (tracked project domain).
+- Live end-to-end on prod:
+  - `POST /api/v1/auth/register` (phone `+8801712345600`,
+    10-digit NID) → `{"ok":true,"userId":"user_f5d97461-be4"}`
+  - `POST /api/v1/auth/send-otp` (same phone) →
+    `{"ok":true,"ttlMs":300000,"dev_code":"643578"}`
+  - The verify-otp page will now render the 6-digit code in
+    the yellow "Dev code" hint box and the citizen can
+    complete the flow.
+
+This is the immediate v1 unblock for citizen registration.
+The v1.1 follow-up is wiring Twilio as the real provider
+(see Bolt 005-003 in `_progress/intents/005`; the factory
+pattern in `lib/auth/otp-provider/index.ts` is already
+provider-agnostic and the TwilioProvider class is
+implemented — only `OTP_PROVIDER=twilio` + the 3 Twilio
+env vars are needed to flip it on).
+
 
