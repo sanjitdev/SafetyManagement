@@ -30,43 +30,29 @@
 import { db, getTicketWithTrail } from '@/lib/db-switch';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
+import {
+  TICKET_STATUS_VALUES,
+  type AdminTicketsFilters,
+  type AdminTicketsQueryInput,
+  type TicketStatusFilter,
+} from './tickets-query-types';
+
+// Re-export the types + the value from this module so server-side
+// callers (route handlers, server components, the lib's own
+// Vitest suite) keep the same import path. The client component
+// `AdminTicketsFilters` now imports them from `./tickets-query-types`
+// directly to keep the client bundle free of the db-switch chain.
+export {
+  TICKET_STATUS_VALUES,
+  type AdminTicketsFilters,
+  type AdminTicketsQueryInput,
+  type TicketStatusFilter,
+};
 
 const DEFAULT_FROM_DAYS = 7;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const MIN_LIMIT = 1;
-
-export type TicketStatusFilter =
-  | 'submitted'
-  | 'routed'
-  | 'in_progress'
-  | 'resolved'
-  | 'closed'
-  | 'cancelled';
-
-export const TICKET_STATUS_VALUES: TicketStatusFilter[] = [
-  'submitted',
-  'routed',
-  'in_progress',
-  'resolved',
-  'closed',
-  'cancelled',
-];
-
-export interface AdminTicketsFilters {
-  status?: TicketStatusFilter;
-  cityId?: string;
-  categoryId?: string;
-  wardId?: string;
-  q?: string; // exact-match ticket id
-  from?: string; // ISO
-  to?: string; // ISO
-}
-
-export interface AdminTicketsQueryInput extends AdminTicketsFilters {
-  cursor?: string;
-  limit?: number;
-}
 
 export interface AdminTicketsQueryResult {
   tickets: SerializedTicket[];
@@ -75,7 +61,7 @@ export interface AdminTicketsQueryResult {
 
 interface WhereShape {
   cityId?: string;
-  status?: { in: TicketStatusFilter[] } | TicketStatusFilter;
+  status?: { in: TicketStatusFilter[] };
   wardId?: string;
   categoryId?: string;
   id?: string;
@@ -98,7 +84,9 @@ export function buildWhere(input: AdminTicketsQueryInput): {
     createdAt: { gte: fromIso, lte: toIso },
   };
   if (input.status) {
-    where.status = input.status;
+    // Both backends accept `status: { in: [...] }` (Prisma directly,
+    // the dev store via the in-key mapper at lib/dev-store.ts:1155).
+    where.status = { in: [input.status] };
   }
   if (input.wardId) {
     where.wardId = input.wardId;
@@ -143,13 +131,17 @@ export async function listTicketsForAdmin(
   const { where, fromIso, toIso } = buildWhere(input);
   const limit = clampLimit(input.limit);
 
-  // The dev store's `findMany` accepts the same keys as Prisma (the
-  // proxy at `lib/db-switch.ts` normalises the call). The store
-  // handles the city/ward/category/status/id equality filters; the
-  // date range + cursor are applied in JS below because the dev
-  // store's filter logic does not (yet) know about `createdAt`.
+  // The dev store's `findMany` does string-equality on every
+  // `where.*` key — including `createdAt`, where a `{gte, lte}`
+  // object would never equal a string. Strip `createdAt` before
+  // sending to the dev store; the date range + cursor are applied
+  // in JS below (so the code path is correct for both dev and
+  // Prisma — Prisma's `findMany` would happily honour the
+  // `createdAt` clause, but the JS path is identical and avoids
+  // relying on backend-specific filter semantics).
+  const { createdAt: _omit, ...devWhere } = where;
   const candidates = await db.ticket.findMany({
-    where: where as never,
+    where: devWhere as never,
     orderBy: { createdAt: 'desc' },
   });
 

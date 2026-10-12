@@ -42,12 +42,16 @@ describe('buildWhere', () => {
     });
   });
 
-  test('adds status when supplied', () => {
+  test('adds status when supplied (as { in: [...] } for both backends)', () => {
     const { where } = buildWhere({
       cityId: 'city_dncc',
       status: 'submitted',
     });
-    expect(where.status).toBe('submitted');
+    // The shape `{ in: [...] }` is what both Prisma and the dev
+    // store expect — the dev store's filter mapper at
+    // lib/dev-store.ts:1155 reads `v.in`, not `v` directly. A
+    // bare string would silently return 0 rows on the dev backend.
+    expect(where.status).toEqual({ in: ['submitted'] });
   });
 
   test('adds categoryId and wardId as exact equality keys', () => {

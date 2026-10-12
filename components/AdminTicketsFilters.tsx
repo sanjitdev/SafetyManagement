@@ -25,7 +25,7 @@ import {
   TICKET_STATUS_VALUES,
   type AdminTicketsFilters as Filters,
   type TicketStatusFilter,
-} from '@/lib/admin/tickets-query';
+} from '@/lib/admin/tickets-query-types';
 
 interface AdminTicketsFiltersProps {
   initial: Filters;
