@@ -81,8 +81,13 @@ function haversineMeters(
   return 6_371_000 * c;
 }
 
-function distanceLabel(t: TicketSummary, o: TicketSummary, lang: Language): string {
-  const m = Math.round(haversineMeters({ lat: t.locationLat, lng: t.locationLng }, { lat: o.locationLat, lng: o.locationLng }));
+function distanceLabel(ticket: TicketSummary, original: TicketSummary, lang: Language): string {
+  const m = Math.round(
+    haversineMeters(
+      { lat: ticket.locationLat, lng: ticket.locationLng },
+      { lat: original.locationLat, lng: original.locationLng },
+    ),
+  );
   return t('dispatcher.dedup.row.distance', { distance: m }, lang);
 }
 
@@ -450,13 +455,13 @@ export default function DispatcherDedupReviewPage() {
                         <TicketPanel
                           lang={lang}
                           label="New"
-                          t={f.ticket}
+                          ticket={f.ticket}
                           distanceLabel={distanceLabel(f.ticket, f.originalTicket, lang)}
                         />
                         <TicketPanel
                           lang={lang}
                           label="Original"
-                          t={f.originalTicket}
+                          ticket={f.originalTicket}
                           distanceLabel={null}
                         />
                       </>
@@ -566,12 +571,12 @@ export default function DispatcherDedupReviewPage() {
 function TicketPanel({
   lang,
   label,
-  t: ticket,
+  ticket,
   distanceLabel,
 }: {
   lang: Language;
   label: string;
-  t: TicketSummary;
+  ticket: TicketSummary;
   distanceLabel: string | null;
 }) {
   return (

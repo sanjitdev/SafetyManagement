@@ -173,7 +173,9 @@ export async function GET(req: NextRequest) {
     categoryId: t.categoryId,
     wardId: t.wardId,
     createdAt:
-      typeof t.createdAt === 'string' ? t.createdAt : t.createdAt.toISOString(),
+      typeof t.createdAt === 'string'
+        ? t.createdAt
+        : (t.createdAt as Date).toISOString(),
   }));
 
   return NextResponse.json({ pins });

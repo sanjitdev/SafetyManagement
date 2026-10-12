@@ -130,7 +130,7 @@ export interface DevTicket {
 
 export interface DevAuditEntry {
   id: string;
-  entityType: 'ticket' | 'city' | 'category' | 'department' | 'ward' | 'user';
+  entityType: 'ticket' | 'city' | 'category' | 'department' | 'ward' | 'user' | 'dedupFlag';
   entityId: string;
   action: string;
   actorId: string;
@@ -1475,6 +1475,12 @@ export const devDb = {
 
 export interface DevTicketWithTrail extends DevTicket {
   trail: DevTrailEntry[];
+  // Denormalised from the ticket's category.departmentId for
+  // dispatcher/crew scope checks. The Prisma ticket model
+  // does not store this directly; the dev store mirrors the
+  // join inline so the route layer can do `withTrail.departmentId`
+  // without a second lookup.
+  departmentId: string | null;
 }
 
 export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
@@ -1483,5 +1489,6 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
   const trail = getStore()
     .trail.filter((e) => e.ticketId === id)
     .sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
-  return { ...t, trail };
+  const category = devDb.category.findUnique({ where: { id: t.categoryId } });
+  return { ...t, trail, departmentId: category?.departmentId ?? null };
 }

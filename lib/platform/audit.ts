@@ -12,7 +12,7 @@
 import { db } from '@/lib/db-switch';
 
 export interface AuditWriteInput {
-  entityType: 'ticket' | 'city' | 'category' | 'department' | 'ward' | 'user';
+  entityType: 'ticket' | 'city' | 'category' | 'department' | 'ward' | 'user' | 'dedupFlag';
   entityId: string;
   action: string; // e.g. "ticket.transition", "category.update"
   actorId: string;
