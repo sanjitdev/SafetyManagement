@@ -11,7 +11,7 @@
  *   - 410 → expired-code inline error + immediate resend unlock
  *   - 429 → too-many-attempts full-card message
  *   - 5xx → top-level toast
- *   - Back arrow → confirm dialog → leave → /welcome
+ *   - Back arrow → confirm dialog → leave → /
  *   - Bilingual copy; phone mask shows last 3 digits
  *
  * On 200 the session cookie has been set by the server; we router.replace
@@ -667,7 +667,7 @@ function VerifyOtpInner() {
               </button>
               <button
                 type="button"
-                onClick={() => router.replace('/welcome')}
+                onClick={() => router.replace('/')}
                 lang={lang}
                 style={{
                   flex: 1,

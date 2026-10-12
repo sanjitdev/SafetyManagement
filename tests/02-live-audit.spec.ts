@@ -20,9 +20,8 @@ import * as path from 'node:path';
 const BASE = process.env.BASE_URL ?? 'http://localhost:3002';
 
 const ROUTES = [
-  { name: 'welcome-dev', url: '/' },
+  { name: 'landing-dev', url: '/' },
   { name: 'splash', url: '/splash' },
-  { name: 'welcome', url: '/welcome' },
   { name: 'register', url: '/register' },
   { name: 'login', url: '/login' },
   { name: 'home', url: '/home' },

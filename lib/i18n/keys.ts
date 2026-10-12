@@ -39,30 +39,10 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'splash.retry': { bn: 'আবার চেষ্টা করুন', en: 'Retry' },
 
-  // WO-001 1.2 Welcome / mockup 01
-  'welcome.headline': {
-    bn: 'আপনার শহরের<br/>আওয়াজ।',
-    en: 'Voice of your city.',
-  },
-  'welcome.subhead': {
-    bn: 'ভাঙা রাস্তার আলো, ড্রেনে আটকে থাকা পানি, জমে থাকা আবর্জনা — রিপোর্ট করুন, অগ্রগতি দেখুন, সমাধানের প্রমাণ পান।',
-    en: 'Report broken streetlights, blocked drains, and piled garbage — track the fix, see proof of resolution.',
-  },
-  'welcome.cta.register': { bn: 'নিবন্ধন করুন', en: 'Register' },
-  'welcome.cta.login': { bn: 'লগইন', en: 'Log in' },
+  // WO-001 1.2 Welcome / mockup 01 — the /welcome route was
+  // collapsed into / in v1.1; the only surviving key is the
+  // language toggle (still used by PublicLandingExperience).
   'welcome.lang.toggle': { bn: 'EN', en: 'বাংলা' },
-  'welcome.trust.government': {
-    bn: 'সরকার পরিচালিত',
-    en: 'Government operated',
-  },
-  'welcome.trust.secure': {
-    bn: 'তথ্য সুরক্ষিত',
-    en: 'Your data is protected',
-  },
-  'welcome.trust.language': {
-    bn: 'বাংলা · English',
-    en: 'বাংলা · English',
-  },
 
   // v1.1 launch-polish — public landing (anonymous) at `/`
   'public.eyebrow': {

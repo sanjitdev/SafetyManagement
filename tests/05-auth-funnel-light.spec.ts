@@ -23,7 +23,7 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
 const ROUTES = [
   { name: 'auth-splash-1440x900', url: '/splash' },
-  { name: 'auth-welcome-1440x900', url: '/welcome' },
+  { name: 'auth-landing-1440x900', url: '/' },
   { name: 'auth-register-1440x900', url: '/register' },
   { name: 'auth-verify-otp-1440x900', url: '/verify-otp' },
   { name: 'auth-login-1440x900', url: '/login' },

@@ -2944,5 +2944,62 @@ auth-logout tests); `npm run test:mockups` 15/15 baselines
 still green. Pushed to `main` — auto-deploy will rebuild
 prod.
 
+## 2026-10-12 — collapse /welcome into /
+
+v1.1 follow-up: with the v1.1 public landing at `/`, the
+dedicated `/welcome` first-run screen became redundant.
+`PublicLandingExperience` already carries the bilingual
+hero, the trust strip, the language toggle, the Register /
+Login CTAs, and (for authed visitors) the redirect to
+`/home` — the only thing `/welcome` had that the landing
+didn't was a decorative pin-map art column. The
+duplication was costing two sets of bilingual copy and two
+sets of CTA surfaces to keep in sync.
+
+Deletes:
+- `app/welcome/page.tsx` (and the empty `app/welcome/`
+  directory).
+
+Updates:
+- `app/splash/page.tsx` — both `router.replace('/welcome')`
+  branches now route to `/`.
+- `app/login/page.tsx:215` — back-link `href="/welcome"` →
+  `href="/"`.
+- `app/register/page.tsx:217` — back-link `href="/welcome"`
+  → `href="/"`.
+- `app/verify-otp/page.tsx:670` — confirm-dialog "leave"
+  action `router.replace('/welcome')` → `router.replace('/')`.
+- `app/api/auth/status/route.ts` — comment updated; the
+  route payload is unchanged.
+- `lib/i18n/keys.ts` — removed the now-unused
+  `welcome.headline`, `welcome.subhead`,
+  `welcome.cta.register`, `welcome.cta.login`,
+  `welcome.trust.government`, `welcome.trust.secure`,
+  `welcome.trust.language`. Kept `welcome.lang.toggle`
+  (still consumed by `PublicLandingExperience`).
+- `tests/05-auth-funnel-light.spec.ts` — `auth-welcome`
+  route replaced with `auth-landing` (URL `/`).
+- `tests/02-live-audit.spec.ts` — `welcome` route removed
+  (duplicate of `welcome-dev` at `/`).
+- `tests/04-e2e-human-tester.spec.ts` — `waitForURL(/\/welcome/)`
+  → `waitForURL(/\/$/)`; capture renamed
+  `12-anonymous-welcome` → `12-anonymous-landing`.
+
+Left untouched:
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/01-welcome.html`
+  — frozen design mockup; the visual-regression baseline
+  in `tests/01-mockups.spec.ts` loads it as a static
+  `file://` URL and is unaffected by this change.
+- The design-artifact docs (UX scenarios, mockup README,
+  `1.2-welcome.md`) — they document the historical first-run
+  design and are useful as a record of the v1 decision.
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 275/275 (no change — the i18n test
+already covers "every key has both bn and en" so the
+removed keys are not missed);
+`npm run test:mockups` 15/15 baselines still green.
+
+
 
 

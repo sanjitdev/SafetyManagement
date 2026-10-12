@@ -214,7 +214,7 @@ function RegisterInner() {
         }}
       >
         <Link
-          href="/welcome"
+          href="/"
           style={{
             color: 'var(--color-ink-secondary)',
             textDecoration: 'none',

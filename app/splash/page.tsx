@@ -4,7 +4,7 @@
  * Per spec 1.1-splash/1.1-splash.md: brief, calm, professional entry. After
  * the splash visual renders, the page checks location permission and the
  * auth state, then routes the citizen to the right place:
- *   - not-authed → /welcome (first-run)
+ *   - not-authed → / (public landing — first-run + return visit)
  *   - authed     → /home
  *
  * Web-first (Phase B, 2026-10-04): centered on a neutral surface. Same
@@ -60,12 +60,12 @@ export default function SplashPage() {
         const res = await fetch('/api/auth/status', { credentials: 'include' });
         if (cancelled) return;
         if (!res.ok) {
-          // Treat as anonymous; route to welcome.
-          router.replace('/welcome');
+          // Treat as anonymous; route to the public landing.
+          router.replace('/');
           return;
         }
         const data = (await res.json()) as { authenticated: boolean };
-        router.replace(data.authenticated ? '/home' : '/welcome');
+        router.replace(data.authenticated ? '/home' : '/');
       } catch {
         if (!cancelled) setBundleFailed(true);
       } finally {

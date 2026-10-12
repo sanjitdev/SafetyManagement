@@ -8,8 +8,8 @@
  * regressions that a pure-API test would miss.
  *
  * The citizen walks:
- *   1. Splash (auto-routes to /welcome on first run; reroute on /login)
- *   2. Welcome (see CTAs — does not actually need to click login,
+ *   1. Splash (auto-routes to / on first run; reroute on /login)
+ *   2. Public landing (see CTAs — does not actually need to click login,
  *      because /api/dev/login mints a session directly)
  *   3. Sign in (via /api/dev/login — dev-only endpoint)
  *   4. Location confirm (default Dhaka center; hit "Continue")
@@ -550,18 +550,19 @@ test.describe('E2E human-tester flow — login surfaces (dev mode preview)', () 
   // in light + dark. No assertions beyond "page renders without
   // console errors", because the realistic assertions live in the main
   // happy-path test above.
-  test('splash + welcome route correctly for anonymous user', async ({ page }) => {
+  test('splash + landing route correctly for anonymous user', async ({ page }) => {
     const req = page.request;
     await devReset(req);
     await preparePage(page);
     await page.goto(`${BASE}/splash`, { waitUntil: 'domcontentloaded' });
-    // Splash auto-routes to /welcome (anonymous) within ~1 frame.
-    await page.waitForURL(/\/welcome/, {
+    // Splash auto-routes to the public landing (/) for an anonymous
+    // visitor within ~1 frame.
+    await page.waitForURL(/\/$/, {
       waitUntil: 'commit',
       timeout: 30_000,
     });
     await page.waitForSelector('h1', { timeout: 30_000 });
-    await capture(page, '12-anonymous-welcome');
+    await capture(page, '12-anonymous-landing');
     expect(true).toBe(true);
   });
 });

@@ -3,7 +3,7 @@
  *
  * Used by the splash page (1.1) to decide where to route the citizen after
  * the splash visual renders:
- *   - not-authed → /welcome (first-run) or /login
+ *   - not-authed → / (public landing)
  *   - authed     → /home
  *
  * Also consumed by the UserMenu dropdown (v1.1 launch-polish) to render
