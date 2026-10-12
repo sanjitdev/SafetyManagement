@@ -66,8 +66,8 @@ affect runtime behavior). Values are encrypted at rest.
 |---|---|---|
 | `DATABASE_URL` | `postgres://neondb_owner:npg_…@ep-empty-water-…pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require` | Pooled Neon URL |
 | `SESSION_SECRET` | 64-hex-char (32 random bytes) | Required: `lib/auth/session.ts` throws if < 32 chars |
-| `WEBAUTHN_RP_ID` | `cityfix.vercel.app` | Hostname only, no scheme/port |
-| `WEBAUTHN_RP_ORIGIN` | `https://cityfix.vercel.app` | Full origin, must be https:// |
+| `WEBAUTHN_RP_ID` | `cityfix-theta.vercel.app` | Hostname only, no scheme/port |
+| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-theta.vercel.app` | Full origin, must be https:// |
 | `WEBAUTHN_RP_NAME` | `CityFix` | Display only |
 | `OTP_PROVIDER` | `stub` | Logs code to console; v1 doesn't ship real SMS |
 | `POLL_RATE_LIMIT_PER_SECOND` | `1` | Optional, has safe default |
@@ -82,6 +82,7 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 | `16f7e03` | `chore: harden for Vercel production deploy` | Phase A: WebAuthn guard, HSTS/CSP headers, env example, build script |
 | `9067ddb` | `fix: unblock Vercel production build` | Lazy WebAuthn guard, useSearchParams → window.location.search |
 | `f540124` | `chore: add initial Prisma migration + seed fix + tsx dep` | Initial migration, seed syntax fix, tsx in devDeps |
+| `ff8dde3` | `fix: correct production URL in deploy docs` | WebAuthn env var rotation to `cityfix-theta.vercel.app`; doc URL fixes |
 
 ## Verification (recorded 2026-10-12)
 

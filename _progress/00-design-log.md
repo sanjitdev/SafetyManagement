@@ -2609,10 +2609,13 @@ Intent 005.
 ### 2026-10-12 — CityFix v1 deployed to Vercel + Neon
 
 Operations phase B/C/D completed. The v1 trunk is now live on
-`https://cityfix.vercel.app` (alias for the deployment URL
-`https://cityfix-theta.vercel.app`), backed by Neon Postgres
-(`icy-moon-71538414`, region `aws-us-east-2`). Three commits
-landed on `main`:
+`https://cityfix-theta.vercel.app` (also aliased to
+`cityfix-super-max1.vercel.app` and
+`cityfix-git-main-super-max1.vercel.app`), backed by Neon Postgres
+(`icy-moon-71538414`, region `aws-us-east-2`). The bare
+`cityfix.vercel.app` subdomain is already claimed by an
+unrelated Vercel project, so we use the suffixed aliases
+instead.
 
 - `16f7e03` — `chore: harden for Vercel production deploy`
   (WebAuthn prod-RP guard, HSTS/CSP headers, env example,
@@ -2647,7 +2650,33 @@ repository allowlist. Fix: `github.com/settings/installations`
 Repository access. The next push after that should trigger
 a build.
 
-Full deploy record:
-`_progress/operations/cityfix-deployment.md`.
+### 2026-10-12 — Auto-deploy verified + URL hostname corrected
+
+Auto-deploy end-to-end test green. After the GitHub App
+allowlist was widened to include `sanjitdev/SafetyManagement`,
+the next push to `main` (commit `ff8dde3` —
+`fix: correct production URL in deploy docs
+(cityfix-theta.vercel.app)`) triggered a Vercel production build
+within 28 seconds. Build completed in 51 s →
+`cityfix-j7az4jcex-super-max1.vercel.app` (Ready), re-aliased
+to `cityfix-theta.vercel.app`,
+`cityfix-super-max1.vercel.app`, and
+`cityfix-git-main-super-max1.vercel.app`.
+
+The same push also corrected two things:
+
+1. **`cityfix.vercel.app` is owned by another project.** The
+   bare subdomain was already taken by a different "CityFix -
+   Fix Your City, Together" Vite SPA. Our public URL is
+   `https://cityfix-theta.vercel.app` (and its aliases).
+2. **`WEBAUTHN_RP_ID` + `WEBAUTHN_RP_ORIGIN` rotated in
+   Vercel** for both Production and Preview environments so the
+   RP ID matches the real hostname. The Development env kept
+   its `localhost` values (correct for local dev). The next
+   build picks them up automatically — no code change needed.
+
+Full deploy record + runbook:
+`_progress/operations/cityfix-deployment.md`,
+`_progress/operations/vercel-neon-deploy-runbook.md`.
 
 

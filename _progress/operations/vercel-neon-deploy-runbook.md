@@ -197,8 +197,8 @@ doesn't affect runtime. The full set:
 |---|---|---|
 | `DATABASE_URL` | pooled Neon URL | the chat transcript has it |
 | `SESSION_SECRET` | `openssl rand -hex 32` | 64 hex chars, ≥ 32 chars required |
-| `WEBAUTHN_RP_ID` | `cityfix.vercel.app` | hostname only, no scheme |
-| `WEBAUTHN_RP_ORIGIN` | `https://cityfix.vercel.app` | full origin, must be https |
+| `WEBAUTHN_RP_ID` | `cityfix-theta.vercel.app` | hostname only, no scheme |
+| `WEBAUTHN_RP_ORIGIN` | `https://cityfix-theta.vercel.app` | full origin, must be https |
 | `WEBAUTHN_RP_NAME` | `CityFix` | display only |
 | `OTP_PROVIDER` | `stub` | logs code to console for v1 |
 
@@ -210,9 +210,13 @@ Verify with `vercel env ls` — should show 18 rows.
 vercel --prod
 ```
 
-Output: `Production: https://cityfix-theta.vercel.app` aliased
-to `https://cityfix.vercel.app`. Build time: ~2 min. The CLI
-also reports "Deployment Protection is on" — see Phase D notes.
+Output: `Production: https://cityfix-theta.vercel.app` (also
+aliased to `cityfix-super-max1.vercel.app` and
+`cityfix-git-main-super-max1.vercel.app`). Build time: ~2 min.
+The CLI also reports "Deployment Protection is on" — see
+Phase D notes. The bare `cityfix.vercel.app` was **not**
+acquired (Vercel subdomains are first-come-first-served and
+the name was already taken by another project).
 
 ### Step 5 — Prisma migration + seed
 
@@ -261,14 +265,16 @@ Three fixes committed as
 production build. No GitHub Actions needed — Vercel polls
 the repo via its own backend.
 
-**Status (as of 2026-10-12)**: dashboard click performed.
-Test push `0bb694e` ("test: trigger Vercel auto-deploy") did
-**not** fire a build within 75s. **Most likely cause**: the
-Vercel GitHub App is installed on the user's GitHub account
-but `sanjitdev/SafetyManagement` is not on its repository
-allowlist. Fix is documented in
-`_progress/operations/cityfix-deployment.md` under
-"Auto-deploy".
+**Status (as of 2026-10-12)**: dashboard click performed
+**and verified end-to-end**. After the GitHub App allowlist
+was widened to include `sanjitdev/SafetyManagement`, the next
+push to `main` (commit `ff8dde3`) triggered a Vercel
+production build within 28 s; build completed in 51 s →
+`cityfix-j7az4jcex-super-max1.vercel.app` (Ready), and the
+three production aliases
+(`cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`,
+`cityfix-git-main-super-max1.vercel.app`) all re-pointed at
+the new build automatically.
 
 **This is the only Phase that strictly needs the user's eyes
 in the dashboard.** The CLI equivalent is `vercel git connect`
