@@ -382,6 +382,13 @@ hits the URL. The setting lives at:
    phase suggests the seed was never actually run
    pre-Vercel. A `npm run db:seed` step in the dev
    verification checklist would catch this earlier.
+5. **Use a tracked project domain for the public URL from
+   day one.** First attempt was `vercel alias set` — that
+   pinned the URL to one build and didn't auto-promote.
+   Tracked project domains (added via the dashboard or
+   `POST /v10/projects/{id}/domains`) do auto-promote. See
+   `_progress/operations/vercel-domain-vs-alias.md` for
+   the full gotcha.
 
 ## Files written by this deploy
 

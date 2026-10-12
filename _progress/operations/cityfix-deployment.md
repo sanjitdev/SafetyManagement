@@ -12,8 +12,9 @@
 | Project name | `cityfix` |
 | Owner | `super-max1` (personal account) |
 | **Production URL (primary)** | **`https://cityfix-bd.vercel.app`** |
+| Primary domain type | **Tracked project domain** (auto-promotes on new production builds) |
 | Additional aliases | `cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
-| Deployment URL (current build) | `https://cityfix-jjvjpv31z-super-max1.vercel.app` |
+| Deployment URL (current build) | `https://cityfix-kmx55a3ii-super-max1.vercel.app` |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
@@ -100,8 +101,8 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 - Live curl: `vercel curl /api/auth/status` → `{"authenticated":false,"session":null}` (one of the first calls before Deployment Protection kicked in)
 - Live curl: `vercel curl /api/v1/dispatcher/queue` → `{"error":"not_authenticated"}`
 - Auto-deploy end-to-end test (after GitHub App allowlist fix): push to `main` → build in ~30s, Ready in ~50s; aliases re-pointed at new build automatically
-- Primary URL switched to `https://cityfix-bd.vercel.app` (alias of latest build); WebAuthn env vars rotated to match
-- `vercel alias ls` → all 4 production aliases (`cityfix-bd`, `cityfix-theta`, `cityfix-super-max1`, `cityfix-git-main-super-max1`) confirmed pointing at the latest build
+- Primary URL switched to `https://cityfix-bd.vercel.app` as a **tracked project domain** (not a one-time alias — auto-promotes on every new production deployment)
+- `curl -I https://cityfix-bd.vercel.app` → HTTP/2 200, our CSP + HSTS headers present, Bangla title "আপনার শহর, আপনার কণ্ঠস্বর" rendered
 
 **Live URL smoke (not yet run by an automated check)**: citizen sign-up
 + ticket filing, dispatcher queue, crew ticket view, admin WebAuthn

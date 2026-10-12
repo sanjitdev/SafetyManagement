@@ -2685,7 +2685,7 @@ Full deploy record + runbook:
 `_progress/operations/cityfix-deployment.md`,
 `_progress/operations/vercel-neon-deploy-runbook.md`.
 
-### 2026-10-12 — Primary URL switched to `cityfix-bd.vercel.app`
+### 2026-10-12 — Primary URL switched to `cityfix-bd.vercel.app` (live)
 
 The auto-generated `cityfix-theta.vercel.app` alias was
 working but reads like an internal placeholder, not a
@@ -2697,16 +2697,30 @@ unclaimed). Setup:
 1. `vercel alias set cityfix-jjvjpv31z-super-max1.vercel.app
    cityfix-bd.vercel.app` → aliased the current production
    build to the new subdomain.
-2. Rotated `WEBAUTHN_RP_ID` and `WEBAUTHN_RP_ORIGIN` on
+2. **Discovered a gotcha**: a `vercel alias` does NOT
+   auto-promote on new production builds. The URL stayed
+   pinned to `cityfix-jjvjpv31z` while the project shipped
+   two more builds.
+3. **Converted `cityfix-bd.vercel.app` to a tracked project
+   domain** via `POST /v10/projects/cityfix/domains` (REST
+   API). Verified `gitBranch: null` (production), `verified:
+   true`. Now it auto-promotes like the other production
+   aliases.
+4. Rotated `WEBAUTHN_RP_ID` and `WEBAUTHN_RP_ORIGIN` on
    Vercel (Production + Preview) to point at
    `cityfix-bd.vercel.app` so the WebAuthn admin ceremony
    doesn't reject the request with an origin-mismatch error.
-3. Updated the deploy record + runbook + this log to make
-   `cityfix-bd.vercel.app` the primary URL; kept the three
-   auto-generated suffixed aliases as fallbacks.
+5. Live check: `curl -I https://cityfix-bd.vercel.app`
+   → HTTP/2 200, custom CSP + HSTS headers present, Bangla
+   title "আপনার শহর, আপনার কণ্ঠস্বর" ("Your city, your voice")
+   rendered.
 
-No code change required — pure infrastructure move. The next
-push to `main` will continue to auto-deploy; the new alias
-will re-point at the latest build automatically.
+The URL is **live and serving the production app** — no
+deployment protection, no login wall, no GitHub page in the
+way. The first auto-deploy after this conversion
+(`fcbb88c → d809fe5 → 9501f07`) also wired the URL
+automatically to the new build via the tracked domain.
+
+Gotcha documented in `_progress/operations/vercel-domain-vs-alias.md`.
 
 
