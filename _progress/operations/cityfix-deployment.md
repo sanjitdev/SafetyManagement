@@ -110,39 +110,63 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 ceremony. To be done in browser by the team after Deployment Protection
 is set to Standard.
 
-## Auto-deploy (Phase C — pending)
+## Auto-deploy (Phase C — verified)
 
-**Status**: GitHub repo wired to Vercel project via dashboard
-on 2026-10-12. Test push `0bb694e` ("test: trigger Vercel
-auto-deploy on push to main") did **not** trigger a build
-as of the capture time (~75s after the push). Most likely
-cause: the Vercel GitHub App is installed on the user's GitHub
-account but `sanjitdev/SafetyManagement` is not on its
-repository allowlist.
+**Status (2026-10-12)**: ✅ Live and verified end-to-end.
+The Vercel GitHub App is installed on the user's GitHub
+account with `sanjitdev/SafetyManagement` in the repository
+allowlist. Every `git push origin main` triggers a Vercel
+production build within ~30 s; build completes in ~50 s
+→ Ready → all four production aliases auto-repoint at the
+new build. The 5+ builds since the original capture
+(`ff8dde3`, `fcbb88c`, `d809fe5`, `9501f07`, `e88562f`,
+`11459db`, `1e69589`, `7d14742`) are all auto-promoted
+to `cityfix-bd.vercel.app` without manual intervention.
 
-Fix:
-1. `https://github.com/settings/installations` → Vercel →
-   Configure → Repository access → Add repository →
-   `sanjitdev/SafetyManagement` → Save
-2. (Optional) `vercel.com/super-max1/cityfix/settings/git` →
-   Disconnect, then Connect again, to re-register the webhook
-3. Push another empty commit to confirm: Vercel should
-   start a build within ~30s
+To re-enable from scratch (if the integration breaks):
 
-To enable (from scratch):
 1. Vercel dashboard → `cityfix` project → Settings → Git → Connect
 2. Pick `sanjitdev/SafetyManagement`
 3. Production Branch = `main`
 4. Save
-
-If the build doesn't fire after the click, also check
-`https://github.com/settings/installations` → Vercel →
-Configure → confirm `sanjitdev/SafetyManagement` is in
-"Repository access".
+5. `https://github.com/settings/installations` → Vercel →
+   Configure → confirm `sanjitdev/SafetyManagement` is in
+   "Repository access"
+6. Push an empty commit to confirm the wire
 
 No GitHub Actions needed; Vercel polls the repo via its own webhook.
 
-## Out of scope (deferred)
+## v1 launch readiness (2026-10-12)
+
+**Decision (2026-10-12)**: CityFix v1 is **launch-ready** on
+the current trunk. All 5 AIDLC intents are `complete`, the
+Construction Verification Command (`npx tsc --noEmit &&
+npm run test:unit && npm run test:mockups && curl -fs
+http://localhost:3000/`) is green, the prod smoke on
+`https://cityfix-bd.vercel.app` passed for citizen
+register/login/OTP/activity-flow + dispatcher + crew +
+admin auth boundaries, and the 5 known v1.1 follow-ups
+are explicitly deferred per the table below.
+
+| # | Follow-up | Blocks v1? | Decision |
+|---|-----------|------------|----------|
+| 1 | Twilio real OTP SMS | No | `OTP_PROVIDER=stub` surfaces the 6-digit code in the `dev_code` field of the send-otp response (commit `11459db`); the verify-otp page renders it in a "Dev code" hint box. v1.1 swap is a one-flag flip + 3 env vars. The TwilioProvider class is implemented (Bolt 005-003) and 18/18 unit tests pass. |
+| 2 | Web Push via VAPID | No | `PushSubscription` model + helpers are in place; the wire call is not invoked. v1 citizens won't get push notifications but can poll the activity feed. v1.1 follow-up. |
+| 3 | Custom domain (Vercel subdomain) | No | `cityfix-bd.vercel.app` is a tracked project domain that auto-promotes; citizens can reach the app without a login wall. Custom domain is cosmetic. |
+| 4 | CI on PRs (GitHub Actions) | No | Vercel auto-deploys on push to `main`; PR previews work via Vercel's git integration. GitHub Actions CI is a future-quality investment. |
+| 5 | CSV export of audit log | No | Admin can see the audit dashboard in the browser. CSV export is a future-quality convenience. |
+| 6 | Standard Protection on Vercel (preview-only login wall) | No | Tracked project domain already serves production publicly. Cosmetic. |
+| 7 | Postgres migration history (v1 used `prisma db push`) | No | v1 schema is single-migration. Migrations are forward-only; we can adopt `migrate dev` for v1.1. |
+
+No follow-up is a v1 blocker. The 5AIDLC intents + the
+2 prod hot-fixes (OTP dev_code, Prisma getTicketWithTrail)
+deliver the full citizen → dispatcher → crew → admin loop
+on `https://cityfix-bd.vercel.app`.
+
+## Out of scope (deferred to v1.1)
+
+See the v1 launch readiness table above for the per-follow-up
+rationale.
 
 - Twilio real OTP SMS — `OTP_PROVIDER=stub` for v1
 - Web Push via VAPID — v1.1

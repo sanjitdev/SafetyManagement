@@ -664,27 +664,44 @@ entry point for human readers.
 
 ## Shipped state
 
-The most recent Bolts (trunk = `prd-development`). Each Bolt is one
-commit on trunk; the design log entry is the per-Bolt narrative.
+**Live in production on `https://cityfix-bd.vercel.app`** (Vercel
++ Neon Postgres, auto-deploy on push to `main`).
+All 5 AIDLC intents are `complete`:
+- 001 Platform Foundation (WO-000)
+- 002 Citizen Report Flow (WO-001 — Rahim)
+- 003 Dispatcher Queue (WO-002 — Habib)
+- 004 Field Crew App (WO-003 — Rashid)
+- 005 Admin City Setup (WO-004)
 
-| Bolt | Title | What shipped |
+The most recent commits on `main` (per the AIDLC memory-bank
+maintenance log):
+
+| Commit | Title | What shipped |
 |---|---|---|
-| `005-004-audit-dashboard` | Admin audit dashboard | Read-only audit log viewer with filter chips (actor / entity / action / date), backed by `app/api/v1/admin/audit` and `lib/platform/audit.ts`. |
-| `005-003-real-otp-provider` | Real OTP provider | `lib/auth/otp-provider/{types,stub,twilio,index}.ts` provider abstraction; `OTP_PROVIDER` env-driven switch. |
-| `005-002-city-config` | City configuration | Admin CRUD for cities, departments, categories, wards; Dhaka template pre-populated; GeoJSON ward polygons editable. |
-| `005-001-webauthn-and-auth` | WebAuthn + auth | `@simplewebauthn/{server,browser}` registration / assertion; admin write-guards mandate WebAuthn. |
-| `005-00X-admin-city-setup-promotion` | Admin city setup promotion | Admin console gated to verified admins; cities overview dashboard. |
-| `feat(home): swap SVG placeholder for MapLibre + OSM basemap` | Real home-page map | `components/CityActivityMap.tsx` — MapLibre + OSM raster basemap + Dhaka District polygon + 6-status pin colours. |
-| `003-005-dispatcher-map-view` | Dispatcher map | `app/dispatcher/map/` + `components/DispatcherMap.tsx`; ward-scoped pin layer for Habib. |
-| `004-004-offline-read` | Crew offline read | Crew assignments view survives poor signal; one-shot location refresh on the home strip. |
-| `004-003-ticket-detail-and-resolve` | Crew ticket detail + resolve | Assignment detail + before/after capture (1-3 photos) + Mark Resolved CTA. |
-| `004-002-todays-assignments` | Crew today list | "My Assignments" list with quick-stats pills + status pills. |
-| `004-001-crew-auth-and-scope` | Crew auth + scope | `lib/auth/guards.ts` extended with `requireScope('crew', {city, ward, department})`. |
+| `7d14742` | `fix(v1-readiness): Prisma implementation of getTicketWithTrail` | Critical v1 launch fix — read-side ticket endpoints (activity, dispatcher queue, crew list, dedup-flags) now work in production. `getTicketWithTrail` was dev-store-only; now backed by a Prisma query against `Ticket` + `TicketTrailEntry` + `Category.departmentId`. |
+| `1e69589` | `docs: log OTP fix (commit 11459db) in design log + deployment record` | Doc sync for the OTP dev_code fix. |
+| `11459db` | `fix(otp): surface dev_code in send-otp response while OTP_PROVIDER=stub` | Citizens can now see the 6-digit code on `/verify-otp` (yellow "Dev code" hint box). The page's existing wiring reads `data.dev_code` from the response; the route was stripping it in prod. |
+| `e88562f` | `docs: capture alias-vs-domain gotcha + live URL verification` | `_progress/operations/vercel-domain-vs-alias.md` — the `vercel alias` vs tracked project domain distinction (this is the gotcha behind the `cityfix-bd` URL conversion). |
+| `9501f07` | `docs: add commit table entries + verification log for URL switch` | Build artifacts table + verification log for the URL switch. |
+| `d809fe5` | `chore: switch primary production URL to cityfix-bd.vercel.app` | Aliased current build to `cityfix-bd.vercel.app`; WebAuthn env vars rotated to match. |
+| `fcbb88c` | `docs: log auto-deploy verification + WebAuthn env var rotation` | Auto-deploy end-to-end test green; deploy docs updated. |
+| `ff8dde3` | `fix: correct production URL in deploy docs` | WebAuthn env var rotation to `cityfix-theta.vercel.app`; doc URL fixes. |
+| `f540124` | `chore: add initial Prisma migration + seed fix + tsx dep` | Initial migration, seed syntax fix, tsx in devDeps. |
+| `9067ddb` | `fix: unblock Vercel production build` | Lazy WebAuthn guard, useSearchParams → window.location.search. |
+| `16f7e03` | `chore: harden for Vercel production deploy` | Phase A: WebAuthn guard, HSTS/CSP headers, env example, build script. |
 
-Earlier Bolts (WO-001 Rahim's full 14-screen flow, WO-002 Habib's
-queue + dedup + map, the platform layer, the web re-skin, the
-walking-skeleton scaffold) live in the design log under
-`_progress/00-design-log.md`.
+The AIDLC v1 launch readiness decision (2026-10-12) is
+captured in
+`_progress/operations/cityfix-deployment.md` (search
+"v1 launch readiness"). The 5 known v1.1 follow-ups
+(Twilio real SMS, VAPID push, custom domain, GH Actions
+CI, CSV audit export) are explicitly deferred — none
+blocks v1 launch.
+
+Earlier Bolts (WO-001 Rahim's full 14-screen flow, WO-002
+Habib's queue + dedup + map, the platform layer, the web
+re-skin, the walking-skeleton scaffold) live in the design
+log under `_progress/00-design-log.md`.
 
 ---
 

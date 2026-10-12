@@ -12,7 +12,7 @@ Started: 2026-09-18
 - UX Design: complete (2026-09-18) — 33 of 33 pages spec'd (spec-as-contract)
 - Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin) — tokens + components + 7 hero mockups (4 Rahim + 1 Habib + 2 Rashid)
 - Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 15/15 Playwright baselines passing; 255/255 unit tests)
-- Operation: in-progress (deployed to Vercel + Neon 2026-10-12; pending: Deployment Protection setting, GitHub auto-deploy wiring)
+- Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
 
 ## Log
 
@@ -2769,5 +2769,72 @@ pattern in `lib/auth/otp-provider/index.ts` is already
 provider-agnostic and the TwilioProvider class is
 implemented — only `OTP_PROVIDER=twilio` + the 3 Twilio
 env vars are needed to flip it on).
+
+### 2026-10-12 — v1 launch readiness decision + Prisma getTicketWithTrail fix
+
+**Triggered by**: Master Agent route — "complete phase 1 of
+development" interpreted as v1 launch readiness.
+
+**Decision**: CityFix v1 is **launch-ready** on the current
+trunk. All 5 AIDLC intents are `complete`, the Construction
+Verification Command (`npx tsc --noEmit && npm run test:unit
+&& npm run test:mockups && curl -fs http://localhost:3000/`)
+is green, the prod smoke on `https://cityfix-bd.vercel.app`
+passed for citizen register/login/OTP/activity-flow +
+dispatcher + crew + admin auth boundaries, and the 5 known
+v1.1 follow-ups (Twilio real SMS, VAPID push, custom domain,
+GH Actions CI, CSV audit export) are explicitly deferred
+because none blocks v1 launch.
+
+**Critical prod hot-fix (commit `7d14742`)**:
+the v1 launch readiness smoke test surfaced a real
+production bug. The read-side ticket endpoints
+(`/api/v1/activity`, `/api/tickets`, dispatcher queue +
+detail, crew list + detail, dedup-flags) were returning
+500 / 404 because `getTicketWithTrail` was implemented
+only for the dev store (an in-memory `devDb.ticket.findUnique`).
+On the Prisma path, the function returned `null` for every
+ticket, so `withTrail.trail` crashed with "Cannot read
+'trail' of null" in the citizen-facing activity feed.
+
+The fix adds a Prisma implementation in `lib/db-switch.ts`
+that queries the `Ticket` row + matching `TicketTrailEntry`
+rows (ordered by timestamp) + the `Category.departmentId`
+in a single round trip and returns a `DevTicketWithTrail`-
+shaped object. Prisma `Date` objects are converted to ISO
+strings to match the dev-store contract; the
+`serializeTicketForRole` consumer in
+`lib/serializers/ticket.ts` already handles both shapes
+(so the conversion is type-only). 15 route files were
+updated to `await getTicketWithTrail(...)` and
+`Promise.all`-wrap the 5 sync `.map()` callbacks that
+called it.
+
+Verification on prod:
+- `npx tsc --noEmit` — clean
+- `npm run test:unit` — 255/255 passing
+- Auto-deploy: build `cityfix-988xb1ouy` Ready in 58s;
+  `cityfix-bd.vercel.app` auto-promoted (tracked project
+  domain)
+- Live end-to-end: register → send-otp (with dev_code) →
+  verify-otp (Set-Cookie: cityfix_session=...; Secure;
+  HttpOnly; SameSite=lax) → `GET /api/v1/activity` now
+  returns 200 with the city activity feed (was 500 with
+  empty body pre-fix)
+
+**Doc sync (this commit, `+`)**:
+- `_progress/00-design-log.md` — this entry
+- `_progress/operations/cityfix-deployment.md` — auto-deploy
+  Phase C section corrected from "pending" to "verified";
+  new "v1 launch readiness" section added with the
+  per-follow-up deferral table
+- `README.md` — "Shipped state" section now points at the
+  live prod URL + the 11 most recent commits on `main`
+  (was the per-Bolt table)
+- `.specsmd/aidlc/memory-bank/story-index.md` — Intent 002
+  header corrected from "in-progress" to "complete" with
+  the push-subscribe-v1.1 preamble
+- `.specsmd/aidlc/memory-bank/maintenance-log.md` —
+  appended the 22:00 UTC sync entry (gitignored)
 
 
