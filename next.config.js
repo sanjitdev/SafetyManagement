@@ -43,6 +43,45 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'X-Frame-Options', value: 'DENY' },
+          // HSTS — Vercel serves HTTPS by default; tell browsers to
+          // never fall back. 1 year, include subdomains, eligible for
+          // preload. Skipped in dev so localhost stays on http.
+          ...(process.env.NODE_ENV === 'production'
+            ? [
+                {
+                  key: 'Strict-Transport-Security',
+                  value: 'max-age=31536000; includeSubDomains; preload',
+                },
+              ]
+            : []),
+          // Content Security Policy — Vercel-hosted origin. Allows:
+          //   - 'self' for scripts + styles (Next.js inlines its own)
+          //   - OSM tile servers (a/b/c.tile.openstreetmap.org) for the
+          //     MapLibre map
+          //   - Nominatim for reverse geocoding
+          //   - 'unsafe-inline' for styles (Tailwind + tokens.css; the
+          //     nonced style approach is a v1.1 hardening)
+          //   - data: + blob: + https: for the MapLibre WebGL canvas + photos
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
+              "worker-src 'self' blob:",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+          // Permissions-Policy — disable unused browser features
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), geolocation=(self), microphone=()',
+          },
         ],
       },
     ];

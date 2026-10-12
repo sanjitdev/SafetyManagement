@@ -62,6 +62,25 @@ function rpOrigin(): string {
   return process.env.WEBAUTHN_RP_ORIGIN ?? 'http://localhost:3000';
 }
 
+// Prod-RP guard: refuse to start in production if the origin
+// doesn't use HTTPS or the RP ID is the dev default. Catches
+// accidental deploys with localhost defaults — WebAuthn would
+// silently fail at request time otherwise.
+if (process.env.NODE_ENV === 'production') {
+  const origin = process.env.WEBAUTHN_RP_ORIGIN;
+  const id = process.env.WEBAUTHN_RP_ID;
+  if (!origin || !origin.startsWith('https://')) {
+    throw new Error(
+      `[webauthn] WEBAUTHN_RP_ORIGIN must be set to an https:// URL in production (got: ${origin ?? '<unset>'})`,
+    );
+  }
+  if (!id || id === 'localhost') {
+    throw new Error(
+      `[webauthn] WEBAUTHN_RP_ID must be set to the production hostname in production (got: ${id ?? '<unset>'})`,
+    );
+  }
+}
+
 /** A registered WebAuthn credential (stored in `User.webAuthnCredentials`). */
 export interface WebAuthnCredential {
   credentialID: string; // base64url

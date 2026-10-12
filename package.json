@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "dev:feat": "cross-env CITYFIX_DEV_STORE=1 next dev -p 3000",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start -p 3000",
+    "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:unit": "vitest run",
@@ -20,6 +21,7 @@
     "test:report": "playwright show-report",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
