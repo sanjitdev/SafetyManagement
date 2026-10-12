@@ -228,6 +228,12 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'status.routed': { bn: 'রাউট', en: 'Routed' },
   'status.in_progress': { bn: 'চলমান', en: 'In progress' },
   'status.resolved': { bn: 'সমাধান', en: 'Resolved' },
+  // Bolt admin-tickets: the engine never transitions INTO closed or
+  // cancelled from a v1 caller, but the citizen-initiated cancel-deferred
+  // path or a future admin override could land there. Add the keys now so
+  // the status pill renders copy instead of the literal key string.
+  'status.closed': { bn: 'বন্ধ', en: 'Closed' },
+  'status.cancelled': { bn: 'বাতিল', en: 'Cancelled' },
 
   // Category labels (Dhaka template)
   'category.streetlight': { bn: 'রাস্তার আলো নেই', en: 'Broken streetlight' },
@@ -1218,6 +1224,67 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'admin.audit.expand.before': { bn: 'আগে', en: 'Before' },
   'admin.audit.expand.after': { bn: 'পরে', en: 'After' },
+
+  // Bolt admin-tickets — Reports list + detail (admin /admin/tickets).
+  // Read-mostly surface; admin can transition status and reassign crew
+  // (the writes go through the existing shared /api/tickets/:id/transition
+  // route — this page is a frontend on top of the same machinery the
+  // dispatcher/crew surfaces use).
+  'admin.tickets.title': { bn: 'রিপোর্টসমূহ', en: 'Reports' },
+  'admin.tickets.subtitle': {
+    bn: 'এই শহরের সব রিপোর্ট',
+    en: 'All reports in this city',
+  },
+  'admin.tickets.back': {
+    bn: '← শহরসমূহে ফিরুন',
+    en: '← Back to cities',
+  },
+  'admin.tickets.filter.status': { bn: 'অবস্থা', en: 'Status' },
+  'admin.tickets.filter.statusAll': { bn: 'সব', en: 'All' },
+  'admin.tickets.filter.city': { bn: 'শহর', en: 'City' },
+  'admin.tickets.filter.category': { bn: 'ক্যাটাগরি', en: 'Category' },
+  'admin.tickets.filter.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'admin.tickets.filter.id': { bn: 'রিপোর্ট আইডি', en: 'Report ID' },
+  'admin.tickets.filter.from': { bn: 'শুরু', en: 'From' },
+  'admin.tickets.filter.to': { bn: 'শেষ', en: 'To' },
+  'admin.tickets.filter.apply': { bn: 'প্রয়োগ', en: 'Apply' },
+  'admin.tickets.filter.reset': { bn: 'মুছুন', en: 'Reset' },
+  'admin.tickets.col.id': { bn: 'আইডি', en: 'ID' },
+  'admin.tickets.col.status': { bn: 'অবস্থা', en: 'Status' },
+  'admin.tickets.col.category': { bn: 'ক্যাটাগরি', en: 'Category' },
+  'admin.tickets.col.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'admin.tickets.col.reporter': { bn: 'প্রতিবেদক', en: 'Reporter' },
+  'admin.tickets.col.assigned': { bn: 'নিযুক্ত ক্রু', en: 'Assigned crew' },
+  'admin.tickets.col.created': { bn: 'তৈরি হয়েছে', en: 'Created' },
+  'admin.tickets.empty': { bn: 'কোনো রিপোর্ট নেই', en: 'No reports' },
+  'admin.tickets.error': {
+    bn: 'রিপোর্ট লোড করা যায়নি',
+    en: 'Could not load reports',
+  },
+  'admin.tickets.loading': { bn: 'লোড হচ্ছে...', en: 'Loading...' },
+  'admin.tickets.loadMore': { bn: 'আরো লোড করুন', en: 'Load more' },
+  'admin.tickets.transition.cta': {
+    bn: 'অবস্থা পরিবর্তন করুন',
+    en: 'Change status',
+  },
+  'admin.tickets.reassign.cta': {
+    bn: 'ক্রু পুনর্নির্ধারণ',
+    en: 'Reassign crew',
+  },
+  'admin.tickets.reassign.placeholder': {
+    bn: 'ক্রু আইডি (user_...)',
+    en: 'Crew ID (user_...)',
+  },
+  'admin.tickets.detail.back': {
+    bn: '← রিপোর্ট তালিকায়',
+    en: '← Back to reports',
+  },
+  'admin.tickets.detail.meta': {
+    bn: 'এই রিপোর্টের অডিট লগ দেখুন',
+    en: 'View audit log for this report',
+  },
+  'admin.tickets.detail.trail': { bn: 'অগ্রগতি', en: 'Progress' },
+  'admin.tickets.detail.note': { bn: 'অভ্যন্তরীণ নোট', en: 'Internal note' },
 
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
