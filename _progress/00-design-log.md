@@ -2900,4 +2900,49 @@ Verification: `npx tsc --noEmit` clean;
 tests); `npm run test:mockups` 15/15 baselines still green.
 Auto-deploy will rebuild prod on the next push.
 
+## 2026-10-12 — top-right user menu dropdown with logout
+
+v1.1 launch-polish follow-up: the top-right of every
+authenticated surface (citizen /home, dispatcher /dispatcher,
+crew /crew, all admin pages) now shows a circular avatar button
+that opens a small dropdown panel with the user's name + role +
+a Logout action. Replaces the stub "র" avatar in /home (which
+was decorative only — no menu, no logout) and adds a logout
+mechanism that the platform was previously missing.
+
+Adds:
+- `POST /api/auth/logout` — destroys the active Session row
+  via `destroySession()` and clears the `cityfix_session`
+  cookie with `maxAge: 0`. Idempotent: a missing/expired
+  session resolves cleanly and still clears the cookie. Accepts
+  POST only (accidental GETs cannot log a user out).
+- `GET /api/auth/status` — now returns `session.name`
+  alongside the existing fields so the dropdown can render
+  the display name without a second lookup from the client.
+- `components/UserMenu.tsx` — self-contained client component
+  with click-to-open, click-outside + Esc to close, role badge
+  with the matching Bangla/English label, and a logout button
+  that POSTs to `/api/auth/logout` then hard-reloads to `/`
+  so any client caches (router prefetch, splash, theme) are
+  cleared.
+- `lib/i18n/keys.ts` — new `user.menu.*` keys (open/close
+  labels, role labels for all four roles, logout, signing-out,
+  avatar aria-with-name).
+- `app/home/page.tsx` — stub `Avatar` removed; `<UserMenu />`
+  rendered in the top bar.
+- `<UserMenu />` wired into the top bars of `/dispatcher`,
+  `/crew`, `/admin/cities`, `/admin/audit`, and the city
+  `/admin/cities/[id]/{setup,taxonomy,wards}` sub-pages.
+- 5 new vitest tests in `tests/unit/auth-logout.test.ts`
+  pinning the logout contract (session row removed, destroy
+  is idempotent, unknown-id safe, sessions isolated from each
+  other, `SESSION_COOKIE` constant pinned to `cityfix_session`).
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 275/275 (up from 270 — added 5
+auth-logout tests); `npm run test:mockups` 15/15 baselines
+still green. Pushed to `main` — auto-deploy will rebuild
+prod.
+
+
 
