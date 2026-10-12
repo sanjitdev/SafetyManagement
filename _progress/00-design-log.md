@@ -3001,5 +3001,119 @@ removed keys are not missed);
 `npm run test:mockups` 15/15 baselines still green.
 
 
+## 2026-10-12 — Bolt 005-005: admin /admin/tickets list + detail with inline actions
+
+The admin section previously had no way to see tickets — only
+the read-only audit dashboard and the city-config surfaces
+existed. Aamir (the admin persona) now has a real **Reports**
+list at `/admin/tickets` and a per-ticket detail at
+`/admin/tickets/[id]` with **inline status transitions** and
+**crew reassign** that post to the SHARED `POST
+/api/tickets/:id/transition` route. Three workstreams shipped:
+
+- **Read-only admin tree** — `GET /api/v1/admin/tickets`
+  (cursor pagination on `createdAt`, six filter dimensions:
+  status / city / category / ward / ticket id / from / to) and
+  `GET /api/v1/admin/tickets/[id]` (admin sees
+  `internalNote` + `assignedCrewId` + real `actorId` on trail).
+  Both are guarded by `requireRole('admin')` only — no
+  WebAuthn on read.
+- **Pages + components** — `app/admin/tickets/page.tsx`
+  (288px filter rail + main table + 30 s polling + "Load
+  more" + URL state) and `app/admin/tickets/[id]/page.tsx`
+  (main column with photo gallery + meta `<dl>` + status
+  trail; 320px sidebar with one button per
+  `TRANSITIONS_BY_FROM[currentStatus]` and a text-input +
+  button for crew reassign). `components/AdminTicketsFilters.tsx`
+  and `components/AdminTicketsTable.tsx` mirror the audit
+  page's patterns.
+- **Shared-route widening** — `POST
+  /api/tickets/:id/transition` now accepts `toStatus` as
+  optional, so admin can send a pure `assignedCrewId`
+  reassign without a status change. The pure-reassign path
+  is admin-only and refuses terminal tickets; it writes a
+  new `action: 'reassign.crew'` audit row.
+
+Files (8 new, 3 modified):
+
+- `lib/i18n/keys.ts` — added 27 `admin.tickets.*` keys
+  (title, subtitle, back, six `filter.*`, seven `col.*`,
+  empty / error / loading / loadMore, transition.cta,
+  reassign.{cta,placeholder}, detail.{back,meta,trail,note})
+  and the two missing `status.closed` / `status.cancelled`
+  keys.
+- `lib/admin/tickets-query.ts` — `listTicketsForAdmin` +
+  `getTicketForAdmin` + `buildWhere` + `clampLimit` + the
+  `TICKET_STATUS_VALUES` enum mirror the audit-query
+  pattern. Dev store can't filter on `createdAt` ranges, so
+  date range + cursor are filtered in JS after the store
+  returns.
+- `app/api/v1/admin/tickets/route.ts` — read-only list
+  endpoint, 8 Zod-validated query params, cross-city
+  rejection, ward/category existence check.
+- `app/api/v1/admin/tickets/[id]/route.ts` — read-only
+  detail endpoint, returns admin-serialised payload (no
+  `last_poll_cursor`).
+- `app/api/tickets/[id]/transition/route.ts` — widening:
+  `toStatus` now optional; pure-reassign path is admin-only
+  + non-terminal + writes an audit row.
+- `app/admin/cities/page.tsx` — added a "Reports" nav pill
+  next to the existing "Audit log" link.
+- `components/AdminTicketsFilters.tsx` +
+  `components/AdminTicketsTable.tsx` — left-rail filter UI
+  + 7-column main table. Both pure presentational;
+  data-testid mirrors the audit table for Playwright
+  ergonomics.
+- `app/admin/tickets/page.tsx` +
+  `app/admin/tickets/[id]/page.tsx` — list + detail with
+  the 30 s `setInterval` polling + cursor-ref pattern from
+  `/admin/audit`. Detail is reload-to-refresh (not polling).
+- `tests/19-admin-tickets-light.spec.ts` — 14 API checks
+  (auth boundary × 2, list happy path + 4 filters + limit +
+  bad input, detail auth boundary × 3, bogus ward) + 2
+  visual baselines (list, detail) at 1440×900.
+
+Out of scope (tracked for v1.1): admin ward/category
+reassign (the dispatcher PATCH route is dispatcher-only),
+admin internal-note edit, WebAuthn gate on the shared
+transition route for admin writes, CSV export, per-city
+session switcher, list-row "tickets I touched" filter.
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 287/287 (12 new tests in
+`tests/unit/tickets-query.test.ts`);
+the new Playwright spec seeds 2 baselines under
+`tests-mockups/baselines/19-admin-tickets-light.spec.ts/`
+that must be regenerated on first mockup run.
+
+## 2026-10-12 — Admin pages: role-check on the client gate (DONE)
+
+Production 403 reported by Aamir (the admin persona, but
+any signed-in non-admin user) on `/admin/cities` and
+`/admin/audit`. The pages were only reading
+`status.authenticated` from `/api/auth/status`; the API
+correctly returned 403 from `requireRole('admin')` so the
+page rendered an empty error state (`http_403` in the
+cities table, blank panel on audit).
+
+Fix: client-side auth-gate on every page under `app/admin/`
+now also reads `status.session?.role` and redirects
+non-admins to `/` (the splash / role-aware router). The
+API gate stays as the source of truth (defense in depth);
+the client change is the clean redirect that matches the
+dispatcher's and crew's pages.
+
+Files changed: `app/admin/audit/page.tsx`,
+`app/admin/cities/page.tsx`,
+`app/admin/cities/[id]/setup/page.tsx`,
+`app/admin/cities/[id]/taxonomy/page.tsx`,
+`app/admin/cities/[id]/wards/page.tsx`,
+`app/admin/tickets/page.tsx`,
+`app/admin/tickets/[id]/page.tsx`.
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 287/287 still green.
+
+
 
 
