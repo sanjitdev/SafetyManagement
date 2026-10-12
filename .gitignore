@@ -129,3 +129,6 @@ aidlc/diagnostics/
 # aidlc/spaces/*/intents/*/<phase>/<stage>/*.md (artifacts + diary).
 .claude/settings.local.json
 # END AI-DLC:gitignore
+
+.vercel
+.env*

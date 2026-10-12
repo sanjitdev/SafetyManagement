@@ -49,36 +49,59 @@ export const WEBAUTHN_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 /** Ceremony timeout — 60 seconds. */
 export const WEBAUTHN_CEREMONY_TIMEOUT_MS = 60 * 1000;
 
-/** The Relying Party ID. v1: localhost in dev, prod hostname in prod. */
-function rpId(): string {
-  return process.env.WEBAUTHN_RP_ID ?? 'localhost';
-}
-
 /** The Relying Party name (display only). */
 const RP_NAME = 'CityFix';
 
-/** The Relying Party origin. v1: http://localhost:3000 in dev. */
-function rpOrigin(): string {
-  return process.env.WEBAUTHN_RP_ORIGIN ?? 'http://localhost:3000';
-}
+// ---- Prod-RP guard (lazy) ---------------------------------------------
+// We deliberately do NOT throw at module load in production: Vercel
+// runs `next build` in a separate process that may not have env vars
+// exposed at build time, and a module-load throw would fail the build
+// before the app ever serves a request. Instead we validate the prod
+// config lazily on first use, and cache the validated values so the
+// check runs once per process. Loud-fail-on-first-request, same
+// security posture, build-friendly.
 
-// Prod-RP guard: refuse to start in production if the origin
-// doesn't use HTTPS or the RP ID is the dev default. Catches
-// accidental deploys with localhost defaults — WebAuthn would
-// silently fail at request time otherwise.
-if (process.env.NODE_ENV === 'production') {
+let rpOriginCache: string | undefined;
+let rpIdCache: string | undefined;
+
+/**
+ * Throws if the production RP config is missing or unsafe. Returns
+ * silently in development. Called from each public WebAuthn function
+ * (issueChallenge, verifyAttestation, verifyAssertion, revokeCredential)
+ * so the first prod request that needs RP config will fail loudly with
+ * a clear message. The dev path is unaffected.
+ */
+export function assertWebAuthnProdConfig(): void {
+  if (process.env.NODE_ENV !== 'production') return;
   const origin = process.env.WEBAUTHN_RP_ORIGIN;
-  const id = process.env.WEBAUTHN_RP_ID;
   if (!origin || !origin.startsWith('https://')) {
     throw new Error(
       `[webauthn] WEBAUTHN_RP_ORIGIN must be set to an https:// URL in production (got: ${origin ?? '<unset>'})`,
     );
   }
+  const id = process.env.WEBAUTHN_RP_ID;
   if (!id || id === 'localhost') {
     throw new Error(
       `[webauthn] WEBAUTHN_RP_ID must be set to the production hostname in production (got: ${id ?? '<unset>'})`,
     );
   }
+}
+
+/** The Relying Party ID. v1: localhost in dev, prod hostname in prod. */
+function rpId(): string {
+  if (rpIdCache !== undefined) return rpIdCache;
+  assertWebAuthnProdConfig();
+  rpIdCache = process.env.WEBAUTHN_RP_ID ?? 'localhost';
+  return rpIdCache;
+}
+
+/** The Relying Party origin. v1: http://localhost:3000 in dev. */
+function rpOrigin(): string {
+  if (rpOriginCache !== undefined) return rpOriginCache;
+  assertWebAuthnProdConfig();
+  rpOriginCache =
+    process.env.WEBAUTHN_RP_ORIGIN ?? 'http://localhost:3000';
+  return rpOriginCache;
 }
 
 /** A registered WebAuthn credential (stored in `User.webAuthnCredentials`). */
@@ -166,6 +189,7 @@ export async function issueChallenge(
   userId: string,
   kind: 'assertion' | 'registration',
 ): Promise<AssertionChallengePayload | RegisterChallengePayload> {
+  assertWebAuthnProdConfig();
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) {
     throw new ApiError(404, 'admin_not_found');
@@ -240,6 +264,7 @@ export async function verifyAttestation(
   attestationResponse: unknown,
   credentialName: string,
 ): Promise<WebAuthnCredential> {
+  assertWebAuthnProdConfig();
   if (
     !attestationResponse ||
     typeof attestationResponse !== 'object' ||
@@ -328,6 +353,7 @@ export async function verifyAssertion(
   challengeId: string,
   assertionResponse: unknown,
 ): Promise<AssertionSessionResult> {
+  assertWebAuthnProdConfig();
   if (
     !assertionResponse ||
     typeof assertionResponse !== 'object' ||
@@ -447,6 +473,7 @@ export async function revokeCredential(
   userId: string,
   credentialId: string,
 ): Promise<{ removed: WebAuthnCredential; remaining: number }> {
+  assertWebAuthnProdConfig();
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) {
     throw new ApiError(404, 'webauthn_credential_not_found');

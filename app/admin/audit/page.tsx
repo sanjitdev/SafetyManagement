@@ -16,7 +16,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AdminAuditFilters } from '@/components/AdminAuditFilters';
 import { AdminAuditTable } from '@/components/AdminAuditTable';
@@ -68,7 +67,6 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const searchParams = useSearchParams();
 
   // Hydrate lang from localStorage.
   useEffect(() => {
@@ -85,12 +83,14 @@ export default function AdminAuditPage() {
     }
   }, [lang]);
 
-  // Hydrate filters from URL on first mount.
+  // Hydrate filters from URL on first mount. Read directly from
+  // window.location.search (instead of useSearchParams) so the page
+  // doesn't need a Suspense boundary and can be statically exported.
   useEffect(() => {
-    if (!searchParams) return;
-    const sp = new URLSearchParams(searchParams.toString());
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
     setFilters(readFiltersFromUrl(sp));
-  }, [searchParams]);
+  }, []);
 
   // Auth gate (mirrors the cities page).
   useEffect(() => {
