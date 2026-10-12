@@ -32,7 +32,18 @@ const ALLOWED_BY_ROLE: Record<string, string[]> = {
 };
 
 const TransitionInput = z.object({
-  toStatus: z.enum(['routed', 'in_progress', 'resolved', 'cancelled']),
+  // Bolt admin-tickets: `toStatus` is now optional so admin can
+  // send a pure `assignedCrewId` reassign without a status change
+  // (the admin /admin/tickets detail page exposes a "Reassign crew"
+  // button that POSTs `{ assignedCrewId }` only). If `toStatus` is
+  // omitted, the route writes only the assignment (no engine
+  // transition). If `toStatus` is present, both the assignment and
+  // the engine transition run as before. The wire contract is
+  // backward-compatible — every existing dispatcher/crew/admin
+  // caller passes `toStatus`.
+  toStatus: z
+    .enum(['routed', 'in_progress', 'resolved', 'cancelled'])
+    .optional(),
   note: z.string().max(1000).optional(),
   assignedCrewId: z.string().optional(),
 });
@@ -63,12 +74,35 @@ export async function POST(
     );
   }
 
-  const roleAllowed = ALLOWED_BY_ROLE[session!.role] ?? [];
-  if (!roleAllowed.includes(parsed.data.toStatus)) {
+  // At least one of toStatus / assignedCrewId must be set. A pure
+  // reassign is only allowed for admin (dispatcher/crew must
+  // transition as well).
+  if (!parsed.data.toStatus && !parsed.data.assignedCrewId) {
     return NextResponse.json(
-      { error: 'role_cannot_perform_transition' },
-      { status: 403 },
+      { error: 'invalid_input', detail: 'toStatus or assignedCrewId required' },
+      { status: 400 },
     );
+  }
+
+  // Pure reassign (no toStatus): admin-only, requires a non-terminal
+  // ticket so the assignment is meaningful. The dispatcher/crew
+  // paths always pass toStatus, so the existing call sites are
+  // unaffected.
+  if (!parsed.data.toStatus) {
+    if (session!.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'role_cannot_perform_transition' },
+        { status: 403 },
+      );
+    }
+  } else {
+    const roleAllowed = ALLOWED_BY_ROLE[session!.role] ?? [];
+    if (!roleAllowed.includes(parsed.data.toStatus)) {
+      return NextResponse.json(
+        { error: 'role_cannot_perform_transition' },
+        { status: 403 },
+      );
+    }
   }
 
   const ticket = await db.ticket.findUnique({
@@ -91,23 +125,64 @@ export async function POST(
     }
   }
 
-  try {
+  // Reassign-only path: refuse reassigns on terminal tickets (the
+  // assignment would be immediately overridden by a new ticket's
+  // resolved/cancelled state, and the audit row would be misleading).
+  if (!parsed.data.toStatus) {
     if (
-      parsed.data.assignedCrewId &&
-      (parsed.data.toStatus === 'routed' ||
-        parsed.data.toStatus === 'in_progress')
+      ticket.status === 'resolved' ||
+      ticket.status === 'closed' ||
+      ticket.status === 'cancelled'
     ) {
-      await db.ticket.update({
-        where: { id: ticket.id },
-        data: { assignedCrewId: parsed.data.assignedCrewId },
+      return NextResponse.json(
+        { error: 'cannot_reassign_terminal_ticket' },
+        { status: 409 },
+      );
+    }
+  }
+
+  try {
+    if (parsed.data.assignedCrewId) {
+      // The original logic restricted the write to `routed` /
+      // `in_progress`. We preserve that for the with-`toStatus`
+      // path; for the reassign-only path, we accept any
+      // non-terminal status.
+      const allowAssignment =
+        !parsed.data.toStatus ||
+        parsed.data.toStatus === 'routed' ||
+        parsed.data.toStatus === 'in_progress';
+      if (allowAssignment) {
+        const before = await db.ticket.findUnique({ where: { id: ticket.id } });
+        await db.ticket.update({
+          where: { id: ticket.id },
+          data: { assignedCrewId: parsed.data.assignedCrewId },
+        });
+        // Bolt admin-tickets: write an audit row for the reassign
+        // (the engine's `ticket.transition` audit only fires when
+        // toStatus is present; the reassign-only path would
+        // otherwise leave no audit trace).
+        if (!parsed.data.toStatus && before) {
+          await import('@/lib/platform/audit').then((m) =>
+            m.writeAudit({
+              entityType: 'ticket',
+              entityId: ticket.id,
+              action: 'reassign.crew',
+              actorId: session!.userId,
+              beforeValue: { assignedCrewId: before.assignedCrewId },
+              afterValue: { assignedCrewId: parsed.data.assignedCrewId },
+            }),
+          );
+        }
+      }
+    }
+    if (parsed.data.toStatus) {
+      await transitionTicket({
+        ticketId: ticket.id,
+        toStatus: parsed.data.toStatus,
+        actorId: session!.userId,
+        note: parsed.data.note,
       });
     }
-    await transitionTicket({
-      ticketId: ticket.id,
-      toStatus: parsed.data.toStatus,
-      actorId: session!.userId,
-      note: parsed.data.note,
-    });
   } catch (e) {
     if (e instanceof InvalidTransitionError) {
       return NextResponse.json(
@@ -128,10 +203,12 @@ export async function POST(
     );
   }
 
-  await sendTicketPush({
-    ticketId: ticket.id,
-    toStatus: parsed.data.toStatus,
-  }).catch(() => undefined);
+  if (parsed.data.toStatus) {
+    await sendTicketPush({
+      ticketId: ticket.id,
+      toStatus: parsed.data.toStatus,
+    }).catch(() => undefined);
+  }
 
   const refreshed = await getTicketWithTrail(ticket.id);
   if (!refreshed) {
