@@ -30,7 +30,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isDevStore } from '@/lib/dev-store';
 import { db } from '@/lib/db-switch';
 import { generateOtp, hashOtp, OTP_TTL_MS, sendOtp } from '@/lib/auth/otp';
 import { rateLimit } from '@/lib/platform/rate-limit';
@@ -150,16 +149,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // In dev mode we surface the code in the response so the
-  // QA flow can complete. The StubProvider's `console.info`
-  // adds a second dev-visible breadcrumb; the JSON response
-  // still carries `dev_code` for the QA persona.
-  const isDev = process.env.NODE_ENV !== 'production' || isDevStore();
+  // While OTP_PROVIDER=stub, surface the code in the
+  // response so the citizen can complete the flow.
+  // The verify-otp page reads `dev_code` and renders
+  // it in a "Dev code" hint box (yellow warning style,
+  // marked "(dev only — production sends SMS)" so the
+  // path is obvious). When the real Twilio provider
+  // lands (v1.1), this returns to the dev-only branch
+  // and the response becomes `{ ok, ttlMs }` again.
   return NextResponse.json(
     {
       ok: true,
       ttlMs: OTP_TTL_MS,
-      ...(isDev ? { dev_code: code } : {}),
+      dev_code: code,
     },
     { status: 200 },
   );

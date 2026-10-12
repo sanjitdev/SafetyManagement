@@ -437,7 +437,7 @@ function VerifyOtpInner() {
                 marginBottom: 'var(--space-4)',
               }}
             >
-              <strong>Dev code:</strong> {devCode} <span style={{ color: 'var(--color-ink-tertiary)' }}>(dev only — production sends SMS)</span>
+              <strong>Dev code:</strong> {devCode} <span style={{ color: 'var(--color-ink-tertiary)' }}>(stub provider — production sends SMS via Twilio in v1.1)</span>
             </div>
           )}
 
