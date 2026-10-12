@@ -86,6 +86,8 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 | `9067ddb` | `fix: unblock Vercel production build` | Lazy WebAuthn guard, useSearchParams → window.location.search |
 | `f540124` | `chore: add initial Prisma migration + seed fix + tsx dep` | Initial migration, seed syntax fix, tsx in devDeps |
 | `ff8dde3` | `fix: correct production URL in deploy docs` | WebAuthn env var rotation to `cityfix-theta.vercel.app`; doc URL fixes |
+| `fcbb88c` | `docs: log auto-deploy verification + WebAuthn env var rotation` | Auto-deploy end-to-end test green; deploy docs updated |
+| `d809fe5` | `chore: switch primary production URL to cityfix-bd.vercel.app` | Aliased current build to `cityfix-bd.vercel.app`; WebAuthn env vars rotated to match |
 
 ## Verification (recorded 2026-10-12)
 
@@ -97,6 +99,9 @@ web push wiring is stubbed in `lib/platform/push.ts`; v1.1 follow-up.
 - Vercel `vercel --prod` → build succeeded, deployed to `cityfix-theta.vercel.app`
 - Live curl: `vercel curl /api/auth/status` → `{"authenticated":false,"session":null}` (one of the first calls before Deployment Protection kicked in)
 - Live curl: `vercel curl /api/v1/dispatcher/queue` → `{"error":"not_authenticated"}`
+- Auto-deploy end-to-end test (after GitHub App allowlist fix): push to `main` → build in ~30s, Ready in ~50s; aliases re-pointed at new build automatically
+- Primary URL switched to `https://cityfix-bd.vercel.app` (alias of latest build); WebAuthn env vars rotated to match
+- `vercel alias ls` → all 4 production aliases (`cityfix-bd`, `cityfix-theta`, `cityfix-super-max1`, `cityfix-git-main-super-max1`) confirmed pointing at the latest build
 
 **Live URL smoke (not yet run by an automated check)**: citizen sign-up
 + ticket filing, dispatcher queue, crew ticket view, admin WebAuthn
