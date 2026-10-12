@@ -11,14 +11,22 @@
 | Platform | Vercel (Hobby) |
 | Project name | `cityfix` |
 | Owner | `super-max1` (personal account) |
-| Production URL | `https://cityfix.vercel.app` (alias) |
-| Deployment URL | `https://cityfix-theta.vercel.app` |
+| Production URL (alias) | `https://cityfix-theta.vercel.app` |
+| Additional aliases | `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
+| Deployment URL (current build) | `https://cityfix-qm697ju94-super-max1.vercel.app` |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
 | Build command | `prisma generate && next build` (from `package.json`) |
 | Install command | `npm install` (auto) |
 | Node runtime | 20.x (per `engines.node` in `package.json`) |
+
+> **Note on `cityfix.vercel.app`**: the bare-naked `cityfix.vercel.app`
+> subdomain is **owned by an unrelated Vercel project** (it serves a
+> different "CityFix - Fix Your City, Together" Vite SPA, last modified
+> 2026-10-01). It cannot be claimed by our project — Vercel subdomains
+> are first-come-first-served per owner. The alias above
+> (`cityfix-theta.vercel.app`) is our public URL for v1.
 
 ## Deployment Protection
 

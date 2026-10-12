@@ -14,11 +14,20 @@
 ## Outcome
 
 In one session we got from "code-complete trunk on `main`, no
-hosting target pinned" to "live on `https://cityfix.vercel.app`,
-Postgres schema applied + seeded, GitHub pushes ready to
-auto-deploy". Four commits on `main`, four sequenced phases,
-two real bugs fixed mid-flight, and one infrastructure mistake
-(tsx missing from devDeps) patched in passing.
+hosting target pinned" to "live on `https://cityfix-theta.vercel.app`
+(aliased to `cityfix-super-max1.vercel.app` and
+`cityfix-git-main-super-max1.vercel.app`)", Postgres schema applied
++ seeded, GitHub pushes auto-deploying. Four commits on `main`,
+four sequenced phases, two real bugs fixed mid-flight, and one
+infrastructure mistake (tsx missing from devDeps) patched in
+passing.
+
+> **Note**: the `cityfix.vercel.app` URL in the original plan
+> turned out to be already owned by an unrelated Vercel project
+> (a different "CityFix - Fix Your City, Together" Vite SPA).
+> Vercel subdomains are first-come-first-served and can't be
+> claimed once taken. The deployment record and this runbook use
+> the suffixed subdomains, which are the project's real aliases.
 
 The deploy pattern is reproducible — any future Vercel + Neon
 deploy for this project should follow the four phases below,
