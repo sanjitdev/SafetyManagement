@@ -121,6 +121,7 @@ async function main() {
         type: 'Polygon',
         // Empty polygon — Aamir fills these in via the ward-boundary editor (Feature #19)
         coordinates: [[]],
+      },
     });
     await prisma.ward.upsert({
       where: { cityId_number: { cityId: dhaka.id, number: n } },
