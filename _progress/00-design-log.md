@@ -2638,9 +2638,14 @@ gated, production public) so citizens can reach the URL without
 a Vercel account. Owner decides when to flip.
 
 **Pending before auto-deploy is live**: Vercel ↔ GitHub
-integration not yet wired. Once connected (Settings → Git →
-Connect `sanjitdev/SafetyManagement`, Production Branch
-`main`), every push to `main` triggers a Vercel build.
+integration dashboard click performed 2026-10-12, but the
+test push (`0bb694e`) did not fire a build. Most likely
+cause: the Vercel GitHub App is installed on the GitHub
+account but the SafetyManagement repo is not on its
+repository allowlist. Fix: `github.com/settings/installations`
+→ Vercel → Configure → Add `sanjitdev/SafetyManagement` to
+Repository access. The next push after that should trigger
+a build.
 
 Full deploy record:
 `_progress/operations/cityfix-deployment.md`.

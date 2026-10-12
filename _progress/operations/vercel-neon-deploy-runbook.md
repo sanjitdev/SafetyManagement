@@ -252,17 +252,14 @@ Three fixes committed as
 production build. No GitHub Actions needed — Vercel polls
 the repo via its own backend.
 
-**Status**: NOT YET WIRED. The user has been asked to do the
-following in the Vercel dashboard:
-
-1. Project Settings → Git → Connect
-2. Pick `sanjitdev/SafetyManagement`
-3. Production Branch: `main`
-4. Save
-
-After this, every `git push origin main` will trigger a Vercel
-build automatically. Until this is done, deploys require
-manual `vercel --prod` from the host.
+**Status (as of 2026-10-12)**: dashboard click performed.
+Test push `0bb694e` ("test: trigger Vercel auto-deploy") did
+**not** fire a build within 75s. **Most likely cause**: the
+Vercel GitHub App is installed on the user's GitHub account
+but `sanjitdev/SafetyManagement` is not on its repository
+allowlist. Fix is documented in
+`_progress/operations/cityfix-deployment.md` under
+"Auto-deploy".
 
 **This is the only Phase that strictly needs the user's eyes
 in the dashboard.** The CLI equivalent is `vercel git connect`

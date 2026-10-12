@@ -93,15 +93,33 @@ is set to Standard.
 
 ## Auto-deploy (Phase C — pending)
 
-**Status**: GitHub repo not yet connected to Vercel project.
-When connected, every `git push origin main` will trigger a new
-Vercel production build via the Vercel GitHub App integration.
+**Status**: GitHub repo wired to Vercel project via dashboard
+on 2026-10-12. Test push `0bb694e` ("test: trigger Vercel
+auto-deploy on push to main") did **not** trigger a build
+as of the capture time (~75s after the push). Most likely
+cause: the Vercel GitHub App is installed on the user's GitHub
+account but `sanjitdev/SafetyManagement` is not on its
+repository allowlist.
 
-To enable:
+Fix:
+1. `https://github.com/settings/installations` → Vercel →
+   Configure → Repository access → Add repository →
+   `sanjitdev/SafetyManagement` → Save
+2. (Optional) `vercel.com/super-max1/cityfix/settings/git` →
+   Disconnect, then Connect again, to re-register the webhook
+3. Push another empty commit to confirm: Vercel should
+   start a build within ~30s
+
+To enable (from scratch):
 1. Vercel dashboard → `cityfix` project → Settings → Git → Connect
 2. Pick `sanjitdev/SafetyManagement`
 3. Production Branch = `main`
 4. Save
+
+If the build doesn't fire after the click, also check
+`https://github.com/settings/installations` → Vercel →
+Configure → confirm `sanjitdev/SafetyManagement` is in
+"Repository access".
 
 No GitHub Actions needed; Vercel polls the repo via its own webhook.
 
