@@ -36,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 import {
   formatCachedAge,
   readAssignmentsCache,
@@ -536,6 +537,7 @@ export default function CrewPage() {
             {t('welcome.lang.toggle', null, lang)}
           </button>
           <ThemeToggle lang={lang} variant="compact" />
+          <UserMenu lang={lang} />
         </div>
       </header>
 

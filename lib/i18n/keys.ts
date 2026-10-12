@@ -1409,6 +1409,29 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'আবার চেষ্টা করুন',
     en: 'Retry',
   },
+
+  // v1.1 launch-polish — user menu dropdown (top-right of every
+  // authenticated surface). Renders the avatar initials button,
+  // the dropdown panel with name + role + scope badge, and the
+  // Logout action.
+  'user.menu.open_menu': {
+    bn: 'ব্যবহারকারী মেনু',
+    en: 'Open user menu',
+  },
+  'user.menu.close_menu': {
+    bn: 'মেনু বন্ধ করুন',
+    en: 'Close menu',
+  },
+  'user.menu.role.citizen': { bn: 'নাগরিক', en: 'Citizen' },
+  'user.menu.role.dispatcher': { bn: 'ডিসপ্যাচার', en: 'Dispatcher' },
+  'user.menu.role.crew': { bn: 'ক্রু সদস্য', en: 'Crew' },
+  'user.menu.role.admin': { bn: 'অ্যাডমিন', en: 'Admin' },
+  'user.menu.logout': { bn: 'লগআউট', en: 'Log out' },
+  'user.menu.signing_out': { bn: 'বের হচ্ছে…', en: 'Signing out…' },
+  'user.menu.aria.avatar': {
+    bn: '{name} — মেনু খুলুন',
+    en: '{name} — open menu',
+  },
 };
 
 /**

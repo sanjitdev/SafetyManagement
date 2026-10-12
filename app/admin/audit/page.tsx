@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 import { AdminAuditFilters } from '@/components/AdminAuditFilters';
 import { AdminAuditTable } from '@/components/AdminAuditTable';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -250,6 +251,7 @@ export default function AdminAuditPage() {
             {lang === 'bn' ? 'EN' : 'বাংলা'}
           </button>
           <ThemeToggle />
+          <UserMenu lang={lang} />
         </div>
       </header>
       <div className="flex-1 flex" style={{ minHeight: 0 }}>

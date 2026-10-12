@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 import {
   applyStatusFilter,
   filterToI18nKey,
@@ -463,7 +464,7 @@ export default function HomePage() {
             {t('welcome.lang.toggle', null, lang)}
           </button>
           <ThemeToggle lang={lang} variant="compact" />
-          <Avatar />
+          <UserMenu lang={lang} />
         </div>
       </header>
 
@@ -708,29 +709,6 @@ function PlusIcon() {
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  );
-}
-
-function Avatar() {
-  return (
-    <div
-      aria-label="Profile menu"
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: '50%',
-        background: 'var(--color-primary-soft, #e6f2ee)',
-        color: 'var(--color-primary)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 'var(--text-caption)',
-        fontWeight: 'var(--weight-bold)',
-        cursor: 'pointer',
-      }}
-    >
-      র
-    </div>
   );
 }
 

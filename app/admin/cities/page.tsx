@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -156,6 +157,7 @@ export default function AdminCitiesPage() {
             {lang === 'bn' ? 'EN' : 'বাংলা'}
           </button>
           <ThemeToggle />
+          <UserMenu lang={lang} />
         </div>
       </header>
       <main className="px-6 py-8 max-w-6xl mx-auto">

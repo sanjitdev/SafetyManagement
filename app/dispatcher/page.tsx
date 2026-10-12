@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -439,6 +440,7 @@ export default function DispatcherPage() {
             {t('welcome.lang.toggle', null, lang)}
           </button>
           <ThemeToggle lang={lang} variant="compact" />
+          <UserMenu lang={lang} />
         </div>
       </header>
 

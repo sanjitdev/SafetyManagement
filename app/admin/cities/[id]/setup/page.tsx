@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -213,6 +214,7 @@ export default function CitySetupPage() {
             {lang === 'bn' ? 'EN' : 'বাংলা'}
           </button>
           <ThemeToggle />
+          <UserMenu lang={lang} />
         </div>
       </header>
       <main className="px-6 py-8 max-w-3xl mx-auto space-y-6">
