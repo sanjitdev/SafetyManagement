@@ -11,7 +11,8 @@ Started: 2026-09-18
 - UX Scenarios: complete (2026-09-18)
 - UX Design: complete (2026-09-18) — 33 of 33 pages spec'd (spec-as-contract)
 - Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin) — tokens + components + 7 hero mockups (4 Rahim + 1 Habib + 2 Rashid)
-- Development: in-progress (5 Work Orders written; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 15/15 Playwright baselines passing)
+- Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 15/15 Playwright baselines passing; 255/255 unit tests)
+- Operation: in-progress (deployed to Vercel + Neon 2026-10-12; pending: Deployment Protection setting, GitHub auto-deploy wiring)
 
 ## Log
 
@@ -2604,5 +2605,44 @@ point that lands in this bolt
 in `/admin/cities`). No
 follow-on bolt is required from
 Intent 005.
+
+### 2026-10-12 — CityFix v1 deployed to Vercel + Neon
+
+Operations phase B/C/D completed. The v1 trunk is now live on
+`https://cityfix.vercel.app` (alias for the deployment URL
+`https://cityfix-theta.vercel.app`), backed by Neon Postgres
+(`icy-moon-71538414`, region `aws-us-east-2`). Three commits
+landed on `main`:
+
+- `16f7e03` — `chore: harden for Vercel production deploy`
+  (WebAuthn prod-RP guard, HSTS/CSP headers, env example,
+  build script)
+- `9067ddb` — `fix: unblock Vercel production build` (lazy
+  WebAuthn guard, audit page useSearchParams → window.location
+  search)
+- `f540124` — `chore: add initial Prisma migration + seed fix
+  + tsx dep` (initial Prisma migration, seed syntax fix, tsx
+  in devDependencies)
+
+Production env: `DATABASE_URL`, `SESSION_SECRET`,
+`WEBAUTHN_RP_ID`, `WEBAUTHN_RP_ORIGIN`, `WEBAUTHN_RP_NAME`,
+`OTP_PROVIDER=stub` — all set across Production / Preview /
+Development. DB has the initial schema applied and the Dhaka
+fixture seeded (1 city, 3 depts, 5 categories, 50 placeholder
+wards).
+
+**Pending before public launch**: Vercel Deployment Protection
+is currently set to "All Environments" (login wall). The
+civic-platform posture requires "Standard Protection" (preview
+gated, production public) so citizens can reach the URL without
+a Vercel account. Owner decides when to flip.
+
+**Pending before auto-deploy is live**: Vercel ↔ GitHub
+integration not yet wired. Once connected (Settings → Git →
+Connect `sanjitdev/SafetyManagement`, Production Branch
+`main`), every push to `main` triggers a Vercel build.
+
+Full deploy record:
+`_progress/operations/cityfix-deployment.md`.
 
 
