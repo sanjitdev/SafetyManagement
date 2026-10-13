@@ -229,8 +229,15 @@ export const db = {
       isDevStore()
         ? devDb.user.findUnique(args)
         : prismaClient.user.findUnique(args),
+    // Bolt 005-002-launch (2026-10-13) — the citizen register route
+    // looks up `(cityId, phone)` across ALL roles so a non-citizen row
+    // sharing the same phone is also caught (the per-city unique
+    // index is `(cityId, phone)`, not `(cityId, phone, role)`).
+    // `role` is optional so the call site can omit it; when omitted
+    // the query returns the first user that matches the other fields
+    // regardless of role.
     findFirst: (args: {
-      where: { cityId: string; phone: string; role: string };
+      where: { cityId: string; phone: string; role?: string };
     }) =>
       isDevStore()
         ? devDb.user.findFirst(args)

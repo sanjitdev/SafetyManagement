@@ -985,14 +985,14 @@ export const devDb = {
       return getStore().users.get(args.where.id) ?? null;
     },
     findFirst(args: {
-      where: { cityId: string; phone: string; role: string };
+      where: { cityId: string; phone: string; role?: string };
     }): DevUser | null {
       return (
         [...getStore().users.values()].find(
           (u) =>
             u.cityId === args.where.cityId &&
             u.phone === args.where.phone &&
-            u.role === args.where.role,
+            (args.where.role === undefined || u.role === args.where.role),
         ) ?? null
       );
     },
