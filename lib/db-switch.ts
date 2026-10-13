@@ -260,6 +260,21 @@ export const db = {
       isDevStore()
         ? devDb.user.create({ data: args.data })
         : prismaClient.user.create({ data: args.data as never }),
+    // v1.1-launch (2026-10-13) — used by the one-shot
+    // /api/dev/promote-admin bootstrap so the live admin
+    // pages are reachable for the only signed-in user. The
+    // dev store does not have a `user.update` (the persona
+    // rows are seed-immutable); the Prisma path is the only
+    // branch that runs in production. To be removed once
+    // the bootstrap is no longer needed.
+    update: (args: { where: { id: string }; data: Record<string, unknown> }) =>
+      isDevStore()
+        ? (() => {
+            throw new Error(
+              'dev store does not support user.update — promote-admin is prod-only',
+            );
+          })()
+        : prismaClient.user.update(args as never),
   },
   ticket: {
     findUnique: (args: { where: { id: string } }) =>
