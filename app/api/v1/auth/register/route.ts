@@ -130,10 +130,17 @@ export async function POST(req: NextRequest) {
   // Check phone uniqueness in this city before we try to create.
   // Goes through the `db` facade so the dev store's user scan and the
   // prod Prisma findFirst are reached from the same call site.
+  //
+  // IMPORTANT: the DB unique index is on `(cityId, phone)` only — it
+  // is NOT scoped to `role='citizen'`. So if a non-citizen user (admin
+  // / dispatcher / crew) happens to share the same (city, phone), the
+  // pre-check below would miss it and the create would 500 with P2002.
+  // The defensive fix is to look for ANY user with this (city, phone)
+  // and then verify it in the create's catch as a second line of defense.
   let existing;
   try {
     existing = await db.user.findFirst({
-      where: { cityId: city.id, phone, role: 'citizen' },
+      where: { cityId: city.id, phone },
     });
   } catch (e) {
     console.error('[register] user.findFirst failed', { cityId: city.id, phone, err: (e as Error).message, stack: (e as Error).stack });
@@ -178,6 +185,15 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (e) {
+    // Prisma P2002 = unique constraint failure. The pre-check above
+    // catches the (cityId, phone) collision in the common case, but
+    // a race between two concurrent register calls can still hit
+    // it. Surface as 409 instead of a generic 500.
+    const err = e as { code?: string; meta?: { target?: string[] } };
+    if (err.code === 'P2002') {
+      console.warn('[register] P2002 race', { userId, cityId: city.id, phone, target: err.meta?.target });
+      return NextResponse.json({ error: 'phone_already_registered' }, { status: 409 });
+    }
     console.error('[register] user.create failed', { userId, cityId: city.id, phone, err: (e as Error).message, stack: (e as Error).stack });
     return NextResponse.json({ error: 'server_error', stage: 'user_create', detail: (e as Error).message }, { status: 500 });
   }
