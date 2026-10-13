@@ -38,10 +38,38 @@ next-env.d.ts
 # Per AGENTS.md, the WDS standalone install lives outside the repo; these
 # four trees are local CLI/framework state for the AI-DLC + WDS + BMad stack
 # and would be reinstalled per-developer via their respective installers.
+#
+# Note on .specsmd/: the canonical specsmd memory bank
+# (.specsmd/aidlc/memory-bank/** and .specsmd/memory-bank/**) IS
+# committed to main as the team's durable brief artefact (intent
+# briefs, unit briefs, bolt records, story index, decision log,
+# standards). Only the per-developer runtime cache (agents, scripts,
+# skills, templates) stays gitignored, as a re-pull of the specsmd
+# framework replaces those locally without touching the briefs.
 .puku-cli/
-.specsmd/
 _bmad/
 .wds/
+
+# specsmd runtime cache (per-developer; re-installed by the specsmd
+# framework). The memory bank (intents/bolts/standards/story-index.md
+# /project.yaml/maintenance-log.md) is the team's durable record and
+# is the default-untracked state under .specsmd/. We do NOT use a
+# broad `.specsmd/` ignore here because that pattern blocks `git add`
+# from materializing the memory bank (git's add path is more
+# conservative than check-ignore). Instead, the runtime-cache
+# subtrees below are explicitly excluded, and the framework's own
+# distributable files (README, manifest, quick-start, context-config,
+# memory-bank.yaml) are excluded by name. Everything else under
+# .specsmd/ is implicitly committed.
+.specsmd/aidlc/agents/
+.specsmd/aidlc/scripts/
+.specsmd/aidlc/skills/
+.specsmd/aidlc/templates/
+.specsmd/aidlc/README.md
+.specsmd/aidlc/manifest.yaml
+.specsmd/aidlc/context-config.yaml
+.specsmd/aidlc/memory-bank.yaml
+.specsmd/aidlc/quick-start.md
 
 # BEGIN AI-DLC:gitignore
 # Logs

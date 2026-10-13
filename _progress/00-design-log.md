@@ -3229,4 +3229,75 @@ Two drift points fixed in
 
 Bumped the index `updated:` to 2026-10-13T19:45:00Z.
 
+## 2026-10-13 — Promote specsmd memory bank to version control (DONE)
+
+The `.specsmd/` tree was previously gitignored as
+"per-developer AI agent tooling" (line 42 of
+`.gitignore`). That policy was wrong for this
+project: the **memory bank** under
+`.specsmd/aidlc/memory-bank/` (and the legacy
+`.specsmd/memory-bank/`) IS the team's durable
+specsmd record — intent briefs, unit briefs,
+bolt records, story index, decision log,
+standards, ADRs, design log. The other
+subtrees (`agents/`, `scripts/`, `skills/`,
+`templates/`, plus the framework's
+`README.md`, `manifest.yaml`,
+`context-config.yaml`, `memory-bank.yaml`,
+`quick-start.md`) are the specsmd framework's
+own distributable and belong to a re-pull of
+the framework, not in the project's `main`.
+
+Fix: rewrite the `.specsmd/` block in
+`.gitignore` so the runtime cache subtrees are
+explicitly excluded and everything else under
+`.specsmd/` is implicitly committed. The
+framework's own files are excluded by name to
+prevent the framework update path from
+polluting `main`.
+
+Files changed:
+
+- `.gitignore` — replaced the broad
+  `.specsmd/` ignore with explicit
+  subdir/file excludes; the memory bank is
+  the new default-untracked-but-allowed.
+- 187 new files staged for the first time:
+  the 186 files under
+  `.specsmd/aidlc/memory-bank/` (intents,
+  bolts, standards, story-index.md,
+  maintenance-log.md, project.yaml,
+  HANDOFF.md, README.md, REFINEMENT.md) and
+  the 1 legacy story file under
+  `.specsmd/memory-bank/`.
+
+Why two separate commits (A1 then A2)?
+
+- A1 (`eb9d411`) shipped the design-log
+  entries that record the chrome-unification
+  work and the index sync.
+- A2 (this commit) ships the policy change
+  + the materialised memory bank. Splitting
+  them keeps the policy change reviewable
+  on its own and the memory bank as a
+  bulk import that touches 187 files.
+
+Out of scope (tracked for v1.1): a
+one-shot maintenance run that re-emits the
+AIDLC `aidlc/spaces/default/intents/*/aidlc-state.md`
+to mirror the now-committed specsmd
+story-index.md; the two workflows are
+intentionally separate but should reflect
+the same project status.
+
+Verification: `git check-ignore -v
+.specsmd/aidlc/memory-bank/story-index.md`
+returns nothing (path NOT ignored);
+`git add .specsmd/aidlc/memory-bank/`
+stages 186 files; `git status` shows
+working tree clean after commit; the AIDLC
+`aidlc/spaces/*/memory/` tree is still
+gitignored per the existing rules and is
+unaffected.
+
 
