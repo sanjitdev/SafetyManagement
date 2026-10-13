@@ -104,7 +104,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Resolve the city by slug
-  const city = await db.city.findUniqueBySlug({ where: { slug: input.citySlug } });
+  let city;
+  try {
+    city = await db.city.findUniqueBySlug({ where: { slug: input.citySlug } });
+  } catch (e) {
+    console.error('[register] city.findUniqueBySlug failed', { citySlug: input.citySlug, err: (e as Error).message, stack: (e as Error).stack });
+    return NextResponse.json({ error: 'server_error', stage: 'city_lookup', detail: (e as Error).message }, { status: 500 });
+  }
   if (!city) {
     return NextResponse.json({ error: 'city_not_found' }, { status: 404 });
   }
@@ -124,9 +130,15 @@ export async function POST(req: NextRequest) {
   // Check phone uniqueness in this city before we try to create.
   // Goes through the `db` facade so the dev store's user scan and the
   // prod Prisma findFirst are reached from the same call site.
-  const existing = await db.user.findFirst({
-    where: { cityId: city.id, phone, role: 'citizen' },
-  });
+  let existing;
+  try {
+    existing = await db.user.findFirst({
+      where: { cityId: city.id, phone, role: 'citizen' },
+    });
+  } catch (e) {
+    console.error('[register] user.findFirst failed', { cityId: city.id, phone, err: (e as Error).message, stack: (e as Error).stack });
+    return NextResponse.json({ error: 'server_error', stage: 'user_findFirst', detail: (e as Error).message }, { status: 500 });
+  }
   if (existing) {
     return NextResponse.json(
       { error: 'phone_already_registered' },
@@ -136,36 +148,54 @@ export async function POST(req: NextRequest) {
 
   // Pick a default ward for the citizen's first session. For v1 we use
   // the first ward in the city by number (Mirpur 14 in Dhaka North).
-  const ward = await db.ward.findFirst({
-    where: { cityId: city.id },
-    orderBy: { number: 'asc' },
-  });
+  let ward;
+  try {
+    ward = await db.ward.findFirst({
+      where: { cityId: city.id },
+      orderBy: { number: 'asc' },
+    });
+  } catch (e) {
+    console.error('[register] ward.findFirst failed', { cityId: city.id, err: (e as Error).message, stack: (e as Error).stack });
+    return NextResponse.json({ error: 'server_error', stage: 'ward_findFirst', detail: (e as Error).message }, { status: 500 });
+  }
   if (!ward) {
     return NextResponse.json({ error: 'ward_not_found' }, { status: 500 });
   }
 
   // Create the user.
   const userId = `user_${randomUUID().slice(0, 12)}`;
-  await db.user.create({
-    data: {
-      id: userId,
-      cityId: city.id,
-      role: 'citizen',
-      phone,
-      nid: input.nid,
-      name: input.name,
-      passwordHash,
-      wardId: ward.id,
-    },
-  });
+  try {
+    await db.user.create({
+      data: {
+        id: userId,
+        cityId: city.id,
+        role: 'citizen',
+        phone,
+        nid: input.nid,
+        name: input.name,
+        passwordHash,
+        wardId: ward.id,
+      },
+    });
+  } catch (e) {
+    console.error('[register] user.create failed', { userId, cityId: city.id, phone, err: (e as Error).message, stack: (e as Error).stack });
+    return NextResponse.json({ error: 'server_error', stage: 'user_create', detail: (e as Error).message }, { status: 500 });
+  }
 
   // Mint a session and set the cookie.
-  const { cookieValue, expiresAt } = await createSession({
-    userId,
-    cityId: city.id,
-    wardId: ward.id,
-    departmentId: null,
-  });
+  let sessionResult;
+  try {
+    sessionResult = await createSession({
+      userId,
+      cityId: city.id,
+      wardId: ward.id,
+      departmentId: null,
+    });
+  } catch (e) {
+    console.error('[register] createSession failed', { userId, err: (e as Error).message, stack: (e as Error).stack });
+    return NextResponse.json({ error: 'server_error', stage: 'session_create', detail: (e as Error).message }, { status: 500 });
+  }
+  const { cookieValue, expiresAt } = sessionResult;
   const jar = await cookies();
   jar.set(SESSION_COOKIE, cookieValue, {
     httpOnly: true,
@@ -181,6 +211,8 @@ export async function POST(req: NextRequest) {
     action: 'user.register',
     actorId: userId,
     afterValue: { cityId: city.id, role: 'citizen' },
+  }).catch((e) => {
+    console.error('[register] writeAudit failed', { userId, err: (e as Error).message });
   });
 
   return NextResponse.json({ ok: true, userId }, { status: 201 });
