@@ -62,10 +62,12 @@ For a real run with persistent storage.
 # Create .env (gitignored) with the database URL
 echo 'DATABASE_URL="postgresql://user:pass@localhost:5432/cityfix"' >> .env
 
-# Optional: real OTP provider (otherwise dev:feat uses the stub)
-echo 'OTP_PROVIDER=twilio' >> .env
-echo 'OTP_PROVIDER_API_KEY=your_key' >> .env
-echo 'OTP_PROVIDER_FROM=+15555550100' >> .env
+# Optional: real OTP provider (v1.1; otherwise the stub logs
+# the code to Vercel function logs + returns it in dev_code)
+# echo 'OTP_PROVIDER=twilio' >> .env
+# echo 'TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' >> .env
+# echo 'TWILIO_AUTH_TOKEN=your_token' >> .env
+# echo 'TWILIO_FROM_NUMBER=+15555550100' >> .env
 ```
 
 ### 3. Sync schema + seed
@@ -90,10 +92,15 @@ npm run start
 #    Listens on http://localhost:3000
 ```
 
-The build output works under any Node 20 host (Vercel, Cloudflare
-Workers via `@cloudflare/next-on-pages`, Railway, your own VM).
-Hosting target is the WO-001 PRD's call (Vercel vs Cloudflare vs
-Railway) — the build is portable.
+**Hosting target: Vercel (Hobby); production URL
+`https://cityfix-bd.vercel.app`** (Vercel + Neon Postgres,
+auto-deploy on push to `main`). Full deploy record:
+`_progress/operations/cityfix-deployment.md` (URLs, env vars,
+build SHAs) + `_progress/operations/vercel-neon-deploy-runbook.md`
+(the reproducible how-to). The build output also runs on
+Cloudflare Workers (`@cloudflare/next-on-pages`), Railway, or
+any Node 20 host, but the production target is Vercel as of v1
+launch (2026-10-12).
 
 ---
 
@@ -246,7 +253,7 @@ If all four pass, the project is healthy.
 | `PrismaClientInitializationError` on first request | `DATABASE_URL` not set or DB unreachable | Set it (production mode) or use `npm run dev:feat` (in-memory store) |
 | `Cannot find module '@prisma/client'` | Prisma client not generated | `npm run db:generate` after `npm install` |
 | Map shows blank tiles on `/home` | OSM tile CDN unreachable from your network | Check `https://tile.openstreetmap.org/{z}/{x}/{y}.png` in a browser. (Per project memory, the OSM Tile Usage Policy forbids heavy production use — a paid provider is the scale path.) |
-| `OTP_PROVIDER=twilio` but SMS doesn't send | Missing API key or from-number | Check `OTP_PROVIDER_API_KEY` + `OTP_PROVIDER_FROM`; falls back to the stub provider if either is missing |
+| `OTP_PROVIDER=twilio` but SMS doesn't send | Missing Twilio credentials or from-number | Check `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER`; falls back to the stub provider if any is missing |
 | `400` on `/api/v1/auth/register` | Validation failed (Zod) | Inspect response body — usually a missing field or weak password. The platform requires `phone` (E.164), `nid` (BD format), `password` (≥ 8 chars), and `name` |
 | Stale data after edits | In-memory store from a previous `dev:feat` | `curl http://localhost:3000/api/dev/reset` to wipe + reseed, then restart the server |
 | Playwright baselines failing | Visual regression after a real change | Review the diff, then `npm run test:update-baselines` and commit the new PNGs |

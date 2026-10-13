@@ -507,9 +507,14 @@ npm run db:seed
 npm run build && npm run start
 ```
 
-The hosting target itself is deferred to the WO-001 PRD
-(Vercel vs Cloudflare vs Railway); the build output works under any
-of them.
+**Hosting target: Vercel (Hobby); production URL
+`https://cityfix-bd.vercel.app` (Vercel + Neon Postgres, auto-deploy
+on push to `main`).** Full deploy record:
+`_progress/operations/cityfix-deployment.md` (URLs, env vars, build
+SHAs) + `_progress/operations/vercel-neon-deploy-runbook.md` (the
+reproducible how-to). The build output also runs on Cloudflare
+Workers (`@cloudflare/next-on-pages`), Railway, or any Node 20 host,
+but the production target is Vercel as of v1 launch (2026-10-12).
 
 ---
 
