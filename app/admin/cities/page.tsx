@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserMenu } from '@/components/UserMenu';
@@ -43,6 +44,7 @@ interface AdminCity {
 }
 
 export default function AdminCitiesPage() {
+  const pathname = usePathname();
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [cities, setCities] = useState<AdminCity[] | null>(null);
@@ -62,6 +64,15 @@ export default function AdminCitiesPage() {
     }
   }, [lang]);
 
+  // Auth + role gate.
+  //
+  // The API independently enforces `requireRole('admin')` on
+  // `/api/v1/admin/cities`, but a non-admin user who lands here
+  // directly (e.g. a bookmark, a stale link) would otherwise see
+  // an empty `http_403` page instead of a clean redirect to their
+  // own home. We check the role on the client too and bounce
+  // non-admins to `/` (the splash / role-aware router) so the UX
+  // matches the dispatcher's and crew's pages.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -69,16 +80,24 @@ export default function AdminCitiesPage() {
         const statusRes = await fetch('/api/auth/status', {
           credentials: 'include',
         });
-        const status = (await statusRes.json()) as { authenticated: boolean };
+        const status = (await statusRes.json()) as {
+          authenticated: boolean;
+          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
+        };
         if (cancelled) return;
-        setSignedIn(status.authenticated);
         if (!status.authenticated) {
           // Forward `?next=/admin/cities` so the admin can resume after
           // sign-in. (Admin accounts sign in via WebAuthn, but if a
           // session has expired mid-page-load we want the same UX.)
-          window.location.href = '/login?next=' + encodeURIComponent('/admin/cities');
+          window.location.href =
+            '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
           return;
         }
+        if (status.session?.role !== 'admin') {
+          window.location.href = '/';
+          return;
+        }
+        setSignedIn(true);
         const res = await fetch('/api/v1/admin/cities', {
           credentials: 'include',
         });
@@ -148,6 +167,12 @@ export default function AdminCitiesPage() {
             className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
           >
             {t('admin.audit.title', null, lang)}
+          </Link>
+          <Link
+            href="/admin/tickets"
+            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+          >
+            {t('admin.tickets.title', null, lang)}
           </Link>
           <button
             type="button"

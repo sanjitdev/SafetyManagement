@@ -95,7 +95,15 @@ export default function AdminAuditPage() {
     setFilters(readFiltersFromUrl(sp));
   }, []);
 
-  // Auth gate (mirrors the cities page).
+  // Auth + role gate (mirrors the cities page).
+  //
+  // The API independently enforces `requireRole('admin')` on the
+  // audit list endpoint, but a non-admin user who lands here
+  // directly (e.g. a bookmark, a stale link) would otherwise see
+  // an empty `http_403` page instead of a clean redirect to their
+  // own home. We check the role on the client too and bounce
+  // non-admins to `/` (the splash / role-aware router) so the UX
+  // matches the dispatcher's and crew's pages.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -103,13 +111,21 @@ export default function AdminAuditPage() {
         const statusRes = await fetch('/api/auth/status', {
           credentials: 'include',
         });
-        const status = (await statusRes.json()) as { authenticated: boolean };
+        const status = (await statusRes.json()) as {
+          authenticated: boolean;
+          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
+        };
         if (cancelled) return;
-        setSignedIn(status.authenticated);
         if (!status.authenticated) {
           window.location.href =
             '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
+          return;
         }
+        if (status.session?.role !== 'admin') {
+          window.location.href = '/';
+          return;
+        }
+        setSignedIn(true);
       } catch {
         if (cancelled) return;
         setSignedIn(false);

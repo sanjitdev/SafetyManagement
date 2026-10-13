@@ -68,14 +68,21 @@ export default function CitySetupPage() {
       const statusRes = await fetch('/api/auth/status', {
         credentials: 'include',
       });
-      const status = (await statusRes.json()) as { authenticated: boolean };
+      const status = (await statusRes.json()) as {
+        authenticated: boolean;
+        session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
+      };
       if (cancelled) return;
-      setSignedIn(status.authenticated);
       if (!status.authenticated) {
         window.location.href =
           '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
         return;
       }
+      if (status.session?.role !== 'admin') {
+        window.location.href = '/';
+        return;
+      }
+      setSignedIn(true);
       const res = await fetch(`/api/v1/admin/cities/${id}`, {
         credentials: 'include',
       });
