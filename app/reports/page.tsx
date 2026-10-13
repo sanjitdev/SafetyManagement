@@ -17,7 +17,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -279,123 +278,12 @@ export default function ReportsListPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
-        background: 'var(--color-surface-page)',
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
+        minHeight: 0,
       }}
     >
-      {/* Top bar — same shape as /feed so the toggle lives in the header */}
-      <header
-        style={{
-          height: 64,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
-          background: 'var(--color-surface-card)',
-          borderBottom: '1px solid var(--color-border)',
-          gap: 'var(--space-3)',
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            textDecoration: 'none',
-            color: 'var(--color-ink)',
-            flexShrink: 0,
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-            }}
-          />
-          <span
-            style={{
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-bold)',
-            }}
-          >
-            CityFix
-          </span>
-          <span
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-tertiary)',
-              marginLeft: 'var(--space-2)',
-            }}
-          >
-            · {t('reports.breadcrumb', null, lang)}
-          </span>
-        </Link>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flexShrink: 0,
-          }}
-        >
-          <Link
-            href="/home"
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-            }}
-          >
-            {t('reports.link.home', null, lang)}
-          </Link>
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} variant="compact" />
-          <div
-            aria-label="Profile menu"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'var(--color-primary-soft, #e6f2ee)',
-              color: 'var(--color-primary)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-bold)',
-            }}
-          >
-            র
-          </div>
-        </div>
-      </header>
-
       {/* Content column */}
       <main
         style={{
@@ -403,33 +291,80 @@ export default function ReportsListPage() {
           display: 'flex',
           justifyContent: 'center',
           padding: 'var(--space-6) var(--space-5)',
+          minHeight: 0,
+          overflowY: 'auto',
         }}
       >
         <div style={{ width: '100%', maxWidth: 720 }}>
           <header style={{ marginBottom: 'var(--space-5)' }}>
-            <h1
+            <span
               lang={lang}
               style={{
-                fontSize: 'var(--text-h1)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--color-ink)',
-                margin: '0 0 var(--space-2)',
-                letterSpacing: 'var(--tracking-tight)',
-              }}
-            >
-              {t('reports.title', null, lang)}
-            </h1>
-            <p
-              lang={lang}
-              style={{
-                fontSize: 'var(--text-body)',
+                display: 'block',
+                fontSize: 'var(--text-caption)',
                 color: 'var(--color-ink-secondary)',
-                margin: 0,
-                lineHeight: 1.5,
+                fontWeight: 'var(--weight-semibold)',
+                letterSpacing: 'var(--tracking-wide)',
+                textTransform: 'uppercase',
+                marginBottom: 'var(--space-2)',
               }}
             >
-              {t('reports.subtitle', null, lang)}
-            </p>
+              {t('reports.breadcrumb', null, lang)}
+            </span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 'var(--space-3)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <h1
+                  lang={lang}
+                  style={{
+                    fontSize: 'var(--text-h1)',
+                    fontWeight: 'var(--weight-semibold)',
+                    color: 'var(--color-ink)',
+                    margin: '0 0 var(--space-2)',
+                    letterSpacing: 'var(--tracking-tight)',
+                  }}
+                >
+                  {t('reports.title', null, lang)}
+                </h1>
+                <p
+                  lang={lang}
+                  style={{
+                    fontSize: 'var(--text-body)',
+                    color: 'var(--color-ink-secondary)',
+                    margin: 0,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t('reports.subtitle', null, lang)}
+                </p>
+              </div>
+              <Link
+                href="/report/location"
+                lang={lang}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-1)',
+                  padding: 'var(--space-2) var(--space-4)',
+                  background: 'var(--color-primary)',
+                  color: 'var(--color-on-primary)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 'var(--text-body-sm)',
+                  fontWeight: 'var(--weight-semibold)',
+                  textDecoration: 'none',
+                  flexShrink: 0,
+                }}
+              >
+                {t('reports.empty.cta', null, lang)}
+              </Link>
+            </div>
           </header>
 
           {/* Loading / error / empty / list */}

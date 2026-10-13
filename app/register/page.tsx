@@ -100,16 +100,6 @@ function RegisterInner() {
     }
   }, []);
 
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
-
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
@@ -196,63 +186,26 @@ function RegisterInner() {
   return (
     <div
       style={{
-        minHeight: '100vh',
-        background: 'var(--color-surface-page)',
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
+        minHeight: 0,
+        background: 'var(--color-surface-page)',
       }}
     >
-      {/* Top bar: back link + language toggle */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-4) var(--space-6)',
-          borderBottom: '1px solid var(--color-border)',
-          background: 'var(--color-surface-card)',
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            color: 'var(--color-ink-secondary)',
-            textDecoration: 'none',
-            fontSize: 'var(--text-body-sm)',
-            fontWeight: 'var(--weight-semibold)',
-          }}
-        >
-          {t('register.back', null, lang)}
-        </Link>
-        <button
-          type="button"
-          onClick={toggleLang}
-          aria-label="Toggle language"
-          style={{
-            padding: 'var(--space-1) var(--space-3)',
-            background: 'transparent',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-pill)',
-            color: 'var(--color-ink-secondary)',
-            fontSize: 'var(--text-caption)',
-            fontWeight: 'var(--weight-semibold)',
-            cursor: 'pointer',
-          }}
-        >
-          {t('welcome.lang.toggle', null, lang)}
-        </button>
-      </header>
-
       <main
         style={{
           flex: 1,
           display: 'flex',
-          alignItems: 'flex-start',
+          flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'center',
-          padding: 'var(--space-7) var(--space-5)',
+          padding: 'var(--space-5) var(--space-5) var(--space-7)',
+          minHeight: 0,
+          overflowY: 'auto',
         }}
       >
-        <div style={{ width: '100%', maxWidth: 480 }}>
+        <div style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
           {/* Heading */}
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <Link
