@@ -3114,6 +3114,119 @@ Files changed: `app/admin/audit/page.tsx`,
 Verification: `npx tsc --noEmit` clean;
 `npm run test:unit` 287/287 still green.
 
+## 2026-10-13 — Chrome unification + ward name join (DONE)
 
+Four small bugs were caught during a citizen walk-through of
+the v1.1 surface and shipped as a single follow-up
+(commit `097a7ab`):
+
+1. **Duplicate top bar on `/home` and `/feed`** — both
+   pages re-implemented a header (logo + city name + language
+   toggle + theme toggle + user menu) on top of the global
+   `AppHeader` rendered by `app/(citizen)/layout.tsx`. The
+   result was two stacked `<header>` landmarks per page. Fix:
+   delete the hand-rolled blocks in
+   `app/home/page.tsx` and `app/feed/page.tsx`; rely on
+   the global `AppHeader` only. The inner `<header>` on the
+   feed page's section banner was demoted to `<div>` so each
+   page has exactly one `<header>` landmark for assistive
+   tech (a11y).
+2. **Bogus `ওয়ার্ড <cuid>` on `/reports/[id]`** — the
+   citizen-facing serializer was dropping the joined
+   `Ward.name` / `Ward.nameBn` because the dev store's
+   `getTicketWithTrail` (and the Prisma equivalent) never
+   joined the ward relation. Fix: thread `wardName` /
+   `wardNameBn` through `lib/serializers/ticket.ts`,
+   `lib/dev-store.ts`, and `lib/db-switch.ts` (the Prisma
+   branch now includes `ward: { select: { name: true,
+   nameBn: true } }`). The `/reports/[id]` page consumes
+   the new fields via the canonical `SerializedTicket` type.
+3. **Dead `variant="compact"` prop on `ThemeToggle`** —
+   the recent ThemeToggle refactor removed the `variant`
+   prop but 8 call sites still passed `variant="compact"`,
+   breaking `tsc --noEmit` with TS2322. Fix: strip the dead
+   prop from all 8 call sites
+   (`components/ReportHeaderActions.tsx`,
+   `app/crew/page.tsx`, `app/crew/tickets/[id]/page.tsx`,
+   `app/dispatcher/page.tsx`,
+   `app/dispatcher/dedup/page.tsx`,
+   `app/dispatcher/map/page.tsx`,
+   `app/dispatcher/tickets/[id]/page.tsx`,
+   `app/home/page.tsx`).
+4. **Local `SerializedTicket` shadow on `/reports/[id]`** —
+   the page had a hand-written `SerializedTicket` interface
+   that lagged the canonical one in
+   `lib/serializers/ticket.ts`. Fix: import the canonical
+   type via `import type { SerializedTicket as
+   ApiSerializedTicket }` and use the alias for the
+   page-local re-export.
+
+Tests added/changed:
+
+- `tests/unit/serializer.test.ts` — new test surfaces the
+  joined ward name (en) + ward name (bn) on the citizen
+  payload; new describe block covers the citizen view when
+  the ward join is missing (null fallback).
+- `tests/unit/crew-cache.test.ts` — `mkTicket` fixture now
+  sets `wardName: null, wardNameBn: null` to match the
+  serializer's `string | null` return type (was a TS2322
+  on `Partial<SerializedTicket>`).
+
+Files (4 new, 12 modified):
+
+- `lib/serializers/ticket.ts` — added `wardName`,
+  `wardNameBn` to `TicketLike` + `SerializedTicket`;
+  populated in both citizen and non-citizen branches.
+- `lib/dev-store.ts` — `getTicketWithTrail` joins
+  `devDb.ward` and returns `wardName` / `wardNameBn`.
+- `lib/db-switch.ts` — Prisma `getTicketWithTrail` adds
+  `ward: { select: { name: true, nameBn: true } }` and
+  flattens the join to the same field names.
+- `lib/i18n/keys.ts` — added `detail.ward.fallback` =
+  `ওয়ার্ড` / `Ward` for the missing-ward path.
+- `app/reports/[id]/page.tsx` — uses canonical
+  `SerializedTicket`; ward label is
+  `wardNameBn || wardName || t('detail.ward.fallback')`.
+- `app/home/page.tsx` — removed hand-rolled header; relies
+  on the global `AppHeader`.
+- `app/feed/page.tsx` — removed hand-rolled header;
+  demoted inner `<header>` landmark to `<div>`.
+- 8 ThemeToggle call sites — `variant="compact"` stripped.
+- 2 unit tests as listed above.
+
+Out of scope (tracked for v1.1): collapsing the
+5-step shape, theme-outdoor contrast tweak, map filter
+chip UX, photo CTA copy, language posture defaults.
+
+Verification: `npx tsc --noEmit` clean;
+`npm run test:unit` 287/287 green;
+`npm run test:mockups` not re-run (no mockup
+HTML or `tokens.css` change in this commit);
+`curl -fs http://localhost:3000/` returns 307
+to `/home` for the authenticated session
+and 200 on the public landing.
+
+## 2026-10-13 — Story index sync (DONE)
+
+Two drift points fixed in
+`.specsmd/aidlc/memory-bank/story-index.md`:
+
+- Intent 002 status header still read "(complete)" but
+  the rows were stale `in-progress` markers from
+  2026-10-11. Promoted all 16 shipped rows to `done`;
+  left `016-push-subscribe` as `pending` (v1.1 deferred).
+- Intent 006 was not in the index at all even though
+  all 3 bolts (006-001/002/003) had landed. Added the
+  full 14-story table.
+- Intent 005 status header still read "(in-progress)"
+  despite all 4 bolts being `done`; promoted to
+  "(complete)" and added a brief Bolt 005-005
+  v1.1 launch-polish hotfix note (the four commits
+  79dc8c4 / 92f548c / 34d74e0 / 109f90b / bdf1bb6
+  ship-blockers that bypass the unit-bolt decomposition
+  because the work is a coordinated set of small
+  fixes, not a single story).
+
+Bumped the index `updated:` to 2026-10-13T19:45:00Z.
 
 
