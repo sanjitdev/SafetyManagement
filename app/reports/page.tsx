@@ -284,7 +284,12 @@ export default function ReportsListPage() {
         minHeight: 0,
       }}
     >
-      {/* Content column */}
+      {/* Content column. Note: the global AppHeader (rendered by the
+          /reports/layout's AppShell) is the only `<header>` on this
+          page. This page uses an H1 + breadcrumb + Report CTA block
+          instead of a second `<header>` element to avoid stacking
+          two `<header>` landmarks (which screen readers and Playwright
+          visual-regression tests both flag as duplicate chrome). */}
       <main
         style={{
           flex: 1,
@@ -296,76 +301,75 @@ export default function ReportsListPage() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 720 }}>
-          <header style={{ marginBottom: 'var(--space-5)' }}>
-            <span
-              lang={lang}
-              style={{
-                display: 'block',
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-secondary)',
-                fontWeight: 'var(--weight-semibold)',
-                letterSpacing: 'var(--tracking-wide)',
-                textTransform: 'uppercase',
-                marginBottom: 'var(--space-2)',
-              }}
-            >
-              {t('reports.breadcrumb', null, lang)}
-            </span>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 'var(--space-3)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <h1
-                  lang={lang}
-                  style={{
-                    fontSize: 'var(--text-h1)',
-                    fontWeight: 'var(--weight-semibold)',
-                    color: 'var(--color-ink)',
-                    margin: '0 0 var(--space-2)',
-                    letterSpacing: 'var(--tracking-tight)',
-                  }}
-                >
-                  {t('reports.title', null, lang)}
-                </h1>
-                <p
-                  lang={lang}
-                  style={{
-                    fontSize: 'var(--text-body)',
-                    color: 'var(--color-ink-secondary)',
-                    margin: 0,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {t('reports.subtitle', null, lang)}
-                </p>
-              </div>
-              <Link
-                href="/report/location"
+          <span
+            lang={lang}
+            style={{
+              display: 'block',
+              fontSize: 'var(--text-caption)',
+              color: 'var(--color-ink-secondary)',
+              fontWeight: 'var(--weight-semibold)',
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
+              marginBottom: 'var(--space-2)',
+            }}
+          >
+            {t('reports.breadcrumb', null, lang)}
+          </span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 'var(--space-3)',
+              flexWrap: 'wrap',
+              marginBottom: 'var(--space-5)',
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <h1
                 lang={lang}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-1)',
-                  padding: 'var(--space-2) var(--space-4)',
-                  background: 'var(--color-primary)',
-                  color: 'var(--color-on-primary)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--text-body-sm)',
+                  fontSize: 'var(--text-h1)',
                   fontWeight: 'var(--weight-semibold)',
-                  textDecoration: 'none',
-                  flexShrink: 0,
+                  color: 'var(--color-ink)',
+                  margin: '0 0 var(--space-2)',
+                  letterSpacing: 'var(--tracking-tight)',
                 }}
               >
-                {t('reports.empty.cta', null, lang)}
-              </Link>
+                {t('reports.title', null, lang)}
+              </h1>
+              <p
+                lang={lang}
+                style={{
+                  fontSize: 'var(--text-body)',
+                  color: 'var(--color-ink-secondary)',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                {t('reports.subtitle', null, lang)}
+              </p>
             </div>
-          </header>
+            <Link
+              href="/report/location"
+              lang={lang}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-1)',
+                padding: 'var(--space-2) var(--space-4)',
+                background: 'var(--color-primary)',
+                color: 'var(--color-on-primary)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--text-body-sm)',
+                fontWeight: 'var(--weight-semibold)',
+                textDecoration: 'none',
+                flexShrink: 0,
+              }}
+            >
+              {t('reports.empty.cta', null, lang)}
+            </Link>
+          </div>
 
           {/* Loading / error / empty / list */}
           {loading && (

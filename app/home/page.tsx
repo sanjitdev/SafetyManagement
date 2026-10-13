@@ -28,8 +28,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 import {
   applyStatusFilter,
   filterToI18nKey,
@@ -241,16 +239,6 @@ export default function HomePage() {
     [tickets, filter],
   );
 
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
-
   function acceptNotifications() {
     setShowNotifPrompt(false);
     try {
@@ -315,8 +303,6 @@ export default function HomePage() {
     );
   }
 
-  const cityDisplay =
-    bootstrap && (bootstrap.city.nameBn || bootstrap.city.name);
   const wardDisplay = bootstrap?.ward
     ? lang === 'bn'
       ? bootstrap.ward.nameBn ?? bootstrap.ward.name
@@ -332,141 +318,14 @@ export default function HomePage() {
         flexDirection: 'column',
       }}
     >
-      {/* Top bar */}
-      <header
-        style={{
-          height: 64,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
-          background: 'var(--color-surface-card)',
-          borderBottom: '1px solid var(--color-border)',
-          gap: 'var(--space-3)',
-        }}
-      >
-        {/* Brand + city */}
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            textDecoration: 'none',
-            color: 'var(--color-ink)',
-            flexShrink: 1,
-            maxWidth: '38%',
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-bold)',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            CityFix
-          </span>
-          {cityDisplay && (
-            <span
-              className="home-brand-city"
-              lang={lang}
-              style={{
-                fontSize: 'var(--text-body-sm)',
-                color: 'var(--color-ink-secondary)',
-                marginLeft: 'var(--space-1)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                minWidth: 0,
-                flexShrink: 1,
-              }}
-            >
-              · {cityDisplay}
-            </span>
-          )}
-        </Link>
-
-        {/* Primary Report CTA */}
-        <button
-          type="button"
-          onClick={() => router.push('/report/location')}
-          lang={lang}
-          style={{
-            height: 48,
-            padding: '0 var(--space-5)',
-            background: 'var(--color-primary)',
-            color: 'var(--color-on-primary)',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 'var(--text-body)',
-            fontWeight: 'var(--weight-semibold)',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <PlusIcon />
-          {t('home.topbar.report', null, lang)}
-        </button>
-
-        {/* Right cluster */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flexShrink: 0,
-          }}
-        >
-          <Link
-            href="/reports"
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-            }}
-          >
-            {t('home.topbar.my_reports', null, lang)}
-          </Link>
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} variant="compact" />
-          <UserMenu lang={lang} />
-        </div>
-      </header>
+      {/* No page-level top bar: the global <AppHeader> is provided by
+          the /home layout's <AppShell role="citizen"> wrapper. It
+          already renders the brand, the inline Home / Activity / My
+          reports nav, the primary Report CTA, the language toggle,
+          the theme toggle, and the user menu — every affordance the
+          hand-rolled header used to provide. Keeping a second <header>
+          here would create duplicate landmarks and a stacked chrome
+          bar (this is the regression the previous Bolt left behind). */}
 
       {/* Two-region content area */}
       <div className="home-grid">

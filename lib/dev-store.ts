@@ -1481,6 +1481,14 @@ export interface DevTicketWithTrail extends DevTicket {
   // join inline so the route layer can do `withTrail.departmentId`
   // without a second lookup.
   departmentId: string | null;
+  /**
+   * Denormalised from the ticket's ward. The Prisma ticket
+   * model exposes this via the `ward` relation; the dev store
+   * mirrors the join inline so the route layer can render the
+   * citizen-facing label without a second lookup.
+   */
+  wardName: string | null;
+  wardNameBn: string | null;
 }
 
 export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
@@ -1490,5 +1498,12 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
     .trail.filter((e) => e.ticketId === id)
     .sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
   const category = devDb.category.findUnique({ where: { id: t.categoryId } });
-  return { ...t, trail, departmentId: category?.departmentId ?? null };
+  const ward = devDb.ward.findUnique({ where: { id: t.wardId } });
+  return {
+    ...t,
+    trail,
+    departmentId: category?.departmentId ?? null,
+    wardName: ward?.name ?? null,
+    wardNameBn: ward?.nameBn ?? null,
+  };
 }

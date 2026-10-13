@@ -383,7 +383,7 @@ export default function DispatcherMapPage() {
           >
             {t('welcome.lang.toggle', null, lang)}
           </button>
-          <ThemeToggle lang={lang} variant="compact" />
+          <ThemeToggle lang={lang} />
         </div>
       </header>
 

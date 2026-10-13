@@ -613,7 +613,7 @@ export default function CrewTicketPage() {
           >
             {t('welcome.lang.toggle', null, lang)}
           </button>
-          <ThemeToggle lang={lang} variant="compact" />
+          <ThemeToggle lang={lang} />
         </div>
       </header>
 

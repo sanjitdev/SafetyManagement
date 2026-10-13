@@ -56,6 +56,11 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     id: 'tkt_abc',
     cityId: 'city_dhaka_north',
     wardId: 'ward_14',
+    // The serializer (lib/serializers/ticket.ts) ships explicit
+    // `null` for the denormalised ward names when the join is
+    // absent; the cache fixture mirrors that contract.
+    wardName: null,
+    wardNameBn: null,
     categoryId: 'cat_streetlight',
     locationLat: 23.789,
     locationLng: 90.4075,

@@ -9,5 +9,5 @@
 import { ThemeToggle } from './ThemeToggle';
 
 export function ReportHeaderActions() {
-  return <ThemeToggle lang="bn" variant="compact" />;
+  return <ThemeToggle lang="bn" />;
 }

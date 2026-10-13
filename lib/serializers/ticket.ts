@@ -46,6 +46,16 @@ export interface TicketLike {
   assignedCrewId: string | null;
   internalNote: string | null;
   reporterId: string;
+  /**
+   * Denormalised ward name(s) for citizens. Populated by
+   * `getTicketWithTrail` (lib/db-switch.ts) which joins Ward.
+   * Optional because older call sites (dispatcher/crew list
+   * endpoints) do not need to surface them; the citizen
+   * serializer silently falls back to `null` when the join
+   * is absent.
+   */
+  wardName?: string | null;
+  wardNameBn?: string | null;
 }
 
 export interface SerializedTicketTrailEntry {
@@ -60,6 +70,14 @@ export interface SerializedTicket {
   id: string;
   cityId: string;
   wardId: string;
+  /**
+   * Human-readable ward name(s) for the citizen. Resolved by the
+   * backend (`getTicketWithTrail`) so the client does not need a
+   * second round-trip. `null` when the join is missing or the
+   * ward has no display name.
+   */
+  wardName: string | null;
+  wardNameBn: string | null;
   categoryId: string;
   status: TicketStatus;
   locationLng: number;
@@ -100,6 +118,8 @@ export function serializeTicketForRole(
       id: ticket.id,
       cityId: ticket.cityId,
       wardId: ticket.wardId,
+      wardName: ticket.wardName ?? null,
+      wardNameBn: ticket.wardNameBn ?? null,
       categoryId: ticket.categoryId,
       status: ticket.status,
       locationLng: ticket.locationLng,
@@ -124,11 +144,16 @@ export function serializeTicketForRole(
     };
   }
 
-  // Dispatcher / crew / admin: full visibility.
+  // Dispatcher / crew / admin: full visibility. The denormalised ward
+  // names are still passed through — internal tools often render them
+  // — but the citizen serializer is the primary consumer; this branch
+  // does not add new exposure (ward names are not PII).
   return {
     id: ticket.id,
     cityId: ticket.cityId,
     wardId: ticket.wardId,
+    wardName: ticket.wardName ?? null,
+    wardNameBn: ticket.wardNameBn ?? null,
     categoryId: ticket.categoryId,
     status: ticket.status,
     locationLng: ticket.locationLng,

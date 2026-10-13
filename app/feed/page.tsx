@@ -222,16 +222,6 @@ export default function FeedPage() {
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
 
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
-
   if (signedIn === false) {
     return (
       <div
@@ -283,108 +273,14 @@ export default function FeedPage() {
         flexDirection: 'column',
       }}
     >
-      {/* Top bar */}
-      <header
-        style={{
-          height: 64,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
-          background: 'var(--color-surface-card)',
-          borderBottom: '1px solid var(--color-border)',
-          gap: 'var(--space-3)',
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            textDecoration: 'none',
-            color: 'var(--color-ink)',
-            flexShrink: 0,
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-            }}
-          />
-          <span
-            style={{
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-bold)',
-            }}
-          >
-            CityFix
-          </span>
-          <span
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-tertiary)',
-              marginLeft: 'var(--space-2)',
-            }}
-          >
-            · {t('feed.breadcrumb', null, lang)}
-          </span>
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <Link
-            href="/home"
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-            }}
-          >
-            {t('feed.link.home', null, lang)}
-          </Link>
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <div
-            aria-label="Profile menu"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'var(--color-primary-soft, #e6f2ee)',
-              color: 'var(--color-primary)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-bold)',
-            }}
-          >
-            র
-          </div>
-        </div>
-      </header>
+      {/* No page-level top bar: the global <AppHeader> is provided by
+          the /feed layout's <AppShell role="citizen"> wrapper. It
+          already renders the brand, the inline Home / Activity / My
+          reports nav (with the current "Activity" link highlighted),
+          the primary Report CTA, the language toggle, the theme
+          toggle, and the user menu. The previous hand-rolled header
+          duplicated every one of those affordances and stacked on top
+          of the global one. */}
 
       {/* Content column */}
       <main
@@ -396,7 +292,12 @@ export default function FeedPage() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 720 }}>
-          <header style={{ marginBottom: 'var(--space-5)' }}>
+          {/* In-content page title block. This is the <h1> + subtitle
+              for the feed, NOT a second <header> landmark — the only
+              <header> on the page is the global AppHeader above. A
+              <div> here is correct per the same a11y reasoning the
+              /reports list page uses. */}
+          <div style={{ marginBottom: 'var(--space-5)' }}>
             <h1
               lang={lang}
               style={{
@@ -420,7 +321,7 @@ export default function FeedPage() {
             >
               {t('feed.subtitle', null, lang)}
             </p>
-          </header>
+          </div>
 
           {/* Sticky filter chip row */}
           <div

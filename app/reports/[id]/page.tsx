@@ -25,33 +25,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+// Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
+// the imported type instead of a local mirror keeps the page in sync
+// with backend changes (ward names, future fields) without manual
+// upkeep.
+import type { SerializedTicket as ApiSerializedTicket } from '@/lib/serializers/ticket';
 
-interface SerializedTicket {
+// Local shape is the citizen branch of the canonical serializer —
+// the API only ever returns one branch at a time so the narrowing is
+// structural. The trail status union is lifted out of the imported
+// type so this file does not have to re-state it.
+type SerializedTicket = ApiSerializedTicket;
+type TicketStatus = SerializedTicket['status'];
+
+interface CategoryOption {
   id: string;
-  cityId: string;
-  wardId: string;
-  categoryId: string;
-  status:
-    | 'submitted'
-    | 'routed'
-    | 'in_progress'
-    | 'resolved'
-    | 'closed'
-    | 'cancelled';
-  locationLng: number;
-  locationLat: number;
-  locationLabel: string | null;
-  locationLabelBn: string | null;
-  note: string | null;
-  photoUrls: string[];
-  createdAt: string;
-  resolvedAt: string | null;
-  trail: Array<{
-    toStatus: SerializedTicket['status'];
-    actorLabel: string;
-    note: string | null;
-    timestamp: string;
-  }>;
+  slug: string;
+  name: string;
+  nameBn: string | null;
 }
 
 const STATUS_ORDER: SerializedTicket['status'][] = [
@@ -107,12 +98,34 @@ function timeAgoLabel(iso: string): string {
   return `${value} ${t(unitKey as 'time.minutes_ago', null, LANG)}`;
 }
 
+// Look up the human-readable category name for a ticket. The
+// categoryId is a Prisma cuid; we map it through the categories
+// list returned by /api/report/bootstrap. Bangla-first per project
+// policy; falls back to the slug, then to a generic "Other" label
+// if the category isn't in the list (e.g. it was deleted after the
+// ticket was filed).
+function categoryLabel(
+  categoryId: string,
+  categories: CategoryOption[],
+  lang: Language,
+): string {
+  const match = categories.find((c) => c.id === categoryId);
+  if (!match) {
+    return t('category.other', null, lang);
+  }
+  if (lang === 'bn') {
+    return match.nameBn ?? match.name;
+  }
+  return match.name;
+}
+
 export default function MyReportDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id ?? '';
 
   const [ticket, setTicket] = useState<SerializedTicket | null>(null);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -133,6 +146,11 @@ export default function MyReportDetailPage() {
         setAuthed(false);
         return;
       }
+      const boot = (await authRes.json()) as { categories?: CategoryOption[] };
+      // /api/report/bootstrap returns the category list scoped to the
+      // citizen's city. We use it to translate the ticket's categoryId
+      // (a Prisma cuid) into a human-readable Bangla/English name.
+      setCategories(boot.categories ?? []);
       setAuthed(true);
       await refresh();
     })();
@@ -239,7 +257,12 @@ export default function MyReportDetailPage() {
 
   const pill = pillClass(ticket.status);
   const currentIdx = STATUS_ORDER.indexOf(ticket.status);
-  const wardLabel = `ওয়ার্ড ${ticket.wardId.replace(/^ward_/, '')}, মিরপুর`;
+  // The serializer (lib/serializers/ticket.ts) ships the human-readable
+  // ward name(s) joined in by the backend. The Bangla-first read per
+  // project policy falls back to the English name, then to a generic
+  // "Ward {id}" last resort so the citizen never sees a raw cuid.
+  const wardLabel =
+    ticket.wardNameBn || ticket.wardName || t('detail.ward.fallback', null, LANG);
   const createdRel = timeAgoLabel(ticket.createdAt);
   const resolvedRel = ticket.resolvedAt ? timeAgoLabel(ticket.resolvedAt) : null;
   const resolutionDays =
@@ -293,72 +316,9 @@ export default function MyReportDetailPage() {
 
   return (
     <div style={{ background: 'var(--color-surface-page)', minHeight: '100vh' }}>
-      {/* Top bar — citizen-side dashboard. */}
-      <div
-        style={{
-          height: 'var(--header-height-desktop, 64px)',
-          background: 'var(--color-surface-card, #fff)',
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span
-            style={{
-              width: 10,
-              height: 10,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-            }}
-            aria-hidden
-          />
-          <strong style={{ fontSize: 'var(--text-body-lg)' }}>CityFix</strong>
-          <span style={{ color: 'var(--color-ink-tertiary)', fontSize: 'var(--text-caption)' }}>
-            ·
-          </span>
-          <span
-            lang="bn"
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-            }}
-          >
-            {t('detail.topbar.section', null, LANG)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <a
-            href="/"
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-            }}
-          >
-            {t('detail.topbar.home', null, LANG)}
-          </a>
-          <div
-            aria-hidden
-            style={{
-              width: 32,
-              height: 32,
-              background: 'var(--color-primary-soft)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'var(--weight-semibold)',
-              color: 'var(--color-primary)',
-              fontSize: 'var(--text-caption)',
-            }}
-          >
-            {t('detail.avatar.fallback', null, LANG)}
-          </div>
-        </div>
-      </div>
+      {/* No page-level top bar: the global <AppHeader> is provided by
+          the /reports/* layout's <AppShell> wrapper. The detail page
+          lives directly under that header. */}
 
       <div
         style={{
@@ -421,11 +381,7 @@ export default function MyReportDetailPage() {
                 lineHeight: 1.2,
               }}
             >
-              {t(
-                `category.${ticket.categoryId.replace(/^cat_/, '')}` as 'category.other',
-                null,
-                LANG,
-              )}
+              {categoryLabel(ticket.categoryId, categories, LANG)}
             </h1>
             <div
               style={{
@@ -665,11 +621,7 @@ export default function MyReportDetailPage() {
             >
               <MetaCell
                 label={t('detail.meta.category', null, LANG)}
-                value={t(
-                  `category.${ticket.categoryId.replace(/^cat_/, '')}` as 'category.other',
-                  null,
-                  LANG,
-                )}
+                value={categoryLabel(ticket.categoryId, categories, LANG)}
               />
               <MetaCell label={t('detail.meta.ward', null, LANG)} value={wardLabel} />
               <MetaCell

@@ -769,6 +769,7 @@ export async function getTicketWithTrail(
     include: {
       trail: { orderBy: { timestamp: 'asc' } },
       category: { select: { departmentId: true } },
+      ward: { select: { name: true, nameBn: true } },
     },
   });
   if (!t) return null;
@@ -805,6 +806,11 @@ export async function getTicketWithTrail(
       timestamp: e.timestamp.toISOString(),
     })),
     departmentId: t.category?.departmentId ?? null,
+    // Denormalised ward name(s) for the citizen-facing serializer.
+    // t.ward is the joined Ward row; `nameBn` is nullable in the
+    // schema so we coalesce both fields to `null` when missing.
+    wardName: t.ward?.name ?? null,
+    wardNameBn: t.ward?.nameBn ?? null,
   };
 }
 

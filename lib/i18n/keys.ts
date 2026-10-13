@@ -251,6 +251,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'detail.meta.sla': { bn: 'SLA', en: 'SLA' },
   'detail.meta.sla_value': { bn: '৪৮ ঘণ্টা', en: '48 hours' },
   'detail.meta.resolution': { bn: 'সমাধানের সময়', en: 'Resolution time' },
+  'detail.ward.fallback': { bn: 'ওয়ার্ড', en: 'Ward' },
   'detail.section.progress': { bn: 'অগ্রগতি', en: 'Progress' },
   'detail.progress.empty': {
     bn: 'কোনো অগ্রগতি এখনও নেই।',
@@ -784,6 +785,22 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'সিস্টেমের সেটিংস অনুসরণ করে',
     en: 'Follows your device',
   },
+
+  // Global header chrome (AppHeader) — used by every page that mounts
+  // <AppShell>. Bangla-first brand and nav copy; English fallback for
+  // signed-out / EN-preference visitors.
+  'header.brand.city': {
+    bn: 'ঢাকা',
+    en: 'Dhaka',
+  },
+  'header.nav.home': { bn: 'হোম', en: 'Home' },
+  'header.nav.feed': { bn: 'ফিড', en: 'Activity' },
+  'header.nav.reports': { bn: 'আমার রিপোর্ট', en: 'My reports' },
+  'header.nav.report': { bn: 'রিপোর্ট করুন', en: 'Report' },
+  'header.nav.menu_label': { bn: 'প্রধান নেভিগেশন', en: 'Main navigation' },
+  'header.nav.toggle_menu': { bn: 'মেনু খুলুন', en: 'Toggle menu' },
+  'header.user.signin': { bn: 'সাইন ইন', en: 'Sign in' },
+  'header.user.register': { bn: 'নিবন্ধন', en: 'Register' },
 
   // WO-002 (Intent 003) — Dispatcher surfaces
   'dispatcher.queue.title': {

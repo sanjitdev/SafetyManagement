@@ -34,6 +34,10 @@ const baseTicket: TicketLike = {
   assignedCrewId: 'crew_a',
   internalNote: 'PRIVATE: needs bucket truck',
   reporterId: 'user_citizen_rahim',
+  // Backend-joined ward names; the citizen detail page renders these
+  // instead of the raw cuid so the citizen sees a real label.
+  wardName: 'Mirpur',
+  wardNameBn: 'মিরপুর',
 };
 
 const trail: TrailEntryLike[] = [
@@ -88,6 +92,28 @@ describe('serializeTicketForRole — citizen view', () => {
 
   it('preserves the trail note for the citizen', () => {
     expect(out.trail[1].note).toBe('routed to electrical dept');
+  });
+
+  it('surfaces the joined ward name (en) + ward name (bn) on the citizen payload', () => {
+    // The detail page renders these directly; without the join, the
+    // citizen would see a raw cuid like "ওয়ার্ড cmv53x..." — this
+    // regression is the test's reason for existing.
+    expect(out.wardName).toBe('Mirpur');
+    expect(out.wardNameBn).toBe('মিরপুর');
+  });
+});
+
+describe('serializeTicketForRole — citizen view, missing ward join', () => {
+  it('falls back to null when the backend did not include the ward name', () => {
+    // Older call sites (e.g. the dispatcher activity feed) do not pass
+    // wardName; the citizen payload must not blow up — it should
+    // surface `null` so the detail page can render its own fallback.
+    const t: TicketLike = { ...baseTicket };
+    delete t.wardName;
+    delete t.wardNameBn;
+    const out = serializeTicketForRole(t, trail, 'citizen', 'bn');
+    expect(out.wardName).toBeNull();
+    expect(out.wardNameBn).toBeNull();
   });
 });
 
