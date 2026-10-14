@@ -240,4 +240,66 @@ describe('i18n key registry', () => {
     const out = t('report.summary.existing_found', {}, 'en');
     expect(out).toContain('{distance}');
   });
+
+  it('Intent 008 / Bolt 008-001 — every gap key from the slow-motion demo is registered', () => {
+    // The 21 keys below were surfaced by the slow-motion headed
+    // Playwright demo (tests/22-slow-motion-e2e-demo.spec.ts).
+    // They were either:
+    //   - referenced by app/** but missing from TRANSLATIONS, so
+    //     t(...) returned the raw key string, OR
+    //   - already in the registry but with stale copy that did
+    //     not match the localised text the page expected.
+    // This test asserts the registry now has them all.
+    const newKeys = [
+      // Report-flow copy (category / photo / note / summary)
+      'report.category.search_placeholder',
+      'report.category.no_match',
+      'report.photo.empty_hint',
+      'report.photo.counter',
+      'report.photo.add_primary',
+      'report.photo.cap_tooltip',
+      'report.note.label',
+      'report.note.helper',
+      'report.note.counter',
+      'report.note.too_long',
+      'report.summary.duplicate_again',
+      'report.summary.error_retry',
+      'report.summary.confirm_label',
+      // Confirmation step
+      'confirmation.copy_id',
+      'confirmation.copied',
+      'confirmation.next_title',
+      'confirmation.next_step1',
+      'confirmation.next_step2',
+      'confirmation.next_step3',
+      // Crew after-photo file upload
+      'crew.photo.file.label',
+      'crew.photo.url.override',
+    ];
+    for (const k of newKeys) {
+      expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (TRANSLATIONS as Record<string, unknown>)[k],
+        `${k} must be registered in the key registry (Intent 008 / Bolt 008-001)`,
+      ).toBeDefined();
+      // And both bn / en must be present and non-empty (covered by
+      // the every-key test above, but the explicit assertion here
+      // makes the intent-tag clear in CI output).
+      const v = (TRANSLATIONS as Record<string, { bn: string; en: string }>)[k];
+      expect(v.bn.length).toBeGreaterThan(0);
+      expect(v.en.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('Intent 008 / Bolt 008-001 — the dispatcher "change ward" CTA is renamed', () => {
+    // The slow-motion demo showed `ওয়ার্ড / বিভাগ পরিবর্তন` on the
+    // dispatcher ticket detail page. The new copy is clearer:
+    // `ওয়ার্ড ও বিভাগ পরিবর্তন` (en: "Change ward and department").
+    expect(t('dispatcher.detail.reassign.cta', null, 'bn')).toBe(
+      'ওয়ার্ড ও বিভাগ পরিবর্তন',
+    );
+    expect(t('dispatcher.detail.reassign.cta', null, 'en')).toBe(
+      'Change ward and department',
+    );
+  });
 });

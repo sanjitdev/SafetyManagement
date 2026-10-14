@@ -343,6 +343,35 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'We will let you know when there is an update',
   },
 
+  // Intent 008 Bolt 008-001 — confirmation step copy.
+  // (Filled the gaps surfaced by the slow-motion demo:
+  // the next-steps card and the copy-id button were
+  // rendering raw key.path strings.)
+  'confirmation.copy_id': {
+    bn: 'আইডি কপি করুন',
+    en: 'Copy ID',
+  },
+  'confirmation.copied': {
+    bn: 'কপি হয়েছে!',
+    en: 'Copied!',
+  },
+  'confirmation.next_title': {
+    bn: 'পরবর্তীতে কী হবে',
+    en: 'What happens next',
+  },
+  'confirmation.next_step1': {
+    bn: 'আপনার রিপোর্ট এখনো সারিতে আছে',
+    en: 'Your report is now in the queue',
+  },
+  'confirmation.next_step2': {
+    bn: '১ দিনের মধ্যে ডিসপ্যাচার সাড়া দেবেন',
+    en: 'A dispatcher will respond within 1 day',
+  },
+  'confirmation.next_step3': {
+    bn: 'আপডেটের জন্য আপনার ফোনে নোটিফিকেশন পাঠানো হবে',
+    en: "You'll get a push notification when the status changes",
+  },
+
   // Status trail preview (1.11) — what comes after submission
   'trail_preview.submitted.title': { bn: 'জমা হয়েছে', en: 'Submitted' },
   'trail_preview.submitted.time': { bn: 'এইমাত্র · আপনি', en: 'Just now · You' },
@@ -388,6 +417,27 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'trail.closed': { bn: 'বন্ধ করা হয়েছে', en: 'Closed' },
   'trail.cancelled': { bn: 'বাতিল', en: 'Cancelled' },
+  // Bolt 007-001 — citizen trail filter rewrites any
+  // `^[a-z_]+:` marker-shaped note (e.g. `after_photo:<url>`)
+  // to this localised "After photo added" string. The trail
+  // entry is preserved in the timeline; only the raw URL is
+  // hidden. Bengali + English.
+  'trail.afterPhotoAdded': {
+    bn: 'ছবি যোগ করা হয়েছে',
+    en: 'After photo added',
+  },
+
+  // Bolt 007-001 — photo group labels on /reports/[id].
+  // The Before group is the citizen's own photos (the "evidence of
+  // the issue" set). The After group is the crew's photos (the
+  // "evidence of the fix" set); the group is hidden when empty.
+  // (Bolt 008-001 upgraded the en strings to "Before photo" /
+  // "After photo" so they are usable as card alt text. The
+  // canonical declarations are below under Bolt 008-001.)
+  'photo.emptyBefore': {
+    bn: 'কোনো ছবি যোগ করা হয়নি',
+    en: 'No before photos',
+  },
 
   // Time-ago (used in citizen-facing surfaces)
   'time.minutes_ago': { bn: 'মিনিট আগে', en: 'minutes ago' },
@@ -487,6 +537,65 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Submit failed',
   },
   'report.note.back': { bn: '← পূর্ববর্তী', en: '← Back' },
+
+  // Intent 008 Bolt 008-001 — additional report-step copy.
+  // (Bolt 008-001 fills the gaps the slow-motion demo
+  // surfaced: every key below is referenced by a page
+  // under app/report/(create)/... but was missing from
+  // the registry, so t('...', ...) returned the raw key
+  // string instead of the localized value.)
+  'report.category.search_placeholder': {
+    bn: 'ক্যাটেগরি খুঁজুন…',
+    en: 'Search categories…',
+  },
+  'report.category.no_match': {
+    bn: 'কোনো ক্যাটেগরি পাওয়া যায়নি',
+    en: 'No matching category',
+  },
+  'report.photo.empty_hint': {
+    bn: 'ছবি যোগ করুন — একটি প্রাথমিক ছবি বাধ্যতামূলক, বাকি ২টি ঐচ্ছিক',
+    en: 'Add photos — 1 primary is required, up to 2 more are optional',
+  },
+  'report.photo.counter': {
+    bn: '{count} / {max} ছবি',
+    en: '{count} / {max} photos',
+  },
+  'report.photo.add_primary': {
+    bn: 'প্রাথমিক ছবি যোগ করুন',
+    en: 'Add primary photo',
+  },
+  'report.photo.cap_tooltip': {
+    bn: 'সর্বোচ্চ {cap}টি ছবি যোগ করা যাবে',
+    en: 'You can add up to {cap} photos',
+  },
+  'report.note.label': {
+    bn: 'নোট যোগ করুন',
+    en: 'Add a note',
+  },
+  'report.note.helper': {
+    bn: 'আপনার নোট ডিসপ্যাচারকে দ্রুত বুঝতে সাহায্য করে',
+    en: 'A short note helps the dispatcher understand quickly',
+  },
+  'report.note.counter': {
+    bn: '{count} অক্ষর',
+    en: '{count} characters',
+  },
+  'report.note.too_long': {
+    bn: 'নোট {max} অক্ষরের বেশি হতে পারবে না',
+    en: 'Note cannot exceed {max} characters',
+  },
+  'report.summary.duplicate_again': {
+    bn: 'এই রিপোর্টটি পুনরায় জমা দেওয়া যাবে না',
+    en: 'This report cannot be re-submitted',
+  },
+  'report.summary.error_retry': {
+    bn: 'জমা দেওয়া যায়নি — আবার চেষ্টা করুন',
+    en: 'Could not submit — please try again',
+  },
+  'report.summary.confirm_label': {
+    bn: 'আমি নিশ্চিত — জমা দিন',
+    en: 'I confirm — submit',
+  },
 
   'report.summary.h1': {
     bn: 'আপনার রিপোর্ট পর্যালোচনা করুন',
@@ -912,8 +1021,8 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Reassign',
   },
   'dispatcher.detail.reassign.cta': {
-    bn: 'ওয়ার্ড / বিভাগ পরিবর্তন',
-    en: 'Change ward / category',
+    bn: 'ওয়ার্ড ও বিভাগ পরিবর্তন',
+    en: 'Change ward and department',
   },
   'dispatcher.detail.reassign.save': {
     bn: 'সংরক্ষণ',
@@ -930,6 +1039,71 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'dispatcher.transition.cancelled': {
     bn: 'রিপোর্ট বাতিল',
     en: 'Cancel report',
+  },
+
+  // Bolt 007-002 — Dispatcher crew picker (Intent 007).
+  // The picker is the "how" view; the existing
+  // `dispatcher.detail.field.crew` read-only row in the record
+  // list is the "what" view. Both ship in parallel.
+  'dispatcher.assignCrew.heading': {
+    bn: 'ক্রু নিয়োগ',
+    en: 'Assign crew',
+  },
+  'dispatcher.assignCrew.label': {
+    bn: 'ক্রু সদস্য',
+    en: 'Crew member',
+  },
+  'dispatcher.assignCrew.placeholder': {
+    bn: '— নিয়োগ করা হয়নি —',
+    en: '— Unassigned —',
+  },
+  'dispatcher.assignCrew.save': {
+    bn: 'সংরক্ষণ',
+    en: 'Save',
+  },
+  'dispatcher.assignCrew.saving': {
+    bn: 'সংরক্ষণ হচ্ছে…',
+    en: 'Saving…',
+  },
+  'dispatcher.assignCrew.success': {
+    bn: 'ক্রু নিয়োগ আপডেট হয়েছে',
+    en: 'Crew assignment updated',
+  },
+  'dispatcher.assignCrew.error.cross_ward': {
+    bn: 'এই ক্রু সদস্য অন্য ওয়ার্ডের — নিয়োগ করা যাবে না',
+    en: 'This crew member is in a different ward — cannot assign',
+  },
+  'dispatcher.assignCrew.error.not_found': {
+    bn: 'ক্রু সদস্য পাওয়া যায়নি',
+    en: 'Crew member not found',
+  },
+  'dispatcher.assignCrew.error.save_failed': {
+    bn: 'নিযুক্তি সংরক্ষণ ব্যর্থ',
+    en: 'Could not save assignment',
+  },
+
+  // Intent 008 Bolt 008-001 — FR-6 chrome i18n.
+  // (The slow-motion demo surfaced these as either missing
+  // keys or as the wrong value for an existing key.)
+  'dispatcher.assignCrew.none': {
+    bn: 'কোনো কর্মী নিযুক্ত নয়',
+    en: 'Not assigned',
+  },
+  'ticket.status.submitted': {
+    bn: 'জমা দেওয়া হয়েছে',
+    en: 'Submitted',
+  },
+  'photo.before': {
+    bn: 'আগের ছবি',
+    en: 'Before photo',
+  },
+  'photo.after': {
+    bn: 'পরের ছবি',
+    en: 'After photo',
+  },
+  'dispatcher.changeWard': {
+    bn: 'ওয়ার্ড ও বিভাগ পরিবর্তন',
+    en: 'Change ward and department',
   },
 
   // WO-004 — Dispatcher dedup-decline review (Intent 003, Unit 004)
@@ -1435,6 +1609,26 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'crew.photo.error.invalid_url': {
     bn: 'সঠিক URL দিন',
     en: 'Enter a valid URL',
+  },
+
+  // Intent 008 Bolt 008-003 — file-upload chrome.
+  // (Bolt 008-001 registers the keys; this bolt only
+  // uses them on the page.)
+  'crew.photo.file.label': {
+    bn: 'ফিক্সের প্রমাণ ছবি আপলোড করুন',
+    en: 'Upload proof-of-fix photo',
+  },
+  'crew.photo.url.override': {
+    bn: 'URL পেস্ট করুন (পাওয়ার ইউজার)',
+    en: 'Paste a URL (power user)',
+  },
+  'crew.photo.url.placeholder': {
+    bn: 'https://…',
+    en: 'https://…',
+  },
+  'crew.photo.error.invalid_file': {
+    bn: 'JPEG, PNG, বা WebP ছবি দিন (সর্বোচ্চ ৫ মেগাবাইট)',
+    en: 'Choose a JPEG / PNG / WebP image up to 5 MB',
   },
   'crew.transition.error.role_cannot': {
     bn: 'এই পদক্ষেপ শুধু ডিসপ্যাচার নিতে পারে',
