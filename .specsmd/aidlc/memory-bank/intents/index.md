@@ -3,7 +3,7 @@ standard: intents-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-12T20:00:00Z
+updated: 2026-10-14T18:50:00Z
 ---
 
 # Intents Index
@@ -23,6 +23,9 @@ in its own folder and ships a `requirements.md`,
 | [003-dispatcher-queue](003-dispatcher-queue/requirements.md) | Dispatcher Queue (WO-002) | **complete** | 5 | 7 |
 | [004-field-crew-app](004-field-crew-app/requirements.md) | Field Crew App (WO-003) | **complete** | 4 | 6 |
 | [005-admin-city-setup](005-admin-city-setup/requirements.md) | Admin City Setup (WO-004) | **complete** | 4 | 7 |
+| [006-citizen-home-and-report-redesign](006-citizen-home-and-report-redesign/requirements.md) | Citizen Home + Report Redesign (v1.1) | **complete** | 3 | 5 |
+| [007-citizen-resolution-visibility](007-citizen-resolution-visibility/requirements.md) | Citizen Resolution Visibility (Bolt 007) | **complete** | 3 | 5 |
+| [008-ux-polish-from-demo](008-ux-polish-from-demo/requirements.md) | UX Polish from Slow-motion Demo | **in-progress** | 3 | 5 |
 
 Intent 002 closed on 2026-10-11: all 5 bolts
 (002-001 through 002-005) shipped to `done`;
@@ -36,10 +39,15 @@ at the start of Bolt 003-005 per the design
 log's bolt-progress note). Intent 004 closed
 on 2026-10-12: bolts 004-001 through 004-004
 all shipped to `done`. Intent 005 (Admin
-City Setup) enters active build on 2026-10-12
-with 4 units + 7 stories; the `units.md` is
-promoted from `draft` to `in-progress` and
-the per-unit briefs + story specs are filed.
+City Setup) closed on 2026-10-12. Intent 006
+(Citizen Home + Report Redesign, v1.1) closed
+on 2026-10-13. Intent 007 (Citizen Resolution
+Visibility) closed on 2026-10-13 with bolts
+007-001 + 007-002. Intent 008 (UX Polish from
+Slow-motion Demo) opens 2026-10-14 with 3
+units + 5 stories; the audit catalog is grounded
+in the 21 frames captured by
+`tests/22-slow-motion-e2e-demo.spec.ts`.
 
 ## Status legend
 

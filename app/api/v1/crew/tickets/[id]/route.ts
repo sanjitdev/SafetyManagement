@@ -25,6 +25,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth/guards';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 async function loadInScope(
   session: NonNullable<Awaited<ReturnType<typeof getActiveSession>>>,
@@ -69,12 +70,20 @@ export async function GET(
   if (!inScope) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
+  // Intent 008 / Bolt 008-002 — Story 002: enrich the
+  // serialized trail with the actor's role so the client
+  // can render the actor's display name (Rahim / Habib /
+  // Rashid) via lib/identity/display-name.ts.
+  const actorRoles = await buildActorRoleMap(
+    inScope.trail.map((e) => e.actorId),
+  );
   return NextResponse.json({
     ticket: serializeTicketForRole(
       inScope,
       inScope.trail,
       session!.role,
       'bn',
+      actorRoles,
     ),
   });
 }

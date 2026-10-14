@@ -293,10 +293,11 @@ export default function MyReportDetailPage() {
         setDeleteError(t('detail.photo.delete_failed', null, LANG) + ` (${res.status})`);
         return;
       }
-      setTicket({
-        ...ticket,
-        photoUrls: ticket.photoUrls.filter((_, i) => i !== idx),
-      });
+      // Re-fetch the canonical ticket so the new before/after split
+      // (and any side effects on the trail) is reflected in the UI.
+      // Cheaper than diffing locally and keeps the page in sync
+      // with the serializer.
+      await refresh();
     } finally {
       setDeletingIdx(null);
     }
@@ -393,56 +394,141 @@ export default function MyReportDetailPage() {
             </div>
           </div>
 
-          {/* Photo gallery */}
-          {ticket.photoUrls.length > 0 && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                gap: 'var(--space-3)',
-                marginBottom: 'var(--space-5)',
-              }}
-            >
-              {ticket.photoUrls.map((url, idx) => (
+          {/* Photo groups — Bolt 007-001.
+              The Before group renders the citizen's own photos
+              (the "evidence of the issue" set) with the per-photo
+              delete affordance. The After group renders the crew's
+              photos (the "evidence of the fix") without a delete
+              affordance; it is hidden when empty. The legacy flat
+              `photoUrls` grid is gone. */}
+          {ticket.beforePhotoUrls.length + ticket.afterPhotoUrls.length > 0 && (
+            <div style={{ marginBottom: 'var(--space-5)' }}>
+              {/* Before group — always rendered, may show an empty
+                  state when the citizen attached no photos. The
+                  delete affordance is scoped to the citizen's own
+                  photos (the page index `idx` matches the
+                  `beforePhotoUrls` array index the DELETE handler
+                  resolves against `uploadedByRole = 'citizen'`). */}
+              <div
+                style={{
+                  fontSize: 'var(--text-micro, 11px)',
+                  color: 'var(--color-ink-tertiary)',
+                  fontWeight: 'var(--weight-semibold)',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  marginBottom: 'var(--space-2)',
+                }}
+              >
+                {t('photo.before', null, LANG)}
+              </div>
+              {ticket.beforePhotoUrls.length > 0 ? (
                 <div
-                  key={idx}
                   style={{
-                    position: 'relative',
-                    aspectRatio: '4 / 3',
-                    borderRadius: 'var(--radius-md)',
-                    overflow: 'hidden',
-                    border: '1px solid var(--color-border)',
-                    background: `url(${url}) center/cover no-repeat`,
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                    gap: 'var(--space-3)',
                   }}
                 >
-                  <button
-                    type="button"
-                    aria-label={t('detail.photo.delete_aria', null, LANG)}
-                    onClick={() => handleDeletePhoto(idx)}
-                    disabled={deletingIdx === idx}
+                  {ticket.beforePhotoUrls.map((url, idx) => (
+                    <div
+                      key={`before-${idx}`}
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '4 / 3',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden',
+                        border: '1px solid var(--color-border)',
+                        background: `url(${url}) center/cover no-repeat`,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        aria-label={t('detail.photo.delete_aria', null, LANG)}
+                        onClick={() => handleDeletePhoto(idx)}
+                        disabled={deletingIdx === idx}
+                        style={{
+                          position: 'absolute',
+                          top: 6,
+                          right: 6,
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(0,0,0,0.6)',
+                          color: '#fff',
+                          fontSize: 14,
+                          cursor: deletingIdx === idx ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {deletingIdx === idx ? '…' : '×'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: 'var(--space-3) var(--space-4)',
+                    background: 'var(--color-surface-raised)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-ink-secondary)',
+                    fontSize: 'var(--text-caption)',
+                  }}
+                >
+                  {t('photo.emptyBefore', null, LANG)}
+                </div>
+              )}
+
+              {/* After group — hidden entirely when empty so a
+                  not-yet-resolved ticket does not draw a labelled
+                  empty state. No delete affordance (the citizen did
+                  not upload these photos). */}
+              {ticket.afterPhotoUrls.length > 0 && (
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                  <div
                     style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      border: 'none',
-                      background: 'rgba(0,0,0,0.6)',
-                      color: '#fff',
-                      fontSize: 14,
-                      cursor: deletingIdx === idx ? 'wait' : 'pointer',
+                      fontSize: 'var(--text-micro, 11px)',
+                      color: 'var(--color-ink-tertiary)',
+                      fontWeight: 'var(--weight-semibold)',
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                      marginBottom: 'var(--space-2)',
                     }}
                   >
-                    {deletingIdx === idx ? '…' : '×'}
-                  </button>
+                    {t('photo.after', null, LANG)}
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                      gap: 'var(--space-3)',
+                    }}
+                  >
+                    {ticket.afterPhotoUrls.map((url, idx) => (
+                      <div
+                        key={`after-${idx}`}
+                        style={{
+                          position: 'relative',
+                          aspectRatio: '4 / 3',
+                          borderRadius: 'var(--radius-md)',
+                          overflow: 'hidden',
+                          border: '1px solid var(--color-border)',
+                          background: `url(${url}) center/cover no-repeat`,
+                        }}
+                        role="img"
+                        aria-label={t('photo.after', null, LANG)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              ))}
+              )}
+
               {deleteError && (
                 <div
                   role="alert"
                   style={{
-                    gridColumn: '1 / -1',
+                    marginTop: 'var(--space-3)',
                     padding: 'var(--space-3)',
                     background: 'var(--color-warning-soft, #fdf2cf)',
                     border: '1px solid var(--color-warning, #b58410)',

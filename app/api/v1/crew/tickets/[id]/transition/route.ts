@@ -33,7 +33,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
+import { getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth/guards';
 import {
   transitionTicket,
@@ -111,12 +111,16 @@ export async function POST(
     );
   }
 
-  const ticket = await db.ticket.findUnique({
-    where: { id },
-  });
-  if (!ticket) {
+  // Load the ticket with trail so we have the category's
+  // departmentId for the scope check. (Same fix as the
+  // dispatcher transition route — passing `null` for the
+  // departmentId is wrong because the crew's session is
+  // bound to a specific department.)
+  const withTrail = await getTicketWithTrail(id);
+  if (!withTrail) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
+  const ticket = withTrail;
 
   // Out-of-scope ticket → 404 (NOT 403). The list
   // already filters by `assignedCrewId =
@@ -128,7 +132,11 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   try {
-    requireScope(session!, ticket.wardId, null);
+    requireScope(
+      session!,
+      ticket.wardId,
+      withTrail.departmentId ?? null,
+    );
   } catch {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }

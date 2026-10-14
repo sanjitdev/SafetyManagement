@@ -282,6 +282,25 @@ export const db = {
             );
           })()
         : prismaClient.user.update(args as never),
+    // Bolt 007-002: list users filtered by an arbitrary subset
+    // of (cityId, role, wardId, departmentId). Used by the
+    // dispatcher crew picker to populate the `<select>`
+    // dropdown from the dev store in dev and from Prisma in
+    // prod. The dev store is a Map<id, user> so the filter is
+    // a single pass; the Prisma path passes the same `where`
+    // shape through.
+    findMany: (args: {
+      where: Partial<{
+        cityId: string;
+        role: string;
+        wardId: string;
+        departmentId: string;
+      }>;
+      orderBy?: { name: 'asc' | 'desc' };
+    }) =>
+      isDevStore()
+        ? devDb.user.findMany(args as never)
+        : prismaClient.user.findMany(args as never),
   },
   ticket: {
     findUnique: (args: { where: { id: string } }) =>
@@ -323,7 +342,6 @@ export const db = {
         locationLabel?: string | null;
         locationLabelBn?: string | null;
         note?: string | null;
-        photoUrls: string[];
       };
     }) =>
       isDevStore()
@@ -350,6 +368,51 @@ export const db = {
       isDevStore()
         ? devDb.trail.create({ data: { ...args.data, note: args.data.note ?? null } })
         : prismaClient.ticketTrailEntry.create({ data: args.data }),
+  },
+  /**
+   * Bolt 007-001 — ticket photo CRUD. The dev store uses its own
+   * `ticketPhoto` namespace; Prisma uses `ticketPhoto.create` /
+   * `ticketPhoto.delete` on the `TicketPhoto` model.
+   */
+  ticketPhoto: {
+    create: (args: {
+      data: {
+        ticketId: string;
+        url: string;
+        uploadedByRole: 'citizen' | 'crew';
+      };
+    }) => {
+      if (isDevStore()) return devDb.ticketPhoto.create({ data: args.data });
+      return prismaClient.ticketPhoto.create({ data: args.data });
+    },
+    /**
+     * Resolve the citizen's photo list to find the `TicketPhoto.id`
+     * at position `idx` (citizen-only) and DELETE that row. Returns
+     * the deleted row id (or null when no match — the route maps
+     * that to 404). The dev store has its own helper because the
+     * dev store does not implement Prisma's positional deletes.
+     */
+    deleteCitizenAtIndex: async (args: {
+      ticketId: string;
+      idx: number;
+    }): Promise<string | null> => {
+      if (isDevStore()) {
+        const removed = devDb.ticketPhoto.deleteByCitizenIndex(args);
+        return removed?.id ?? null;
+      }
+      // Prisma path: find the citizen's photo at position `idx`
+      // (ordered by `uploadedAt` ASC, filtered to citizen role),
+      // then delete it.
+      const rows = await prismaClient.ticketPhoto.findMany({
+        where: { ticketId: args.ticketId, uploadedByRole: 'citizen' },
+        orderBy: { uploadedAt: 'asc' },
+        select: { id: true },
+      });
+      const target = rows[args.idx];
+      if (!target) return null;
+      await prismaClient.ticketPhoto.delete({ where: { id: target.id } });
+      return target.id;
+    },
   },
   audit: {
     create: (args: {
@@ -770,6 +833,19 @@ export async function getTicketWithTrail(
       trail: { orderBy: { timestamp: 'asc' } },
       category: { select: { departmentId: true } },
       ward: { select: { name: true, nameBn: true } },
+      // Bolt 008-002 — Story 002: city + reporter display names
+      // so the route layer can render the ticket's H1 / record
+      // fields without a second round-trip. City is a public
+      // entity (not PII); the reporter name surfaces on the
+      // dispatcher's ticket page where seeing "Rahim" is the
+      // whole point of the persona.
+      city: { select: { name: true, nameBn: true } },
+      reporter: { select: { name: true } },
+      // Bolt 007-001: join the new TicketPhoto table ordered by
+      // uploadedAt ASC (the canonical ordering the citizen detail
+      // page renders). The dev store mirrors this shape via
+      // `getTicketWithTrail` so the two paths are interchangeable.
+      photos: { orderBy: { uploadedAt: 'asc' } },
     },
   });
   if (!t) return null;
@@ -786,7 +862,18 @@ export async function getTicketWithTrail(
     locationLabel: t.locationLabel,
     locationLabelBn: t.locationLabelBn,
     note: t.note,
-    photoUrls: t.photoUrls,
+    // Bolt 007-001: photos[] is the new source of truth. The
+    // legacy `photoUrls` field is dropped from the Prisma
+    // ticket model in the same migration that adds this table;
+    // callers that still want the un-split list join via the
+    // serializer.
+    photos: t.photos.map((p) => ({
+      id: p.id,
+      ticketId: p.ticketId,
+      url: p.url,
+      uploadedByRole: p.uploadedByRole,
+      uploadedAt: p.uploadedAt.toISOString(),
+    })),
     internalNote: t.internalNote,
     duplicateOfId: t.duplicateOfId,
     closeReason: t.closeReason,
@@ -811,6 +898,12 @@ export async function getTicketWithTrail(
     // schema so we coalesce both fields to `null` when missing.
     wardName: t.ward?.name ?? null,
     wardNameBn: t.ward?.nameBn ?? null,
+    // Bolt 008-002 — Story 002: city + reporter display names.
+    // Mirrors the dev-store path so the two branches return the
+    // same `DevTicketWithTrail` shape.
+    cityName: t.city?.name ?? null,
+    cityNameBn: t.city?.nameBn ?? null,
+    reporterName: t.reporter?.name ?? null,
   };
 }
 

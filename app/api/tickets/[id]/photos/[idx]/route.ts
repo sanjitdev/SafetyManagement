@@ -7,9 +7,13 @@
  * photo, and only while the ticket is not yet `resolved` — once the city
  * has confirmed resolution, the photos stay as the audit trail.
  *
- * Backend-agnostic: works on Prisma or the in-memory dev store. v1
- * persists photos as data URLs in `photoUrls[]`; v1.1 swaps to S3 keys
- * and adds a MinIO delete call.
+ * Bolt 007-001: photos are no longer a flat array on the ticket. The
+ * route maps the citizen's positional `idx` to the corresponding
+ * `TicketPhoto` row (filtered to `uploadedByRole = 'citizen'`, ordered
+ * by `uploadedAt` ASC) and DELETEs that row. The `db.ticketPhoto.deleteCitizenAtIndex`
+ * helper handles both the dev store + Prisma paths.
+ *
+ * Backend-agnostic: works on Prisma or the in-memory dev store.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -56,23 +60,24 @@ export async function DELETE(
       { status: 409 },
     );
   }
-  if (photoIdx >= ticket.photoUrls.length) {
+
+  // Bolt 007-001: the index is a position in the citizen's photo list
+  // (filtered to `uploadedByRole = 'citizen'`, ordered by `uploadedAt` ASC).
+  // The dev store + Prisma paths both surface the same id.
+  const deletedId = await db.ticketPhoto.deleteCitizenAtIndex({
+    ticketId: id,
+    idx: photoIdx,
+  });
+  if (!deletedId) {
     return NextResponse.json({ error: 'photo_index_out_of_range' }, { status: 404 });
   }
-
-  const nextPhotos = ticket.photoUrls.filter((_, i) => i !== photoIdx);
-  await db.ticket.update({
-    where: { id },
-    data: { photoUrls: nextPhotos },
-  });
 
   await writeAudit({
     entityType: 'ticket',
     entityId: id,
     action: 'ticket.photo_delete',
     actorId: session!.userId,
-    beforeValue: { photoCount: ticket.photoUrls.length },
-    afterValue: { photoCount: nextPhotos.length, deletedIdx: photoIdx },
+    afterValue: { deletedPhotoId: deletedId, deletedIdx: photoIdx },
   });
 
   const refreshed = await getTicketWithTrail(id);

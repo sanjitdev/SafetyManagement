@@ -3,7 +3,7 @@ standard: story-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-13T19:45:00Z
+updated: 2026-10-13T20:20:00Z
 ---
 
 # Story Index
@@ -202,6 +202,30 @@ from 8 `ThemeToggle` call sites. Recorded in
 `_progress/00-design-log.md` under
 `## 2026-10-13 — Chrome unification + ward
 name join` (added in the same sync).
+
+## Intent 007 — Citizen Resolution Visibility (in-progress)
+
+Inception started 2026-10-13. The 3-unit
+decomposition with 5 stories was filed when
+Intent 007 was promoted from `draft` to
+`in-progress`; stories are at `ready` status
+(Checkpoint 2 passed). Bolt `007-001`
+(co-locates Units 001+002; foundation) and
+Bolt `007-002` (Unit 003; dispatcher feature)
+are scoped but not yet planned at the
+bolt-record level. Construction gates on this
+intent's three open questions being resolved
+at the requirements checkpoint (already
+closed at Checkpoint 1 — see
+`intents/007-citizen-resolution-visibility/requirements.md`).
+
+| Slug | Unit | Status | Title | Path |
+|------|------|--------|-------|------|
+| 001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls | 001-citizen-photo-split | ready | Prisma migration + serializer exposes `beforePhotoUrls` and `afterPhotoUrls` | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls.md` |
+| 002-page-renders-two-labelled-photo-groups | 001-citizen-photo-split | ready | `/reports/[id]` renders two labelled photo groups | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/002-page-renders-two-labelled-photo-groups.md` |
+| 003-trail-marker-filter-with-i18n-and-regression-guard | 002-trail-marker-filter | ready | Citizen trail filter + i18n key + regression-guard test | `intents/007-citizen-resolution-visibility/units/002-trail-marker-filter/stories/003-trail-marker-filter-with-i18n-and-regression-guard.md` |
+| 004-patch-assign-crew-endpoint-with-ward-gate-and-audit | 003-dispatcher-crew-picker | ready | `PATCH /api/v1/dispatcher/tickets/[id]/assign-crew` endpoint with ward gate + audit | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/004-patch-assign-crew-endpoint-with-ward-gate-and-audit.md` |
+| 005-dispatcher-ticket-detail-picker-ui-and-visual-baseline | 003-dispatcher-crew-picker | ready | Dispatcher ticket-detail picker UI + visual baseline | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/005-dispatcher-ticket-detail-picker-ui-and-visual-baseline.md` |
 
 ## Status legend
 

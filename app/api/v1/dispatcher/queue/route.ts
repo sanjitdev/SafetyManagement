@@ -37,6 +37,7 @@ import { z } from 'zod';
 import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { requireRole, requireSameCity, ApiError } from '@/lib/auth/guards';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const QuerySchema = z.object({
   status: z.enum(['submitted', 'routed']).optional(),
@@ -142,13 +143,21 @@ export async function GET(req: NextRequest) {
           [],
           session!.role,
           'bn',
+          {},
         );
       }
+      // Intent 008 / Bolt 008-002 — Story 002: enrich
+      // the trail with the actor's role so the client
+      // can render the display name.
+      const actorRoles = await buildActorRoleMap(
+        withTrail.trail.map((e) => e.actorId),
+      );
       return serializeTicketForRole(
         withTrail,
         withTrail.trail,
         session!.role,
         'bn',
+        actorRoles,
       );
     }),
   );

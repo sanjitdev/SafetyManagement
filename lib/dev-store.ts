@@ -102,6 +102,21 @@ export interface DevTrailEntry {
   timestamp: string; // ISO
 }
 
+/**
+ * Bolt 007-001: a single photo attached to a ticket. The dev store
+ * keeps the discriminator (`uploadedByRole`) + ordering key
+ * (`uploadedAt`) the same shape as the Prisma `TicketPhoto` model.
+ * `id` is a generated `tph_<8-hex>` to keep it visually distinct
+ * from ticket ids.
+ */
+export interface DevTicketPhoto {
+  id: string;
+  ticketId: string;
+  url: string;
+  uploadedByRole: 'citizen' | 'crew' | string; // defensive: unknown string still surfaces
+  uploadedAt: string; // ISO
+}
+
 export interface DevTicket {
   id: string;
   cityId: string;
@@ -115,7 +130,10 @@ export interface DevTicket {
   locationLabel: string | null;
   locationLabelBn: string | null;
   note: string | null;
-  photoUrls: string[];
+  // Bolt 007-001: the legacy `photoUrls: string[]` field is removed.
+  // Photos are stored in the `ticketPhotos: Map<ticketId, DevTicketPhoto[]>`
+  // keyed by ticket id; `getTicketWithTrail` joins the rows when it
+  // returns the `DevTicketWithTrail` shape.
   internalNote: string | null;
   // Dedup-confirm linkage (DISP-006). When the dispatcher
   // confirms a dedup-decline flag, the citizen's ticket is closed
@@ -225,6 +243,12 @@ interface Store {
   dedupFlags: Map<string, DevDedupFlag>;
   /** Bolt 005-001 — server-side WebAuthn challenge ledger. */
   webAuthnChallenges: Map<string, DevWebAuthnChallenge>;
+  /**
+   * Bolt 007-001 — photos attached to tickets. Keyed by ticketId;
+   * values are the per-ticket photo rows ordered by `uploadedAt`
+   * ASC (matching the Prisma `TicketPhoto` index).
+   */
+  ticketPhotos: Map<string, DevTicketPhoto[]>;
 }
 
 declare global {
@@ -417,6 +441,50 @@ function seed(): Store {
     webAuthnCredentials: null,
     webAuthnChallenge: null,
   });
+  // Bolt 007-002: a second crew user in the same ward so the
+  // dispatcher picker dropdown has more than one option. (Same
+  // wardId as Rashid; same departmentId.) The picker is ward-
+  // scoped, not department-scoped, so the departmentId doesn't
+  // change the filter — but a real second crew member makes the
+  // dropdown testable.
+  const crewId2 = 'user_crew_karim';
+  users.set(crewId2, {
+    id: crewId2,
+    cityId,
+    role: 'crew',
+    phone: '+8801711000004',
+    nid: '5234567890',
+    name: 'Karim',
+    email: null,
+    passwordHash: null,
+    wardId,
+    departmentId: deptIds.streetlight,
+    languageOverride: null,
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
+  });
+  // Bolt 007-002: a crew user in a different ward (a future
+  // wardId, `ward_other`) so the cross-ward reject path is
+  // testable from the dev store. The dev store only seeds
+  // ward_14 today, but adding this row does not require any
+  // city config — the user row is enough to exercise the
+  // service-layer check.
+  const crewIdOther = 'user_crew_jamal';
+  users.set(crewIdOther, {
+    id: crewIdOther,
+    cityId,
+    role: 'crew',
+    phone: '+8801711000005',
+    nid: '6234567890',
+    name: 'Jamal',
+    email: null,
+    passwordHash: null,
+    wardId: 'ward_other',
+    departmentId: deptIds.streetlight,
+    languageOverride: null,
+    webAuthnCredentials: null,
+    webAuthnChallenge: null,
+  });
   const adminId = 'user_admin_anwar';
   users.set(adminId, {
     id: adminId,
@@ -465,6 +533,12 @@ function seed(): Store {
   const day = 24 * 60 * 60 * 1000;
   const tickets = new Map<string, DevTicket>();
   const trail: DevTrailEntry[] = [];
+  // Bolt 007-001: pre-seeded with the same five `seedTickets`. The
+  // legacy `photoUrls[]` array was always empty in v1 (the dev store
+  // does not persist user-uploaded photos), so the backfill is a
+  // no-op. The Map is kept here so the v1.1+ flows (citizen upload,
+  // crew after-photo) have a stable container to mutate.
+  const ticketPhotos = new Map<string, DevTicketPhoto[]>();
   const seedTickets: DevTicket[] = [
     {
       id: 'ticket_seed_submitted_1',
@@ -479,7 +553,6 @@ function seed(): Store {
       locationLabel: 'Mirpur 10, near the bazaar',
       locationLabelBn: 'মিরপুর ১০, বাজারের কাছে',
       note: 'Streetlight has been out for 3 nights. The intersection is dangerous after dark.',
-      photoUrls: [],
       internalNote: null,
       duplicateOfId: null,
       closeReason: null,
@@ -500,7 +573,6 @@ function seed(): Store {
       locationLabel: 'Mirpur 12, side road',
       locationLabelBn: 'মিরপুর ১২, পাশের সড়ক',
       note: 'Streetlight pole leaning after the storm. Live wires may be exposed.',
-      photoUrls: [],
       internalNote: 'Crew dispatched; please verify the wire casing before starting work.',
       duplicateOfId: null,
       closeReason: null,
@@ -521,7 +593,6 @@ function seed(): Store {
       locationLabel: 'Mirpur 14, main road',
       locationLabelBn: 'মিরপুর ১৪, প্রধান সড়ক',
       note: 'Deep pothole near the bus stop. Two motorcycles have fallen.',
-      photoUrls: [],
       internalNote: 'Crew dispatched; ETA tomorrow morning.',
       duplicateOfId: null,
       closeReason: null,
@@ -542,7 +613,6 @@ function seed(): Store {
       locationLabel: 'Mirpur 11, side lane',
       locationLabelBn: 'মিরপুর ১১, পাশের গলি',
       note: 'Drainage blocked; water pooling after rain.',
-      photoUrls: [],
       internalNote: 'Cleared by waste-management crew.',
       duplicateOfId: null,
       closeReason: null,
@@ -563,7 +633,6 @@ function seed(): Store {
       locationLabel: 'Mirpur 13, residential block',
       locationLabelBn: 'মিরপুর ১৩, আবাসিক ব্লক',
       note: 'Garbage has not been collected for a week.',
-      photoUrls: [],
       internalNote: 'Duplicate of an earlier ticket; closed by dispatcher.',
       duplicateOfId: null,
       closeReason: 'duplicate',
@@ -718,6 +787,7 @@ function seed(): Store {
     otps: new Map(),
     dedupFlags: new Map(),
     webAuthnChallenges: new Map(),
+    ticketPhotos,
   };
 }
 
@@ -1041,6 +1111,36 @@ export const devDb = {
       getStore().users.set(u.id, u);
       return u;
     },
+    // Bolt 007-002: list users filtered by an arbitrary subset of
+    // (cityId, role, wardId, departmentId). The dev store is a
+    // Map<id, user>, so the filter is a single pass; the result
+    // is sorted by `name` ASC so the dispatcher's picker dropdown
+    // has a stable order. Empty / missing clauses are treated as
+    // "match anything" so the call site can pass `{ cityId, role }`
+    // to list all crew in a city regardless of ward.
+    findMany(args: {
+      where: Partial<{
+        cityId: string;
+        role: string;
+        wardId: string;
+        departmentId: string;
+      }>;
+      orderBy?: { name: 'asc' | 'desc' };
+    }): DevUser[] {
+      const rows = [...getStore().users.values()].filter((u) => {
+        if (args.where.cityId !== undefined && u.cityId !== args.where.cityId) return false;
+        if (args.where.role !== undefined && u.role !== args.where.role) return false;
+        if (args.where.wardId !== undefined && u.wardId !== args.where.wardId) return false;
+        if (
+          args.where.departmentId !== undefined &&
+          u.departmentId !== args.where.departmentId
+        ) return false;
+        return true;
+      });
+      const dir = args.orderBy?.name === 'desc' ? 'desc' : 'asc';
+      rows.sort((a, b) => a.name.localeCompare(b.name) * (dir === 'asc' ? 1 : -1));
+      return rows;
+    },
     /** Bolt 005-001. Returns the user's `webAuthnCredentials`
      * (parsed array) + `webAuthnChallenge` (cached payload). */
     webAuthn: {
@@ -1207,6 +1307,63 @@ export const devDb = {
       };
       getStore().tickets.set(args.where.id, next);
       return next;
+    },
+  },
+  /**
+   * Bolt 007-001 — ticket photo CRUD. The dev store mirrors the
+   * Prisma `TicketPhoto` model with a `Map<ticketId, DevTicketPhoto[]>`
+   * keyed by ticketId; ordering is `uploadedAt` ASC inside each list.
+   */
+  ticketPhoto: {
+    create(args: {
+      data: Omit<DevTicketPhoto, 'id' | 'uploadedAt'> & {
+        uploadedAt?: string;
+      };
+    }): DevTicketPhoto {
+      const id = `tph_${randomUUID().slice(0, 8)}`;
+      const row: DevTicketPhoto = {
+        ...args.data,
+        id,
+        uploadedAt: args.data.uploadedAt ?? new Date().toISOString(),
+      };
+      const store = getStore();
+      const list = store.ticketPhotos.get(args.data.ticketId) ?? [];
+      list.push(row);
+      list.sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1));
+      store.ticketPhotos.set(args.data.ticketId, list);
+      return row;
+    },
+    findManyForTicket(args: { ticketId: string }): DevTicketPhoto[] {
+      const list = getStore().ticketPhotos.get(args.ticketId) ?? [];
+      // Always return a fresh, sorted copy so callers cannot mutate
+      // the store's internal state by holding a reference.
+      return list
+        .slice()
+        .sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1));
+    },
+    /**
+     * The DELETE flow: the citizen's `DELETE /api/tickets/[id]/photos/[idx]`
+     * route passes the photo's position in the citizen's ordered list
+     * (i.e. the photo's index inside the `beforePhotoUrls` array).
+     * The dev store resolves that index against the per-ticket list
+     * filtered to `uploadedByRole === 'citizen'` and removes the
+     * matching row. Returns the removed row (or null when no match).
+     */
+    deleteByCitizenIndex(args: {
+      ticketId: string;
+      idx: number;
+    }): DevTicketPhoto | null {
+      const store = getStore();
+      const list = store.ticketPhotos.get(args.ticketId) ?? [];
+      const citizenRows = list
+        .slice()
+        .sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1))
+        .filter((p) => p.uploadedByRole === 'citizen');
+      const target = citizenRows[args.idx];
+      if (!target) return null;
+      const next = list.filter((p) => p.id !== target.id);
+      store.ticketPhotos.set(args.ticketId, next);
+      return target;
     },
   },
   trail: {
@@ -1475,6 +1632,15 @@ export const devDb = {
 
 export interface DevTicketWithTrail extends DevTicket {
   trail: DevTrailEntry[];
+  /**
+   * Bolt 007-001: photos joined inline (the dev store does not
+   * implement Prisma's `include`; it mirrors the join shape).
+   * Ordered by `uploadedAt` ASC. The serializer partitions this
+   * into `beforePhotoUrls` (role === 'citizen') and
+   * `afterPhotoUrls` (role === 'crew'). Empty array when the
+   * ticket has no photos.
+   */
+  photos: DevTicketPhoto[];
   // Denormalised from the ticket's category.departmentId for
   // dispatcher/crew scope checks. The Prisma ticket model
   // does not store this directly; the dev store mirrors the
@@ -1489,6 +1655,20 @@ export interface DevTicketWithTrail extends DevTicket {
    */
   wardName: string | null;
   wardNameBn: string | null;
+  /**
+   * Bolt 008-002 — Story 002: denormalised city + reporter
+   * display names so the route layer can render
+   * `Dhaka North City Corporation` / `Rahim` without a second
+   * round-trip. The serializer exposes these on every role
+   * (city names are not PII; the reporter is the citizen
+   * themselves on the citizen branch, so the dispatcher's view
+   * is the only path that needs to anonymise — and that
+   * anonymisation already lives in the serializer's actor
+   * field, not in the underlying data).
+   */
+  cityName: string | null;
+  cityNameBn: string | null;
+  reporterName: string | null;
 }
 
 export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
@@ -1499,11 +1679,18 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
     .sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
   const category = devDb.category.findUnique({ where: { id: t.categoryId } });
   const ward = devDb.ward.findUnique({ where: { id: t.wardId } });
+  const city = devDb.city.findUnique({ where: { id: t.cityId } });
+  const reporter = devDb.user.findUnique({ where: { id: t.reporterId } });
+  const photos = devDb.ticketPhoto.findManyForTicket({ ticketId: id });
   return {
     ...t,
     trail,
+    photos,
     departmentId: category?.departmentId ?? null,
     wardName: ward?.name ?? null,
     wardNameBn: ward?.nameBn ?? null,
+    cityName: city?.name ?? null,
+    cityNameBn: city?.nameBn ?? null,
+    reporterName: reporter?.name ?? null,
   };
 }

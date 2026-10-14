@@ -26,6 +26,7 @@ import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth/guards';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 import { writeAudit } from '@/lib/platform/audit';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const PatchInput = z.object({
   wardId: z.string().min(1).optional(),
@@ -80,12 +81,20 @@ export async function GET(
   if (!inScope) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
+  // Intent 008 / Bolt 008-002 — Story 002: build a
+  // (actorId → role) map so the trail can render the actor's
+  // display name (Rahim / Habib / Rashid) instead of the raw
+  // user id. Only one round-trip per distinct actor.
+  const actorRoles = await buildActorRoleMap(
+    inScope.trail.map((e) => e.actorId),
+  );
   return NextResponse.json({
     ticket: serializeTicketForRole(
       inScope,
       inScope.trail,
       session!.role,
       'bn',
+      actorRoles,
     ),
   });
 }
@@ -242,12 +251,16 @@ export async function PATCH(
       { status: 500 },
     );
   }
+  const refreshedActorRoles = await buildActorRoleMap(
+    refreshed.trail.map((e) => e.actorId),
+  );
   return NextResponse.json({
     ticket: serializeTicketForRole(
       refreshed,
       refreshed.trail,
       session!.role,
       'bn',
+      refreshedActorRoles,
     ),
   });
 }

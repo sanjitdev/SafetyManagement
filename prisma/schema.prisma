@@ -242,11 +242,11 @@ model Ticket {
   locationLabelBn String?
   // Reporter's free-text note (optional, max length per spec)
   note            String?
-  // Photo URLs (ordered). The pre-resolve set is what citizens see on 1.12 detail.
-  // The post-resolve set (Rashid's before/after) lives separately in PLAT-REQ-007 audit log
-  // + as a structured column once PLAT-REQ-007 lands. For v1 we keep both in `photoUrls`
-  // and the API layer filters by role.
-  photoUrls       String[] @default([])
+  // Photos are stored in the dedicated `TicketPhoto` table (Bolt 007-001).
+  // Each row carries an `uploadedByRole` discriminator ('citizen' | 'crew')
+  // + `uploadedAt` timestamp, which the citizen serializer partitions into
+  // `beforePhotoUrls` (role === 'citizen') and `afterPhotoUrls` (role === 'crew').
+  // The legacy `photoUrls: String[]` field was removed in the same migration.
   // Internal-only note (dispatcher/crew see; citizens do not)
   internalNote    String?
   // Dedup-confirm linkage (DISP-006). When the dispatcher
@@ -269,6 +269,7 @@ model Ticket {
   duplicateOf  Ticket?    @relation("TicketDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
   duplicates   Ticket[]   @relation("TicketDuplicates")
   trail      TicketTrailEntry[]
+  photos     TicketPhoto[]
   dedupFlagsAsFlagged     DedupFlag[] @relation("DedupFlagFlaggedTicket")
   dedupFlagsAsOriginal    DedupFlag[] @relation("DedupFlagOriginalTicket")
 
@@ -296,6 +297,25 @@ model TicketTrailEntry {
   actor        User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, timestamp])
+}
+
+// Photos attached to a ticket (Bolt 007-001).
+// One row per photo with an `uploadedByRole` discriminator:
+//   - 'citizen' — the reporter attached the photo during submission (the "before" set).
+//   - 'crew'    — a field crew member attached the photo during resolution (the "after" set).
+// The citizen serializer partitions the rows by role to render two labelled
+// photo groups on `/reports/[id]`. Unknown `uploadedByRole` values are
+// bucketed as 'citizen' by the serializer (defensive fallback).
+model TicketPhoto {
+  id              String   @id @default(cuid())
+  ticketId        String
+  url             String
+  uploadedByRole  String                     // 'citizen' | 'crew' (defensive: unknown → 'citizen')
+  uploadedAt      DateTime @default(now())
+
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, uploadedAt])
 }
 
 // =====================================================================

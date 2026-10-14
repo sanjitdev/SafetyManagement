@@ -13,9 +13,20 @@
  * Backend-agnostic: takes a plain object shape (the same field names appear
  * in both Prisma's Ticket and the dev-store DevTicket) plus a `trail`
  * array of trail entries. The serializer does not touch the DB.
+ *
+ * Bolt 007-001: photos now arrive as `TicketPhoto` rows (with
+ * `uploadedByRole` discriminator) instead of a flat `photoUrls: string[]`.
+ * The citizen branch exposes `beforePhotoUrls` (citizen photos) and
+ * `afterPhotoUrls` (crew photos); the legacy `photoUrls: string[]` is
+ * preserved on every branch as the union of the two arrays, for
+ * back-compat with internal consumers. The citizen branch also applies
+ * the trail filter (lib/serializers/trail.ts → applyCitizenTrailFilter)
+ * which rewrites any `^[a-z_]+:` marker-shaped note to a localized
+ * "After photo added" string.
  */
 
 import type { Role, TicketStatus } from '@prisma/client';
+import { applyCitizenTrailFilter, bucketPhotosByRole } from './trail';
 
 const ANONYMIZED_ACTOR_LABEL = {
   bn: 'সিটি কর্পোরেশন',
@@ -29,6 +40,20 @@ export interface TrailEntryLike {
   timestamp: Date | string;
 }
 
+/**
+ * A single photo row the citizen serializer partitions.
+ *
+ * The same shape is exposed by:
+ *   - Prisma: `TicketPhoto` (uploadedAt is `Date`)
+ *   - dev store: `DevTicketPhoto` (uploadedAt is `string` ISO)
+ */
+export interface PhotoLike {
+  id?: string;
+  url: string;
+  uploadedByRole: string;
+  uploadedAt: Date | string;
+}
+
 export interface TicketLike {
   id: string;
   cityId: string;
@@ -40,7 +65,13 @@ export interface TicketLike {
   locationLabel: string | null;
   locationLabelBn: string | null;
   note: string | null;
-  photoUrls: string[];
+  /**
+   * Bolt 007-001: the new photo model. `photos[]` is the ordered list
+   * of `TicketPhoto` rows (ordered by `uploadedAt` ASC) the citizen
+   * serializer partitions into before/after. Callers that don't yet
+   * join the new table pass an empty array.
+   */
+  photos?: PhotoLike[];
   createdAt: Date | string;
   resolvedAt: Date | string | null;
   assignedCrewId: string | null;
@@ -56,12 +87,31 @@ export interface TicketLike {
    */
   wardName?: string | null;
   wardNameBn?: string | null;
+  /**
+   * Bolt 008-002 — Story 002: city + reporter display names,
+   * populated by the same join (`getTicketWithTrail`). Same
+   * optional / fallback contract as `wardName`. The city
+   * names are not citizen-PII (a city is not a person); we
+   * expose them to every role.
+   */
+  cityName?: string | null;
+  cityNameBn?: string | null;
+  reporterName?: string | null;
 }
 
 export interface SerializedTicketTrailEntry {
   toStatus: TicketStatus;
   /** Anonymized for citizens; real actor for dispatcher/crew/admin. */
   actorLabel: string;
+  /**
+   * Intent 008 / Bolt 008-002: raw actor id, exposed only to
+   * dispatcher/crew/admin (citizens never see this — the citizen
+   * branch anonymises to "City corporation"). The client uses
+   * this + `actorRole` to look up a display name via
+   * `lib/identity/display-name.ts`.
+   */
+  actorId: string | null;
+  actorRole: 'citizen' | 'dispatcher' | 'crew' | 'admin' | null;
   note: string | null;
   timestamp: string;
 }
@@ -85,6 +135,22 @@ export interface SerializedTicket {
   locationLabel: string | null;
   locationLabelBn: string | null;
   note: string | null;
+  /**
+   * Bolt 007-001: photos are now split into two groups for the citizen
+   * branch. `beforePhotoUrls` is the citizen's own photos (the "before"
+   * evidence); `afterPhotoUrls` is the crew's photos (the "after"
+   * evidence). The After group is hidden when empty. The legacy
+   * `photoUrls: string[]` field is the union of the two arrays,
+   * preserved for back-compat with internal consumers that have not
+   * yet moved to the new fields.
+   */
+  beforePhotoUrls: string[];
+  afterPhotoUrls: string[];
+  /**
+   * Legacy un-split photo list (Bolt 007-001 back-compat). Source of
+   * truth: the union of `beforePhotoUrls` then `afterPhotoUrls`.
+   * Empty array when the ticket has no photos.
+   */
   photoUrls: string[];
   createdAt: string;
   resolvedAt: string | null;
@@ -95,18 +161,54 @@ export interface SerializedTicket {
   trail: SerializedTicketTrailEntry[];
 }
 
+function splitPhotosForSerializer(
+  ticket: TicketLike,
+): { before: string[]; after: string[]; union: string[] } {
+  const photos = ticket.photos ?? [];
+  const { beforePhotoUrls, afterPhotoUrls } = bucketPhotosByRole(photos);
+  return {
+    before: beforePhotoUrls,
+    after: afterPhotoUrls,
+    union: [...beforePhotoUrls, ...afterPhotoUrls],
+  };
+}
+
 export function serializeTicketForRole(
   ticket: TicketLike,
   trail: TrailEntryLike[],
   role: Role,
   language: 'bn' | 'en' = 'bn',
+  /**
+   * Intent 008 / Bolt 008-002: optional map of actorId → role,
+   * used by the dispatcher/crew surfaces to render the trail
+   * actor's display name (via lib/identity/display-name.ts). The
+   * citizen branch never reads this map (citizens see the
+   * anonymised "City corporation" label). When the map is
+   * omitted (older callers), `actorRole` falls back to `null`
+   * and the page renders the raw id — which is the same UX the
+   * old code shipped.
+   */
+  actorRoles?: Readonly<Record<string, 'citizen' | 'dispatcher' | 'crew' | 'admin'>>,
 ): SerializedTicket {
   const isCitizen = role === 'citizen';
-  const serializedTrail: SerializedTicketTrailEntry[] = trail.map((entry) => ({
+  const { before, after, union } = splitPhotosForSerializer(ticket);
+
+  // Trail filter: citizen branch rewrites `^[a-z_]+:` marker-shaped notes
+  // to the localized "After photo added" string. Non-citizen + public
+  // branches pass the trail through unchanged.
+  const filteredTrail = isCitizen
+    ? applyCitizenTrailFilter(trail, language)
+    : trail;
+
+  const serializedTrail: SerializedTicketTrailEntry[] = filteredTrail.map((entry) => ({
     toStatus: entry.toStatus,
     actorLabel: isCitizen
       ? ANONYMIZED_ACTOR_LABEL[language]
       : entry.actorId, // dispatcher/crew/admin see the real actor id
+    actorId: isCitizen ? null : entry.actorId,
+    actorRole: isCitizen
+      ? null
+      : actorRoles?.[entry.actorId] ?? null,
     note: entry.note,
     timestamp: typeof entry.timestamp === 'string'
       ? entry.timestamp
@@ -127,7 +229,9 @@ export function serializeTicketForRole(
       locationLabel: ticket.locationLabel,
       locationLabelBn: ticket.locationLabelBn,
       note: ticket.note,
-      photoUrls: ticket.photoUrls,
+      beforePhotoUrls: before,
+      afterPhotoUrls: after,
+      photoUrls: union,
       createdAt: typeof ticket.createdAt === 'string'
         ? ticket.createdAt
         : ticket.createdAt.toISOString(),
@@ -161,7 +265,9 @@ export function serializeTicketForRole(
     locationLabel: ticket.locationLabel,
     locationLabelBn: ticket.locationLabelBn,
     note: ticket.note,
-    photoUrls: ticket.photoUrls,
+    beforePhotoUrls: before,
+    afterPhotoUrls: after,
+    photoUrls: union,
     createdAt: typeof ticket.createdAt === 'string'
       ? ticket.createdAt
       : ticket.createdAt.toISOString(),
@@ -192,6 +298,11 @@ export function serializeTicketForRole(
  * accidental leak cannot happen at a route boundary: a public
  * serializer with fewer fields is safer than a citizen serializer
  * with the wrong role.
+ *
+ * Bolt 007-001: the public branch exposes `beforePhotoUrls` and
+ * `afterPhotoUrls` (the split view) for consistency with the citizen
+ * branch. The trail is still dropped entirely (the public surface has
+ * no progress visibility — only the city activity feed summary).
  */
 export interface PublicSerializedTicket {
   id: string;
@@ -202,6 +313,8 @@ export interface PublicSerializedTicket {
   locationLng: number;
   locationLat: number;
   note: string | null;
+  beforePhotoUrls: string[];
+  afterPhotoUrls: string[];
   photoUrls: string[];
   createdAt: string;
 }
@@ -209,6 +322,7 @@ export interface PublicSerializedTicket {
 export function serializeTicketForPublic(
   ticket: TicketLike,
 ): PublicSerializedTicket {
+  const { before, after, union } = splitPhotosForSerializer(ticket);
   return {
     id: ticket.id,
     cityId: ticket.cityId,
@@ -218,7 +332,9 @@ export function serializeTicketForPublic(
     locationLng: ticket.locationLng,
     locationLat: ticket.locationLat,
     note: ticket.note,
-    photoUrls: ticket.photoUrls,
+    beforePhotoUrls: before,
+    afterPhotoUrls: after,
+    photoUrls: union,
     createdAt: typeof ticket.createdAt === 'string'
       ? ticket.createdAt
       : ticket.createdAt.toISOString(),

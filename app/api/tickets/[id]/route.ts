@@ -47,10 +47,27 @@ export async function GET(
     return NextResponse.json({ error: (e as Error).message }, { status: 403 });
   }
 
+  // Load the joined ticket (category → department) BEFORE the scope
+  // check so the comparison uses the same `departmentId` the route
+  // is authorised against. `db.ticket.findUnique` does not include
+  // the category join; `getTicketWithTrail` does. The legacy call
+  // shape `requireScope(session, ticket.wardId, null)` failed for
+  // dispatcher / crew users with a `session.departmentId` set in the
+  // same city as the ticket — the scope check would compare the
+  // session's dept to `null` and reject.
+  const withTrail = await getTicketWithTrail(id);
+  if (!withTrail) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
   // Dispatcher / crew scope enforcement.
   if (session.role === 'dispatcher' || session.role === 'crew') {
     try {
-      requireScope(session, ticket.wardId, null);
+      requireScope(
+        session,
+        ticket.wardId,
+        withTrail.departmentId ?? null,
+      );
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 403 });
     }
@@ -59,11 +76,6 @@ export async function GET(
   // Citizens can only see their own tickets.
   if (session.role === 'citizen' && ticket.reporterId !== session.userId) {
     return NextResponse.json({ error: 'not_owner' }, { status: 403 });
-  }
-
-  const withTrail = await getTicketWithTrail(id);
-  if (!withTrail) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
   return NextResponse.json({

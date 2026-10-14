@@ -69,7 +69,10 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     note: 'Streetlight out',
     status: 'routed',
     reporterId: 'user_citizen_rahim',
+    // Bolt 007-001: the new photo split.
     photoUrls: [],
+    beforePhotoUrls: [],
+    afterPhotoUrls: [],
     createdAt: '2026-10-11T10:00:00Z',
     resolvedAt: null,
     internalNote: null,

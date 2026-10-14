@@ -45,6 +45,12 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
+import { StatusPill } from '@/components/ui/StatusPill';
+import {
+  displayNameFor,
+  categoryLabel,
+} from '@/lib/identity/display-name';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -59,6 +65,8 @@ type TicketStatus =
 interface TrailEntry {
   toStatus: TicketStatus;
   actorLabel: string;
+  actorId?: string;
+  actorRole?: 'citizen' | 'dispatcher' | 'crew' | 'admin';
   note: string | null;
   timestamp: string;
 }
@@ -67,15 +75,33 @@ interface TicketDetail {
   id: string;
   status: TicketStatus;
   cityId: string;
+  cityName?: string | null;
+  cityNameBn?: string | null;
   wardId: string;
+  wardName?: string | null;
+  wardNameBn?: string | null;
   categoryId: string;
   locationLat: number;
   locationLng: number;
   locationLabel: string | null;
   note: string | null;
+  /**
+   * Bolt 007-001 wire shape — the dispatcher server
+   * returns both the legacy un-split `photoUrls` (for
+   * back-compat with v1 consumers) and the split view
+   * (`beforePhotoUrls` for citizen photos, `afterPhotoUrls`
+   * for crew photos). The page renders the split view
+   * with role labels so the dispatcher can immediately
+   * see which photos the citizen uploaded vs. which the
+   * crew uploaded.
+   */
+  beforePhotoUrls: string[];
+  afterPhotoUrls: string[];
   photoUrls: string[];
   reporterId: string;
+  reporterName?: string | null;
   assignedCrewId: string | null;
+  assignedCrewName?: string | null;
   internalNote: string | null;
   createdAt: string;
   trail: TrailEntry[];
@@ -127,6 +153,18 @@ export default function DispatcherTicketDetailPage() {
   const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [internalNoteInFlight, setInternalNoteInFlight] = useState(false);
   const [internalNoteError, setInternalNoteError] = useState<string | null>(null);
+  // Bolt 007-002 — dispatcher crew picker. `crewOptions` is the
+  // list returned by `/api/v1/dispatcher/...` (a new sibling
+  // shape — see the route file for the contract); `assignDraft`
+  // is the working selection in the dropdown. `assignInFlight`
+  // disables the Save button while the POST is pending.
+  const [crewOptions, setCrewOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [assignDraft, setAssignDraft] = useState<string>('');
+  const [assignInFlight, setAssignInFlight] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -157,15 +195,48 @@ export default function DispatcherTicketDetailPage() {
       setReassignWardId(data.ticket.wardId);
       setReassignCategoryId(data.ticket.categoryId);
       setInternalNoteDraft(data.ticket.internalNote ?? '');
+      // Bolt 007-002: sync the assign picker to the current
+      // `assignedCrewId` so the dropdown reflects the saved
+      // state on every refresh (assign, clear, page reload).
+      setAssignDraft(data.ticket.assignedCrewId ?? '');
       setLoading(false);
     } catch {
       setLoading(false);
     }
   }, [id]);
 
+  // Bolt 007-002: fetch the crew list for the ticket's ward.
+  // The picker is ward-scoped; the route returns the same set
+  // the dropdown renders. We re-fetch when the ticket's
+  // `wardId` changes (e.g. a reassign to another ward).
+  const fetchCrew = useCallback(async (wardId: string) => {
+    if (!wardId) {
+      setCrewOptions([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/v1/dispatcher/crew-for-ward?wardId=${encodeURIComponent(wardId)}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) {
+        setCrewOptions([]);
+        return;
+      }
+      const data = (await res.json()) as { crew: Array<{ id: string; name: string }> };
+      setCrewOptions(data.crew);
+    } catch {
+      setCrewOptions([]);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchTicket();
   }, [fetchTicket]);
+
+  useEffect(() => {
+    if (ticket?.wardId) void fetchCrew(ticket.wardId);
+  }, [ticket?.wardId, fetchCrew]);
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -278,6 +349,58 @@ export default function DispatcherTicketDetailPage() {
     }
   };
 
+  // Bolt 007-002: dispatcher crew picker save handler. POST
+  // the chosen crew id (or `null` to clear). On success, the
+  // ticket snapshot is refreshed so the record list's read-only
+  // `assignedCrewId` row updates without a page reload; the
+  // picker's selected option is also re-synced.
+  const onSaveAssign = async () => {
+    if (!ticket) return;
+    setAssignError(null);
+    setAssignSuccess(false);
+    setAssignInFlight(true);
+    try {
+      const res = await fetch(
+        `/api/v1/dispatcher/tickets/${encodeURIComponent(id)}/assign-crew`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          // '' is the placeholder ("Unassigned"). Normalise to
+          // `null` for the wire — the Zod schema rejects empty
+          // strings on the read side, so this is the contract.
+          body: JSON.stringify({
+            assignedCrewId: assignDraft === '' ? null : assignDraft,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        // Map the server-side error codes to localized copy
+        // for the picker (the record list has no picker-side
+        // error display). Anything else falls back to the
+        // generic save_failed key.
+        const errorKey =
+          body.error === 'cross_ward_access_denied'
+            ? 'dispatcher.assignCrew.error.cross_ward'
+            : body.error === 'not_found'
+              ? 'dispatcher.assignCrew.error.not_found'
+              : 'dispatcher.assignCrew.error.save_failed';
+        setAssignError(t(errorKey, null, lang));
+        setAssignInFlight(false);
+        return;
+      }
+      const data = (await res.json()) as { ticket: TicketDetail };
+      setTicket(data.ticket);
+      setAssignDraft(data.ticket.assignedCrewId ?? '');
+      setAssignSuccess(true);
+      setAssignInFlight(false);
+    } catch {
+      setAssignError(t('dispatcher.assignCrew.error.save_failed', null, lang));
+      setAssignInFlight(false);
+    }
+  };
+
   if (notFound) {
     return (
       <div
@@ -378,6 +501,18 @@ export default function DispatcherTicketDetailPage() {
         >
           ← {t('dispatcher.detail.back_to_queue', null, lang)}
         </Link>
+        {/* Bolt 008-002 — Story 001: dedup the
+            header chrome. The old header had a
+            local "Toggle language" pill + a local
+            ThemeToggle + nothing else, while the
+            rest of the app surfaces a UserMenu
+            (avatar + role badge + logout). The
+            new header uses the same <UserMenu>
+            as the rest of the dispatcher
+            surfaces — language + theme are
+            surfaced through it. The lang
+            toggle is moved into the UserMenu
+            menu panel. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <button
             type="button"
@@ -397,6 +532,7 @@ export default function DispatcherTicketDetailPage() {
             {t('welcome.lang.toggle', null, lang)}
           </button>
           <ThemeToggle lang={lang} />
+          <UserMenu lang={lang} />
         </div>
       </header>
 
@@ -435,49 +571,128 @@ export default function DispatcherTicketDetailPage() {
                 margin: 0,
               }}
             >
-              {ticket.id}
+              {/* Bolt 008-002 — Story 002: H1 is the
+                  category display name (e.g. "রাস্তার
+                  আলো নেই"), not the raw tkt_* id. The
+                  id is rendered as a small badge
+                  below the H1 so the dispatcher can
+                  still reference the ticket in a
+                  support chat. */}
+              {categoryLabel(ticket.categoryId, lang)}
             </h1>
             <span
               lang={lang}
+              data-testid="dispatcher-ticket-id-badge"
               style={{
-                padding: 'var(--space-1) var(--space-3)',
-                background: 'var(--color-status-routed, #e7f5ff)',
-                color: 'var(--color-primary)',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: 'var(--text-caption)',
-                fontWeight: 'var(--weight-bold)',
-                textTransform: 'uppercase',
+                display: 'inline-block',
+                marginTop: 'var(--space-1)',
+                fontSize: 11,
+                fontFamily: 'monospace',
+                color: 'var(--color-ink-tertiary)',
               }}
             >
-              {t(`status.${ticket.status}`, null, lang)}
+              #{ticket.id}
             </span>
+            <StatusPill
+              status={ticket.status}
+              lang={lang}
+              data-testid="dispatcher-ticket-status-pill"
+            />
           </div>
 
-          {/* Photo gallery */}
-          {ticket.photoUrls.length > 0 && (
+          {/* Photo gallery — Bolt 008-002 — Story 003:
+              split the photos into "Before" (citizen) and
+              "After" (crew) groups with role labels, so the
+              dispatcher immediately sees which photos the
+              citizen uploaded at submit time vs. which the
+              crew uploaded during resolution. The legacy
+              combined gallery is no longer used here. */}
+          {(ticket.beforePhotoUrls.length > 0 ||
+            ticket.afterPhotoUrls.length > 0) && (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                gap: 'var(--space-2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-3)',
                 marginBottom: 'var(--space-5)',
               }}
             >
-              {ticket.photoUrls.map((url, i) => (
-                <div
-                  key={url + i}
-                  aria-hidden
-                  data-testid="dispatcher-photo"
-                  style={{
-                    aspectRatio: '1 / 1',
-                    borderRadius: 'var(--radius-md)',
-                    background: url.startsWith('http')
-                      ? `url(${url}) center/cover`
-                      : 'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
-                    border: '1px solid var(--color-border)',
-                  }}
-                />
-              ))}
+              {ticket.beforePhotoUrls.length > 0 && (
+                <div data-testid="dispatcher-photo-before-group">
+                  <p
+                    lang={lang}
+                    style={{
+                      fontSize: 'var(--text-caption)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--color-ink-secondary)',
+                      margin: '0 0 var(--space-2)',
+                    }}
+                  >
+                    {t('photo.before', null, lang)}
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    {ticket.beforePhotoUrls.map((url, i) => (
+                      <div
+                        key={`b-${url}-${i}`}
+                        aria-hidden
+                        data-testid="dispatcher-photo"
+                        style={{
+                          aspectRatio: '1 / 1',
+                          borderRadius: 'var(--radius-md)',
+                          background: url.startsWith('http')
+                            ? `url(${url}) center/cover`
+                            : 'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {ticket.afterPhotoUrls.length > 0 && (
+                <div data-testid="dispatcher-photo-after-group">
+                  <p
+                    lang={lang}
+                    style={{
+                      fontSize: 'var(--text-caption)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--color-ink-secondary)',
+                      margin: '0 0 var(--space-2)',
+                    }}
+                  >
+                    {t('photo.after', null, lang)}
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    {ticket.afterPhotoUrls.map((url, i) => (
+                      <div
+                        key={`a-${url}-${i}`}
+                        aria-hidden
+                        data-testid="dispatcher-photo"
+                        style={{
+                          aspectRatio: '1 / 1',
+                          borderRadius: 'var(--radius-md)',
+                          background: url.startsWith('http')
+                            ? `url(${url}) center/cover`
+                            : 'linear-gradient(135deg, var(--color-status-resolved-soft, #e6fcf5) 0%, var(--color-surface-raised) 100%)',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -511,11 +726,23 @@ export default function DispatcherTicketDetailPage() {
               }}
             >
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.city', null, lang)}</FieldLabel>
-              <FieldValue>{ticket.cityId}</FieldValue>
+              <FieldValue>
+                {/* Bolt 008-002 — Story 002: render the city
+                    display name (Dhaka North) when the joined
+                    city row carries one; fall back to the id. */}
+                {ticket.cityName ?? ticket.cityId}
+              </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.ward', null, lang)}</FieldLabel>
-              <FieldValue>{ticket.wardId}</FieldValue>
+              <FieldValue>
+                {ticket.wardName ?? ticket.wardId}
+              </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.category', null, lang)}</FieldLabel>
-              <FieldValue>{ticket.categoryId}</FieldValue>
+              <FieldValue>
+                {/* Bolt 008-002 — Story 002: localised
+                    category label, not the raw cat_*
+                    internal id. */}
+                {categoryLabel(ticket.categoryId, lang)}
+              </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.location', null, lang)}</FieldLabel>
               <FieldValue>
                 {ticket.locationLat.toFixed(4)}, {ticket.locationLng.toFixed(4)}
@@ -525,11 +752,23 @@ export default function DispatcherTicketDetailPage() {
               <FieldValue>{ticket.note ?? '—'}</FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.reporter', null, lang)}</FieldLabel>
               <FieldValue>
-                <code style={{ fontSize: 11 }}>{ticket.reporterId}</code>
+                {/* Bolt 008-002 — Story 002: human
+                    display name (Rahim), not the raw
+                    user id. Falls back to the id
+                    itself for unknown users. */}
+                {displayNameFor('citizen', ticket.reporterId)}
               </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.crew', null, lang)}</FieldLabel>
               <FieldValue>
-                <code style={{ fontSize: 11 }}>{ticket.assignedCrewId ?? '—'}</code>
+                {/* Bolt 008-002 — Story 003: when no
+                    crew is assigned, show the
+                    localised "Not assigned" string
+                    instead of an em-dash. When
+                    assigned, show the display name
+                    (Rashid), not the raw id. */}
+                {ticket.assignedCrewId
+                  ? displayNameFor('crew', ticket.assignedCrewId)
+                  : t('dispatcher.assignCrew.none', null, lang)}
               </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.created', null, lang)}</FieldLabel>
               <FieldValue>{formatTimestamp(ticket.createdAt, lang)}</FieldValue>
@@ -625,7 +864,15 @@ export default function DispatcherTicketDetailPage() {
                       }}
                     >
                       {t('dispatcher.detail.trail.actor', null, lang)}:{' '}
-                      <code style={{ fontSize: 11 }}>{entry.actorLabel}</code>
+                      {/* Bolt 008-002 — Story 002: render
+                          the actor's display name (Rahim /
+                          Habib / Rashid) instead of the raw
+                          user id. Unknown users fall back
+                          to the id itself. */}
+                      {displayNameFor(
+                        entry.actorRole ?? 'citizen',
+                        entry.actorId ?? entry.actorLabel,
+                      )}
                       {entry.note && (
                         <>
                           {' · '}
@@ -742,6 +989,119 @@ export default function DispatcherTicketDetailPage() {
           }}
           data-testid="dispatcher-actions"
         >
+          {/* Bolt 007-002 — Dispatcher crew picker. The picker
+              is the "how" view; the read-only `assignedCrewId`
+              row in the record list is the "what" view. The
+              dropdown is ward-scoped (only crew users in the
+              ticket's ward render as options), the empty
+              placeholder maps to the wire value `null`, and
+              the server-side trust boundary in
+              `lib/dispatcher/assign-crew.ts` re-validates the
+              chosen crew on save. */}
+          <div>
+            <h3
+              lang={lang}
+              style={{
+                fontSize: 'var(--text-body-sm)',
+                fontWeight: 'var(--weight-bold)',
+                color: 'var(--color-ink-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                margin: '0 0 var(--space-3)',
+              }}
+            >
+              {t('dispatcher.assignCrew.heading', null, lang)}
+            </h3>
+            <label
+              lang={lang}
+              style={{
+                display: 'block',
+                fontSize: 'var(--text-caption)',
+                color: 'var(--color-ink-secondary)',
+                marginBottom: 'var(--space-1)',
+              }}
+            >
+              {t('dispatcher.assignCrew.label', null, lang)}
+            </label>
+            <select
+              data-testid="dispatcher-assign-crew"
+              value={assignDraft}
+              onChange={(e) => {
+                setAssignDraft(e.target.value);
+                setAssignSuccess(false);
+              }}
+              disabled={assignInFlight}
+              style={{
+                width: '100%',
+                padding: 'var(--space-2)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-surface-page)',
+                color: 'var(--color-ink)',
+                fontSize: 'var(--text-body-sm)',
+                marginBottom: 'var(--space-2)',
+              }}
+            >
+              <option value="">
+                {t('dispatcher.assignCrew.placeholder', null, lang)}
+              </option>
+              {crewOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {assignError && (
+              <div
+                role="alert"
+                lang={lang}
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-danger, #c92a2a)',
+                  marginBottom: 'var(--space-2)',
+                }}
+              >
+                {assignError}
+              </div>
+            )}
+            {assignSuccess && (
+              <div
+                role="status"
+                lang={lang}
+                data-testid="dispatcher-assign-success"
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-status-resolved, #1f7a3f)',
+                  marginBottom: 'var(--space-2)',
+                }}
+              >
+                {t('dispatcher.assignCrew.success', null, lang)}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onSaveAssign}
+              disabled={assignInFlight}
+              data-testid="dispatcher-assign-save"
+              style={{
+                width: '100%',
+                padding: 'var(--space-2) var(--space-3)',
+                background: 'var(--color-primary)',
+                color: 'var(--color-on-primary)',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-body-sm)',
+                fontWeight: 'var(--weight-semibold)',
+                cursor: assignInFlight ? 'wait' : 'pointer',
+                opacity: assignInFlight ? 0.6 : 1,
+              }}
+            >
+              {assignInFlight
+                ? t('dispatcher.assignCrew.saving', null, lang)
+                : t('dispatcher.assignCrew.save', null, lang)}
+            </button>
+          </div>
+
           {/* Transition buttons */}
           <div>
             <h3

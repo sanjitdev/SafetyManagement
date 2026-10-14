@@ -117,9 +117,22 @@ export async function POST(req: NextRequest) {
       locationLabel: input.locationLabel ?? null,
       locationLabelBn: input.locationLabelBn ?? null,
       note: input.note ?? null,
-      photoUrls: input.photoUrls,
     },
   });
+
+  // Bolt 007-001: photos are no longer stored as a flat array on
+  // the ticket; they live in `TicketPhoto` rows with `uploadedByRole`
+  // discriminator. The citizen's submission writes one `citizen` row
+  // per uploaded URL.
+  for (const url of input.photoUrls) {
+    await db.ticketPhoto.create({
+      data: {
+        ticketId: created.id,
+        url,
+        uploadedByRole: 'citizen',
+      },
+    });
+  }
 
   await db.trail.create({
     data: {

@@ -4,20 +4,25 @@
  * CREW-003 (Intent 004, Unit 003): the "Capture after
  * photo" flow. The crew member pastes a URL (the v1
  * surface; v1.1 wires the real camera / file picker)
- * and the route appends it to `Ticket.photoUrls`.
+ * and the route creates a new `TicketPhoto` row with
+ * `uploadedByRole: 'crew'`.
  *
- * The route writes two side-effects per upload:
+ * The route writes three side-effects per upload:
  *
- *   1. A `TicketTrailEntry` with
+ *   1. A `TicketPhoto` row with `uploadedByRole: 'crew'`
+ *      (Bolt 007-001 — the new "after photo" source of
+ *      truth; the legacy `Ticket.photoUrls[]` array is gone).
+ *   2. A `TicketTrailEntry` with
  *      `note: 'after_photo:<url>'`. The
  *      `after_photo:` prefix is a stable marker the
  *      audit pipeline can grep on; the citizen
- *      serializer may render these as "After photo
- *      added" entries (v1.1 polish; the v1 trail
- *      shape is unchanged).
- *   2. An `AuditEntry` with action
- *      `ticket.after_photo_added`, before/after the
- *      `photoUrls` array.
+ *      serializer rewrites these to a localized
+ *      "After photo added" string in the trail view
+ *      (Bolt 007-001 — the citizen branch never surfaces
+ *      the raw URL).
+ *   3. An `AuditEntry` with action
+ *      `ticket.after_photo_added`, recording the new
+ *      `photoId` + `uploadedByRole`.
  *
  * Out-of-scope ticket id → 404 (NOT 403).
  *
@@ -72,6 +77,17 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
+  // Load the joined ticket (category → department) so the
+  // scope check can compare on the same `departmentId` the
+  // route is authorised against. `db.ticket.findUnique` does
+  // not include the category join; `getTicketWithTrail` does.
+  // Bolt 007-001: this fix is what makes the after-photo
+  // route usable for crews whose session.departmentId is set.
+  const withTrail = await getTicketWithTrail(id);
+  if (!withTrail) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+
   // Out-of-scope ticket → 404 (NOT 403).
   try {
     requireSameCity(session!, ticket.cityId);
@@ -79,7 +95,11 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   try {
-    requireScope(session!, ticket.wardId, null);
+    requireScope(
+      session!,
+      ticket.wardId,
+      withTrail.departmentId ?? null,
+    );
   } catch {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
@@ -87,11 +107,17 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  const before = ticket.photoUrls.slice();
-  const after = [...ticket.photoUrls, parsed.data.url];
-  await db.ticket.update({
-    where: { id: ticket.id },
-    data: { photoUrls: after },
+  // Bolt 007-001: create the new `TicketPhoto` row with
+  // `uploadedByRole: 'crew'`. The `db.ticketPhoto.create` helper
+  // works on both Prisma + dev store; the dev store's
+  // `ticketPhotos` Map is keyed by ticketId and the new row is
+  // sorted into the list by `uploadedAt` ASC.
+  const createdPhoto = await db.ticketPhoto.create({
+    data: {
+      ticketId: ticket.id,
+      url: parsed.data.url,
+      uploadedByRole: 'crew',
+    },
   });
   await db.trail.create({
     data: {
@@ -106,8 +132,11 @@ export async function POST(
     entityId: ticket.id,
     action: 'ticket.after_photo_added',
     actorId: session!.userId,
-    beforeValue: { photoUrls: before },
-    afterValue: { photoUrls: after },
+    afterValue: {
+      photoId: createdPhoto.id,
+      url: parsed.data.url,
+      uploadedByRole: 'crew',
+    },
   });
 
   const refreshed = await getTicketWithTrail(ticket.id);

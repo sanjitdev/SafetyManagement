@@ -58,6 +58,12 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
+import {
+  displayNameFor,
+  categoryLabel,
+} from '@/lib/identity/display-name';
+import { uploadCrewPhoto } from '@/lib/crew/upload-photo';
 import {
   formatCachedAge,
   readTicketCache,
@@ -84,6 +90,8 @@ type TicketStatus =
 interface TrailEntry {
   toStatus: TicketStatus;
   actorLabel: string;
+  actorId?: string;
+  actorRole?: 'citizen' | 'dispatcher' | 'crew' | 'admin';
   note: string | null;
   timestamp: string;
 }
@@ -93,12 +101,25 @@ interface TicketDetail {
   status: TicketStatus;
   cityId: string;
   wardId: string;
+  wardName?: string | null;
+  wardNameBn?: string | null;
   categoryId: string;
   locationLat: number;
   locationLng: number;
   locationLabel: string | null;
   locationLabelBn: string | null;
   note: string | null;
+  /**
+   * Bolt 007-001 wire shape — the crew server returns
+   * both the legacy un-split `photoUrls` and the split
+   * view (`beforePhotoUrls` for citizen photos,
+   * `afterPhotoUrls` for crew photos). The page renders
+   * the split view with role labels so the crew can
+   * immediately see which photos the citizen uploaded
+   * vs. which the previous shift uploaded.
+   */
+  beforePhotoUrls: string[];
+  afterPhotoUrls: string[];
   photoUrls: string[];
   reporterId: string;
   assignedCrewId: string | null;
@@ -154,7 +175,10 @@ export default function CrewTicketPage() {
     null,
   );
   const [transitionError, setTransitionError] = useState<string | null>(null);
-  // After-photo URL input.
+  // After-photo input. Bolt 008-003: the page now accepts
+  // either a real file (the v1 surface) or a URL (the
+  // power-user override, behind a `<details>` disclosure).
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState('');
   const [photoSaving, setPhotoSaving] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -374,65 +398,68 @@ export default function CrewTicketPage() {
     [ticket, resolutionNote, userId],
   );
 
-  // Submit an after-photo URL. The Zod schema on the
-  // API does the same `url` validation; the page
-  // pre-validates with `URL.canParse` for a friendlier
-  // UX.
+  // Submit the after-photo (Bolt 008-003). The page accepts
+  // either a real file (v1 surface) or a URL (power-user
+  // override). Both paths go through `uploadCrewPhoto` which
+  // validates the input (MIME / size / URL shape) and
+  // translates the file to a `data:` URL before POSTing.
   const onAddPhoto = useCallback(async () => {
     if (!ticket) return;
     setPhotoError(null);
-    const trimmed = photoUrl.trim();
-    if (trimmed.length === 0) {
-      setPhotoError('crew.photo.error.invalid_url');
-      return;
-    }
-    try {
-      const u = new URL(trimmed);
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-        setPhotoError('crew.photo.error.invalid_url');
-        return;
-      }
-    } catch {
-      setPhotoError('crew.photo.error.invalid_url');
-      return;
-    }
     setPhotoSaving(true);
-    try {
-      const res = await fetch(`/api/v1/crew/tickets/${ticket.id}/photos`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: trimmed }),
-      });
-      if (res.status === 404) {
+    const result = await uploadCrewPhoto({
+      ticketId: ticket.id,
+      file: photoFile,
+      url: photoUrl,
+    });
+    if (!result.ok) {
+      const errorCode = result.error;
+      // Validation error → friendly i18n key; HTTP error
+      // → either `not_found` (route's 404 on out-of-scope
+      // ticket) or the generic invalid-url key.
+      let key: string;
+      if (errorCode === 'http_404') {
         setNotFound(true);
+        setPhotoSaving(false);
         return;
       }
-      if (!res.ok) {
-        setPhotoError('crew.photo.error.invalid_url');
-        return;
+      if (
+        errorCode === 'invalid_file_type' ||
+        errorCode === 'file_too_large'
+      ) {
+        key = 'crew.photo.error.invalid_file';
+      } else if (
+        errorCode === 'invalid_url' ||
+        errorCode === 'empty_url'
+      ) {
+        key = 'crew.photo.error.invalid_url';
+      } else {
+        key = 'crew.photo.error.invalid_url';
       }
-      const data = (await res.json()) as { ticket: TicketDetail };
-      setTicket(data.ticket);
-      setPhotoUrl('');
-      // CREW-006 — refresh the per-ticket cache
-      // with the server's response (the photo
-      // URL is appended to ticket.photoUrls and
-      // a trail entry is written). The next
-      // mount sees the after-photo immediately.
-      if (userId) {
-        writeTicketCache(
-          userId,
-          data.ticket as unknown as SerializedTicket,
-        );
-        setCacheSnapshot(null);
-      }
-    } catch {
-      setPhotoError('crew.photo.error.invalid_url');
-    } finally {
+      setPhotoError(key);
       setPhotoSaving(false);
+      return;
     }
-  }, [ticket, photoUrl, userId]);
+    // Success — refresh the in-page ticket with the server's
+    // response, clear the inputs, and write the cache so the
+    // next mount sees the after-photo immediately.
+    const data = result.ticket as { ticket?: TicketDetail } & TicketDetail;
+    const refreshed: TicketDetail =
+      'ticket' in data && data.ticket
+        ? (data.ticket as TicketDetail)
+        : (data as TicketDetail);
+    setTicket(refreshed);
+    setPhotoFile(null);
+    setPhotoUrl('');
+    if (userId) {
+      writeTicketCache(
+        userId,
+        refreshed as unknown as SerializedTicket,
+      );
+      setCacheSnapshot(null);
+    }
+    setPhotoSaving(false);
+  }, [ticket, photoFile, photoUrl, userId]);
 
   if (signedIn === false) {
     return (
@@ -614,6 +641,13 @@ export default function CrewTicketPage() {
             {t('welcome.lang.toggle', null, lang)}
           </button>
           <ThemeToggle lang={lang} />
+          {/* Bolt 008-002 — Story 001: dedup the
+              header chrome. The UserMenu surfaces
+              the avatar + role badge + logout on
+              every other authenticated surface, so
+              the crew ticket-detail header now uses
+              it too. */}
+          <UserMenu lang={lang} />
         </div>
       </header>
 
@@ -722,10 +756,15 @@ export default function CrewTicketPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {ticket.wardId} · {ticket.categoryId}
+              {/* Bolt 008-002 — Story 002: H1 shows the
+                  category display name, not the raw
+                  cat_* id. The id is still on the
+                  next line as a monospaced badge. */}
+              {categoryLabel(ticket.categoryId, lang)}
             </h1>
             <p
               lang={lang}
+              data-testid="crew-ticket-id-badge"
               style={{
                 fontSize: 'var(--text-caption)',
                 color: 'var(--color-ink-tertiary)',
@@ -733,7 +772,7 @@ export default function CrewTicketPage() {
                 fontFamily: 'monospace',
               }}
             >
-              {ticket.id}
+              #{ticket.id}
             </p>
           </div>
           <StatusPill status={ticket.status} lang={lang} />
@@ -746,12 +785,12 @@ export default function CrewTicketPage() {
         >
           <RecordRow
             label={t('crew.detail.field.ward', null, lang)}
-            value={ticket.wardId}
+            value={ticket.wardName ?? ticket.wardId}
             lang={lang}
           />
           <RecordRow
             label={t('crew.detail.field.category', null, lang)}
-            value={ticket.categoryId}
+            value={categoryLabel(ticket.categoryId, lang)}
             lang={lang}
           />
           <RecordRow
@@ -773,7 +812,7 @@ export default function CrewTicketPage() {
           )}
           <RecordRow
             label={t('crew.detail.field.reporter', null, lang)}
-            value={ticket.reporterId}
+            value={displayNameFor('citizen', ticket.reporterId)}
             lang={lang}
             mono
           />
@@ -804,12 +843,19 @@ export default function CrewTicketPage() {
           )}
         </SectionCard>
 
-        {/* Photos */}
+        {/* Photos — Bolt 008-002 — Story 003:
+            split the photos into "Before" (citizen) and
+            "After" (crew) groups with role labels, so the
+            crew can immediately see the citizen's
+            evidence vs. the previous shift's after-photo.
+            The legacy combined gallery is no longer
+            used here. */}
         <SectionCard
           heading={t('crew.detail.photos', null, lang)}
           lang={lang}
         >
-          {ticket.photoUrls.length === 0 ? (
+          {ticket.beforePhotoUrls.length === 0 &&
+          ticket.afterPhotoUrls.length === 0 ? (
             <p
               lang={lang}
               style={{
@@ -823,42 +869,121 @@ export default function CrewTicketPage() {
           ) : (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 'var(--space-2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-3)',
               }}
             >
-              {ticket.photoUrls.map((u, i) => (
-                <a
-                  key={u}
-                  href={u}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'block',
-                    aspectRatio: '1 / 1',
-                    background: 'var(--color-surface-raised)',
-                    borderRadius: 'var(--radius-sm)',
-                    overflow: 'hidden',
-                    textDecoration: 'none',
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={u}
-                    alt={`photo ${i + 1}`}
+              {ticket.beforePhotoUrls.length > 0 && (
+                <div data-testid="crew-photo-before-group">
+                  <p
+                    lang={lang}
                     style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
+                      fontSize: 'var(--text-caption)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--color-ink-secondary)',
+                      margin: '0 0 var(--space-2)',
                     }}
-                  />
-                </a>
-              ))}
+                  >
+                    {t('photo.before', null, lang)}
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    {ticket.beforePhotoUrls.map((u, i) => (
+                      <a
+                        key={`b-${u}-${i}`}
+                        href={u}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="crew-photo"
+                        style={{
+                          display: 'block',
+                          aspectRatio: '1 / 1',
+                          background: 'var(--color-surface-raised)',
+                          borderRadius: 'var(--radius-sm)',
+                          overflow: 'hidden',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={u}
+                          alt={`before ${i + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {ticket.afterPhotoUrls.length > 0 && (
+                <div data-testid="crew-photo-after-group">
+                  <p
+                    lang={lang}
+                    style={{
+                      fontSize: 'var(--text-caption)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--color-ink-secondary)',
+                      margin: '0 0 var(--space-2)',
+                    }}
+                  >
+                    {t('photo.after', null, lang)}
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    {ticket.afterPhotoUrls.map((u, i) => (
+                      <a
+                        key={`a-${u}-${i}`}
+                        href={u}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="crew-photo"
+                        style={{
+                          display: 'block',
+                          aspectRatio: '1 / 1',
+                          background: 'var(--color-surface-raised)',
+                          borderRadius: 'var(--radius-sm)',
+                          overflow: 'hidden',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={u}
+                          alt={`after ${i + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Add-after-photo input */}
+          {/* Add-after-photo input — Bolt 008-003: file picker
+              is the v1 surface; the URL input stays available
+              as a collapsible power-user override. The
+              submit is enabled when either a file is chosen
+              OR a non-empty URL is typed. */}
           <div
             style={{
               marginTop: 'var(--space-3)',
@@ -871,51 +996,116 @@ export default function CrewTicketPage() {
           >
             <label
               lang={lang}
+              htmlFor="crew-photo-file"
+              data-testid="crew-photo-file-label"
               style={{
                 fontSize: 'var(--text-caption)',
                 fontWeight: 'var(--weight-semibold)',
                 color: 'var(--color-ink-secondary)',
               }}
             >
-              {t('crew.photo.heading', null, lang)}
+              {t('crew.photo.file.label', null, lang)}
             </label>
             <input
-              type="url"
-              value={photoUrl}
+              id="crew-photo-file"
+              data-testid="crew-photo-file"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
               onChange={(e) => {
-                setPhotoUrl(e.target.value);
+                const file = e.target.files?.[0] ?? null;
+                setPhotoFile(file);
                 if (photoError) setPhotoError(null);
               }}
-              placeholder={t('crew.photo.input.placeholder', null, lang)}
-              data-testid="crew-photo-input"
               lang={lang}
               style={{
                 width: '100%',
-                padding: 'var(--space-3)',
+                padding: 'var(--space-2)',
                 background: 'var(--color-surface-page)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: 'var(--text-body-sm)',
                 color: 'var(--color-ink)',
-                fontFamily: 'monospace',
                 minHeight: 44,
                 boxSizing: 'border-box',
               }}
             />
+            {photoFile && (
+              <p
+                data-testid="crew-photo-file-name"
+                lang={lang}
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-ink-tertiary)',
+                  margin: 0,
+                }}
+              >
+                {photoFile.name}
+              </p>
+            )}
+            <details
+              data-testid="crew-photo-url-details"
+              style={{
+                marginTop: 'var(--space-1)',
+                fontSize: 'var(--text-caption)',
+                color: 'var(--color-ink-secondary)',
+              }}
+            >
+              <summary
+                style={{
+                  cursor: 'pointer',
+                  fontWeight: 'var(--weight-semibold)',
+                }}
+              >
+                {t('crew.photo.url.override', null, lang)}
+              </summary>
+              <input
+                type="url"
+                value={photoUrl}
+                onChange={(e) => {
+                  setPhotoUrl(e.target.value);
+                  if (photoError) setPhotoError(null);
+                }}
+                placeholder={t(
+                  'crew.photo.url.placeholder',
+                  null,
+                  lang,
+                )}
+                data-testid="crew-photo-url"
+                lang={lang}
+                style={{
+                  width: '100%',
+                  marginTop: 'var(--space-2)',
+                  padding: 'var(--space-3)',
+                  background: 'var(--color-surface-page)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-body-sm)',
+                  color: 'var(--color-ink)',
+                  fontFamily: 'monospace',
+                  minHeight: 44,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </details>
             <button
               type="button"
               onClick={onAddPhoto}
-              disabled={photoSaving || photoUrl.trim().length === 0}
+              disabled={
+                photoSaving ||
+                (photoFile == null && photoUrl.trim().length === 0)
+              }
               data-testid="crew-photo-submit"
               lang={lang}
               style={{
                 padding: 'var(--space-3) var(--space-4)',
                 background:
-                  photoSaving || photoUrl.trim().length === 0
+                  photoSaving ||
+                  (photoFile == null && photoUrl.trim().length === 0)
                     ? 'var(--color-surface-raised)'
                     : 'var(--color-primary)',
                 color:
-                  photoSaving || photoUrl.trim().length === 0
+                  photoSaving ||
+                  (photoFile == null && photoUrl.trim().length === 0)
                     ? 'var(--color-ink-tertiary)'
                     : 'var(--color-on-primary)',
                 border: 'none',
@@ -923,7 +1113,8 @@ export default function CrewTicketPage() {
                 fontSize: 'var(--text-body-sm)',
                 fontWeight: 'var(--weight-semibold)',
                 cursor:
-                  photoSaving || photoUrl.trim().length === 0
+                  photoSaving ||
+                  (photoFile == null && photoUrl.trim().length === 0)
                     ? 'not-allowed'
                     : 'pointer',
                 minHeight: 44,
@@ -990,7 +1181,15 @@ export default function CrewTicketPage() {
                       fontFamily: 'monospace',
                     }}
                   >
-                    {entry.actorLabel}
+                    {/* Bolt 008-002 — Story 002: render
+                        the actor's display name (Rahim /
+                        Habib / Rashid) instead of the raw
+                        user id. Unknown users fall back
+                        to the id itself. */}
+                    {displayNameFor(
+                      entry.actorRole ?? 'citizen',
+                      entry.actorId ?? entry.actorLabel,
+                    )}
                   </span>
                 </div>
                 {entry.note && (

@@ -41,7 +41,6 @@ function mkTicket(suffix: string) {
       locationLabel: 'Mirpur',
       locationLabelBn: 'মিরপুর',
       note: null,
-      photoUrls: [],
       assignedCrewId: null,
       internalNote: null,
     },

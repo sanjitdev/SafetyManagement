@@ -28,7 +28,17 @@ const baseTicket: TicketLike = {
   locationLabel: 'Mirpur, Dhaka',
   locationLabelBn: 'মিরপুর, ঢাকা',
   note: 'Light out near pole #14B',
-  photoUrls: ['data:image/jpeg;base64,AAAA'],
+  // Bolt 007-001: photos are now an array of {id, url, uploadedByRole, uploadedAt}
+  // rows; the serializer partitions this into before/after. Legacy
+  // `photoUrls: string[]` is gone.
+  photos: [
+    {
+      id: 'tph_test_1',
+      url: 'data:image/jpeg;base64,AAAA',
+      uploadedByRole: 'citizen',
+      uploadedAt: '2026-10-01T09:59:00.000Z',
+    },
+  ],
   createdAt: new Date('2026-10-01T10:00:00Z'),
   resolvedAt: null,
   assignedCrewId: 'crew_a',
@@ -72,7 +82,12 @@ describe('serializeTicketForRole — citizen view', () => {
   it('keeps the citizen-facing fields the citizen needs', () => {
     expect(out.id).toBe('tkt_123');
     expect(out.status).toBe('in_progress');
+    // Bolt 007-001: the legacy `photoUrls` is the union of the new
+    // before/after arrays. The test fixture has 1 citizen photo, so
+    // before has 1 and after is empty.
     expect(out.photoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    expect(out.beforePhotoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    expect(out.afterPhotoUrls).toEqual([]);
     expect(out.note).toBe('Light out near pole #14B');
     expect(out.locationLabelBn).toBe('মিরপুর, ঢাকা');
   });
@@ -130,6 +145,30 @@ describe('serializeTicketForRole — dispatcher view', () => {
     expect(out.trail[1].actorLabel).toBe('user_dispatcher_habib');
     expect(out.trail[2].actorLabel).toBe('user_crew_rashid');
   });
+
+  it('does NOT filter the after_photo marker note (dispatcher sees the raw note)', () => {
+    // Build a trail that includes the marker note the citizen filter
+    // would rewrite. The dispatcher view must pass it through.
+    const tr: TrailEntryLike[] = [
+      ...trail,
+      {
+        toStatus: 'resolved',
+        actorId: 'user_crew_rashid',
+        note: 'after_photo:data:image/jpeg;base64,DEAD',
+        timestamp: '2026-10-04T09:00:00.000Z',
+      },
+    ];
+    const out2 = serializeTicketForRole(baseTicket, tr, 'dispatcher', 'bn');
+    expect(out2.trail[3].note).toBe('after_photo:data:image/jpeg;base64,DEAD');
+  });
+
+  it('exposes the before/after photo split to dispatcher', () => {
+    expect(out.beforePhotoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    expect(out.afterPhotoUrls).toEqual([]);
+    // Legacy union is also kept so any dispatcher UI that hasn't
+    // migrated still gets a flat list.
+    expect(out.photoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+  });
 });
 
 describe('serializeTicketForRole — string-input compatibility', () => {
@@ -162,6 +201,25 @@ describe('serializeTicketForRole — string-input compatibility', () => {
   });
 });
 
+describe('serializeTicketForRole — empty photos (citizen view)', () => {
+  it('returns two empty arrays when the ticket has no photos', () => {
+    const t: TicketLike = { ...baseTicket, photos: [] };
+    const out = serializeTicketForRole(t, trail, 'citizen', 'bn');
+    expect(out.photoUrls).toEqual([]);
+    expect(out.beforePhotoUrls).toEqual([]);
+    expect(out.afterPhotoUrls).toEqual([]);
+  });
+
+  it('handles undefined photos gracefully (defensive)', () => {
+    const t: TicketLike = { ...baseTicket };
+    delete t.photos;
+    const out = serializeTicketForRole(t, trail, 'citizen', 'bn');
+    expect(out.photoUrls).toEqual([]);
+    expect(out.beforePhotoUrls).toEqual([]);
+    expect(out.afterPhotoUrls).toEqual([]);
+  });
+});
+
 describe('serializeTicketForPublic — v1.1 anonymous landing', () => {
   it('strips every internal / PII field', () => {
     const out = serializeTicketForPublic(baseTicket);
@@ -175,6 +233,11 @@ describe('serializeTicketForPublic — v1.1 anonymous landing', () => {
     expect(out.locationLat).toBe(23.789);
     expect(out.note).toBe('Light out near pole #14B');
     expect(out.photoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    // Bolt 007-001: the public surface also exposes the new
+    // before/after split so the public feed can render either the
+    // un-split or the split view.
+    expect(out.beforePhotoUrls).toEqual(['data:image/jpeg;base64,AAAA']);
+    expect(out.afterPhotoUrls).toEqual([]);
     // Internal fields are NOT in the public type at all — this is
     // a compile-time guarantee; we can also confirm the runtime
     // values aren't present by checking that the keys are absent
@@ -196,5 +259,19 @@ describe('serializeTicketForPublic — v1.1 anonymous landing', () => {
     };
     const out = serializeTicketForPublic(t);
     expect(out.createdAt).toBe('2026-10-01T10:00:00.000Z');
+  });
+
+  it('exposes the before/after split on the public surface', () => {
+    const t: TicketLike = {
+      ...baseTicket,
+      photos: [
+        { id: 'tph_1', url: 'a', uploadedByRole: 'citizen', uploadedAt: '2026-10-01T09:59:00.000Z' },
+        { id: 'tph_2', url: 'b', uploadedByRole: 'crew', uploadedAt: '2026-10-02T08:30:00.000Z' },
+      ],
+    };
+    const out = serializeTicketForPublic(t);
+    expect(out.beforePhotoUrls).toEqual(['a']);
+    expect(out.afterPhotoUrls).toEqual(['b']);
+    expect(out.photoUrls).toEqual(['a', 'b']);
   });
 });
