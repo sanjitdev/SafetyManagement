@@ -259,6 +259,15 @@ declare global {
 function seed(): Store {
   const cityId = 'city_dhaka_north';
   const wardId = 'ward_14';
+  // Demo password hash for every seed persona — `12345678`. The hash
+  // matches `lib/auth/password.ts` ARGON2_OPTIONS (argon2id m=19 t=2 p=1).
+  // Generated once with `@node-rs/argon2.hash('12345678', ARGON2_OPTIONS)`
+  // and pinned here so `seed()` stays synchronous. The
+  // `/api/v1/auth/login` route (citizen-only) reads it back through
+  // `verifyPassword`; the non-citizen personas keep a hash for shape
+  // symmetry even though they go through the dev bypasses.
+  const DEMO_PASSWORD_HASH =
+    '$argon2id$v=19$m=19456,t=2,p=1$cNxBSUpBTuez1gSOuhgAmg$eUXOGvvCTogurvOEG5CT/IiHQmBnmDmCKj3FwnxDk3c';
   const catIds = {
     streetlight: 'cat_streetlight',
     pothole: 'cat_pothole',
@@ -398,7 +407,7 @@ function seed(): Store {
     nid: '1234567890',
     name: 'Rahim',
     email: null,
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId,
     departmentId: null,
     languageOverride: null,
@@ -418,7 +427,7 @@ function seed(): Store {
     nid: '2234567890',
     name: 'Habib',
     email: null,
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId,
     departmentId: deptIds.streetlight,
     languageOverride: null,
@@ -434,7 +443,7 @@ function seed(): Store {
     nid: '3234567890',
     name: 'Rashid',
     email: null,
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId,
     departmentId: deptIds.streetlight,
     languageOverride: null,
@@ -456,7 +465,7 @@ function seed(): Store {
     nid: '5234567890',
     name: 'Karim',
     email: null,
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId,
     departmentId: deptIds.streetlight,
     languageOverride: null,
@@ -478,7 +487,7 @@ function seed(): Store {
     nid: '6234567890',
     name: 'Jamal',
     email: null,
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId: 'ward_other',
     departmentId: deptIds.streetlight,
     languageOverride: null,
@@ -500,7 +509,7 @@ function seed(): Store {
     // ddd-02-technical-design) pins this as
     // `admin@cityfix.bd`.
     email: 'admin@cityfix.bd',
-    passwordHash: null,
+    passwordHash: DEMO_PASSWORD_HASH,
     wardId: null,
     departmentId: null,
     languageOverride: null,
