@@ -23,7 +23,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { db } from '@/lib/db-switch';
+import { db, getTicketWithTrail } from '@/lib/db-switch';
 import { serializeTicketForPublic } from '@/lib/serializers/ticket';
 
 const PublicActivityInput = z.object({
@@ -66,7 +66,18 @@ export async function GET(req: NextRequest) {
     take: limit,
   });
 
-  return NextResponse.json({
-    tickets: tickets.map(serializeTicketForPublic),
-  });
+  // Bolt 008-011: hydrate each ticket via `getTicketWithTrail` so the
+  // public serializer can surface `wardName` / `wardNameBn` (the
+  // card renders "Ward 14 — Mirpur" instead of the raw wardId).
+  // The trail + photos + reporter fields on the joined row are
+  // already dropped by `serializeTicketForPublic`, so this is safe
+  // for the anonymous surface.
+  const out = await Promise.all(
+    tickets.map(async (t) => {
+      const withTrail = await getTicketWithTrail(t.id);
+      return serializeTicketForPublic((withTrail ?? t) as never);
+    }),
+  );
+
+  return NextResponse.json({ tickets: out });
 }

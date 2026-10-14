@@ -52,6 +52,13 @@ interface PublicTicket {
   id: string;
   cityId: string;
   wardId: string;
+  /**
+   * Human-readable ward name (Bolt 008-011). When present, the
+   * card renders "Ward 14 — Mirpur" instead of slicing the raw
+   * wardId. Falls back to the id slice when the join is missing.
+   */
+  wardName: string | null;
+  wardNameBn: string | null;
   categoryId: string;
   status: PublicStatus;
   locationLng: number;
@@ -61,13 +68,37 @@ interface PublicTicket {
   createdAt: string;
 }
 
+// Status pill palette. Bolt 008-011: switched from raw hex
+// (which clashed on the dark theme — the cream/amber "submitted"
+// pill read as abandoned) to the brand's semantic status tokens
+// (defined in tokens.css) so the pill matches the rest of the
+// app on both light and dark themes. The hex fallbacks keep the
+// page legible if the token is missing.
 const STATUS_COLORS: Record<PublicStatus, { bg: string; fg: string }> = {
-  submitted: { bg: '#fff4e6', fg: '#b58410' },
-  routed: { bg: '#e7f5ff', fg: '#0E5A4A' },
-  in_progress: { bg: '#e7f5ff', fg: '#1c7ed6' },
-  resolved: { bg: '#e6fcf5', fg: '#1f7a3f' },
-  closed: { bg: '#f1f3f5', fg: '#5b6770' },
-  cancelled: { bg: '#ffe3e3', fg: '#9b2c2c' },
+  submitted: {
+    bg: 'var(--color-primary-soft, #e6f2ee)',
+    fg: 'var(--color-primary, #0E5A4A)',
+  },
+  routed: {
+    bg: 'var(--color-status-routed-soft, #cfe2ff)',
+    fg: 'var(--color-status-routed, #0b5ed7)',
+  },
+  in_progress: {
+    bg: 'var(--color-status-in-progress-soft, #fff3cd)',
+    fg: 'var(--color-status-in-progress, #b58410)',
+  },
+  resolved: {
+    bg: 'var(--color-status-resolved-soft, #d4edda)',
+    fg: 'var(--color-status-resolved, #1f7a3f)',
+  },
+  closed: {
+    bg: 'var(--color-surface-raised, #f1f3f5)',
+    fg: 'var(--color-ink-secondary, #5b6770)',
+  },
+  cancelled: {
+    bg: 'var(--color-status-error-soft, #ffe3e3)',
+    fg: 'var(--color-status-error, #9b2c2c)',
+  },
 };
 
 function formatAge(iso: string, lang: Language): string {
@@ -663,17 +694,53 @@ function PublicActivityCard({
           }}
         />
       ) : (
+        // Bolt 008-011: replaced the unbranded teal gradient with a
+        // proper "no photo" empty state — a subtle border + a
+        // camera glyph + a label, so the card reads as
+        // intentional even when the citizen didn't attach a photo.
         <div
-          aria-hidden
+          aria-label="No photo"
           style={{
             width: 80,
             height: 80,
             borderRadius: 'var(--radius-sm)',
-            background:
-              'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+            border: '1px dashed var(--color-border, #e2e8f0)',
+            background: 'var(--color-surface-raised, #f1f3f5)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            color: 'var(--color-ink-tertiary, #94a3b8)',
             flexShrink: 0,
           }}
-        />
+        >
+          {/* Inline camera glyph — 16x16 stroked SVG, currentColor. */}
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M3 7h3l2-2h8l2 2h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 'var(--weight-semibold, 600)',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {t('public.feed.no_photo', null, lang)}
+          </span>
+        </div>
       )}
       <div
         style={{
@@ -695,14 +762,16 @@ function PublicActivityCard({
           <span
             lang={lang}
             style={{
-              padding: '2px var(--space-2)',
+              padding: '3px var(--space-2)',
               background: colors.bg,
               color: colors.fg,
               borderRadius: 'var(--radius-pill)',
-              fontSize: 10,
-              fontWeight: 'var(--weight-bold)',
+              fontSize: 11,
+              fontWeight: 'var(--weight-semibold)',
               textTransform: 'uppercase',
+              letterSpacing: '0.04em',
               whiteSpace: 'nowrap',
+              lineHeight: 1.2,
             }}
           >
             {statusLabel}
@@ -745,6 +814,15 @@ function PublicActivityCard({
             flexWrap: 'wrap',
           }}
         >
+          {/*
+            Bolt 008-011: ward pill now renders the human-readable
+            ward name (e.g. "Ward 14 — Mirpur") instead of slicing
+            the raw wardId ("cmv53x"). Falls back to the id slice
+            when the join is missing on older payloads. The
+            location-pin glyph + a soft surface tint give the pill
+            a more "city bulletin" look on both light and dark
+            themes.
+          */}
           <span
             lang={lang}
             style={{
@@ -752,15 +830,35 @@ function PublicActivityCard({
               alignItems: 'center',
               gap: 4,
               padding: '2px var(--space-2)',
-              background: 'var(--color-surface-raised)',
-              border: '1px solid var(--color-border)',
+              background: 'var(--color-primary-soft, #e6f2ee)',
+              border: '1px solid var(--color-border, #e2e8f0)',
               borderRadius: 'var(--radius-pill)',
               fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink-secondary)',
+              color: 'var(--color-ink, #0f172a)',
               fontWeight: 'var(--weight-semibold)',
             }}
           >
-            {t('public.feed.ward', null, lang)} {ticket.wardId.slice(0, 6)}
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M12 22s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <span>
+              {t('public.feed.ward', null, lang)}{' '}
+              {lang === 'bn'
+                ? ticket.wardNameBn ?? ticket.wardName ?? ticket.wardId
+                : ticket.wardName ?? ticket.wardNameBn ?? ticket.wardId}
+            </span>
           </span>
         </div>
       </div>

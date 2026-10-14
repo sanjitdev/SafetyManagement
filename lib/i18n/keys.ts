@@ -89,6 +89,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Could not load activity',
   },
   'public.feed.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'public.feed.no_photo': { bn: 'ছবি নেই', en: 'No photo' },
   'public.activity.cta': {
     bn: 'রিপোর্ট করতে নিবন্ধন করুন',
     en: 'Register to file a report',

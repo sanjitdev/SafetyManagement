@@ -308,6 +308,16 @@ export interface PublicSerializedTicket {
   id: string;
   cityId: string;
   wardId: string;
+  /**
+   * Human-readable ward name (Bolt 008-011). The public surface
+   * shows a "Ward 14 — Mirpur" pill instead of the raw wardId so
+   * the activity feed reads as a public city bulletin, not a DB
+   * dump. Ward names are not PII (they're the city's own
+   * public-facing boundary labels); `locationLabel` is still
+   * stripped because that one can carry a street address.
+   */
+  wardName: string | null;
+  wardNameBn: string | null;
   categoryId: string;
   status: TicketStatus;
   locationLng: number;
@@ -327,6 +337,8 @@ export function serializeTicketForPublic(
     id: ticket.id,
     cityId: ticket.cityId,
     wardId: ticket.wardId,
+    wardName: ticket.wardName ?? null,
+    wardNameBn: ticket.wardNameBn ?? null,
     categoryId: ticket.categoryId,
     status: ticket.status,
     locationLng: ticket.locationLng,
