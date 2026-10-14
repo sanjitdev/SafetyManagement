@@ -4,7 +4,7 @@
 > four ways to log in as each (dev store bypass, real auth,
 > production escape hatch, WebAuthn for admin).
 
-**Dev:feat URL**: `http://localhost:3200` (in-memory dev store,
+**Dev:feat URL**: `http://localhost:3000` (in-memory dev store,
 `CITYFIX_DEV_STORE=1`).
 **Production URL**: Vercel (Postgres-backed, dev store off).
 
@@ -43,26 +43,26 @@ design.
 
 ### 1. One-click via dev:feat (the easiest, dev only)
 
-The dev:feat build (`http://localhost:3200`) has the dev store on.
+The dev:feat build (`http://localhost:3000`) has the dev store on.
 A single click mints a session for any persona — **no OTP, no
 NID, no password**:
 
 ```bash
 # As Rahim (citizen)
-curl -sS -X POST http://localhost:3200/api/dev/login?role=citizen -c cookies.txt
+curl -sS -X POST http://localhost:3000/api/dev/login?role=citizen -c cookies.txt
 
 # As Habib (dispatcher)
-curl -sS -X POST http://localhost:3200/api/dev/login?role=dispatcher -c cookies.txt
+curl -sS -X POST http://localhost:3000/api/dev/login?role=dispatcher -c cookies.txt
 
 # As Rashid (crew)
-curl -sS -X POST http://localhost:3200/api/dev/login?role=crew -c cookies.txt
+curl -sS -X POST http://localhost:3000/api/dev/login?role=crew -c cookies.txt
 
 # As Anwar (admin)
-curl -sS -X POST http://localhost:3200/api/dev/login?role=admin -c cookies.txt
+curl -sS -X POST http://localhost:3000/api/dev/login?role=admin -c cookies.txt
 ```
 
 Or in the browser, just visit
-`http://localhost:3200/api/dev/login?role=citizen` and the redirect
+`http://localhost:3000/api/dev/login?role=citizen` and the redirect
 carries you straight to `/home` with a session cookie set.
 
 > **Admin caveat**: the dev `/api/dev/login?role=admin` mints a
