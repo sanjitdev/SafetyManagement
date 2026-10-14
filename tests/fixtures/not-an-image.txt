@@ -1,0 +1,5 @@
+This is not an image. It is a text file.
+It is used by tests/23-crew-after-photo-file-upload.spec.ts
+to assert that the file picker rejects an unsupported MIME
+type (text/plain) with the crew.photo.error.invalid_file
+error message.
