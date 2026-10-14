@@ -35,8 +35,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 import {
   formatCachedAge,
   readAssignmentsCache,
@@ -177,12 +175,23 @@ export default function CrewPage() {
   >(null);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
+    function syncLang() {
+      try {
+        const stored = window.localStorage.getItem(LANG_KEY);
+        if (stored === 'en' || stored === 'bn') setLang(stored);
+      } catch {
+        // ignore
+      }
     }
+    syncLang();
+    window.addEventListener('storage', syncLang);
+    window.addEventListener('focus', syncLang);
+    const id = window.setInterval(syncLang, 1000);
+    return () => {
+      window.removeEventListener('storage', syncLang);
+      window.removeEventListener('focus', syncLang);
+      window.clearInterval(id);
+    };
   }, []);
 
   // Fetch the session's userId on mount so the
@@ -376,16 +385,6 @@ export default function CrewPage() {
     );
   }, []);
 
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
-
   // Annotate each ticket with its distance from the device
   // when Geolocation is granted. The distance is recomputed
   // on every render (cheap; O(n) over a small list) and
@@ -452,94 +451,33 @@ export default function CrewPage() {
       }}
       data-testid="crew-list-page"
     >
-      {/* Top bar */}
-      <header
+      {/* Sub-header: scope tag. Brand, lang, theme, and user
+          menu are rendered by the global AppHeader (AppShell). */}
+      <div
         style={{
-          height: 56,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-4)',
+          justifyContent: 'flex-start',
+          padding: 'var(--space-1) var(--space-4)',
           background: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-border)',
           gap: 'var(--space-2)',
         }}
       >
-        <Link
-          href="/"
+        <span
+          lang={lang}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            textDecoration: 'none',
-            color: 'var(--color-ink)',
-            flexShrink: 1,
-            minWidth: 0,
+            fontSize: 'var(--text-caption)',
+            color: 'var(--color-ink-secondary)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 10,
-              height: 10,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 'var(--text-body-md)',
-              fontWeight: 'var(--weight-bold)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            CityFix
-          </span>
-          <span
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink-secondary)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            · Crew · ward_14 · dept_streetlight
-          </span>
-        </Link>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} />
-          <UserMenu lang={lang} />
-        </div>
-      </header>
+          · Crew · ward_14 · dept_streetlight
+        </span>
+      </div>
 
       {/* Page title + filter pills + Geolocation CTA */}
       <div

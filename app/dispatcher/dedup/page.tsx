@@ -25,7 +25,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -100,12 +99,23 @@ export default function DispatcherDedupReviewPage() {
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
+    function syncLang() {
+      try {
+        const stored = window.localStorage.getItem(LANG_KEY);
+        if (stored === 'en' || stored === 'bn') setLang(stored);
+      } catch {
+        // ignore
+      }
     }
+    syncLang();
+    window.addEventListener('storage', syncLang);
+    window.addEventListener('focus', syncLang);
+    const id = window.setInterval(syncLang, 1000);
+    return () => {
+      window.removeEventListener('storage', syncLang);
+      window.removeEventListener('focus', syncLang);
+      window.clearInterval(id);
+    };
   }, []);
 
   const fetchFlags = useCallback(async () => {
@@ -142,16 +152,6 @@ export default function DispatcherDedupReviewPage() {
   useEffect(() => {
     void fetchFlags();
   }, [fetchFlags]);
-
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
 
   async function onConfirm(flagId: string) {
     setRowError(null);
@@ -260,14 +260,13 @@ export default function DispatcherDedupReviewPage() {
       }}
       data-testid="dispatcher-dedup-page"
     >
-      <header
+      <div
         style={{
-          height: 64,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
+          padding: 'var(--space-2) var(--space-5)',
           background: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-border)',
           gap: 'var(--space-3)',
@@ -281,6 +280,7 @@ export default function DispatcherDedupReviewPage() {
             gap: 'var(--space-2)',
             textDecoration: 'none',
             color: 'var(--color-ink)',
+            fontSize: 'var(--text-body-sm)',
           }}
         >
           ← {t('dispatcher.queue.title', null, lang)}
@@ -302,26 +302,8 @@ export default function DispatcherDedupReviewPage() {
           >
             {t('dispatcher.map.cta', null, lang)}
           </Link>
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} />
         </div>
-      </header>
+      </div>
 
       <main
         style={{

@@ -31,8 +31,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -110,12 +108,27 @@ export default function DispatcherPage() {
   const previousIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
+    function syncLang() {
+      try {
+        const stored = window.localStorage.getItem(LANG_KEY);
+        if (stored === 'en' || stored === 'bn') setLang(stored);
+      } catch {
+        // ignore
+      }
     }
+    syncLang();
+    // Listen for cross-component lang changes (the global AppHeader
+    // writes the same key on toggle, but `storage` events only fire
+    // for OTHER tabs/windows. So we also poll on focus + a small
+    // interval, which catches same-tab updates cheaply).
+    window.addEventListener('storage', syncLang);
+    window.addEventListener('focus', syncLang);
+    const id = window.setInterval(syncLang, 1000);
+    return () => {
+      window.removeEventListener('storage', syncLang);
+      window.removeEventListener('focus', syncLang);
+      window.clearInterval(id);
+    };
   }, []);
 
   const fetchQueue = useCallback(async () => {
@@ -247,16 +260,6 @@ export default function DispatcherPage() {
     };
   }, [signedIn]);
 
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
-
   const filteredTickets = useMemo(() => {
     if (filter === 'all') return tickets;
     return tickets.filter((t) => t.status === filter);
@@ -314,65 +317,34 @@ export default function DispatcherPage() {
       }}
       data-testid="dispatcher-queue-page"
     >
-      {/* Top bar */}
-      <header
+      {/* Sub-header: scope tag + role-specific nav. Brand, lang,
+          theme, and user menu are rendered by the global AppHeader
+          (AppShell) so we don't duplicate them here. */}
+      <div
         style={{
-          height: 64,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
+          padding: 'var(--space-2) var(--space-5)',
           background: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-border)',
           gap: 'var(--space-3)',
         }}
       >
-        <Link
-          href="/"
+        <span
+          className="dispatcher-brand-scope"
+          lang={lang}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            textDecoration: 'none',
-            color: 'var(--color-ink)',
-            flexShrink: 1,
-            minWidth: 0,
+            fontSize: 'var(--text-body-sm)',
+            color: 'var(--color-ink-secondary)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-bold)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            CityFix
-          </span>
-          <span
-            className="dispatcher-brand-scope"
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            · Dispatcher · ward_14 · dept_streetlight
-          </span>
-        </Link>
+          · Dispatcher · ward_14 · dept_streetlight
+        </span>
 
         <div
           style={{
@@ -422,27 +394,8 @@ export default function DispatcherPage() {
           >
             {t('dispatcher.map.cta', null, lang)}
           </Link>
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} />
-          <UserMenu lang={lang} />
         </div>
-      </header>
+      </div>
 
       {/* Two-region content: filter rail + queue list */}
       <div

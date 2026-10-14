@@ -17,8 +17,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 import { AdminAuditFilters } from '@/components/AdminAuditFilters';
 import { AdminAuditTable } from '@/components/AdminAuditTable';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -243,7 +241,7 @@ export default function AdminAuditPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
+      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link
             href="/admin/cities"
@@ -258,18 +256,7 @@ export default function AdminAuditPage() {
             {t('admin.audit.subtitle', null, lang)}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="text-xs text-slate-600"
-            onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}
-          >
-            {lang === 'bn' ? 'EN' : 'বাংলা'}
-          </button>
-          <ThemeToggle />
-          <UserMenu lang={lang} />
-        </div>
-      </header>
+      </div>
       <div className="flex-1 flex" style={{ minHeight: 0 }}>
         <aside
           className="border-r border-slate-200 bg-white"

@@ -26,8 +26,6 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -183,7 +181,7 @@ export default function WardsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
+      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link
             href={`/admin/cities/${id}/taxonomy`}
@@ -195,18 +193,7 @@ export default function WardsPage() {
             {t('admin.wards.title', null, lang)}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="text-xs text-slate-600"
-            onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}
-          >
-            {lang === 'bn' ? 'EN' : 'বাংলা'}
-          </button>
-          <ThemeToggle />
-          <UserMenu lang={lang} />
-        </div>
-      </header>
+      </div>
       <main className="px-6 py-8 max-w-6xl mx-auto space-y-6">
         {error ? (
           <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">

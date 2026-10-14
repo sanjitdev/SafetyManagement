@@ -57,8 +57,6 @@ import {
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 import {
   displayNameFor,
   categoryLabel,
@@ -195,12 +193,23 @@ export default function CrewTicketPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
+    function syncLang() {
+      try {
+        const stored = window.localStorage.getItem(LANG_KEY);
+        if (stored === 'en' || stored === 'bn') setLang(stored);
+      } catch {
+        // ignore
+      }
     }
+    syncLang();
+    window.addEventListener('storage', syncLang);
+    window.addEventListener('focus', syncLang);
+    const id = window.setInterval(syncLang, 1000);
+    return () => {
+      window.removeEventListener('storage', syncLang);
+      window.removeEventListener('focus', syncLang);
+      window.clearInterval(id);
+    };
   }, []);
 
   // Build the navigate URL on mount once the ticket
@@ -308,16 +317,6 @@ export default function CrewTicketPage() {
     if (!signedIn || !id) return;
     void fetchTicket();
   }, [signedIn, id, fetchTicket]);
-
-  function toggleLang() {
-    const next: Language = lang === 'bn' ? 'en' : 'bn';
-    setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-  }
 
   // Compute the visible transition buttons. The set
   // is the intersection of (engine edges from
@@ -584,15 +583,15 @@ export default function CrewTicketPage() {
       }}
       data-testid="crew-ticket-page"
     >
-      {/* Top bar */}
-      <header
+      {/* Sub-header: back link only. Brand, lang, theme, and
+          user menu are rendered by the global AppHeader (AppShell). */}
+      <div
         style={{
-          height: 56,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-4)',
+          justifyContent: 'flex-start',
+          padding: 'var(--space-1) var(--space-4)',
           background: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-border)',
           gap: 'var(--space-2)',
@@ -614,42 +613,7 @@ export default function CrewTicketPage() {
         >
           {t('crew.detail.back_to_list', null, lang)}
         </Link>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            onClick={toggleLang}
-            aria-label="Toggle language"
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              background: 'transparent',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-pill)',
-              color: 'var(--color-ink-secondary)',
-              fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
-          >
-            {t('welcome.lang.toggle', null, lang)}
-          </button>
-          <ThemeToggle lang={lang} />
-          {/* Bolt 008-002 — Story 001: dedup the
-              header chrome. The UserMenu surfaces
-              the avatar + role badge + logout on
-              every other authenticated surface, so
-              the crew ticket-detail header now uses
-              it too. */}
-          <UserMenu lang={lang} />
-        </div>
-      </header>
+      </div>
 
       {/* CREW-006 — cache banner. Renders when the
           page is showing a cached snapshot because

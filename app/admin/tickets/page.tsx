@@ -18,8 +18,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
 import { AdminTicketsFilters } from '@/components/AdminTicketsFilters';
 import { AdminTicketsTable } from '@/components/AdminTicketsTable';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -235,7 +233,7 @@ export default function AdminTicketsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
+      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link
             href="/admin/cities"
@@ -257,17 +255,8 @@ export default function AdminTicketsPage() {
           >
             {t('admin.audit.title', null, lang)}
           </Link>
-          <button
-            type="button"
-            className="text-xs text-slate-600"
-            onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}
-          >
-            {lang === 'bn' ? 'EN' : 'বাংলা'}
-          </button>
-          <ThemeToggle />
-          <UserMenu lang={lang} />
         </div>
-      </header>
+      </div>
       <div className="flex-1 flex" style={{ minHeight: 0 }}>
         <aside
           className="border-r border-slate-200 bg-white"
