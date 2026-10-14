@@ -107,10 +107,76 @@ export default async function HomePage() {
                   fontWeight: 'var(--weight-semibold)',
                   cursor: 'pointer',
                 }}
+                data-testid="dev-login-citizen"
               >
                 Sign in as Rahim (demo citizen) →
               </button>
             </form>
+            <p
+              style={{
+                margin: 'var(--space-4) 0 var(--space-2)',
+                fontSize: 'var(--text-caption)',
+                color: 'var(--color-ink-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: 'var(--tracking-wide)',
+                fontWeight: 'var(--weight-semibold)',
+              }}
+            >
+              Switch persona
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <form action="/api/dev/login?role=dispatcher" method="post">
+                <button
+                  type="submit"
+                  data-testid="dev-login-dispatcher"
+                  style={{
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'transparent',
+                    color: 'var(--color-ink)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 'var(--text-caption)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Habib (dispatcher)
+                </button>
+              </form>
+              <form action="/api/dev/login?role=crew" method="post">
+                <button
+                  type="submit"
+                  data-testid="dev-login-crew"
+                  style={{
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'transparent',
+                    color: 'var(--color-ink)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 'var(--text-caption)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Rashid (crew)
+                </button>
+              </form>
+              <form action="/api/dev/login?role=admin" method="post">
+                <button
+                  type="submit"
+                  data-testid="dev-login-admin"
+                  style={{
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'transparent',
+                    color: 'var(--color-ink)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 'var(--text-caption)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Anwar (admin)
+                </button>
+              </form>
+            </div>
             <Link
               href="/splash"
               style={{
