@@ -32,9 +32,12 @@ export async function GET(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
   }
-  if (session.role !== 'citizen') {
-    return NextResponse.json({ error: 'role_not_supported' }, { status: 403 });
-  }
+  // Authenticated any-role feed: citizens see the anonymised view,
+  // dispatchers/crew/admins see the same city-scoped stream with
+  // real actor ids (the serializer is role-aware, see
+  // lib/serializers/ticket.ts). The query is always city-scoped via
+  // session.cityId so a non-citizen role can never see another
+  // city's tickets.
 
   const url = new URL(req.url);
   const parsed = ActivityInput.safeParse({
