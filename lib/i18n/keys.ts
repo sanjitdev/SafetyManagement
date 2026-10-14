@@ -853,19 +853,33 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
 
   // WO-001 1.6 — My Reports list (citizen's own reports, /reports)
   'reports.breadcrumb': { bn: 'আমার রিপোর্ট', en: 'My reports' },
+  'reports.breadcrumb.all': { bn: 'সব রিপোর্ট', en: 'All reports' },
   'reports.link.home': { bn: 'হোম', en: 'Home' },
   'reports.title': { bn: 'আমার রিপোর্ট', en: 'My reports' },
+  'reports.title.all': { bn: 'সব রিপোর্ট', en: 'All city reports' },
   'reports.subtitle': {
     bn: 'আপনার জমা দেওয়া সব রিপোর্ট এখানে দেখুন',
     en: 'All reports you have submitted',
+  },
+  'reports.subtitle.all': {
+    bn: 'শহরের সকল রিপোর্ট একনজরে',
+    en: 'Every report filed in the city, in one place',
   },
   'reports.empty.title': {
     bn: 'এখনো কোনো রিপোর্ট নেই',
     en: 'You have not submitted any reports yet',
   },
+  'reports.empty.title.all': {
+    bn: 'এই শহরে এখনো কোনো রিপোর্ট নেই',
+    en: 'No reports have been filed in this city yet',
+  },
   'reports.empty.subtitle': {
     bn: 'আপনার প্রথম রিপোর্ট জমা দিন এবং শহরকে আরও ভালো করতে সাহায্য করুন।',
     en: 'Submit your first report and help make the city better.',
+  },
+  'reports.empty.subtitle.all': {
+    bn: 'নাগরিকরা রিপোর্ট জমা দিলে এখানে দেখা যাবে।',
+    en: 'Reports filed by citizens will appear here.',
   },
   'reports.empty.cta': { bn: 'নতুন রিপোর্ট', en: 'New report' },
   'reports.signin_required': {

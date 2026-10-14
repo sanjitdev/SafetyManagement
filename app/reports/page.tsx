@@ -1,15 +1,22 @@
 /**
- * 1.6 My Reports — list view.
+ * 1.6 Reports — list view.
  *
  * Phase B (2026-10-04): web-first, 1440×900 + 1024×768 viewports. The
  * top bar (64px) carries brand + breadcrumb + Home link + language toggle
- * + theme toggle + avatar. The content area shows the citizen's own
- * tickets (filtered from /api/v1/activity by reporterId). Each row links
- * to the re-skinned detail page at /reports/[id].
+ * + theme toggle + avatar. The content area shows either the citizen's
+ * own tickets (filtered from /api/v1/activity by reporterId) or, for
+ * staff roles (admin / dispatcher / crew), every ticket filed in the
+ * session's city. Each row links to the re-skinned detail page at
+ * /reports/[id].
  *
  * The home top bar's "My reports" link points here, so this page
  * replaces the previous 404. It reuses the activity feed for data; we
  * filter client-side to keep the API surface small.
+ *
+ * Bolt 008-010: staff roles (admin / dispatcher / crew) no longer
+ * see the misleading empty state when the activity feed returns
+ * tickets — they get the same rows with a different title +
+ * breadcrumb + no "+ Report" CTA (staff don't file reports).
  */
 
 'use client';
@@ -112,6 +119,11 @@ export default function ReportsListPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  // Bolt 008-010: capture the session role so we can render the
+  // staff view ("All city reports") for admin / dispatcher / crew.
+  const [role, setRole] = useState<'citizen' | 'dispatcher' | 'crew' | 'admin' | null>(
+    null,
+  );
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +146,7 @@ export default function ReportsListPage() {
         const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
         const status = (await statusRes.json()) as {
           authenticated: boolean;
-          session?: { userId: string };
+          session?: { userId: string; role: 'citizen' | 'dispatcher' | 'crew' | 'admin' };
         };
         if (cancelled) return;
         if (!status.authenticated) {
@@ -143,6 +155,7 @@ export default function ReportsListPage() {
         }
         setSignedIn(true);
         setUserId(status.session?.userId ?? null);
+        setRole(status.session?.role ?? null);
 
         const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
         if (!bootRes.ok) {
@@ -217,10 +230,15 @@ export default function ReportsListPage() {
     };
   }, []);
 
-  // Only this citizen's own reports
+  // Citizens see only their own reports; staff (admin / dispatcher /
+  // crew) see every report filed in the session's city — the API
+  // already scopes to session.cityId. The activity endpoint is
+  // city-scoped for every role (Bolt 008-009), so this filter is
+  // safe: a non-citizen role can never see another city's tickets.
+  const isStaff = role !== null && role !== 'citizen';
   const mine = useMemo(
-    () => (userId ? tickets.filter((t) => t.reporterId === userId) : []),
-    [tickets, userId],
+    () => (isStaff ? tickets : userId ? tickets.filter((t) => t.reporterId === userId) : []),
+    [tickets, userId, isStaff],
   );
 
   function toggleLang() {
@@ -313,7 +331,7 @@ export default function ReportsListPage() {
               marginBottom: 'var(--space-2)',
             }}
           >
-            {t('reports.breadcrumb', null, lang)}
+            {t(isStaff ? 'reports.breadcrumb.all' : 'reports.breadcrumb', null, lang)}
           </span>
           <div
             style={{
@@ -336,7 +354,7 @@ export default function ReportsListPage() {
                   letterSpacing: 'var(--tracking-tight)',
                 }}
               >
-                {t('reports.title', null, lang)}
+                {t(isStaff ? 'reports.title.all' : 'reports.title', null, lang)}
               </h1>
               <p
                 lang={lang}
@@ -347,9 +365,13 @@ export default function ReportsListPage() {
                   lineHeight: 1.5,
                 }}
               >
-                {t('reports.subtitle', null, lang)}
+                {t(isStaff ? 'reports.subtitle.all' : 'reports.subtitle', null, lang)}
               </p>
             </div>
+            {/* Bolt 008-010: staff don't file reports, so the "+ Report"
+                CTA is hidden for non-citizen roles. The empty state
+                below also omits its CTA for staff. */}
+            {!isStaff && (
             <Link
               href="/report/location"
               lang={lang}
@@ -369,6 +391,7 @@ export default function ReportsListPage() {
             >
               {t('reports.empty.cta', null, lang)}
             </Link>
+            )}
           </div>
 
           {/* Loading / error / empty / list */}
@@ -415,7 +438,7 @@ export default function ReportsListPage() {
                   margin: '0 0 var(--space-2)',
                 }}
               >
-                {t('reports.empty.title', null, lang)}
+                {t(isStaff ? 'reports.empty.title.all' : 'reports.empty.title', null, lang)}
               </p>
               <p
                 lang={lang}
@@ -426,8 +449,9 @@ export default function ReportsListPage() {
                   lineHeight: 1.5,
                 }}
               >
-                {t('reports.empty.subtitle', null, lang)}
+                {t(isStaff ? 'reports.empty.subtitle.all' : 'reports.empty.subtitle', null, lang)}
               </p>
+              {!isStaff && (
               <Link
                 href="/report/location"
                 lang={lang}
@@ -443,6 +467,7 @@ export default function ReportsListPage() {
               >
                 {t('reports.empty.cta', null, lang)}
               </Link>
+              )}
             </div>
           )}
 
