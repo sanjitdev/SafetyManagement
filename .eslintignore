@@ -1,0 +1,25 @@
+# NOTE: ESLint 9 uses flat config (`eslint.config.mjs`) — the `ignores` array
+# in that file is the authoritative ignore list. This file is kept for
+# compatibility with any tooling that still consults `.eslintignore`
+# (e.g. eslint v8 invoked directly, or editor integrations that probe it).
+#
+# Keep both lists in sync.
+
+.next/
+node_modules/
+coverage/
+out/
+dist/
+test-results/
+playwright-report/
+tests-mockups/baselines/
+tests-mockups/artifacts/
+tests-mockups/html-report/
+.puku-cli/
+.specsmd/
+aidlc/
+_bmad/
+.wds/
+design-artifacts/
+prisma/migrations/
+next-env.d.ts

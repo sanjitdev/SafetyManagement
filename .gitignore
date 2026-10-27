@@ -3,6 +3,14 @@ node_modules/
 test-results/
 playwright/.cache/
 
+# Generated test reports (regenerated locally; never committed)
+coverage/
+playwright-report/
+
+# Local curl cookie jars used by the manual smoke-test loop.
+# These carry live `cityfix_session` cookies — never commit them.
+cf-cookies.txt
+
 # Generated Playwright test outputs (baselines live in tests-mockups/baselines/ and ARE committed)
 tests-mockups/artifacts/
 tests-mockups/artifacts/**

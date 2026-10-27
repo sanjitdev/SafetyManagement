@@ -1,0 +1,74 @@
+name: CI
+
+# The trunk branch is `prd-development` (team.md — "Way of Working").
+# This workflow runs on every push and pull request so the 80% coverage
+# floor (team.md — "Testing Posture") is enforced before merge.
+
+on:
+  push:
+    branches: [prd-development, main]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (lint, typecheck, unit, coverage, visual, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # The unit suite and the mockup suite both run against the
+      # in-memory dev store, so CI needs no Postgres. The dev store
+      # is the same seam the local `npm run dev:feat` uses.
+      CITYFIX_DEV_STORE: '1'
+      # Placeholders only — never real credentials. The app's
+      # production guards (e.g. the WebAuthn RP origin check in
+      # lib/auth/webauthn.ts) read these at boot.
+      DATABASE_URL: 'postgresql://cityfix:cityfix@localhost:5432/cityfix'
+      SESSION_SECRET: 'ci-placeholder-session-secret-not-a-real-credential'
+      WEBAUTHN_RP_ID: 'localhost'
+      WEBAUTHN_RP_ORIGIN: 'http://localhost:3000'
+      OTP_PROVIDER: 'stub'
+      # A non-prod NODE_ENV so the production-only guards stay quiet in
+      # the build step. `next build` sets its own NODE_ENV=production,
+      # which is why the WebAuthn guard needs the https origin above.
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Coverage floor
+        run: npm run test:unit:coverage
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual regression (mockup baselines)
+        run: npm run test:mockups
+
+      - name: Build
+        run: npm run build
