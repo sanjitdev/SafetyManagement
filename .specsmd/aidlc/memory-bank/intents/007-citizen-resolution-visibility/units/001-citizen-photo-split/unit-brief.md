@@ -2,9 +2,9 @@
 unit: 001-citizen-photo-split
 intent: 007-citizen-resolution-visibility
 phase: inception
-status: draft
+status: complete
 created: 2026-10-13T20:10:00Z
-updated: 2026-10-13T20:10:00Z
+updated: 2026-10-27T00:00:00Z
 priority: must
 ---
 

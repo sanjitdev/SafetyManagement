@@ -2,11 +2,11 @@
 id: 001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls
 unit: 001-citizen-photo-split
 intent: 007-citizen-resolution-visibility
-status: ready
+status: complete
 priority: must
 created: 2026-10-13T20:15:00Z
 assigned_bolt: 007-001-citizen-photo-and-trail-foundation
-implemented: false
+implemented: true
 ---
 
 # Story: Prisma migration + serializer exposes `beforePhotoUrls` and `afterPhotoUrls`

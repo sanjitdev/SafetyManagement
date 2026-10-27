@@ -3,7 +3,7 @@ standard: intents-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-14T18:50:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Intents Index
@@ -25,7 +25,7 @@ in its own folder and ships a `requirements.md`,
 | [005-admin-city-setup](005-admin-city-setup/requirements.md) | Admin City Setup (WO-004) | **complete** | 4 | 7 |
 | [006-citizen-home-and-report-redesign](006-citizen-home-and-report-redesign/requirements.md) | Citizen Home + Report Redesign (v1.1) | **complete** | 3 | 5 |
 | [007-citizen-resolution-visibility](007-citizen-resolution-visibility/requirements.md) | Citizen Resolution Visibility (Bolt 007) | **complete** | 3 | 5 |
-| [008-ux-polish-from-demo](008-ux-polish-from-demo/requirements.md) | UX Polish from Slow-motion Demo | **in-progress** | 3 | 5 |
+| [008-ux-polish-from-demo](008-ux-polish-from-demo/requirements.md) | UX Polish from Slow-motion Demo | **complete** | 3 | 5 |
 
 Intent 002 closed on 2026-10-11: all 5 bolts
 (002-001 through 002-005) shipped to `done`;
@@ -44,10 +44,16 @@ City Setup) closed on 2026-10-12. Intent 006
 on 2026-10-13. Intent 007 (Citizen Resolution
 Visibility) closed on 2026-10-13 with bolts
 007-001 + 007-002. Intent 008 (UX Polish from
-Slow-motion Demo) opens 2026-10-14 with 3
+Slow-motion Demo) opened 2026-10-14 with 3
 units + 5 stories; the audit catalog is grounded
 in the 21 frames captured by
-`tests/22-slow-motion-e2e-demo.spec.ts`.
+`tests/22-slow-motion-e2e-demo.spec.ts`. Its
+first three bolts (008-001 i18n copy fixup,
+008-002 visible chrome, 008-003 crew after-photo
+file upload) all shipped and the intent closed;
+a metadata reconciliation on 2026-10-27
+confirmed the bolts had landed and brought the
+memory-bank status fields up to date.
 
 ## Status legend
 

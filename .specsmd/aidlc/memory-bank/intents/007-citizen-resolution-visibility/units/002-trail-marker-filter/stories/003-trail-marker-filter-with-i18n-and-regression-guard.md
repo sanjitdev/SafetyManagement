@@ -2,11 +2,11 @@
 id: 003-trail-marker-filter-with-i18n-and-regression-guard
 unit: 002-trail-marker-filter
 intent: 007-citizen-resolution-visibility
-status: ready
+status: complete
 priority: must
 created: 2026-10-13T20:15:00Z
 assigned_bolt: 007-001-citizen-photo-and-trail-foundation
-implemented: false
+implemented: true
 ---
 
 # Story: Citizen trail filter + i18n key + regression-guard test

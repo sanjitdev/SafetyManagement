@@ -2,8 +2,9 @@
 story: 001-crew-after-photo-accepts-multipart
 unit: 003-crew-after-photo-upload
 intent: 008-ux-polish-from-demo
-status: ready
+status: complete
 created: 2026-10-14T18:45:00Z
+implemented: true
 ---
 
 # Story 001 — Crew After-photo Accepts Multipart

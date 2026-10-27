@@ -2,8 +2,9 @@
 story: 001-dedupe-header-chrome-on-ticket-detail-pages
 unit: 002-visible-chrome
 intent: 008-ux-polish-from-demo
-status: ready
+status: complete
 created: 2026-10-14T18:45:00Z
+implemented: true
 ---
 
 # Story 001 — Dedupe Header Chrome on Ticket-detail Pages

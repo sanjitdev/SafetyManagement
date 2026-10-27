@@ -3,7 +3,7 @@ standard: story-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-13T20:20:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Story Index
@@ -203,29 +203,46 @@ from 8 `ThemeToggle` call sites. Recorded in
 `## 2026-10-13 — Chrome unification + ward
 name join` (added in the same sync).
 
-## Intent 007 — Citizen Resolution Visibility (in-progress)
+## Intent 007 — Citizen Resolution Visibility (complete)
 
 Inception started 2026-10-13. The 3-unit
 decomposition with 5 stories was filed when
 Intent 007 was promoted from `draft` to
-`in-progress`; stories are at `ready` status
-(Checkpoint 2 passed). Bolt `007-001`
-(co-locates Units 001+002; foundation) and
-Bolt `007-002` (Unit 003; dispatcher feature)
-are scoped but not yet planned at the
-bolt-record level. Construction gates on this
-intent's three open questions being resolved
-at the requirements checkpoint (already
-closed at Checkpoint 1 — see
-`intents/007-citizen-resolution-visibility/requirements.md`).
+`in-progress`; all 5 stories shipped in
+Bolts `007-001` (co-locates Units 001+002;
+foundation) and `007-002` (Unit 003;
+dispatcher feature). The intent's three open
+questions were resolved at the requirements
+checkpoint (Checkpoint 1) — see
+`intents/007-citizen-resolution-visibility/requirements.md`.
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|
-| 001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls | 001-citizen-photo-split | ready | Prisma migration + serializer exposes `beforePhotoUrls` and `afterPhotoUrls` | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls.md` |
-| 002-page-renders-two-labelled-photo-groups | 001-citizen-photo-split | ready | `/reports/[id]` renders two labelled photo groups | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/002-page-renders-two-labelled-photo-groups.md` |
-| 003-trail-marker-filter-with-i18n-and-regression-guard | 002-trail-marker-filter | ready | Citizen trail filter + i18n key + regression-guard test | `intents/007-citizen-resolution-visibility/units/002-trail-marker-filter/stories/003-trail-marker-filter-with-i18n-and-regression-guard.md` |
-| 004-patch-assign-crew-endpoint-with-ward-gate-and-audit | 003-dispatcher-crew-picker | ready | `PATCH /api/v1/dispatcher/tickets/[id]/assign-crew` endpoint with ward gate + audit | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/004-patch-assign-crew-endpoint-with-ward-gate-and-audit.md` |
-| 005-dispatcher-ticket-detail-picker-ui-and-visual-baseline | 003-dispatcher-crew-picker | ready | Dispatcher ticket-detail picker UI + visual baseline | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/005-dispatcher-ticket-detail-picker-ui-and-visual-baseline.md` |
+| 001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls | 001-citizen-photo-split | done | Prisma migration + serializer exposes `beforePhotoUrls` and `afterPhotoUrls` | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls.md` |
+| 002-page-renders-two-labelled-photo-groups | 001-citizen-photo-split | done | `/reports/[id]` renders two labelled photo groups | `intents/007-citizen-resolution-visibility/units/001-citizen-photo-split/stories/002-page-renders-two-labelled-photo-groups.md` |
+| 003-trail-marker-filter-with-i18n-and-regression-guard | 002-trail-marker-filter | done | Citizen trail filter + i18n key + regression-guard test | `intents/007-citizen-resolution-visibility/units/002-trail-marker-filter/stories/003-trail-marker-filter-with-i18n-and-regression-guard.md` |
+| 004-patch-assign-crew-endpoint-with-ward-gate-and-audit | 003-dispatcher-crew-picker | done | `PATCH /api/v1/dispatcher/tickets/[id]/assign-crew` endpoint with ward gate + audit | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/004-patch-assign-crew-endpoint-with-ward-gate-and-audit.md` |
+| 005-dispatcher-ticket-detail-picker-ui-and-visual-baseline | 003-dispatcher-crew-picker | done | Dispatcher ticket-detail picker UI + visual baseline | `intents/007-citizen-resolution-visibility/units/003-dispatcher-crew-picker/stories/005-dispatcher-ticket-detail-picker-ui-and-visual-baseline.md` |
+
+## Intent 008 — UX Polish from Slow-motion Demo (complete)
+
+Inception opened 2026-10-14. The 3-unit
+decomposition with 5 stories was filed when
+Intent 008 was promoted from `draft` to
+`in-progress`; the audit catalog is grounded
+in the 21 frames captured by
+`tests/22-slow-motion-e2e-demo.spec.ts`. All
+5 stories shipped in Bolts `008-001` (i18n
+copy fixup), `008-002` (visible chrome), and
+`008-003` (crew after-photo file upload).
+
+| Slug | Unit | Status | Title | Path |
+|------|------|--------|-------|------|
+| 001-register-missing-i18n-keys-and-typos | 001-i18n-copy-fixup | done | Register missing i18n keys and typos | `intents/008-ux-polish-from-demo/units/001-i18n-copy-fixup/stories/001-register-missing-i18n-keys-and-typos.md` |
+| 001-dedupe-header-chrome-on-ticket-detail-pages | 002-visible-chrome | done | Dedupe header chrome on ticket-detail pages | `intents/008-ux-polish-from-demo/units/002-visible-chrome/stories/001-dedupe-header-chrome-on-ticket-detail-pages.md` |
+| 002-render-display-names-on-ticket-surfaces | 002-visible-chrome | done | Render display names on ticket surfaces | `intents/008-ux-polish-from-demo/units/002-visible-chrome/stories/002-render-display-names-on-ticket-surfaces.md` |
+| 003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel | 002-visible-chrome | done | Chrome polish — status pill, assigned crew, icon, button label, photo card | `intents/008-ux-polish-from-demo/units/002-visible-chrome/stories/003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel.md` |
+| 001-crew-after-photo-accepts-multipart | 003-crew-after-photo-upload | done | Crew after-photo accepts multipart | `intents/008-ux-polish-from-demo/units/003-crew-after-photo-upload/stories/001-crew-after-photo-accepts-multipart.md` |
 
 ## Status legend
 

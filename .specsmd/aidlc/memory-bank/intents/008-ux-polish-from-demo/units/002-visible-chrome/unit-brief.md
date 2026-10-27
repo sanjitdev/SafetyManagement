@@ -1,7 +1,9 @@
 ---
 unit: 002-visible-chrome
 intent: 008-ux-polish-from-demo
+status: complete
 created: 2026-10-14T18:35:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Unit 002 — Visible Chrome (unit-brief)

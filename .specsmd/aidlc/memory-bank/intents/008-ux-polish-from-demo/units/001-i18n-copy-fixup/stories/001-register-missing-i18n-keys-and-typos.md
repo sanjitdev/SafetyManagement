@@ -2,8 +2,9 @@
 story: 001-register-missing-i18n-keys-and-typos
 unit: 001-i18n-copy-fixup
 intent: 008-ux-polish-from-demo
-status: ready
+status: complete
 created: 2026-10-14T18:45:00Z
+implemented: true
 ---
 
 # Story 001 — Register Missing i18n Keys and Typos

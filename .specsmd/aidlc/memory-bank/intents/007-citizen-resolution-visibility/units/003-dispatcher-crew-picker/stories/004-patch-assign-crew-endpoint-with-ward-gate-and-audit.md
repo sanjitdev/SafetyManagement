@@ -2,11 +2,11 @@
 id: 004-patch-assign-crew-endpoint-with-ward-gate-and-audit
 unit: 003-dispatcher-crew-picker
 intent: 007-citizen-resolution-visibility
-status: ready
+status: complete
 priority: must
 created: 2026-10-13T20:15:00Z
 assigned_bolt: 007-002-dispatcher-crew-picker
-implemented: false
+implemented: true
 ---
 
 # Story: `PATCH /api/v1/dispatcher/tickets/[id]/assign-crew` endpoint with ward gate + audit

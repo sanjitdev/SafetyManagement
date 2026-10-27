@@ -3,15 +3,32 @@ id: 007-001-citizen-photo-and-trail-foundation
 unit: 001-citizen-photo-split
 intent: 007-citizen-resolution-visibility
 type: ddd-construction-bolt
-status: in-progress
+status: complete
 stories:
   - 001-prisma-migration-and-serializer-exposes-before-and-after-photo-urls
   - 002-page-renders-two-labelled-photo-groups
   - 003-trail-marker-filter-with-i18n-and-regression-guard
 created: 2026-10-13T20:20:00Z
 started: 2026-10-13T20:55:00Z
-current_stage: model
-stages_completed: []
+completed: 2026-10-27T00:00:00Z
+updated: 2026-10-27T00:00:00Z
+current_stage: null
+stages_completed:
+  - name: model
+    completed: 2026-10-13T20:55:00Z
+    artifact: ddd-01-domain-model.md
+  - name: design
+    completed: 2026-10-13T20:55:00Z
+    artifact: ddd-02-technical-design.md
+  - name: adr-analysis
+    completed: 2026-10-13T20:55:00Z
+    artifact: ddd-03-adr-analysis.md
+  - name: implement
+    completed: 2026-10-13T22:00:00Z
+    artifact: ddd-03-test-report.md
+  - name: test
+    completed: 2026-10-13T22:30:00Z
+    artifact: ddd-03-test-report.md
 requires_bolts: []
 enables_bolts:
   - 007-002-dispatcher-crew-picker

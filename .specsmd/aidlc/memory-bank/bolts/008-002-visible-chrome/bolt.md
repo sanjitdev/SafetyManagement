@@ -3,12 +3,26 @@ id: 008-002-visible-chrome
 unit: 002-visible-chrome
 intent: 008-ux-polish-from-demo
 type: simple-construction-bolt
-status: planned
+status: complete
 stories:
   - 001-dedupe-header-chrome-on-ticket-detail-pages
   - 002-render-display-names-on-ticket-surfaces
   - 003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel
 created: 2026-10-14T18:20:00Z
+started: 2026-10-14T18:20:00Z
+completed: 2026-10-27T00:00:00Z
+updated: 2026-10-27T00:00:00Z
+current_stage: null
+stages_completed:
+  - name: plan
+    completed: 2026-10-14T18:20:00Z
+    artifact: implementation-plan.md
+  - name: implement
+    completed: 2026-10-14T19:15:00Z
+    artifact: implementation-walkthrough.md
+  - name: test
+    completed: 2026-10-14T19:30:00Z
+    artifact: test-walkthrough.md
 requires_bolts: []
 enables_bolts: []
 requires_units: []

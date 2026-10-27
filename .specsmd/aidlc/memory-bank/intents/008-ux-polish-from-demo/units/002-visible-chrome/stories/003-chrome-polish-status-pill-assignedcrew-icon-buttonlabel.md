@@ -2,8 +2,9 @@
 story: 003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel
 unit: 002-visible-chrome
 intent: 008-ux-polish-from-demo
-status: ready
+status: complete
 created: 2026-10-14T18:45:00Z
+implemented: true
 ---
 
 # Story 003 — Chrome Polish (Status Pill, Assigned Crew, Icon, Button Label, Photo Card)

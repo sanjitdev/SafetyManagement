@@ -3,11 +3,25 @@ id: 007-002-dispatcher-crew-picker
 unit: 003-dispatcher-crew-picker
 intent: 007-citizen-resolution-visibility
 type: simple-construction-bolt
-status: planned
+status: complete
 stories:
   - 004-patch-assign-crew-endpoint-with-ward-gate-and-audit
   - 005-dispatcher-ticket-detail-picker-ui-and-visual-baseline
 created: 2026-10-13T20:20:00Z
+started: 2026-10-13T21:45:00Z
+completed: 2026-10-27T00:00:00Z
+updated: 2026-10-27T00:00:00Z
+current_stage: null
+stages_completed:
+  - name: plan
+    completed: 2026-10-13T21:45:00Z
+    artifact: implementation-plan.md
+  - name: implement
+    completed: 2026-10-13T22:00:00Z
+    artifact: implementation-walkthrough.md
+  - name: test
+    completed: 2026-10-13T22:30:00Z
+    artifact: test-walkthrough.md
 requires_bolts:
   - 007-001-citizen-photo-and-trail-foundation
 enables_bolts: []

@@ -2,8 +2,9 @@
 story: 002-render-display-names-on-ticket-surfaces
 unit: 002-visible-chrome
 intent: 008-ux-polish-from-demo
-status: ready
+status: complete
 created: 2026-10-14T18:45:00Z
+implemented: true
 ---
 
 # Story 002 — Render Display Names on Ticket Surfaces

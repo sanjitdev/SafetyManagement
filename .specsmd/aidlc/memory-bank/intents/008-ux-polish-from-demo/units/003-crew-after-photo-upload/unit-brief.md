@@ -1,7 +1,9 @@
 ---
 unit: 003-crew-after-photo-upload
 intent: 008-ux-polish-from-demo
+status: complete
 created: 2026-10-14T18:40:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Unit 003 — Crew After-photo File Upload (unit-brief)

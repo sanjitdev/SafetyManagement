@@ -1,7 +1,9 @@
 ---
 unit: 001-i18n-copy-fixup
 intent: 008-ux-polish-from-demo
+status: complete
 created: 2026-10-14T18:30:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Unit 001 — i18n Copy Fix-up (unit-brief)

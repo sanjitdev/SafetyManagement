@@ -2,11 +2,11 @@
 id: 005-dispatcher-ticket-detail-picker-ui-and-visual-baseline
 unit: 003-dispatcher-crew-picker
 intent: 007-citizen-resolution-visibility
-status: ready
+status: complete
 priority: must
 created: 2026-10-13T20:15:00Z
 assigned_bolt: 007-002-dispatcher-crew-picker
-implemented: false
+implemented: true
 ---
 
 # Story: Dispatcher ticket-detail picker UI + visual baseline

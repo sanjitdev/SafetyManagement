@@ -1,9 +1,9 @@
 ---
 intent: 007-citizen-resolution-visibility
 phase: inception
-status: inception-complete
+status: complete
 created: 2026-10-13T19:50:00Z
-updated: 2026-10-13T20:25:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Requirements: 007-citizen-resolution-visibility
