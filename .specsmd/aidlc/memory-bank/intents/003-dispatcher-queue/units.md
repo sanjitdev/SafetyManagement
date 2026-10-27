@@ -2,18 +2,21 @@
 intent: 003-dispatcher-queue
 phase: construction
 status: in-progress
-updated: 2026-10-12T01:30:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Dispatcher Queue - Unit Decomposition
 
 ## Units Overview
 
-This intent is **in-progress** (2026-10-12).
+This intent is **in-progress** (2026-10-27).
 Unit briefs and story specs are in place for
-all 5 units. Unit 005 (map view) was
+all 7 units. Unit 005 (map view) was
 promoted from v1.1 deferred to v1 ready and
-shipped in Bolt 003-005. Units 001-005
+shipped in Bolt 003-005. Units 006 (live
+monitor) and 007 (performance reporting)
+were also deferred to v1.1 and shipped in
+Bolt 008-013 and Bolt 008-014. Units 001-007
 delivery notes are below.
 
 ### Unit 001: auth-and-scope
@@ -130,19 +133,106 @@ ready at the start of the bolt per the
 design log's bolt-progress note. See
 `../../bolts/003-005-dispatcher-map-view/ddd-01-bolt-record.md`.
 
+### Unit 006: live-monitor
+
+**Status**: `done`
+**Brief**:
+`006-live-monitor/unit-brief.md`
+**Stories**:
+- `006-live-monitor/DISP-008-live-monitor.md` — `done`
+
+**Estimated Complexity**: M (2 new APIs + new page
++ new service + new unit test + 1 shared Playwright
+spec; 3 inline-SVG charts with accessible table
+siblings, no charting library).
+
+**Delivered in Bolt 008-013** (2026-10-27):
+new `GET /api/v1/dispatcher/monitor` API (Zod-validated
+`filter` / `limit` / `cityId`, cross-city guard, ward
+scope applied in code), new
+`POST /api/v1/dispatcher/monitor/ack` API (Zod-validated
+body, writes the `ticket.monitor_acknowledge` audit row,
+out-of-scope ticket returns 404 not 403), new page
+`app/dispatcher/monitor/page.tsx` (56px header with 3
+`aria-pressed` filter chips, 5s polling via
+`POLL_INTERVAL_MS = 5_000`, "Live updates paused"
+banner on a failed poll, aggregate "N new updates"
+counter derived client-side, inline row expansion
+revealing the last 3 trail steps with `aria-expanded`,
+per-row acknowledge button, 280px desktop chart
+strip), new service `lib/dispatcher/monitor.ts` (pure
+row + flow + response-sparkline + crew-load builders
+exported for the unit suite, plus the DB-facing
+`listMonitorTickets` and `acknowledgeMonitorUpdate`),
+3 inline-SVG charts each with a visually-hidden
+`<table>` sibling (caption + `<th scope="col">`), new
+Vitest suite `tests/unit/dispatcher/monitor.test.ts`
+(33 cases), and the monitor half of the new shared
+Playwright spec
+`tests/26-dispatcher-monitor-performance.spec.ts`.
+New i18n keys under `dispatcher.monitor.*` in both `bn`
+and `en`. The unit-brief + story paperwork was promoted
+from v1.1 deferred to v1 at the start of the bolt. See
+`../../bolts/008-013-dispatcher-live-monitor/bolt.md`.
+
+### Unit 007: performance-reporting
+
+**Status**: `done`
+**Brief**:
+`007-performance-reporting/unit-brief.md`
+**Stories**:
+- `007-performance-reporting/DISP-009-performance-reporting.md` — `done`
+
+**Estimated Complexity**: M (1 new API + new page
++ new service + new unit test + 1 shared Playwright
+spec; 3 inline-SVG charts with accessible table
+siblings, CSV + PDF export, no charting or PDF
+library).
+
+**Delivered in Bolt 008-014** (2026-10-27):
+new `GET /api/v1/dispatcher/performance` API
+(Zod-validated `from` / `to` / `days` / `cityId`,
+cross-city guard, ward scope applied in code, the
+previous period derived from the range's own length), new
+page `app/dispatcher/performance/page.tsx` (sticky 64px
+header reading "Ward 14 · Performance snapshot" with
+the bare ward number, date-range picker — today / last7
+/ last30 / custom — 3 hero stat cards with deltas vs
+the previous period, 3 charts each with a
+visually-hidden `<table>` sibling, sortable crew table
+with `aria-sort` and nulls-last, long-tail list of the
+10 oldest still-open tickets, CSV export via `Blob` +
+`csvEscape` and PDF export via `window.print()` with an
+`@media print` stylesheet; the page deliberately does
+NOT poll), new service `lib/dispatcher/performance.ts`
+(pure `buildHeroStats` / `buildSubmittedVsResolved` /
+`buildCategoryBreakdown` / `buildStatusBreakdown` /
+`buildCrewTable` / `buildLongTail` builders exported
+for the unit suite, plus the DB-facing
+`getPerformanceSnapshot`), new Vitest suite
+`tests/unit/dispatcher/performance.test.ts` (42 cases),
+and the performance half of the shared Playwright spec
+`tests/26-dispatcher-monitor-performance.spec.ts`. New
+i18n keys under `dispatcher.performance.*` in both `bn`
+and `en`. The unit-brief + story paperwork was promoted
+from v1.1 deferred to v1 at the start of the bolt. See
+`../../bolts/008-014-dispatcher-performance-reporting/bolt.md`.
+
 ## Status
 
-Active build (2026-10-12). Intent 002
+Active build (2026-10-27). Intent 002
 (Citizen Report Flow) is `complete`; this
 intent is `in-progress`. The unit
-decomposition is the 5 units from the
-`draft` phase, revised at entry to active
-build and now fully specced. All 5 units
-have delivery notes; Unit 005 was promoted
-from v1.1 deferred to v1 ready and shipped
-in Bolt 003-005.
+decomposition started as the 5 units from
+the `draft` phase, revised at entry to
+active build and now fully specced at 7
+units. All 7 units have delivery notes;
+Unit 005, Unit 006 and Unit 007 were
+promoted from v1.1 deferred to v1 and
+shipped in Bolt 003-005, Bolt 008-013 and
+Bolt 008-014 respectively.
 
-**Bolt progress** (2026-10-12):
+**Bolt progress** (2026-10-27):
 
 - `003-001-auth-and-scope` — ✅ complete
   (paperwork + 14 unit tests + 7 Playwright
@@ -169,10 +259,27 @@ in Bolt 003-005.
   v1.1 deferred to v1 ready at the start
   of the bolt per the design log's
   bolt-progress note.
+- `008-013-live-monitor` — ✅ complete
+  (2 new APIs + 1 new page + 1 new
+  service + 1 new unit test + 1 shared
+  Playwright spec + `dispatcher.monitor.*`
+  i18n keys; 5s polling, 3 inline-SVG charts
+  with accessible table siblings, no
+  charting library). Promoted from v1.1
+  deferred to v1 at the start of the bolt.
+- `008-014-performance-reporting` —
+  ✅ complete (1 new API + 1 new page +
+  1 new service + 1 new unit test + 1
+  shared Playwright spec +
+  `dispatcher.performance.*` i18n keys;
+  snapshot surface that does not poll,
+  CSV + PDF export, no charting or PDF
+  library). Promoted from v1.1 deferred to
+  v1 at the start of the bolt.
 
 The unit decomposition is the 5 units from the
 `draft` phase, revised at entry to active
-build and now fully specced:
+build and now fully specced at 7 units:
 
 - **Unit 001 — auth-and-scope**: the dispatcher
   dev login already exists in WO-000. The
@@ -237,6 +344,40 @@ build and now fully specced:
   (All / Submitted / Routed / In progress)
   on the left rail; legend below. 30s
   polling. Pin clustering for > 50 pins.
+- **Unit 006 — live-monitor**: new API
+  `GET /api/v1/dispatcher/monitor` +
+  `POST /api/v1/dispatcher/monitor/ack` +
+  new page `app/dispatcher/monitor/page.tsx` +
+  new service `lib/dispatcher/monitor.ts`. A
+  single-column live list of the dispatcher's
+  watched tickets, sorted by most-recently
+  updated, with inline row expansion (last 3
+  trail steps), a per-row acknowledge button and
+  a 280px desktop chart strip (today's flow,
+  avg response time, crew load). 5s polling;
+  a failed poll shows a "Live updates paused"
+  banner and the polling continues. The
+  acknowledge writes the
+  `ticket.monitor_acknowledge` audit row; the
+  acknowledgement itself is client-held in v1.
+  The charts are inline SVG, each with an
+  accessible `<table>` sibling.
+- **Unit 007 — performance-reporting**: new API
+  `GET /api/v1/dispatcher/performance` + new
+  page `app/dispatcher/performance/page.tsx` +
+  new service `lib/dispatcher/performance.ts`. A
+  ward performance snapshot over a date range
+  (today / last7 / last30 / custom): 3 hero stats
+  with deltas vs the previous period, 3 charts
+  (submitted vs resolved, category breakdown,
+  status donut), a sortable crew table, and a
+  long-tail list of the 10 oldest still-open
+  tickets. This surface does NOT poll — it
+  refreshes on a range change or a reload. CSV
+  export via `Blob` + `csvEscape`; PDF export via
+  `window.print()` with an `@media print`
+  stylesheet. The charts are inline SVG, each
+  with an accessible `<table>` sibling.
 
 The unit dependency graph:
 
@@ -257,6 +398,14 @@ shipped in Bolt 003-005 after being promoted
 from v1.1 deferred to v1 ready per the
 design log's bolt-progress note.
 
+Units 006 (live monitor) and 007 (performance
+reporting) are likewise independent of Units
+002-005 beyond the shared dispatcher auth +
+scope guard (Unit 001); they depend only on
+Unit 001. They shipped in Bolts 008-013 and
+008-014 after being promoted from v1.1
+deferred to v1.
+
 ## Stories owned
 
 | Slug | Title | Unit | Status target |
@@ -268,10 +417,12 @@ design log's bolt-progress note.
 | DISP-005 | internal-notes | 003 | `done` |
 | DISP-006 | dedup-decline-review | 004 | `done` |
 | DISP-007 | dispatcher-map | 005 | `done` |
+| DISP-008 | live-monitor | 006 | `done` |
+| DISP-009 | performance-reporting | 007 | `done` |
 
 ## Bolt plan
 
-5 Bolt candidates, one per unit. The bolt
+7 Bolt candidates, one per unit. The bolt
 sequence:
 
 1. **Bolt 003-001** (Unit 001):
@@ -310,6 +461,26 @@ sequence:
    new `components/DispatcherMap.tsx` +
    `tests/13-dispatcher-map-light.spec.ts`
    + visual baseline.
+6. **Bolt 008-013** (Unit 006): new
+   `app/api/v1/dispatcher/monitor/route.ts`
+   + new
+   `app/api/v1/dispatcher/monitor/ack/route.ts`
+   + new `app/dispatcher/monitor/page.tsx` +
+   new `lib/dispatcher/monitor.ts` +
+   `tests/unit/dispatcher/monitor.test.ts` +
+   the monitor half of the shared
+   `tests/26-dispatcher-monitor-performance.spec.ts`.
+   No visual baseline (the surface is
+   live-polling).
+7. **Bolt 008-014** (Unit 007): new
+   `app/api/v1/dispatcher/performance/route.ts`
+   + new `app/dispatcher/performance/page.tsx` +
+   new `lib/dispatcher/performance.ts` +
+   `tests/unit/dispatcher/performance.test.ts` +
+   the performance half of the shared
+   `tests/26-dispatcher-monitor-performance.spec.ts`.
+   No visual baseline (the surface is
+   date-dependent).
 
 Each bolt is a `ddd-construction-bolt`
 (no separate Construction-KB bolts; per

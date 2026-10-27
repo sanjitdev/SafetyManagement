@@ -68,11 +68,14 @@ is v1.1).
 
 ## Intent 003 — Dispatcher Queue (complete)
 
-All 7 stories shipped in Bolts 003-001 through
-003-005. The map view (DISP-007) was promoted
-from v1.1 deferred to v1 at the start of
-Bolt 003-005 per the design log's bolt-progress
-note.
+All 9 stories shipped in Bolts 003-001 through
+003-005, then 008-013 and 008-014. The map view
+(DISP-007) was promoted from v1.1 deferred to v1
+at the start of Bolt 003-005 per the design log's
+bolt-progress note. The live monitor (DISP-008)
+and performance reporting (DISP-009) were also
+v1.1 deferred; both shipped in the 2026-10-27
+batch build.
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|
@@ -83,6 +86,8 @@ note.
 | DISP-005-internal-notes | 003-ticket-detail-and-transitions | done | Internal notes | `intents/003-dispatcher-queue/003-ticket-detail-and-transitions/DISP-005-internal-notes.md` |
 | DISP-006-dedup-decline | 004-dedup-decline-review | done | Dedup-decline review | `intents/003-dispatcher-queue/004-dedup-decline-review/DISP-006-dedup-decline-review.md` |
 | DISP-007-map-view | 005-map-view | done | Map view (promoted v1.1 → v1) | `intents/003-dispatcher-queue/005-map-view/DISP-007-dispatcher-map.md` |
+| DISP-008-live-monitor | 006-live-monitor | done | Dispatcher live monitor (v1.1 deferred → v1) | `intents/003-dispatcher-queue/006-live-monitor/DISP-008-live-monitor.md` |
+| DISP-009-performance-reporting | 007-performance-reporting | done | Dispatcher performance reporting (v1.1 deferred → v1) | `intents/003-dispatcher-queue/007-performance-reporting/DISP-009-performance-reporting.md` |
 
 ## Intent 004 — Field Crew App (complete)
 
@@ -105,6 +110,10 @@ briefs and story specs were filed when Intent
 005 was promoted from `draft` to `in-progress`
 on 2026-10-12; all 7 stories shipped in Bolts
 005-001 through 005-004 by 2026-10-12T22:00.
+Two further units — user management (ADM-008)
+and the adoption dashboard (ADM-009) — were
+v1.1 deferred and shipped in the 2026-10-27
+batch build as Bolts 008-015 and 008-016.
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|
@@ -115,6 +124,8 @@ on 2026-10-12; all 7 stories shipped in Bolts
 | ADM-005-dedup-radius | 002-city-config | done | Dedup radius override | `intents/005-admin-city-setup/002-city-config/ADM-005-dedup-radius.md` |
 | ADM-006-real-otp | 003-real-otp-provider | done | Real OTP SMS provider | `intents/005-admin-city-setup/003-real-otp-provider/ADM-006-real-otp.md` |
 | ADM-007-audit-dashboard | 004-audit-dashboard | done | Audit dashboard | `intents/005-admin-city-setup/004-audit-dashboard/ADM-007-audit-dashboard.md` |
+| ADM-008-user-management | 005-user-management | done | Admin user management + CSV import (v1.1 deferred → v1) | `intents/005-admin-city-setup/005-user-management/ADM-008-user-management.md` |
+| ADM-009-adoption-dashboard | 006-adoption-dashboard | done | Admin adoption dashboard (v1.1 deferred → v1) | `intents/005-admin-city-setup/006-adoption-dashboard/ADM-009-adoption-dashboard.md` |
 
 ## Intent 005 v1.1 launch-polish (Bolt 005-005 — hotfix, complete)
 

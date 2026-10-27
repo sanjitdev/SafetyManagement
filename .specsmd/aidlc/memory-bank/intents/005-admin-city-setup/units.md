@@ -2,7 +2,7 @@
 intent: 005-admin-city-setup
 phase: construction
 status: complete
-updated: 2026-10-13T08:00:00Z
+updated: 2026-10-27T00:00:00Z
 ---
 
 # Admin City Setup - Unit Decomposition
@@ -11,11 +11,15 @@ updated: 2026-10-13T08:00:00Z
 
 This intent is **in-progress** (2026-10-12).
 Unit briefs and story specs are in place for
-all 4 units. The unit dependency graph is:
+all 6 units. The unit dependency graph is:
 auth → config → OTP → audit (the audit
 dashboard reads the `AuditEntry` rows
 written by every config change, so it
-ships last).
+ships last), and audit → user-management →
+adoption-dashboard (the adoption dashboard
+reuses the ticket / trail / citizen / staff
+readers that the user-management bolt
+adds).
 
 ### Unit 001: webauthn-and-auth
 
@@ -88,6 +92,91 @@ preceding unit writes to `AuditEntry`,
 so this surface is a view over existing
 data — no new platform primitives.
 
+### Unit 005: user-management
+
+**Status**: `done`
+**Brief**:
+`005-user-management/unit-brief.md`
+**Stories**:
+- `005-user-management/ADM-008-user-management.md` (done)
+
+**Estimated Complexity**: M (3 new API
+route handlers covering 6 methods — list +
+create, update + delete, CSV import — plus
+1 new page, 2 new service modules
+(`lib/admin/users.ts` for the pure domain
+logic and `lib/admin/users-db.ts` for the
+db access layer), 54 new `admin.users.*` i18n
+keys and a shared Playwright spec). The
+launch gate needs one dispatcher AND one
+crew, so it reads the city's staffing.
+
+**Delivery note**: Shipped as Bolt
+`008-015-admin-user-management` on
+2026-10-27. The surface provisions a city's
+dispatchers, crew members and supervisors
+(role-tabbed list, sticky add / edit form,
+CSV bulk import with per-row reporting, and a
+launch bar gated on the staffing). Every
+write is gated by the admin role AND a
+WebAuthn assertion, and every write records
+an `AuditEntry` (`user.create` /
+`user.update` / `user.delete` /
+`user.import`). The spec's `supervisor` role
+maps onto the Prisma `admin` role, because
+the Prisma `Role` enum has no `supervisor`
+and the admin role already carries the
+"read-only, no assignment" posture. The
+Prisma migration `20261027140000_platform_gaps`
+that adds the `User` lifecycle columns and
+the `Crew` model is authored but **NOT
+applied** to any database (Neon unreachable,
+`P1001`); the code reads the column when
+present and derives it when absent, so the
+surface works against the current schema.
+
+### Unit 006: adoption-dashboard
+
+**Status**: `done`
+**Brief**:
+`006-adoption-dashboard/unit-brief.md`
+**Stories**:
+- `006-adoption-dashboard/ADM-009-adoption-dashboard.md` (done)
+
+**Estimated Complexity**: M (2 new API
+route handlers — the dashboard payload and
+the CSV export — plus 1 new page, 1 new
+service module (`lib/admin/adoption.ts`, the
+pure domain logic), 46 new
+`admin.adoption.*` i18n keys and the shared
+Playwright spec). Every chart is inline SVG
+with a table sibling built from the same
+data, because the project has no charting
+library and none may be added.
+
+**Delivery note**: Shipped as Bolt
+`008-016-admin-adoption-dashboard` on
+2026-10-27 — the previously deferred WO-004
+§4.7 surface, landing as Unit 006 of Intent
+005. The page shows the four hero stats with
+their window deltas, the five-stage adoption
+funnel, the three-line daily activity chart,
+the ward heatmap, the three engagement signals
+and the health flags, with a date-range
+control, the "Compare with Dhaka" overlay and
+a CSV export. The export is server-rendered
+from the same builder the charts read, so the
+two cannot drift. Three of the numbers on the
+page are **documented proxies** (the
+"registered citizens" stat, the funnel's
+"Visit" stage and its "Provided feedback"
+stage) because the platform does not yet
+record registration events, page views, or
+feedback on every ticket. The PDF export is
+the browser's print pipeline, not a
+server-rendered file, because the project has
+no rasteriser.
+
 ## Status
 
 Active build (2026-10-12). Intent 003
@@ -96,8 +185,11 @@ Active build (2026-10-12). Intent 003
 is `in-progress`. The unit decomposition
 is the 4 units from the `draft` phase,
 revised at entry to active build and now
-fully specced. All 4 units have unit-briefs
-+ story specs; Unit 001 is unblocked
+fully specced, plus 2 v1.1 follow-on units
+(005 user-management, 006 adoption-dashboard)
+added on 2026-10-27. All 6 units have
+unit-briefs + story specs; Unit 001 is
+unblocked
 (Intent 001 ships the WebAuthn schema;
 Intent 001 + 002 + 003 + 004 all ship the
 audit + dev-store + serializer primitives
@@ -311,9 +403,101 @@ for the bolt's own code; dev server
 200. Intent 005 is **done** end to
 end.
 
+**Bolt progress** (2026-10-27): Bolt
+`008-015-admin-user-management` (Unit 005 —
+the 4.6 User Provisioning surface) shipped
+2026-10-27. 3 new API route handlers
+(`/api/v1/admin/cities/[id]/users` GET + POST,
+`/api/v1/admin/cities/[id]/users/[userId]`
+PATCH + DELETE, and
+`/api/v1/admin/cities/[id]/users/import` POST
+CSV import), 1 new page
+(`app/admin/cities/[id]/users/page.tsx` — the
+role tabs, the user list, the sticky add /
+edit form, the CSV import modal and the
+sticky launch bar), 2 new service modules
+(`lib/admin/users.ts` — the pure domain
+logic; `lib/admin/users-db.ts` — the db
+access layer, and the single swap point for
+the pending Prisma migration), 54 new
+`admin.users.*` i18n keys and the shared
+Playwright spec `tests/27-admin-users-adoption.spec.ts`.
+Every write requires the admin role AND a
+WebAuthn assertion; every write records an
+`AuditEntry` (`user.create` / `user.update`
+/ `user.delete` / `user.import`). The spec's
+`supervisor` role maps onto the Prisma
+`admin` role (the enum has no `supervisor`),
+and the identifier is classified into
+`User.phone` or `User.email` rather than a
+new `staffId` column. The Prisma migration
+`20261027140000_platform_gaps` is authored
+but **NOT applied** to any database (the
+configured Neon instance was unreachable —
+`P1001: Can't reach database server`); apply
+it with `npx prisma migrate deploy`. The
+surface reads the new columns when present and
+derives them when absent, so it works against
+the current schema. No visual baseline was
+introduced — the page's content depends on the
+mutable dev seed, so the route is covered by
+structural assertions instead.
+
+**Bolt progress** (2026-10-27): Bolt
+`008-016-admin-adoption-dashboard` (Unit 006
+— the 4.7 Post-launch Adoption Dashboard)
+shipped 2026-10-27, building on Bolt
+`008-015` for its db reads. 2 new API route
+handlers (`/api/v1/admin/cities/[id]/adoption`
+GET and `/api/v1/admin/cities/[id]/adoption/export`
+GET CSV), 1 new page
+(`app/admin/cities/[id]/adoption/page.tsx`),
+1 new service module (`lib/admin/adoption.ts`
+— the pure domain logic behind every number
+on the page), 46 new `admin.adoption.*` i18n
+keys and 1 new Vitest suite
+(`tests/unit/admin-adoption.test.ts`) plus
+the adoption assertions on the shared
+Playwright spec. The page shows the four
+hero stats with their window deltas, the
+five-stage adoption funnel, the three-line
+daily activity chart, the ward heatmap, the
+three engagement signals and the health
+flags, with a date-range control, the
+"Compare with Dhaka" overlay and a CSV
+export. Every chart is inline SVG (the
+project has no charting library) with a
+table sibling built from the same data array,
+so the information is reachable by a screen
+reader and by the export. The export and the
+charts read the same `buildAdoptionCsvRows`
+output, so they cannot drift. Three of the
+numbers are documented proxies (the
+"registered citizens" stat, the funnel's
+"Visit" stage and its "Provided feedback"
+stage) because the platform does not yet
+record registration events, page views, or
+feedback on every ticket; the module header
+names each proxy and its v1.1 fix. The PDF
+export is the browser's print pipeline, not a
+server-rendered file. The same pending
+migration caveat applies: `20261027140000_platform_gaps`
+is authored but **NOT applied**; the
+`Ticket.feedback` slot is read defensively, so
+the feedback stage reports zero rather than
+failing. No visual baseline was introduced
+for the same reason as Bolt 008-015. Final
+state: `npm run build` 58/58 pages, `tsc
+--noEmit` clean, lint 0 errors / 53 warnings,
+825 unit tests passing across 58 files, 90.89%
+line / 80.85% branch / 94.11% function
+coverage, 15/15 mockups with no baseline
+regenerated.
+
 The unit decomposition is the 4 units from the
 `draft` phase, revised at entry to active
-build and now fully specced:
+build and now fully specced, plus the 2
+v1.1 follow-on units added on 2026-10-27:
 
 - **Unit 001 — webauthn-and-auth**: the four
   `/api/auth/webauthn/*` route handlers
@@ -377,6 +561,35 @@ build and now fully specced:
   for the export action" — the metric
   view is what ships; the export button
   is filed in `out-of-scope` below).
+- **Unit 005 — user-management**: the 4.6
+  User Provisioning surface from WO-004
+  §4.6 — a previously deferred v1.1 admin
+  surface, landing on 2026-10-27 as Bolt
+  `008-015-admin-user-management`. 3 API
+  route handlers (list + create, update +
+  delete, CSV import) + 1 page + 2 service
+  modules (`lib/admin/users.ts` for the pure
+  domain logic, `lib/admin/users-db.ts` for
+  the db access layer and the Prisma
+  migration swap point). Every write is
+  gated by `requireRole('admin')` +
+  `requireWebAuthn` and records an
+  `AuditEntry`. The spec's `supervisor` role
+  maps onto the Prisma `admin` role.
+- **Unit 006 — adoption-dashboard**: the 4.7
+  Post-launch Adoption Dashboard from WO-004
+  §4.7 — also deferred to v1.1, landing on
+  2026-10-27 as Bolt
+  `008-016-admin-adoption-dashboard`. 2 API
+  route handlers (the dashboard payload and
+  the CSV export) + 1 page + 1 service module
+  (`lib/admin/adoption.ts`). Every chart is
+  inline SVG with a table sibling from the
+  same data array; the export reads the same
+  builder as the charts. Three of the metrics
+  are documented proxies pending the
+  `RegistrationEvent` / `AnalyticsEvent`
+  tables.
 
 The unit dependency graph:
 
@@ -392,6 +605,12 @@ The unit dependency graph:
                        │                                                  │
                        │                                                  v
                        │                              [Unit 004 audit-dashboard]
+                       │                                       │
+                       │                                       v
+                       │                              [Unit 005 user-management]
+                       │                                       │
+                       │                                       v
+                       │                       [Unit 006 adoption-dashboard]
                        │
                        └─> [AuditEntry from Intent 001, written by every
                             config change in Unit 002, read by Unit 004]
@@ -424,11 +643,14 @@ at the start of the bolt.
 | ADM-005 | dedup-radius | 002 | `done` |
 | ADM-006 | real-otp | 003 | `done` |
 | ADM-007 | audit-dashboard | 004 | `done` |
+| ADM-008 | user-management | 005 | `done` |
+| ADM-009 | adoption-dashboard | 006 | `done` |
 
 ## Bolt plan
 
 4 Bolt candidates, one per unit. The
-bolt sequence:
+bolt sequence (Units 005 and 006 are the
+v1.1 follow-on bolts, appended below):
 
 1. **Bolt 005-001** (Unit 001):
    4 new `/api/auth/webauthn/*` route
@@ -480,11 +702,47 @@ bolt sequence:
    dev seed adds 4-5 `AuditEntry` rows
    so the visual baseline captures a
    non-empty table.
+5. **Bolt 008-015** (Unit 005 — the 4.6
+   User Provisioning surface): 3 new API
+   route handlers
+   (`/api/v1/admin/cities/[id]/users` GET +
+   POST, `.../users/[userId]` PATCH + DELETE,
+   `.../users/import` POST CSV) + 1 new page
+   (`app/admin/cities/[id]/users/page.tsx`) +
+   2 new service modules (`lib/admin/users.ts`,
+   `lib/admin/users-db.ts`) + 54 new
+   `admin.users.*` i18n keys + the shared
+   Playwright spec `tests/27-admin-users-adoption.spec.ts`.
+   Every write is gated by `requireRole('admin')`
+   + `requireWebAuthn` and records an
+   `AuditEntry`. The Prisma migration
+   `20261027140000_platform_gaps` is authored
+   but NOT applied to any database; the code
+   reads the new columns when present and
+   derives them when absent. No visual
+   baseline.
+6. **Bolt 008-016** (Unit 006 — the 4.7
+   Post-launch Adoption Dashboard): 2 new API
+   route handlers
+   (`/api/v1/admin/cities/[id]/adoption` GET
+   and `.../adoption/export` GET CSV) + 1 new
+   page (`app/admin/cities/[id]/adoption/page.tsx`)
+   + 1 new service module
+   (`lib/admin/adoption.ts`) + 46 new
+   `admin.adoption.*` i18n keys + 1 new Vitest
+   suite + the adoption assertions on the
+   shared Playwright spec. Every chart is
+   inline SVG with a table sibling built from
+   the same data; the export reads the same
+   builder as the charts. Three of the metrics
+   are documented proxies. Depends on Bolt
+   008-015 for its db reads. No visual
+   baseline.
 
 Each bolt is a `ddd-construction-bolt`
 (no separate Construction-KB bolts; per
 `aidlc.md`, the framework composes the
-minimum viable workflow — Units 001-004
+minimum viable workflow — Units 001-006
 are scope `feature` and lean on Code
 Generation + Build and Test + the
 inherited `writeAudit(...)` engine).
