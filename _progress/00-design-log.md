@@ -3473,6 +3473,17 @@ against its UX scenario spec, not from a wireframe):
   Service: `lib/admin/adoption.ts`. Routes:
   `/api/v1/admin/cities/[id]/adoption` and `.../adoption/export`.
 
+**193 new bilingual i18n keys** were added to
+`lib/i18n/keys.ts` across the four new namespaces —
+39 under `dispatcher.monitor.*`, 54 under
+`dispatcher.performance.*`, 46 under `admin.users.*`,
+and 54 under `admin.adoption.*`. Every key ships in
+both `bn` and `en`. The monitor's row-duration
+formatter shares the `dispatcher.performance.duration.*`
+keys with the performance surface, because the two
+format durations identically — so the keys are shared
+rather than duplicated under a second namespace.
+
 **Platform layer closed:**
 
 - `lib/storage/blob.ts` — blob storage with two providers: `s3`
@@ -3556,9 +3567,9 @@ a workaround because the runtime value is genuinely needed.
   regenerated. The inline data-URL fallback is still in effect
   when `BLOB_PROVIDER` is unset, so rendering is unchanged.
 
-### 2026-10-27 — Batch build committed (7 commits)
+### 2026-10-27 — Batch build committed (9 commits)
 
-The batch build landed on `main` as seven commits,
+The batch build landed on `main` as nine commits,
 split so each bolt's work is traceable:
 
 | Commit | Scope |
@@ -3566,12 +3577,12 @@ split so each bolt's work is traceable:
 | `21f1ead` | 008-012 — `/feed` works for every signed-in role |
 | `67f4e8f` | Metadata reconciliation for 007-001, 007-002, 008-001/002/003 |
 | `7b701fb` | Platform layer — blob storage, offline write queue, `Crew` / `SlaPolicy` schema |
-| `6ddc11b` | 008-013 / 008-014 — dispatcher live monitor + performance reporting |
-| `8aaa6e9` | 008-015 / 008-016 — admin user management + adoption dashboard |
-| `a25f0c8` | CI pipeline, lint/format/coverage tooling |
-| `87e50c8` | Unit-coverage backfill for the platform layer |
-| `da9ac4c` | Design-log entry for the batch |
-| `1c3a949` | specsmd memory-bank paperwork for Bolts 008-013 → 008-016 |
+| `fd05370` | 008-013 / 008-014 — dispatcher live monitor + performance reporting |
+| `81c962e` | 008-015 / 008-016 — admin user management + adoption dashboard |
+| `c7bb6d9` | CI pipeline, lint/format/coverage tooling |
+| `6a5f090` | Unit-coverage backfill for the platform layer |
+| `bdcfd7a` | Design-log entry for the batch |
+| `b466091` | specsmd memory-bank paperwork for Bolts 008-013 → 008-016 |
 
 **The build failure was real and is now fixed.** The
 `next/headers` client/server boundary error surfaced by
