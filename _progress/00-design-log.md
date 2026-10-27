@@ -3300,4 +3300,48 @@ working tree clean after commit; the AIDLC
 gitignored per the existing rules and is
 unaffected.
 
+### 2026-10-14 — Bolt 008-012: /feed for all roles + city-scoped public activity (DONE)
+
+The /feed page (1.13 City Activity Feed) was showing
+"ফিড লোড করা যায়নি" (Could not load feed) for every non-citizen
+role. Root cause: the page's data-load chain called
+`/api/report/bootstrap` (a citizen-only endpoint) and the page
+treated its 403 as a fatal error. The bug surfaced for admin,
+dispatcher, and crew but not for citizens, which masked it
+during the v1.0 launch (Bolt 008-009 fixed the activity endpoint
+itself, but the bootstrap endpoint still has its role gate).
+
+The fix follows the same role-agnosticisation pattern as
+Bolt 008-009:
+
+1. `app/api/v1/activity/public/route.ts` — read the session
+   cookie via `getActiveSession()` and default to
+   `session.cityId` when the caller is authenticated. Anonymous
+   callers keep the alphabetical-first default (the public
+   landing case). The endpoint also surfaces the city's
+   `categories[]` list in the response, so /feed no longer
+   needs a second fetch to `/api/report/bootstrap`.
+2. `app/feed/page.tsx` — replaced the two-step
+   `/api/report/bootstrap` + `/api/v1/activity` chain with a
+   single fetch to `/api/v1/activity/public`. The page now
+   works for every signed-in role and falls through to a clean
+   "Please sign in" empty state for anonymous visitors.
+3. `tests/25-feed-staff-roles-light.spec.ts` — new Playwright
+   regression spec that walks all four roles (citizen,
+   dispatcher, crew, admin) and asserts the page renders
+   ticket rows without the "Could not load feed" alert. 4/4
+   pass.
+
+Out of scope (tracked for a follow-up Bolt): the
+`/api/report/bootstrap` role gate is still in place because
+the `/report` flow is genuinely citizen-only (citizens are the
+only role that files reports). The /home page (`app/home/page.tsx`)
+also depends on the same bootstrap endpoint and would 403 for
+non-citizens; that page is a follow-up Bolt.
+
+Verification:
+- `npx tsc --noEmit` — clean
+- `npm run test:unit` — 402/402 pass
+- `npx playwright test tests/25-feed-staff-roles-light.spec.ts`
+  — 4/4 pass
 

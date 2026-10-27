@@ -15,6 +15,23 @@
  *   - Bilingual copy.
  *
  * Phase B (2026-10-04): web-first, 1440×900 + 1024×768 viewports.
+ *
+ * Bolt 008-012: this page used to call /api/report/bootstrap (a
+ * citizen-only endpoint) and /api/v1/activity (auth-required) as two
+ * separate fetches. That worked for citizens but 403'd for staff
+ * roles (admin / dispatcher / crew) and surfaced the misleading
+ * "Could not load feed" error. The page now calls the
+ * role-agnostic /api/v1/activity/public endpoint, which:
+ *   - reads the session cookie internally and defaults to the
+ *     session's city (so an admin in city_chittagong sees Chattogram
+ *     tickets, not Dhaka North)
+ *   - returns the city's category list in the same response, so we
+ *     no longer need a second fetch to /api/report/bootstrap
+ *   - is the same data source the public landing page uses
+ *
+ * The page still gates on /api/auth/status to render the "Please sign
+ * in" empty state for unauthenticated visitors, but a 200 from
+ * /auth/status is now the only auth check on this page.
  */
 
 'use client';
@@ -43,16 +60,25 @@ interface ActivityItem {
   createdAt: string;
 }
 
-interface Bootstrap {
-  city: { id: string; name: string; nameBn: string | null };
-  categories: Array<{ id: string; name: string; nameBn: string | null }>;
-  // The /api/report/bootstrap endpoint returns only the citizen's own
-  // ward (singular) plus the category list. The /feed page previously
-  // read `wards` (plural) and silently fell into the error state when
-  // the field was missing. We now use the citizen's own ward as the
-  // row's ward label, which matches v1 semantics (cross-ward filing
-  // is deferred to v1.1).
-  ward: { id: string; name: string; nameBn: string | null } | null;
+interface CategoryRow {
+  id: string;
+  name: string;
+  nameBn: string | null;
+}
+
+interface ActivityResponse {
+  tickets: Array<{
+    id: string;
+    status: ActivityItem['status'];
+    categoryId: string;
+    wardId: string;
+    wardName?: string | null;
+    wardNameBn?: string | null;
+    note: string | null;
+    photoUrls: string[];
+    createdAt: string;
+  }>;
+  categories: CategoryRow[];
 }
 
 function formatAge(iso: string, lang: Language): string {
@@ -80,7 +106,14 @@ function isResolvedToday(iso: string): boolean {
 export default function FeedPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  // Bolt 008-012: the citywide activity endpoint now returns the
+  // category list alongside the tickets, so the page only needs a
+  // single fetch for both. The `bootstrap` + `ward` state are gone —
+  // the per-row ward label is already on each ticket (Bolt 008-011).
+  // We cache the categories in a ref (not state) so the polling effect
+  // doesn't re-fire on every category refresh; the row-rendering path
+  // reads it synchronously inside the render.
+  const categoriesRef = useRef<CategoryRow[]>([]);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -98,71 +131,58 @@ export default function FeedPage() {
     }
   }, []);
 
-  // Auth + bootstrap
+  // Auth check (Bolt 008-012): the /api/auth/status endpoint is the
+  // only auth check on this page now. The /api/v1/activity/public
+  // endpoint that powers the list is auth-agnostic — it works for
+  // unauthenticated visitors too, but we still gate the page on sign-in
+  // because the /feed surface is positioned as "your city's activity",
+  // not as the public landing.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
       const status = (await statusRes.json()) as { authenticated: boolean };
       if (cancelled) return;
-      if (!status.authenticated) {
-        setSignedIn(false);
-        return;
-      }
-      setSignedIn(true);
-
-      const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!bootRes.ok) {
-        setError('feed.error');
-        setLoading(false);
-        return;
-      }
-      const data = (await bootRes.json()) as {
-        city: { id: string; name: string; nameBn: string | null };
-        categories: Array<{ id: string; name: string; nameBn: string | null }>;
-        ward: { id: string; name: string; nameBn: string | null } | null;
-      };
-      if (cancelled) return;
-      setBootstrap({
-        city: data.city,
-        categories: data.categories,
-        ward: data.ward,
-      });
+      setSignedIn(status.authenticated);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Polling
+  // Polling — Bolt 008-012: switched from the auth-required
+  // /api/v1/activity to the role-agnostic /api/v1/activity/public.
+  // The public endpoint reads the session cookie internally and
+  // defaults to the session's cityId, so an admin in Chattogram
+  // sees Chattogram tickets without a query string. The endpoint
+  // also returns the city's `categories` list, which we cache in
+  // a ref and use to translate `categoryId` → `categoryName` per row.
   useEffect(() => {
-    if (!signedIn || !bootstrap) return;
+    if (!signedIn) return;
     let cancelled = false;
     let timer: number | null = null;
     const fetchActivity = async () => {
       try {
-        const res = await fetch(`/api/v1/activity?limit=50`, { credentials: 'include' });
+        const res = await fetch(`/api/v1/activity/public?limit=50`, {
+          credentials: 'include',
+        });
         if (cancelled) return;
         if (!res.ok) {
           setError('feed.error');
           setLoading(false);
           return;
         }
-        const data = (await res.json()) as { tickets: Array<{
-          id: string;
-          status: ActivityItem['status'];
-          categoryId: string;
-          wardId: string;
-          note: string | null;
-          photoUrls: string[];
-          createdAt: string;
-        }> };
+        const data = (await res.json()) as ActivityResponse;
         if (cancelled) return;
+        // Cache the categories list. The list is the same for every
+        // poll within a session; only the tickets change. The ref
+        // avoids re-running this effect on every refresh.
+        if (data.categories && data.categories.length > 0) {
+          categoriesRef.current = data.categories;
+        }
+        const cats = categoriesRef.current;
         const items: ActivityItem[] = data.tickets.map((t) => {
-          const cat = bootstrap.categories.find((c) => c.id === t.categoryId);
-          // v1: surface the citizen's own ward as the row's ward label
-          // (cross-ward filing is deferred to v1.1).
-          const ward = bootstrap.ward;
+          const cat = cats.find((c) => c.id === t.categoryId);
           return {
             id: t.id,
             status: t.status,
@@ -170,8 +190,11 @@ export default function FeedPage() {
             categoryName: cat?.name,
             categoryNameBn: cat?.nameBn ?? cat?.name,
             wardId: t.wardId,
-            wardName: ward?.name,
-            wardNameBn: ward?.nameBn ?? ward?.name,
+            // Bolt 008-011: the public serializer already returns
+            // wardName / wardNameBn per ticket, so we don't need the
+            // citizen-only bootstrap to resolve the row's ward label.
+            wardName: t.wardName ?? undefined,
+            wardNameBn: t.wardNameBn ?? t.wardName ?? undefined,
             note: t.note,
             photoUrls: t.photoUrls,
             createdAt: t.createdAt,
@@ -203,7 +226,7 @@ export default function FeedPage() {
       cancelled = true;
       if (timer) window.clearInterval(timer);
     };
-  }, [signedIn, bootstrap]);
+  }, [signedIn]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return tickets;
