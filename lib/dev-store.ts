@@ -143,6 +143,17 @@ export interface DevTicket {
   // keyed by ticket id; `getTicketWithTrail` joins the rows when it
   // returns the `DevTicketWithTrail` shape.
   internalNote: string | null;
+  // WO-002 — the citizen's post-resolution feedback. Mirrors the
+  // Prisma `Ticket.feedback String?` column: a compact JSON
+  // document `{"rating":"positive","comment":"…"}` written by
+  // `lib/citizen/feedback.ts`. NULL when the citizen has not
+  // rated the resolution yet.
+  //
+  // Optional in the dev-store type (rather than `string | null`)
+  // so the many hand-built test fixtures that plant a raw
+  // `DevTicket` keep compiling; every read treats a missing
+  // value exactly like `null`.
+  feedback?: string | null;
   // Dedup-confirm linkage (DISP-006). When the dispatcher
   // confirms a dedup-decline flag, the citizen's ticket is closed
   // and `duplicateOfId` is set to the existing ticket's id.
@@ -571,6 +582,7 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১০, বাজারের কাছে',
       note: 'Streetlight has been out for 3 nights. The intersection is dangerous after dark.',
       internalNote: null,
+      feedback: null,
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 1 * day).toISOString(),
@@ -591,6 +603,7 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১২, পাশের সড়ক',
       note: 'Streetlight pole leaning after the storm. Live wires may be exposed.',
       internalNote: 'Crew dispatched; please verify the wire casing before starting work.',
+      feedback: null,
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 2 * day).toISOString(),
@@ -611,6 +624,7 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৪, প্রধান সড়ক',
       note: 'Deep pothole near the bus stop. Two motorcycles have fallen.',
       internalNote: 'Crew dispatched; ETA tomorrow morning.',
+      feedback: null,
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 4 * day).toISOString(),
@@ -631,6 +645,7 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১১, পাশের গলি',
       note: 'Drainage blocked; water pooling after rain.',
       internalNote: 'Cleared by waste-management crew.',
+      feedback: null,
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 10 * day).toISOString(),
@@ -651,6 +666,7 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৩, আবাসিক ব্লক',
       note: 'Garbage has not been collected for a week.',
       internalNote: 'Duplicate of an earlier ticket; closed by dispatcher.',
+      feedback: null,
       duplicateOfId: null,
       closeReason: 'duplicate',
       createdAt: new Date(now - 20 * day).toISOString(),
@@ -1292,9 +1308,10 @@ export const devDb = {
       return typeof args.take === 'number' ? filtered.slice(0, args.take) : filtered;
     },
     create(args: {
-      data: Omit<DevTicket, 'id' | 'createdAt' | 'updatedAt' | 'resolvedAt' | 'duplicateOfId' | 'closeReason'> & {
+      data: Omit<DevTicket, 'id' | 'createdAt' | 'updatedAt' | 'resolvedAt' | 'duplicateOfId' | 'closeReason' | 'feedback'> & {
         duplicateOfId?: string | null;
         closeReason?: string | null;
+        feedback?: string | null;
       };
     }): DevTicket {
       const id = `tkt_${randomUUID().slice(0, 8)}`;
@@ -1303,6 +1320,7 @@ export const devDb = {
         ...args.data,
         duplicateOfId: args.data.duplicateOfId ?? null,
         closeReason: args.data.closeReason ?? null,
+        feedback: args.data.feedback ?? null,
         id,
         createdAt: now,
         updatedAt: now,

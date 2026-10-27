@@ -266,7 +266,6 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'আপনার মতামত আমাদের ডিসপ্যাচারদের কাজের মান উন্নত করে।',
     en: 'Your feedback helps our dispatchers improve their work.',
   },
-  'detail.feedback.satisfied': { bn: 'হ্যাঁ, সন্তুষ্ট', en: 'Yes, satisfied' },
   'detail.feedback.dispute': { bn: 'আরও বিস্তারিত', en: 'Tell us more' },
   'detail.feedback.thanks': {
     bn: '✓ ধন্যবাদ — আমরা আপনার মতামত পেয়েছি।',
@@ -275,6 +274,36 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'detail.feedback.resolved_ago': {
     bn: 'সমাধান হয়েছে',
     en: 'Resolved',
+  },
+  // WO-002 — the persisted feedback rating. The three buttons map
+  // 1:1 onto the `rating` values in `lib/citizen/feedback.ts`
+  // ('positive' | 'negative' | 'neutral'). The rating is what the
+  // dispatcher crew table's positive / negative tally reads, so
+  // the citizen's choice and the city's metric are the same
+  // signal.
+  'detail.feedback.rating.positive': {
+    bn: 'হ্যাঁ, সন্তুষ্ট',
+    en: 'Yes, satisfied',
+  },
+  'detail.feedback.rating.negative': {
+    bn: 'না, সন্তুষ্ট নই',
+    en: 'No, not satisfied',
+  },
+  'detail.feedback.rating.neutral': {
+    bn: 'সিদ্ধান্ত নিশ্চিত নয়',
+    en: 'Not sure yet',
+  },
+  'detail.feedback.rating.label': {
+    bn: 'আপনার মূল্যায়ন',
+    en: 'Your rating',
+  },
+  'detail.feedback.failed': {
+    bn: 'মতামত পাঠানো যায়নি — আবার চেষ্টা করুন।',
+    en: 'Could not send your feedback — please try again.',
+  },
+  'detail.feedback.resubmit': {
+    bn: 'আপনার মতামত বদলাতে চান?',
+    en: 'Want to change your rating?',
   },
   'detail.photo.delete_confirm': {
     bn: 'এই ছবি মুছে দেবেন?',

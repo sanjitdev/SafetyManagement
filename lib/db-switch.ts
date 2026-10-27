@@ -885,6 +885,11 @@ export async function getTicketWithTrail(
     internalNote: t.internalNote,
     duplicateOfId: t.duplicateOfId,
     closeReason: t.closeReason,
+    // WO-002 — the citizen's post-resolution feedback. Carried
+    // through so the dev-store and Prisma paths return the same
+    // `DevTicketWithTrail` shape (the dev store keeps it on the
+    // ticket row too).
+    feedback: t.feedback ?? null,
     // Prisma returns Date objects; DevTicketWithTrail stores
     // ISO strings. The serializer (lib/serializers/ticket.ts)
     // already handles both shapes, so this is a type-only

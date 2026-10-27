@@ -43,6 +43,7 @@
  */
 
 import { db } from '@/lib/db-switch';
+import { aggregateCrewFeedback } from '@/lib/citizen/feedback';
 import type { SessionContext } from '@/lib/auth/session';
 
 /** The number of days in the default range (last 7 days). */
@@ -72,6 +73,14 @@ export interface PerfTicket {
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+  /**
+   * WO-002 — the citizen's post-resolution feedback document
+   * (see `lib/citizen/feedback.ts`). `null` when the citizen has
+   * not rated the resolution. The crew table's positive /
+   * negative tally is derived from it by
+   * `aggregateCrewFeedback`.
+   */
+  feedback?: string | null;
 }
 
 /** A crew member as the performance service sees them. */
@@ -518,6 +527,10 @@ export async function getPerformanceSnapshot(
         ? t.resolvedAt
         : (t.resolvedAt as Date).toISOString()
       : null,
+    // WO-002 — carry the citizen's feedback document so the crew
+    // table's positive / negative tally can be derived from it.
+    // The dev store and Prisma both expose the column directly.
+    feedback: (t as { feedback?: string | null }).feedback ?? null,
   });
 
   const perfTickets = ward.map(toPerf);
@@ -574,6 +587,13 @@ export async function getPerformanceSnapshot(
     range,
     crew,
     crewNames,
+    // WO-002 — the citizen feedback aggregate. Derived from the
+    // tickets in the CURRENT range only: the crew table is a
+    // snapshot of this period, and mixing in the previous period's
+    // feedback would make the ratio disagree with the "jobs
+    // completed" column next to it (which counts the current
+    // range only).
+    feedback: aggregateCrewFeedback(current),
     ward: { wardId: session.wardId ?? null, wardLabel, wardLabelBn },
     now,
   });

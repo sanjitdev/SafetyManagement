@@ -78,7 +78,7 @@ describe('i18n key registry', () => {
     expect(t('detail.meta.sla_value', null, 'bn')).toBe('৪৮ ঘণ্টা');
     expect(t('detail.section.progress', null, 'bn')).toBe('অগ্রগতি');
     expect(t('detail.feedback.title', null, 'bn')).toMatch(/সন্তোষজনক/);
-    expect(t('detail.feedback.satisfied', null, 'bn')).toMatch(/সন্তুষ্ট/);
+    expect(t('detail.feedback.rating.positive', null, 'bn')).toMatch(/সন্তুষ্ট/);
     expect(t('detail.feedback.dispute', null, 'bn')).toMatch(/বিস্তারিত/);
     expect(t('detail.photo.delete_confirm', null, 'bn')).toMatch(/মুছে দেবেন/);
   });
@@ -137,7 +137,7 @@ describe('i18n key registry', () => {
       'detail.progress.empty',
       'detail.feedback.title',
       'detail.feedback.subtitle',
-      'detail.feedback.satisfied',
+      'detail.feedback.rating.positive',
       'detail.feedback.dispute',
       'detail.feedback.thanks',
       'detail.feedback.resolved_ago',

@@ -30,6 +30,12 @@ import { t, type Language } from '@/lib/i18n/keys';
 // with backend changes (ward names, future fields) without manual
 // upkeep.
 import type { SerializedTicket as ApiSerializedTicket } from '@/lib/serializers/ticket';
+// The feedback prompt is a self-contained client island: it owns
+// the submit / error state and calls POST /api/tickets/:id/feedback.
+// Extracted into its own file so the detail page stays readable
+// (and so the island has a clean place to document the contract).
+import FeedbackPrompt from './feedback-prompt';
+import type { FeedbackRating } from '@/lib/citizen/feedback-rating';
 
 // Local shape is the citizen branch of the canonical serializer —
 // the API only ever returns one branch at a time so the narrowing is
@@ -129,7 +135,11 @@ export default function MyReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
-  const [feedbackSent, setFeedbackSent] = useState(false);
+  // WO-002 — the rating the citizen has already given, if any.
+  // Read from `GET /api/tickets/:id`'s top-level `feedback_rating`
+  // field (the shared serializer contract is untouched). `null`
+  // means the prompt is still open.
+  const [feedbackRating, setFeedbackRating] = useState<FeedbackRating | null>(null);
   const [deletingIdx, setDeletingIdx] = useState<number | null>(null);
   const [pendingDeleteIdx, setPendingDeleteIdx] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -185,6 +195,7 @@ export default function MyReportDetailPage() {
         if (retry.ok) {
           const body = await retry.json();
           setTicket(body.ticket);
+          setFeedbackRating(body.feedback_rating ?? null);
           return;
         }
         // Still rate-limited or otherwise failing; surface a transient
@@ -198,6 +209,7 @@ export default function MyReportDetailPage() {
       }
       const body = await res.json();
       setTicket(body.ticket);
+      setFeedbackRating(body.feedback_rating ?? null);
     } finally {
       setLoading(false);
     }
@@ -306,13 +318,6 @@ export default function MyReportDetailPage() {
   function cancelDeletePhoto() {
     setPendingDeleteIdx(null);
     setDeleteError(null);
-  }
-
-  function handleFeedbackSatisfied() {
-    setFeedbackSent(true);
-    // PLAT-REQ-006 / feel-heard: a satisfied citizen = audit event we
-    // can hand to the WO-002 dispatcher surface later. v1 only logs locally.
-    // The actual persistence lands in WO-002.
   }
 
   return (
@@ -748,53 +753,17 @@ export default function MyReportDetailPage() {
               >
                 {t('detail.feedback.subtitle', null, LANG)}
               </div>
-              {feedbackSent ? (
-                <div
-                  lang="bn"
-                  style={{
-                    fontSize: 'var(--text-body-sm)',
-                    color: 'var(--color-primary)',
-                    fontWeight: 'var(--weight-semibold)',
-                  }}
-                >
-                  {t('detail.feedback.thanks', null, LANG)}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                  <button
-                    type="button"
-                    onClick={handleFeedbackSatisfied}
-                    style={{
-                      height: 40,
-                      padding: '0 var(--space-4)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-primary)',
-                      background: '#fff',
-                      color: 'var(--color-primary)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {t('detail.feedback.satisfied', null, LANG)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/reports/${ticket.id}/dispute`)}
-                    style={{
-                      height: 40,
-                      padding: '0 var(--space-4)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border-strong, #aaa)',
-                      background: '#fff',
-                      color: 'var(--color-ink)',
-                      fontWeight: 'var(--weight-medium)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {t('detail.feedback.dispute', null, LANG)}
-                  </button>
-                </div>
-              )}
+              {/* PLAT-REQ-006 / feel-heard: the rating is PERSISTED
+                  (POST /api/tickets/:id/feedback → `Ticket.feedback`),
+                  which is what the admin adoption funnel and the
+                  dispatcher crew table read. The prompt owns the
+                  optimistic UI and reconciles it with the server
+                  response. */}
+              <FeedbackPrompt
+                ticketId={ticket.id}
+                initialRating={feedbackRating}
+                onDispute={() => router.push(`/reports/${ticket.id}/dispute`)}
+              />
               {resolvedRel && (
                 <div
                   style={{

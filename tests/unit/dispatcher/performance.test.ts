@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
-import { resetStore } from '@/lib/dev-store';
+import { getStore, resetStore } from '@/lib/dev-store';
 import {
   FEEDBACK_MIN_SAMPLES,
   PERFORMANCE_DEFAULT_DAYS,
@@ -583,5 +583,100 @@ describe('getPerformanceSnapshot', () => {
     // The seeded tickets are 1–20 days old; the closed one (20 days)
     // and the resolved one (10 days) fall outside a 2-day window.
     expect(snapshot.hero.totalReports.value).toBeLessThanOrEqual(4);
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* WO-002 — the citizen feedback aggregate                           */
+  /* ---------------------------------------------------------------- */
+
+  it('reports a zero feedback tally when no ticket carries feedback', async () => {
+    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION);
+    for (const row of snapshot.crewTable) {
+      expect(row.positiveFeedback).toBe(0);
+      expect(row.negativeFeedback).toBe(0);
+      // Fewer than FEEDBACK_MIN_SAMPLES samples → the ratio is
+      // suppressed ("not enough data").
+      expect(row.feedbackRatio).toBeNull();
+    }
+  });
+
+  it('aggregates the persisted feedback into the crew table', async () => {
+    // Give the seeded resolved ticket a positive rating from its
+    // assigned crew. The seeded resolved ticket is assigned to the
+    // ward's crew (user_crew_rashid).
+    const store = getStore();
+    const resolved = store.tickets.get('ticket_seed_resolved_1');
+    expect(resolved?.assignedCrewId).toBeTruthy();
+    store.tickets.set('ticket_seed_resolved_1', {
+      ...resolved!,
+      feedback: '{"rating":"positive"}',
+    });
+
+    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
+      from: '2026-10-01T00:00:00.000Z',
+      to: '2026-10-20T00:00:00.000Z',
+    });
+
+    const row = snapshot.crewTable.find(
+      (c) => c.crewId === resolved!.assignedCrewId,
+    );
+    expect(row).toBeDefined();
+    expect(row!.positiveFeedback).toBe(1);
+    expect(row!.negativeFeedback).toBe(0);
+    // One sample is below FEEDBACK_MIN_SAMPLES → the ratio stays
+    // suppressed, but the raw counts are now truthful.
+    expect(row!.feedbackRatio).toBeNull();
+  });
+
+  it('reports a ratio once the crew clears the minimum sample count', async () => {
+    const store = getStore();
+    const base = store.tickets.get('ticket_seed_resolved_1')!;
+    const crewId = base.assignedCrewId!;
+    // Plant FEEDBACK_MIN_SAMPLES positive tickets for the same crew,
+    // created INSIDE the requested range so they land in the current
+    // period (the aggregate reads the current period only).
+    const created = '2026-10-15T08:00:00.000Z';
+    for (let i = 0; i < FEEDBACK_MIN_SAMPLES; i += 1) {
+      const id = `ticket_fb_${i}`;
+      store.tickets.set(id, {
+        ...base,
+        id,
+        feedback: '{"rating":"positive"}',
+        createdAt: created,
+        updatedAt: created,
+        resolvedAt: created,
+      });
+    }
+
+    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
+      from: '2026-10-01T00:00:00.000Z',
+      to: '2026-10-20T00:00:00.000Z',
+    });
+
+    const row = snapshot.crewTable.find((c) => c.crewId === crewId);
+    expect(row).toBeDefined();
+    expect(row!.positiveFeedback).toBeGreaterThanOrEqual(FEEDBACK_MIN_SAMPLES);
+    expect(row!.feedbackRatio).toBe(100);
+  });
+
+  it('ignores neutral feedback in the crew tally', async () => {
+    const store = getStore();
+    const base = store.tickets.get('ticket_seed_resolved_1')!;
+    store.tickets.set('ticket_seed_resolved_1', {
+      ...base,
+      feedback: '{"rating":"neutral"}',
+    });
+
+    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
+      from: '2026-10-01T00:00:00.000Z',
+      to: '2026-10-20T00:00:00.000Z',
+    });
+
+    const row = snapshot.crewTable.find(
+      (c) => c.crewId === base.assignedCrewId,
+    );
+    expect(row).toBeDefined();
+    expect(row!.positiveFeedback).toBe(0);
+    expect(row!.negativeFeedback).toBe(0);
   });
 });
