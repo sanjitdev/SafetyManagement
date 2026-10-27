@@ -1229,6 +1229,334 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'মানচিত্র লোড করা যায়নি',
     en: 'Could not load the map',
   },
+
+  // WO-002 (Intent 003) — Dispatcher monitor surface (UX spec 2.5)
+  'dispatcher.monitor.title': {
+    bn: 'লাইভ আপডেট',
+    en: 'Live updates',
+  },
+  'dispatcher.monitor.back': {
+    bn: '← ট্রায়াজ সারিতে ফিরে যান',
+    en: '← Back to triage queue',
+  },
+  'dispatcher.monitor.filter.all': { bn: 'সব', en: 'All' },
+  'dispatcher.monitor.filter.my_ward': {
+    bn: 'আমার ওয়ার্ড',
+    en: 'My ward',
+  },
+  'dispatcher.monitor.filter.my_crews': {
+    bn: 'আমার ক্রু',
+    en: 'My crews',
+  },
+  'dispatcher.monitor.new_updates': {
+    bn: '{n}টি নতুন আপডেট',
+    en: '{n} new updates',
+  },
+  'dispatcher.monitor.unread_count': {
+    bn: '{n}টি অপঠিত',
+    en: '{n} unread',
+  },
+  'dispatcher.monitor.row.activity': {
+    bn: '{actor} {status} চিহ্নিত করেছেন {age}',
+    en: '{actor} marked {status} {age}',
+  },
+  'dispatcher.monitor.row.activity_unknown_actor': {
+    bn: 'অবস্থা পরিবর্তিত হয়েছে {age}',
+    en: 'Status changed {age}',
+  },
+  'dispatcher.monitor.row.acknowledge': {
+    bn: 'আপডেট স্বীকার করা হয়েছে',
+    en: 'Acknowledge update',
+  },
+  'dispatcher.monitor.row.acknowledged': {
+    bn: 'স্বীকৃত',
+    en: 'Acknowledged',
+  },
+  'dispatcher.monitor.row.expand': {
+    bn: 'সাম্প্রতিক পদক্ষেপ দেখুন',
+    en: 'Show recent steps',
+  },
+  'dispatcher.monitor.row.collapse': {
+    bn: 'সাম্প্রতিক পদক্ষেপ লুকান',
+    en: 'Hide recent steps',
+  },
+  'dispatcher.monitor.row.open_detail': {
+    bn: 'সম্পূর্ণ রিপোর্ট দেখুন',
+    en: 'Open full report',
+  },
+  'dispatcher.monitor.row.trail_heading': {
+    bn: 'সর্বশেষ {n}টি পদক্ষেপ',
+    en: 'Last {n} steps',
+  },
+  'dispatcher.monitor.row.new_photos': {
+    bn: '{n}টি নতুন ছবি',
+    en: '{n} new photos',
+  },
+  'dispatcher.monitor.empty.title': {
+    bn: 'এই মুহূর্তে কোনো টিকিট আপনার কাছে নেই',
+    en: 'No tickets on your queue right now',
+  },
+  'dispatcher.monitor.empty.subtitle': {
+    bn: 'নতুন রিপোর্ট এলে এখানে দেখা যাবে।',
+    en: 'New reports will appear here as they arrive.',
+  },
+  'dispatcher.monitor.empty.link': {
+    bn: 'ড্যাশবোর্ডে ফিরে যান',
+    en: 'Back to the dashboard',
+  },
+  'dispatcher.monitor.error': {
+    bn: 'লাইভ আপডেট লোড করা যায়নি',
+    en: 'Could not load live updates',
+  },
+  'dispatcher.monitor.paused': {
+    bn: 'লাইভ আপডেট বন্ধ',
+    en: 'Live updates paused',
+  },
+  'dispatcher.monitor.signin_required': {
+    bn: 'লাইভ আপডেট দেখতে লগইন করুন',
+    en: 'Sign in to view live updates',
+  },
+  'dispatcher.monitor.chart.flow.title': {
+    bn: 'আজকের প্রবাহ',
+    en: "Today's flow",
+  },
+  'dispatcher.monitor.chart.response.title': {
+    bn: 'গড় প্রতিক্রিয়া সময়',
+    en: 'Avg response time',
+  },
+  'dispatcher.monitor.chart.crew.title': {
+    bn: 'ক্রু লোড',
+    en: 'Crew load',
+  },
+  'dispatcher.monitor.chart.flow.table_caption': {
+    bn: 'আজকের প্রবাহ — অবস্থা অনুযায়ী টিকিট সংখ্যা',
+    en: "Today's flow — ticket count by status",
+  },
+  'dispatcher.monitor.chart.response.table_caption': {
+    bn: 'গড় প্রতিক্রিয়া সময় — গত ৭ দিনের দৈনিক গড় মিনিট',
+    en: 'Avg response time — daily average minutes over the last 7 days',
+  },
+  'dispatcher.monitor.chart.crew.table_caption': {
+    bn: 'ক্রু লোড — প্রতি ক্রুর ওপেন টিকিট সংখ্যা',
+    en: 'Crew load — open ticket count per crew',
+  },
+  'dispatcher.monitor.chart.col.status': { bn: 'অবস্থা', en: 'Status' },
+  'dispatcher.monitor.chart.col.count': { bn: 'সংখ্যা', en: 'Count' },
+  'dispatcher.monitor.chart.col.date': { bn: 'তারিখ', en: 'Date' },
+  'dispatcher.monitor.chart.col.minutes': { bn: 'গড় মিনিট', en: 'Avg minutes' },
+  'dispatcher.monitor.chart.col.crew': { bn: 'ক্রু', en: 'Crew' },
+  'dispatcher.monitor.chart.col.open': { bn: 'ওপেন', en: 'Open' },
+  'dispatcher.monitor.chart.no_data': {
+    bn: 'এই মুহূর্তে ডেটা নেই',
+    en: 'No data right now',
+  },
+  'dispatcher.monitor.age.now': { bn: 'এইমাত্র', en: 'just now' },
+  'dispatcher.monitor.age.minutes': {
+    bn: '{n} মিনিট আগে',
+    en: '{n} min ago',
+  },
+  'dispatcher.monitor.age.hours': {
+    bn: '{n} ঘণ্টা আগে',
+    en: '{n} hr ago',
+  },
+  'dispatcher.monitor.age.days': {
+    bn: '{n} দিন আগে',
+    en: '{n} day ago',
+  },
+
+  // WO-002 (Intent 003) — Dispatcher performance snapshot (UX spec 2.7)
+  'dispatcher.performance.title': {
+    bn: 'কর্মক্ষমতা প্রতিবেদন',
+    en: 'Performance snapshot',
+  },
+  'dispatcher.performance.ward_title': {
+    bn: 'ওয়ার্ড {ward} · কর্মক্ষমতা প্রতিবেদন',
+    en: 'Ward {ward} · Performance snapshot',
+  },
+  'dispatcher.performance.back': {
+    bn: '← ট্রায়াজ সারিতে ফিরে যান',
+    en: '← Back to triage queue',
+  },
+  'dispatcher.performance.range.label': {
+    bn: 'সময়সীমা',
+    en: 'Date range',
+  },
+  'dispatcher.performance.range.today': { bn: 'আজ', en: 'Today' },
+  'dispatcher.performance.range.last7': {
+    bn: 'গত ৭ দিন',
+    en: 'Last 7 days',
+  },
+  'dispatcher.performance.range.last30': {
+    bn: 'গত ৩০ দিন',
+    en: 'Last 30 days',
+  },
+  'dispatcher.performance.range.custom': {
+    bn: 'নির্দিষ্ট তারিখ',
+    en: 'Custom',
+  },
+  'dispatcher.performance.hero.total': {
+    bn: 'মোট রিপোর্ট গৃহীত',
+    en: 'Total reports received',
+  },
+  'dispatcher.performance.hero.resolution_rate': {
+    bn: 'সমাধানের হার',
+    en: 'Resolution rate',
+  },
+  'dispatcher.performance.hero.avg_time': {
+    bn: 'গড় সমাধানের সময়',
+    en: 'Avg time to resolve',
+  },
+  'dispatcher.performance.hero.delta_vs_previous': {
+    bn: 'আগের সময়ের তুলনায়',
+    en: 'vs. previous period',
+  },
+  'dispatcher.performance.hero.no_delta': {
+    bn: 'তুলনার তথ্য নেই',
+    en: 'No comparison data',
+  },
+  'dispatcher.performance.chart.submitted_vs_resolved.title': {
+    bn: 'জমা ও সমাধানের তুলনা',
+    en: 'Submitted vs. resolved over time',
+  },
+  'dispatcher.performance.chart.submitted_vs_resolved.caption': {
+    bn: 'দৈনিক জমা ও সমাধানের সংখ্যা',
+    en: 'Daily submitted and resolved counts',
+  },
+  'dispatcher.performance.chart.category.title': {
+    bn: 'বিভাগ অনুযায়ী বিভাজন',
+    en: 'Category breakdown',
+  },
+  'dispatcher.performance.chart.category.caption': {
+    bn: 'বিভাগ অনুযায়ী রিপোর্ট সংখ্যা',
+    en: 'Report count by category',
+  },
+  'dispatcher.performance.chart.status.title': {
+    bn: 'বর্তমান অবস্থার চিত্র',
+    en: 'Status breakdown (current snapshot)',
+  },
+  'dispatcher.performance.chart.status.caption': {
+    bn: 'অবস্থা অনুযায়ী রিপোর্ট সংখ্যা',
+    en: 'Report count by status',
+  },
+  'dispatcher.performance.chart.col.date': { bn: 'তারিখ', en: 'Date' },
+  'dispatcher.performance.chart.col.submitted': {
+    bn: 'জমা',
+    en: 'Submitted',
+  },
+  'dispatcher.performance.chart.col.resolved': {
+    bn: 'সমাধান',
+    en: 'Resolved',
+  },
+  'dispatcher.performance.chart.col.category': { bn: 'বিভাগ', en: 'Category' },
+  'dispatcher.performance.chart.col.count': { bn: 'সংখ্যা', en: 'Count' },
+  'dispatcher.performance.chart.col.status': { bn: 'অবস্থা', en: 'Status' },
+  'dispatcher.performance.crew.title': {
+    bn: 'ক্রু কর্মক্ষমতা',
+    en: 'Crew performance',
+  },
+  'dispatcher.performance.crew.col.name': { bn: 'ক্রুর নাম', en: 'Crew name' },
+  'dispatcher.performance.crew.col.specialty': {
+    bn: 'বিশেষজ্ঞতা',
+    en: 'Specialty',
+  },
+  'dispatcher.performance.crew.col.jobs': {
+    bn: 'সম্পন্ন কাজ',
+    en: 'Jobs completed',
+  },
+  'dispatcher.performance.crew.col.avg_time': {
+    bn: 'গড় সমাধানের সময়',
+    en: 'Avg time to resolve',
+  },
+  'dispatcher.performance.crew.col.feedback': {
+    bn: 'নাগরিক প্রতিক্রিয়া',
+    en: 'Citizen feedback',
+  },
+  'dispatcher.performance.crew.feedback.ratio': {
+    bn: '{positive}টি ইতিবাচক / {negative}টি নেতিবাচক',
+    en: '{positive} positive / {negative} negative',
+  },
+  'dispatcher.performance.crew.feedback.not_enough_data': {
+    bn: 'পর্যাপ্ত তথ্য নেই',
+    en: 'Not enough data',
+  },
+  'dispatcher.performance.crew.low_feedback_badge': {
+    bn: 'কম প্রতিক্রিয়া',
+    en: 'Low feedback',
+  },
+  'dispatcher.performance.crew.specialty_unknown': {
+    bn: 'নির্দিষ্ট নয়',
+    en: 'Unspecified',
+  },
+  'dispatcher.performance.crew.empty': {
+    bn: 'এই ওয়ার্ডে কোনো ক্রু নেই',
+    en: 'No crews in this ward',
+  },
+  'dispatcher.performance.long_tail.title': {
+    bn: 'দীর্ঘস্থায়ী অমীমাণাইত রিপোর্ট',
+    en: 'Long-tail unresolved reports',
+  },
+  'dispatcher.performance.long_tail.empty': {
+    bn: 'এই মুহূর্তে কোনো পুরোনো খোলা রিপোর্ট নেই',
+    en: 'No long-tail unresolved reports right now',
+  },
+  'dispatcher.performance.long_tail.col.ticket': {
+    bn: 'রিপোর্ট আইডি',
+    en: 'Ticket ID',
+  },
+  'dispatcher.performance.long_tail.col.category': {
+    bn: 'বিভাগ',
+    en: 'Category',
+  },
+  'dispatcher.performance.long_tail.col.submitted': {
+    bn: 'জমার সময়',
+    en: 'Submitted',
+  },
+  'dispatcher.performance.long_tail.col.age': { bn: 'বয়স', en: 'Age' },
+  'dispatcher.performance.long_tail.col.crew': {
+    bn: 'নিয়োজিত ক্রু',
+    en: 'Assigned crew',
+  },
+  'dispatcher.performance.long_tail.unassigned': {
+    bn: 'নিয়োজিত নয়',
+    en: 'Unassigned',
+  },
+  'dispatcher.performance.export.pdf': {
+    bn: 'PDF হিসেবে রপ্তানি করুন',
+    en: 'Export as PDF',
+  },
+  'dispatcher.performance.export.pdf_preparing': {
+    bn: 'PDF তৈরি হচ্ছে…',
+    en: 'Preparing your PDF…',
+  },
+  'dispatcher.performance.export.csv': {
+    bn: 'CSV ডাউনলোড',
+    en: 'Download CSV',
+  },
+  'dispatcher.performance.empty': {
+    bn: 'এই সময়ে কোনো রিপোর্ট নেই',
+    en: 'No reports in this period',
+  },
+  'dispatcher.performance.error': {
+    bn: 'প্রতিবেদন লোড করা যায়নি',
+    en: 'Could not load the snapshot',
+  },
+  'dispatcher.performance.signin_required': {
+    bn: 'প্রতিবেদন দেখতে লগইন করুন',
+    en: 'Sign in to view the snapshot',
+  },
+  'dispatcher.performance.loading': {
+    bn: 'প্রতিবেদন তৈরি হচ্ছে…',
+    en: 'Preparing the snapshot…',
+  },
+  'dispatcher.performance.duration.days': { bn: '{n} দিন', en: '{n} d' },
+  'dispatcher.performance.duration.hours': {
+    bn: '{n} ঘণ্টা',
+    en: '{n} h',
+  },
+  'dispatcher.performance.duration.minutes': {
+    bn: '{n} মিনিট',
+    en: '{n} m',
+  },
   'status.heading': {
     bn: 'অবস্থা',
     en: 'Status',
@@ -1290,6 +1618,241 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'admin.cities.viewAdoption': {
     bn: 'গ্রহণযোগ্যতা দেখুন',
     en: 'View adoption',
+  },
+
+  // Intent 005 (Unit 003) — User provisioning (4.6) + Adoption dashboard (4.7)
+  'admin.users.title': { bn: 'ব্যবহারকারী প্রস্তুত করুন', en: 'User provisioning' },
+  'admin.users.subtitle': {
+    bn: 'ডিসপ্যাচার, ক্রু ও সুপারভাইজার যোগ করুন এবং সেটআপ শেষ করুন',
+    en: 'Add dispatchers, crews and supervisors, then finish setup',
+  },
+  'admin.users.back': { bn: 'শহরে ফিরুন', en: 'Back to city' },
+  'admin.users.tab.all': { bn: 'সব', en: 'All' },
+  'admin.users.tab.dispatcher': { bn: 'ডিসপ্যাচার', en: 'Dispatchers' },
+  'admin.users.tab.crew': { bn: 'ক্রু', en: 'Crew' },
+  'admin.users.tab.supervisor': {
+    bn: 'সুপারভাইজার',
+    en: 'Supervisors',
+  },
+  'admin.users.role.dispatcher': { bn: 'ডিসপ্যাচার', en: 'Dispatcher' },
+  'admin.users.role.crew': { bn: 'ক্রু', en: 'Crew' },
+  'admin.users.role.supervisor': {
+    bn: 'সুপারভাইজার',
+    en: 'Supervisor',
+  },
+  'admin.users.status.active': { bn: 'সক্রিয়', en: 'Active' },
+  'admin.users.status.invited': { bn: 'আমন্ত্রিত', en: 'Invited' },
+  'admin.users.status.disabled': { bn: 'নিষ্ক্রিয়', en: 'Disabled' },
+  'admin.users.cta.add': { bn: 'ব্যবহারকারী যোগ করুন', en: 'Add user' },
+  'admin.users.cta.bulkImport': {
+    bn: 'CSV বাল্ক ইমপোর্ট',
+    en: 'CSV bulk import',
+  },
+  'admin.users.cta.downloadTemplate': {
+    bn: 'টেমপ্লেট ডাউনলোড',
+    en: 'Download template',
+  },
+  'admin.users.cta.launch': { bn: 'সেটআপ সম্পূর্ণ — শহর চালু করুন', en: 'Setup complete — launch city' },
+  'admin.users.cta.skip': { bn: 'এখনই নয়', en: 'Not now' },
+  'admin.users.cta.save': { bn: 'সংরক্ষণ', en: 'Save' },
+  'admin.users.cta.cancel': { bn: 'বাতিল', en: 'Cancel' },
+  'admin.users.cta.delete': { bn: 'মুছুন', en: 'Delete' },
+  'admin.users.cta.autoGenerate': {
+    bn: 'স্বয়ংক্রিয়ভাবে তৈরি করুন',
+    en: 'Auto-generate',
+  },
+  'admin.users.form.nameBn': { bn: 'বাংলা নাম', en: 'Bangla name' },
+  'admin.users.form.nameEn': { bn: 'ইংরেজি নাম', en: 'English name' },
+  'admin.users.form.identifier': {
+    bn: 'স্টাফ আইডি বা মোবাইল',
+    en: 'Staff ID or mobile',
+  },
+  'admin.users.form.email': { bn: 'ইমেইল', en: 'Email' },
+  'admin.users.form.role': { bn: 'ভূমিকা', en: 'Role' },
+  'admin.users.form.wards': { bn: 'ওয়ার্ড', en: 'Wards' },
+  'admin.users.form.crew': { bn: 'ক্রু', en: 'Crew' },
+  'admin.users.form.department': { bn: 'বিভাগ', en: 'Department' },
+  'admin.users.form.password': {
+    bn: 'প্রাথমিক পাসওয়ার্ড',
+    en: 'Initial password',
+  },
+  'admin.users.form.password.hint': {
+    bn: 'কমপক্ষে ৮ অক্ষর, বড় ও ছোট হাতের অক্ষর এবং একটি সংখ্যা',
+    en: 'At least 8 characters, with upper case, lower case and a digit',
+  },
+  'admin.users.form.status': { bn: 'অবস্থা', en: 'Status' },
+  'admin.users.form.supervisor.note': {
+    bn: 'সুপারভাইজার সব শহর দেখতে পারেন কিন্তু কোনো ওয়ার্ড বা বিভাগে নিয়োগ করা হয় না।',
+    en: 'Supervisors see the whole city but are not scoped to any ward or department.',
+  },
+  'admin.users.empty': {
+    bn: 'এখনো কোনো ব্যবহারকারী যোগ করা হয়নি',
+    en: 'No users have been added yet',
+  },
+  'admin.users.lastLogin.never': { bn: 'কখনো লগইন করেননি', en: 'Never signed in' },
+  'admin.users.lastLogin.at': { bn: 'সর্বশেষ লগইন', en: 'Last login' },
+  'admin.users.notAssigned': { bn: 'নিয়োগ করা হয়নি', en: 'Not assigned' },
+  'admin.users.import.title': { bn: 'CSV বাল্ক ইমপোর্ট', en: 'CSV bulk import' },
+  'admin.users.import.columns': {
+    bn: 'কলাম: name_bn, name_en, identifier, email, role, wards_or_crew, department',
+    en: 'Columns: name_bn, name_en, identifier, email, role, wards_or_crew, department',
+  },
+  'admin.users.import.row': { bn: 'সারি', en: 'Row' },
+  'admin.users.import.success': {
+    bn: 'ব্যবহারকারী যোগ হয়েছে',
+    en: 'users added',
+  },
+  'admin.users.import.failed': { bn: 'ব্যর্থ', en: 'failed' },
+  'admin.users.import.close': { bn: 'বন্ধ করুন', en: 'Close' },
+  'admin.users.launch.disabled': {
+    bn: 'শহর চালু করতে অন্তত একজন ডিসপ্যাচার ও একটি ক্রু দরকার',
+    en: 'At least one dispatcher and one crew are needed to launch the city',
+  },
+  'admin.users.webauthn.required': {
+    bn: 'এই কাজের জন্য হার্ডওয়্যার কী দরকার',
+    en: 'This action requires your hardware key',
+  },
+
+  'admin.adoption.title': {
+    bn: 'গ্রহণযোগ্যতা ড্যাশবোর্ড',
+    en: 'Adoption dashboard',
+  },
+  'admin.adoption.back': { bn: 'শহরে ফিরুন', en: 'Back to city' },
+  'admin.adoption.range.label': { bn: 'সময়সীমা', en: 'Date range' },
+  'admin.adoption.range.7d': { bn: 'গত ৭ দিন', en: 'Last 7 days' },
+  'admin.adoption.range.30d': { bn: 'গত ৩০ দিন', en: 'Last 30 days' },
+  'admin.adoption.range.sinceLaunch': {
+    bn: 'চালুর পর থেকে',
+    en: 'Since launch',
+  },
+  'admin.adoption.range.custom': { bn: 'নির্দিষ্ট', en: 'Custom' },
+  'admin.adoption.hero.registeredCitizens': {
+    bn: 'নিবন্ধিত নাগরিক',
+    en: 'Registered citizens',
+  },
+  'admin.adoption.hero.reportsReceived': {
+    bn: 'প্রাপ্ত রিপোর্ট',
+    en: 'Reports received',
+  },
+  'admin.adoption.hero.resolutionRate': {
+    bn: 'সমাধানের হার',
+    en: 'Resolution rate',
+  },
+  'admin.adoption.hero.avgTimeToResolve': {
+    bn: 'গড় সমাধান সময়',
+    en: 'Avg time to resolve',
+  },
+  'admin.adoption.hero.delta.up': { bn: 'বৃদ্ধি', en: 'up' },
+  'admin.adoption.hero.delta.down': { bn: 'হ্রাস', en: 'down' },
+  'admin.adoption.hero.delta.flat': { bn: 'অপরিবর্তিত', en: 'no change' },
+  'admin.adoption.hero.delta.none': {
+    bn: 'তুলনার তথ্য নেই',
+    en: 'no comparison',
+  },
+  'admin.adoption.funnel.title': { bn: 'গ্রহণ ফানেল', en: 'Adoption funnel' },
+  'admin.adoption.funnel.visit': { bn: 'ভিজিট', en: 'Visit' },
+  'admin.adoption.funnel.registered': {
+    bn: 'নিবন্ধিত',
+    en: 'Registered',
+  },
+  'admin.adoption.funnel.submitted': { bn: 'রিপোর্ট জমা', en: 'Submitted' },
+  'admin.adoption.funnel.secondReport': {
+    bn: 'দ্বিতীয় রিপোর্ট',
+    en: '2nd report',
+  },
+  'admin.adoption.funnel.feedback': {
+    bn: 'মতামত দিয়েছেন',
+    en: 'Gave feedback',
+  },
+  'admin.adoption.funnel.conversion': { bn: 'রূপান্তর', en: 'Conversion' },
+  'admin.adoption.funnel.stageCount': { bn: 'জন', en: 'people' },
+  'admin.adoption.funnel.tableCaption': {
+    bn: 'গ্রহণ ফানেলের সংখ্যা ও রূপান্তরের হার',
+    en: 'Adoption funnel stage counts and conversion rates',
+  },
+  'admin.adoption.daily.title': { bn: 'দৈনিক কার্যকলাপ', en: 'Daily activity' },
+  'admin.adoption.daily.submitted': { bn: 'জমা', en: 'Submitted' },
+  'admin.adoption.daily.resolved': { bn: 'সমাধান', en: 'Resolved' },
+  'admin.adoption.daily.registered': { bn: 'নিবন্ধিত', en: 'Registered' },
+  'admin.adoption.daily.tableCaption': {
+    bn: 'দৈনিক জমা, সমাধান ও নিবন্ধনের সংখ্যা',
+    en: 'Daily submitted, resolved and registered counts',
+  },
+  'admin.adoption.heatmap.title': { bn: 'ওয়ার্ড তাপমাত্রা মানচিত্র', en: 'Ward heatmap' },
+  'admin.adoption.heatmap.tableCaption': {
+    bn: 'ওয়ার্ড অনুযায়ী রিপোর্টের সংখ্যা',
+    en: 'Report counts by ward',
+  },
+  'admin.adoption.heatmap.legend.none': { bn: 'কোনো রিপোর্ট নেই', en: 'No reports' },
+  'admin.adoption.heatmap.legend.high': { bn: 'সর্বাধিক', en: 'Highest' },
+  'admin.adoption.heatmap.reports': { bn: 'রিপোর্ট', en: 'reports' },
+  'admin.adoption.engagement.title': {
+    bn: 'সম্পৃক্ততার সংকেত',
+    en: 'Engagement signals',
+  },
+  'admin.adoption.engagement.staffActivity': {
+    bn: 'কর্মীদের সক্রিয়তা',
+    en: 'Staff activity',
+  },
+  'admin.adoption.engagement.citizenRetention': {
+    bn: 'নাগরিক ধরে রাখা',
+    en: 'Citizen retention',
+  },
+  'admin.adoption.engagement.crewResponseTime': {
+    bn: 'ক্রুর সাড়া দেওয়ার সময়',
+    en: 'Crew response time',
+  },
+  'admin.adoption.engagement.staffActivity.detail': {
+    bn: 'গত ৭ দিনে অন্তত একবার সক্রিয় কর্মীর হার',
+    en: 'Share of staff active at least once in the last 7 days',
+  },
+  'admin.adoption.engagement.citizenRetention.detail': {
+    bn: '৩০ দিনের মধ্যে দ্বিতীয় রিপোর্ট করা নাগরিকের হার',
+    en: 'Share of citizens who filed a second report within 30 days',
+  },
+  'admin.adoption.engagement.crewResponseTime.detail': {
+    bn: 'রাউট থেকে কাজ শুরু পর্যন্ত মধ্যম সময়',
+    en: 'Median time from routed to in-progress',
+  },
+  'admin.adoption.health.title': { bn: 'স্বাস্থ্য সংকেত', en: 'Health flags' },
+  'admin.adoption.health.none': {
+    bn: 'কোনো সমস্যা পাওয়া যায়নি',
+    en: 'No health issues detected',
+  },
+  'admin.adoption.health.stale_dispatchers': {
+    bn: 'জন ডিসপ্যাচার ৭ দিন ধরে লগইন করেননি',
+    en: 'dispatchers have not signed in for 7 days',
+  },
+  'admin.adoption.health.unassigned_backlog': {
+    bn: 'টিকিট ৭ দিনের বেশি অনিয়োজিত',
+    en: 'tickets have been unassigned for 7+ days',
+  },
+  'admin.adoption.health.silent_ward': {
+    bn: 'ওয়ার্ড ১৪ দিন ধরে কোনো রিপোর্ট পায়নি',
+    en: 'has had no reports in 14 days',
+  },
+  'admin.adoption.cta.exportPdf': { bn: 'PDF রপ্তানি', en: 'Export PDF' },
+  'admin.adoption.cta.exportCsv': { bn: 'CSV রপ্তানি', en: 'Export CSV' },
+  'admin.adoption.cta.preparingPdf': {
+    bn: 'প্রস্তুত হচ্ছে...',
+    en: 'Preparing...',
+  },
+  'admin.adoption.compare.toggle': {
+    bn: 'ঢাকার সাথে তুলনা করুন',
+    en: 'Compare with Dhaka',
+  },
+  'admin.adoption.compare.dhaka': { bn: 'ঢাকা', en: 'Dhaka' },
+  'admin.adoption.compare.legend': {
+    bn: 'আপনার শহর',
+    en: 'Your city',
+  },
+  'admin.adoption.empty': {
+    bn: 'এই সময়সীমায় কোনো তথ্য নেই',
+    en: 'No data in this period',
+  },
+  'admin.adoption.error': {
+    bn: 'তথ্য লোড করা যায়নি',
+    en: 'Could not load dashboard data',
   },
 
   'admin.setup.title': { bn: 'শহর সেটআপ', en: 'City setup' },
