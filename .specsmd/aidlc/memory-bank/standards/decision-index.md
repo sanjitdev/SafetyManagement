@@ -331,6 +331,42 @@ tolerance `0.005`).
 
 ---
 
+### ADR-016 — Persisted per-user monitor read marker (deferred to v1.1)
+
+- **Date**: 2026-10-27
+- **Source**: `docs/adr/ADR-016-monitor-read-marker.md`
+- **Status**: Proposed (deferred to v1.1).
+- **Bolt**: 008-013-dispatcher-live-monitor (Intent 003,
+  Unit 006, Story DISP-008).
+- **Path**: `docs/adr/ADR-016-monitor-read-marker.md`
+- **Summary**: The dispatcher's live monitor ships a per-row
+  `unread` flag whose derivation is correct but whose input is
+  never supplied — `buildMonitorRows` reads an optional
+  `lastReadAt` map that `listMonitorTickets` never passes, so
+  every watched ticket with a trail entry renders `unread: true`
+  on every poll. The acknowledge action writes an audit row
+  only; there is no persisted per-user read marker, and the
+  Prisma schema has no read-marker table. The recommended
+  v1.1 shape is a dedicated `MonitorReadMarker` model with a
+  `@@unique([userId, ticketId])` composite unique and a
+  `lastReadAt` timestamp, written by the existing ack route and
+  read by `listMonitorTickets`. The GET route gains **no** new
+  query parameter — the marker is derived server-side from the
+  session's `userId`, so a client cannot spoof a read state.
+  Rejected alternatives: a per-user scalar watermark (wrong
+  granularity — one acknowledgement would mark every watched
+  ticket read), deriving unreadness from the append-only audit
+  log (makes the accountability log do a second, conflicting
+  job), and the client-held status quo (kept only as a time-boxed
+  v1 deferral). The v1 pilot ships the client-held
+  acknowledgement exactly as Bolt 008-013 built it.
+- **Read when**: Implementing the v1.1 monitor read-marker
+  Bolt, adding the second Prisma migration on top of the
+  pending `20261027140000_platform_gaps`, or changing the
+  monitor's acknowledge semantics.
+
+---
+
 ## Cross-references
 
 - **Tech audit** (source for ADRs 001-004, 007):

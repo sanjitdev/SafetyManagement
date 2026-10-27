@@ -3623,3 +3623,63 @@ optional:**
    `blob_provider_dependency_missing` error rather than
    crashing the import.
 
+### 2026-10-27 — ADR-016 authored: persisted monitor read marker (v1.1 follow-up)
+
+The dispatcher's live monitor (Bolt 008-013) shipped a per-row
+`unread` flag whose derivation is correct but whose input is
+never supplied. `buildMonitorRows` reads an optional
+`lastReadAt` map (`lib/dispatcher/monitor.ts:206-252`), but the
+DB-facing read calls it with a single argument
+(`lib/dispatcher/monitor.ts:470`), so `lastReadAt` is always
+empty and **every watched ticket with a trail entry renders
+`unread: true` on every poll** — for every dispatcher.
+
+The acknowledge path does not close the gap.
+`acknowledgeMonitorUpdate` writes an **audit row only**
+(`action: 'ticket.monitor_acknowledge'`,
+`lib/dispatcher/monitor.ts:525-532`); there is no persisted
+per-user read marker, and the Prisma schema has no read-marker
+table. The acknowledgement therefore lives in client state — a
+`useState<Set<string>>` in `app/dispatcher/monitor/page.tsx:139`
+— which survives a session but not a **reload**, not a
+**second device**, and not a **multi-ward shift**. The unread
+dot and the "N unread" counter are therefore a dead signal for
+the pilot's duration.
+
+**ADR-016 was authored to freeze the target design and make the
+deferral explicit — documentation only, no code changed.** It
+recommends a dedicated `MonitorReadMarker` Prisma model with a
+`@@unique([userId, ticketId])` composite unique and a
+`lastReadAt` timestamp, written by the ack route and read by
+`listMonitorTickets`. The GET route gains **no** new query
+parameter: the marker is derived server-side from the session's
+`userId`, so a client cannot spoof a read state. The
+alternatives considered were a per-user scalar watermark
+(rejected — wrong granularity; one acknowledgement would mark
+every watched ticket read), deriving unreadness from the
+append-only audit log (rejected — makes the accountability log do
+a second, conflicting job and couples read cost to audit-table
+growth), and keeping the client-held status quo (rejected as an
+end state; kept only as a time-boxed v1 deferral).
+
+**ADR-016 is an explicit v1.1 follow-up.** The v1 pilot ships the
+client-held acknowledgement exactly as Bolt 008-013 built it.
+The v1.1 Bolt inherits a frozen design: schema sketch, service
+signatures (`Result<T, E>`, named exports, no throwing), the
+unchanged route contract, the offline `prisma migrate diff`
+generation command, the migration-safety sequence, and the test
+plan.
+
+**Migration sequencing matters.** The pending
+`prisma/migrations/20261027140000_platform_gaps/migration.sql` is
+**still un-applied** (Neon unreachable, `P1001`). The v1.1
+migration must land on top of it, so the sequence is
+`npx prisma migrate deploy` (applies `platform_gaps`) first, then
+the marker migration, regenerated with `migrate diff` against the
+then-current schema. The marker migration is additive only — a
+new table, two indexes, two cascading foreign keys — so the
+rollback is a `DROP TABLE` and the v1 code path keeps working
+as the fallback.
+
+File: `docs/adr/ADR-016-monitor-read-marker.md`.
+
