@@ -36,10 +36,35 @@ import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth/guards';
 import { writeAudit } from '@/lib/platform/audit';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import {
+  buildPhotoKey,
+  isAllowedBlobMime,
+  isBlobProviderActive,
+  putObject,
+} from '@/lib/storage/blob';
+import { base64ToBytes } from '@/lib/crew/upload-photo';
 
-const PhotoInput = z.object({
-  url: z.string().url().max(2000),
-});
+/**
+ * The photo payload has TWO shapes (see the wire contract in
+ * `lib/crew/upload-photo.ts`):
+ *
+ *   - `{ url }` — the inline data URL (the v1 default; the blob
+ *     provider is NOT configured). The bytes stay in the URL.
+ *   - `{ dataBase64, mimeType, fileName? }` — the blob path. The
+ *     route writes the bytes to the blob provider and persists
+ *     the `storageKey` / `mimeType` / `sizeBytes` metadata
+ *     alongside the rendered URL.
+ */
+const PhotoInput = z.union([
+  z.object({
+    url: z.string().url().max(2_000_000),
+  }),
+  z.object({
+    dataBase64: z.string().min(1).max(8_000_000),
+    mimeType: z.string().min(1).max(100),
+    fileName: z.string().max(255).optional(),
+  }),
+]);
 
 export async function POST(
   req: NextRequest,
@@ -107,6 +132,55 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
+  // ── Store the photo ──────────────────────────────────────────
+  //
+  // Blob path: the client sent raw bytes. The route writes them
+  // to the blob provider and persists the metadata. If the write
+  // fails the route returns 502 — the photo is NOT recorded with
+  // a broken URL.
+  //
+  // Inline path: the client sent a data URL (or an external
+  // URL). Nothing to store; the URL IS the photo.
+  let photoUrl: string;
+  let storageKey: string | null = null;
+  let mimeType: string | null = null;
+  let sizeBytes: number | null = null;
+
+  if ('dataBase64' in parsed.data) {
+    if (!isAllowedBlobMime(parsed.data.mimeType)) {
+      return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = base64ToBytes(parsed.data.dataBase64);
+    } catch {
+      return NextResponse.json({ error: 'invalid_input' }, { status: 400 });
+    }
+    const key = buildPhotoKey({
+      ticketId: ticket.id,
+      role: 'crew',
+      mimeType: parsed.data.mimeType,
+      originalName: parsed.data.fileName,
+    });
+    const stored = await putObject({
+      key,
+      body: bytes,
+      contentType: parsed.data.mimeType,
+    });
+    if (!stored.ok) {
+      return NextResponse.json(
+        { error: 'photo_storage_failed', detail: stored.error.code },
+        { status: 502 },
+      );
+    }
+    photoUrl = stored.value.url;
+    storageKey = stored.value.key;
+    mimeType = parsed.data.mimeType;
+    sizeBytes = bytes.byteLength;
+  } else {
+    photoUrl = parsed.data.url;
+  }
+
   // Bolt 007-001: create the new `TicketPhoto` row with
   // `uploadedByRole: 'crew'`. The `db.ticketPhoto.create` helper
   // works on both Prisma + dev store; the dev store's
@@ -115,8 +189,11 @@ export async function POST(
   const createdPhoto = await db.ticketPhoto.create({
     data: {
       ticketId: ticket.id,
-      url: parsed.data.url,
+      url: photoUrl,
       uploadedByRole: 'crew',
+      ...(storageKey ? { storageKey } : {}),
+      ...(mimeType ? { mimeType } : {}),
+      ...(sizeBytes != null ? { sizeBytes } : {}),
     },
   });
   await db.trail.create({
@@ -124,7 +201,7 @@ export async function POST(
       ticketId: ticket.id,
       toStatus: ticket.status,
       actorId: session!.userId,
-      note: `after_photo:${parsed.data.url}`,
+      note: `after_photo:${photoUrl}`,
     },
   });
   await writeAudit({
@@ -134,8 +211,9 @@ export async function POST(
     actorId: session!.userId,
     afterValue: {
       photoId: createdPhoto.id,
-      url: parsed.data.url,
+      url: photoUrl,
       uploadedByRole: 'crew',
+      ...(storageKey ? { storageKey } : {}),
     },
   });
 

@@ -23,8 +23,31 @@ export interface ReportDraft {
   locationLabelBn: string | null;
   categoryId: string | null;
   photoUrls: string[];
+  /**
+   * WO-000 platform layer — the raw bytes for the photos, carried
+   * alongside `photoUrls` when a blob provider is configured.
+   *
+   * `photoUrls` stays the RENDER source (the thumbnails the
+   * citizen sees on the summary page are the inline data URLs), so
+   * the existing visual baselines are unaffected. `photoBlobs` is
+   * the STORAGE source: the summary page POSTs it and the API
+   * route writes the bytes to the blob provider.
+   *
+   * Absent / empty when no blob provider is configured — the v1
+   * inline behaviour, unchanged.
+   */
+  photoBlobs?: ReportDraftPhotoBlob[];
   note: string;
   step: 'location' | 'photo' | 'category' | 'note' | 'summary' | 'submitted';
+}
+
+/**
+ * One photo's bytes, in the shape the create-ticket route accepts.
+ */
+export interface ReportDraftPhotoBlob {
+  dataBase64: string;
+  mimeType: string;
+  fileName?: string;
 }
 
 const STORAGE_KEY = 'cityfix.reportDraft.v1';

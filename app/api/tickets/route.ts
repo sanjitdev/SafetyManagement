@@ -22,6 +22,12 @@ import { checkDedup } from '@/lib/platform/dedup';
 import { writeAudit } from '@/lib/platform/audit';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import {
+  buildPhotoKey,
+  isAllowedBlobMime,
+  putObject,
+} from '@/lib/storage/blob';
+import { base64ToBytes } from '@/lib/crew/upload-photo';
 
 const CreateTicketInput = z.object({
   cityId: z.string().min(1),
@@ -33,6 +39,22 @@ const CreateTicketInput = z.object({
   locationLabelBn: z.string().max(500).optional(),
   note: z.string().max(2000).optional(),
   photoUrls: z.array(z.string().url()).max(5).default([]),
+  // WO-000 platform layer — the blob-storage path for the
+  // citizen's photos. When a blob provider is configured the
+  // client sends the raw bytes (base64) instead of inline data
+  // URLs; the route stores them via the blob provider and
+  // persists the metadata. Both shapes are accepted so the
+  // client can pick at runtime.
+  photoBlobs: z
+    .array(
+      z.object({
+        dataBase64: z.string().min(1).max(8_000_000),
+        mimeType: z.string().min(1).max(100),
+        fileName: z.string().max(255).optional(),
+      }),
+    )
+    .max(5)
+    .default([]),
   // When the citizen declines a dedup-match in /report/summary, they
   // re-POST with this set to the existing ticket id. We log it as an
   // audit event so the WO-002 dispatcher can surface possible duplicates
@@ -124,12 +146,67 @@ export async function POST(req: NextRequest) {
   // the ticket; they live in `TicketPhoto` rows with `uploadedByRole`
   // discriminator. The citizen's submission writes one `citizen` row
   // per uploaded URL.
+  //
+  // WO-000 platform layer: when the client sent raw bytes
+  // (`photoBlobs`), the route writes them to the blob provider and
+  // records the metadata. The inline `photoUrls` path is unchanged
+  // (and is what the dev + visual-baseline path uses).
   for (const url of input.photoUrls) {
     await db.ticketPhoto.create({
       data: {
         ticketId: created.id,
         url,
         uploadedByRole: 'citizen',
+      },
+    });
+  }
+  for (const blob of input.photoBlobs) {
+    if (!isAllowedBlobMime(blob.mimeType)) {
+      // A photo with a disallowed MIME type is a client bug (the
+      // report form only offers image types). Skip it rather than
+      // failing the whole submission — the citizen's report is
+      // more valuable than their photo.
+      continue;
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = base64ToBytes(blob.dataBase64);
+    } catch {
+      continue;
+    }
+    const key = buildPhotoKey({
+      ticketId: created.id,
+      role: 'citizen',
+      mimeType: blob.mimeType,
+      originalName: blob.fileName,
+    });
+    const stored = await putObject({
+      key,
+      body: bytes,
+      contentType: blob.mimeType,
+    });
+    if (!stored.ok) {
+      // The blob write failed. The ticket is already created —
+      // do NOT fail the submission (the citizen's report is the
+      // valuable artefact); log the failure so the city can
+      // re-request the photo later.
+      await writeAudit({
+        entityType: 'ticket',
+        entityId: created.id,
+        action: 'ticket.photo_storage_failed',
+        actorId: session!.userId,
+        afterValue: { code: stored.error.code, key },
+      });
+      continue;
+    }
+    await db.ticketPhoto.create({
+      data: {
+        ticketId: created.id,
+        url: stored.value.url,
+        uploadedByRole: 'citizen',
+        storageKey: stored.value.key,
+        mimeType: blob.mimeType,
+        sizeBytes: bytes.byteLength,
       },
     });
   }

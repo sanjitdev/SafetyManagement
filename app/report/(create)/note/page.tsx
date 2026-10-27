@@ -108,6 +108,12 @@ export default function NotePage() {
             locationLabelBn: draft.locationLabelBn,
             note: note || undefined,
             photoUrls: draft.photoUrls,
+            // WO-000 platform layer — the raw bytes for the photos.
+            // Present only when a blob provider is configured; the
+            // API route stores them and records the metadata.
+            // `photoUrls` is still sent so the render path (and the
+            // visual baselines) are unchanged.
+            photoBlobs: draft.photoBlobs ?? [],
           }),
         });
         const body = await res.json();

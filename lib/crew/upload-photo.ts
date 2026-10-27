@@ -14,6 +14,39 @@
  * inlines the bytes as a `data:image/<mime>;base64,…` URL. The
  * server contract (POST `{ url: string }`) is unchanged.
  *
+ * ── Storage (reworked for the platform-layer batch build) ─────
+ *
+ * WO-000's technical design closed the "Photo storage" open
+ * question with:
+ *
+ *   > "S3-compatible blob storage or local filesystem for v1?
+ *   >  Recommendation: blob storage with local-filesystem fallback
+ *   >  for dev."
+ *
+ * This helper now routes the bytes through the blob store
+ * (`lib/storage/blob.ts`) and the API persists the blob metadata
+ * alongside the rendered URL:
+ *
+ *   - `TicketPhoto.url`        — the rendered URL (UNCHANGED
+ *                                contract; the citizen + crew
+ *                                serializers read it directly).
+ *   - `TicketPhoto.storageKey` — the provider-side object key.
+ *   - `TicketPhoto.mimeType`   — the stored MIME type.
+ *   - `TicketPhoto.sizeBytes`  — the stored byte length.
+ *
+ * ── The inline fallback (visual-baseline safety) ─────────────
+ *
+ * The inline data-URL behaviour is KEPT when no blob provider is
+ * configured (`isBlobProviderActive()` is false — the default in
+ * dev). That preserves the existing Playwright visual baselines
+ * byte-for-byte: the baseline images capture `<img src="data:...">`
+ * thumbnails, and switching the `src` to an `/api/blob/...` URL
+ * would shift every rendered pixel.
+ *
+ * When `BLOB_PROVIDER` IS configured (s3, or local with an
+ * explicit `BLOB_LOCAL_DIR`), the bytes are stored in the blob
+ * provider and the API returns the provider URL.
+ *
  * The helper exposes a tiny pure API so the page component and
  * the unit test can both call the same functions:
  *
@@ -42,6 +75,12 @@
  *     pipeline (R2/MinIO) where EXIF handling is a separate
  *     concern.
  */
+
+// Client-safe import: `lib/storage/blob.ts` is server-only (it pulls
+// in `next/headers` via `lib/auth/guards`). The provider-detection
+// helper lives in a dependency-free module so this file — which is
+// imported by `'use client'` pages — stays browser-safe.
+import { isBlobProviderActive } from '@/lib/storage/blob-provider';
 
 export const ALLOWED_PHOTO_MIME_TYPES = [
   'image/jpeg',
@@ -162,6 +201,72 @@ export function readPhotoFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/**
+ * Asynchronously read a `File` as raw bytes. Used by the blob
+ * path: the client sends the bytes to the API, and the API is
+ * the layer that writes to the blob provider (the browser never
+ * talks to S3/R2 directly — it has no credentials and must not
+ * have any).
+ */
+export function readPhotoFileAsBytes(file: File): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (result instanceof ArrayBuffer) {
+        resolve(new Uint8Array(result));
+      } else if (result && typeof result === 'object' && 'buffer' in result) {
+        // Node's Blob-like objects expose `.buffer` in the test
+        // environment; the DOM FileReader path yields an
+        // ArrayBuffer directly.
+        const buf = (result as { buffer: ArrayBuffer }).buffer;
+        resolve(new Uint8Array(buf));
+      } else {
+        reject(new Error('FileReader returned a non-buffer result'));
+      }
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error('FileReader error'));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Base64-encode raw bytes WITHOUT the `data:` URL prefix. The
+ * API route re-assembles the `data:` URL (or the raw bytes) from
+ * this payload and stores them via the blob provider.
+ */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(i, Math.min(i + chunk, bytes.length)),
+    );
+  }
+  if (typeof btoa === 'function') {
+    return btoa(binary);
+  }
+  // Node fallback (the unit test runs in the `node` environment).
+  return Buffer.from(bytes).toString('base64');
+}
+
+/**
+ * Decode a base64 string back to bytes. Used by the API route.
+ */
+export function base64ToBytes(b64: string): Uint8Array {
+  if (typeof atob === 'function') {
+    const binary = atob(b64);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      out[i] = binary.charCodeAt(i);
+    }
+    return out;
+  }
+  return new Uint8Array(Buffer.from(b64, 'base64'));
+}
+
 export interface UploadCrewPhotoArgs {
   ticketId: string;
   /**
@@ -176,6 +281,12 @@ export interface UploadCrewPhotoArgs {
    * here so the helper never touches the real network.
    */
   fetcher?: typeof fetch;
+  /**
+   * Optional override for the blob-provider probe. The unit test
+   * injects `false` to force the inline data-URL path regardless
+   * of the ambient env.
+   */
+  blobActive?: boolean;
 }
 
 export interface UploadCrewPhotoOk {
@@ -200,8 +311,24 @@ export type UploadCrewPhotoResult = UploadCrewPhotoOk | UploadCrewPhotoErr;
  * either `file` or `url`; the helper validates, reads the file
  * if needed, and POSTs to `/api/v1/crew/tickets/<id>/photos`.
  *
- * The server contract is `{ url: string }` JSON; the helper
- * is responsible for translating `File → data URL`.
+ * ── The wire contract ─────────────────────────────────────────
+ *
+ * Two shapes, selected by the blob-provider probe:
+ *
+ *   - Blob provider ACTIVE → `{ dataBase64, mimeType, fileName }`.
+ *     The bytes travel to the API, and the API writes them to the
+ *     blob provider (`lib/storage/blob.ts`) and persists the
+ *     `storageKey` / `mimeType` / `sizeBytes` metadata. The
+ *     browser never talks to S3/R2 directly — it has no
+ *     credentials and must not have any.
+ *
+ *   - Blob provider NOT active (the default in dev) → `{ url }`
+ *     holding the inline `data:image/<mime>;base64,…` URL. This
+ *     is the ORIGINAL v1 contract and is kept verbatim so the
+ *     existing Playwright visual baselines stay byte-identical.
+ *
+ * The URL-override branch always sends `{ url }` — there are no
+ * bytes to store, the photo already lives somewhere.
  */
 export async function uploadCrewPhoto(
   args: UploadCrewPhotoArgs,
@@ -220,22 +347,40 @@ export async function uploadCrewPhoto(
     return { ok: false, error: validation.error };
   }
 
-  let finalUrl: string;
+  const blobActive = args.blobActive ?? isBlobProviderActive();
+
+  let body: Record<string, unknown>;
   if (source!.kind === 'file') {
-    try {
-      finalUrl = await readPhotoFileAsDataUrl(source!.file);
-    } catch {
-      return { ok: false, error: 'invalid_file_type' };
+    if (blobActive) {
+      let bytes: Uint8Array;
+      try {
+        bytes = await readPhotoFileAsBytes(source!.file);
+      } catch {
+        return { ok: false, error: 'invalid_file_type' };
+      }
+      body = {
+        dataBase64: bytesToBase64(bytes),
+        mimeType: source!.file.type,
+        fileName: source!.file.name,
+      };
+    } else {
+      let dataUrl: string;
+      try {
+        dataUrl = await readPhotoFileAsDataUrl(source!.file);
+      } catch {
+        return { ok: false, error: 'invalid_file_type' };
+      }
+      body = { url: dataUrl };
     }
   } else {
-    finalUrl = validation.url;
+    body = { url: validation.url };
   }
 
   const res = await f(`/api/v1/crew/tickets/${encodeURIComponent(ticketId)}/photos`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url: finalUrl }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     return { ok: false, error: `http_${res.status}` };

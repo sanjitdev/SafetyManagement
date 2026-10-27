@@ -125,6 +125,9 @@ export default function SummaryPage() {
           locationLabelBn: draft.locationLabelBn,
           note: draft.note || undefined,
           photoUrls: draft.photoUrls,
+          // WO-000 platform layer — the raw bytes for the photos.
+          // Present only when a blob provider is configured.
+          photoBlobs: draft.photoBlobs ?? [],
           dedupDeclineTicketId: ctx.existingTicketId, // v1.1 audit log field
         }),
       });

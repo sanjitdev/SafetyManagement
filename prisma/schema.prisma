@@ -25,37 +25,43 @@ datasource db {
 // =====================================================================
 
 model City {
-  id          String   @id @default(cuid())
-  slug        String   @unique              // e.g. "dhaka-north"
-  name        String                        // primary display name (Bangla or English)
-  nameBn      String?                       // Bangla display name if available
-  defaultLanguage String  @default("bn")   // PLAT-REQ-009: Bangla default for Dhaka
-  dedupRadiusMeters Int  @default(50)      // PLAT-REQ-004: 50m recommended
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  slug              String   @unique // e.g. "dhaka-north"
+  name              String // primary display name (Bangla or English)
+  nameBn            String? // Bangla display name if available
+  defaultLanguage   String   @default("bn") // PLAT-REQ-009: Bangla default for Dhaka
+  dedupRadiusMeters Int      @default(50) // PLAT-REQ-004: 50m recommended
+  // Lifecycle state: 'setup' | 'live' | 'paused'. 'setup' is the
+  // default so a newly-created city is not accidentally live
+  // (the admin must explicitly activate it).
+  status            String   @default("setup")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   wards       Ward[]
   categories  Category[]
   departments Department[]
   users       User[]
   tickets     Ticket[]
+  crews       Crew[]
+  slaPolicies SlaPolicy[]
 }
 
 model Ward {
-  id        String   @id @default(cuid())
-  cityId    String
-  number    Int                          // ward number (1..N per city)
-  name      String                       // primary display name
-  nameBn    String?
+  id             String   @id @default(cuid())
+  cityId         String
+  number         Int // ward number (1..N per city)
+  name           String // primary display name
+  nameBn         String?
   // PLAT-REQ-003: Ward polygons stored as GeoJSON; consumed by WO-001/002 maps.
   // Stored as text (GeoJSON Feature<Polygon>) in v1 to avoid PostGIS dep;
   // v1.1 may promote to geometry column for spatial queries.
   polygonGeoJson String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  city       City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  tickets    Ticket[]
+  city    City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
   // Departments the dispatcher/crew can be scoped to within this ward.
   // The (city, ward, department) triple is the dispatcher/crew scope key (PLAT-REQ-002).
 
@@ -66,35 +72,95 @@ model Ward {
 model Department {
   id        String   @id @default(cuid())
   cityId    String
-  slug      String                        // e.g. "streetlight-maintenance"
+  slug      String // e.g. "streetlight-maintenance"
   name      String
   nameBn    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  city      City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  city       City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
   categories Category[]
+  // WO-003 — crews scoped to a department.
+  crews      Crew[]
 
   @@unique([cityId, slug])
   @@index([cityId])
 }
 
-model Category {
+// =====================================================================
+// Field crews (WO-003) — team grouping for the field crew app
+// =====================================================================
+
+// A `Crew` is a named team of field crew members within one city.
+// The dispatcher's "assign crew" surface (WO-002) picks a USER today;
+// the `Crew` model is the grouping layer the performance table
+// (WO-002) aggregates over — "how many tickets did the Mirpur
+// streetlight crew resolve this week".
+//
+// `departmentId` is optional: a crew may span departments (a
+// general-purpose response team) or be scoped to one.
+model Crew {
   id           String   @id @default(cuid())
   cityId       String
-  departmentId String?
-  slug         String                      // e.g. "streetlight"
-  name         String
+  name         String // primary display name
   nameBn       String?
-  // WO-003 UX Review revision #6: per-category photo cap override.
-  // Null means use the v1 default of 3; 2 = narrow category.
-  narrowCategoryPhotoCap Int?
+  departmentId String? // optional department scope
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   city       City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  users      User[]
+
+  @@unique([cityId, name])
+  @@index([cityId])
+  @@index([departmentId])
+}
+
+// =====================================================================
+// Per-category SLA thresholds (WO-002 performance table)
+// =====================================================================
+
+// The resolution window a category commits to. `resolveHours` is
+// the number of hours from `routed` to `resolved` before the
+// ticket is considered SLA-breached. One policy per (city,
+// category); the unique index enforces "one active policy".
+model SlaPolicy {
+  id           String   @id @default(cuid())
+  cityId       String
+  // One policy per category (the unique constraint below is the
+  // one-to-one anchor for the `Category.slaPolicy` relation).
+  categoryId   String   @unique
+  resolveHours Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  city     City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, categoryId])
+  @@index([cityId])
+  @@index([categoryId])
+}
+
+model Category {
+  id                     String   @id @default(cuid())
+  cityId                 String
+  departmentId           String?
+  slug                   String // e.g. "streetlight"
+  name                   String
+  nameBn                 String?
+  // WO-003 UX Review revision #6: per-category photo cap override.
+  // Null means use the v1 default of 3; 2 = narrow category.
+  narrowCategoryPhotoCap Int?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  city       City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   tickets    Ticket[]
+  // WO-002 — the per-category resolution SLA this category commits to.
+  slaPolicy  SlaPolicy?
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -112,45 +178,62 @@ enum Role {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  cityId      String                       // every user belongs to exactly one city
-  role        Role
+  id                  String    @id @default(cuid())
+  cityId              String // every user belongs to exactly one city
+  role                Role
   // Citizen fields (NULL for non-citizens)
-  phone       String?                      // unique per city
-  nid         String?                      // National ID; format validated
+  phone               String? // unique per city
+  nid                 String? // National ID; format validated
   // All-roles fields
-  name        String
-  email       String?                      // dispatcher/crew/admin use email; citizens use phone
-  passwordHash String?                     // null until verified
+  name                String
+  // Bangla display name (the primary UI locale for the personas).
+  nameBn              String?
+  email               String? // dispatcher/crew/admin use email; citizens use phone
+  passwordHash        String? // null until verified
+  // Account lifecycle: 'active' | 'invited' | 'disabled'.
+  // 'invited' = provisioned but has not signed in yet.
+  // 'disabled' = deactivated; `disabledAt` records when.
+  status              String    @default("active")
+  lastLoginAt         DateTime?
+  disabledAt          DateTime?
   // Dispatcher + crew scope binding (PLAT-REQ-002)
-  wardId        String?
-  departmentId  String?
+  wardId              String?
+  departmentId        String?
+  // WO-003 — team grouping for field crew. Null for citizens /
+  // dispatchers / admins and for crew members not yet grouped.
+  crewId              String?
   // Per-user i18n override (PLAT-REQ-009); null → use city default
-  languageOverride String?
+  languageOverride    String?
   // WebAuthn (admin writes mandatory; dispatcher/crew optional in v1)
-  webAuthnChallenge String?
-  webAuthnCredentials Json?               // array of {credentialID, credentialPublicKey, counter}
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  webAuthnChallenge   String?
+  webAuthnCredentials Json? // array of {credentialID, credentialPublicKey, counter}
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  city         City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  otps         OtpCode[]
-  pushSubscriptions PushSubscription[]
-  reportedTickets  Ticket[] @relation("TicketReporter")
-  assignedTickets  Ticket[] @relation("TicketAssignedCrew")
-  trailEntries     TicketTrailEntry[]
+  city               City                @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  otps               OtpCode[]
+  pushSubscriptions  PushSubscription[]
+  reportedTickets    Ticket[]            @relation("TicketReporter")
+  assignedTickets    Ticket[]            @relation("TicketAssignedCrew")
+  trailEntries       TicketTrailEntry[]
   webauthnChallenges WebAuthnChallenge[]
-  auditEntries      AuditEntry[]
+  auditEntries       AuditEntry[]
+  // WO-003 — the crew team this field member belongs to.
+  // Optional: a user can exist before being grouped (the
+  // dispatcher assigns crew members to a team). Null for
+  // non-crew roles.
+  crew               Crew?               @relation(fields: [crewId], references: [id], onDelete: SetNull)
 
   // Citizen phone unique per city (NOT global — different cities can have the same phone)
   @@unique([cityId, phone])
   @@unique([cityId, email])
   @@index([role])
   @@index([cityId, role])
+  @@index([crewId])
 }
 
 model OtpCode {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   // Hashed OTP — argon2 again, separate from password hash. Never store plaintext.
   codeHash  String
@@ -159,55 +242,55 @@ model OtpCode {
   expiresAt DateTime
   usedAt    DateTime?
   attempts  Int       @default(0)
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, scope])
   @@index([expiresAt])
 }
 
 model WebAuthnChallenge {
-  id         String   @id @default(cuid())
-  userId     String
-  challenge  String   // random server-side challenge; consumed on next assertion
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  challenge String // random server-side challenge; consumed on next assertion
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model Session {
-  id         String   @id @default(cuid())
-  userId     String
+  id           String   @id @default(cuid())
+  userId       String
   // Bind dispatcher/crew to (city, ward, department) at login time.
   // PLAT-REQ-002: cross-scope queries denied at API layer.
-  cityId     String
-  wardId     String?
+  cityId       String
+  wardId       String?
   departmentId String?
-  expiresAt  DateTime
+  expiresAt    DateTime
   // Web Push subscription endpoint(s) — many-per-session allowed
-  createdAt  DateTime @default(now())
-  lastSeenAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model PushSubscription {
-  id          String   @id @default(cuid())
-  userId      String
+  id        String   @id @default(cuid())
+  userId    String
   // Per WO-000 PLAT-REQ-006: per-citizen per-their-own-tickets only.
   // The API layer enforces the scope at send time.
-  endpoint    String   @unique
-  p256dh      String
-  auth        String
-  createdAt   DateTime @default(now())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -221,17 +304,17 @@ enum TicketStatus {
   routed
   in_progress
   resolved
-  closed     // terminal
-  cancelled  // terminal
+  closed // terminal
+  cancelled // terminal
 }
 
 model Ticket {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   cityId          String
   wardId          String
   categoryId      String
   reporterId      String
-  assignedCrewId  String?                   // PLAT-REQ-001 internal-only (hidden from citizen serializer)
+  assignedCrewId  String? // PLAT-REQ-001 internal-only (hidden from citizen serializer)
   status          TicketStatus @default(submitted)
   // GeoJSON point: { type: "Point", coordinates: [lng, lat] }
   // Stored as text in v1; v1.1 may promote to geometry column.
@@ -249,6 +332,12 @@ model Ticket {
   // The legacy `photoUrls: String[]` field was removed in the same migration.
   // Internal-only note (dispatcher/crew see; citizens do not)
   internalNote    String?
+  // WO-002 — the citizen's post-resolution feedback rating. Stored
+  // as a free-text slot in v1 because the exact scale is a PRD
+  // decision (the dispatcher's performance table reads it as the
+  // "citizen feedback ratio" numerator/denominator). NULL when the
+  // citizen has not rated the resolution yet.
+  feedback        String?
   // Dedup-confirm linkage (DISP-006). When the dispatcher
   // confirms a dedup-decline flag, the citizen's ticket is closed
   // and `duplicateOfId` is set to the existing ticket's id.
@@ -257,21 +346,21 @@ model Ticket {
   // cancelled tickets; 'resolved' for the normal close path).
   duplicateOfId   String?
   closeReason     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   resolvedAt      DateTime?
 
-  city       City         @relation(fields: [cityId], references: [id], onDelete: Cascade)
-  ward       Ward         @relation(fields: [wardId], references: [id], onDelete: Restrict)
-  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  reporter   User         @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  assignedCrew User?      @relation("TicketAssignedCrew", fields: [assignedCrewId], references: [id], onDelete: SetNull)
-  duplicateOf  Ticket?    @relation("TicketDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
-  duplicates   Ticket[]   @relation("TicketDuplicates")
-  trail      TicketTrailEntry[]
-  photos     TicketPhoto[]
-  dedupFlagsAsFlagged     DedupFlag[] @relation("DedupFlagFlaggedTicket")
-  dedupFlagsAsOriginal    DedupFlag[] @relation("DedupFlagOriginalTicket")
+  city                 City               @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  ward                 Ward               @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  category             Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reporter             User               @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assignedCrew         User?              @relation("TicketAssignedCrew", fields: [assignedCrewId], references: [id], onDelete: SetNull)
+  duplicateOf          Ticket?            @relation("TicketDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates           Ticket[]           @relation("TicketDuplicates")
+  trail                TicketTrailEntry[]
+  photos               TicketPhoto[]
+  dedupFlagsAsFlagged  DedupFlag[]        @relation("DedupFlagFlaggedTicket")
+  dedupFlagsAsOriginal DedupFlag[]        @relation("DedupFlagOriginalTicket")
 
   @@index([cityId, status])
   @@index([cityId, wardId])
@@ -285,16 +374,16 @@ model Ticket {
 }
 
 model TicketTrailEntry {
-  id           String   @id @default(cuid())
-  ticketId     String
-  toStatus     TicketStatus
+  id        String       @id @default(cuid())
+  ticketId  String
+  toStatus  TicketStatus
   // The "from" status is implicit (previous entry's to_status, or the ticket's initial status for entry 0).
-  actorId      String                       // non-null; citizens see "City corporation" in serializer
-  note         String?
-  timestamp    DateTime @default(now())
+  actorId   String // non-null; citizens see "City corporation" in serializer
+  note      String?
+  timestamp DateTime     @default(now())
 
-  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  actor        User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, timestamp])
 }
@@ -307,15 +396,29 @@ model TicketTrailEntry {
 // photo groups on `/reports/[id]`. Unknown `uploadedByRole` values are
 // bucketed as 'citizen' by the serializer (defensive fallback).
 model TicketPhoto {
-  id              String   @id @default(cuid())
-  ticketId        String
-  url             String
-  uploadedByRole  String                     // 'citizen' | 'crew' (defensive: unknown → 'citizen')
-  uploadedAt      DateTime @default(now())
+  id             String   @id @default(cuid())
+  ticketId       String
+  // The rendered URL. KEEP AS-IS for backward compatibility — the
+  // citizen + crew serializers read this column directly. For rows
+  // written through the blob pipeline this is the provider's public
+  // URL; for legacy rows it is the inline `data:` URL.
+  url            String
+  // WO-000/WO-003 — the blob-storage metadata for the photo bytes.
+  // `storageKey` is the provider-side object key (the source of
+  // truth for delete / signed-URL operations). NULL for legacy rows
+  // whose bytes live inline in `url`.
+  storageKey     String?
+  mimeType       String?
+  sizeBytes      Int?
+  width          Int?
+  height         Int?
+  uploadedByRole String // 'citizen' | 'crew' (defensive: unknown → 'citizen')
+  uploadedAt     DateTime @default(now())
 
-  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, uploadedAt])
+  @@index([storageKey])
 }
 
 // =====================================================================
@@ -324,15 +427,15 @@ model TicketPhoto {
 
 model AuditEntry {
   id          String   @id @default(cuid())
-  entityType  String                       // "ticket" | "city" | "category" | ...
+  entityType  String // "ticket" | "city" | "category" | ...
   entityId    String
-  action      String                       // "ticket.transition" | "category.update" | ...
+  action      String // "ticket.transition" | "category.update" | ...
   actorId     String
   beforeValue Json?
   afterValue  Json?
   timestamp   DateTime @default(now())
 
-  actor       User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   // Append-only — no UPDATE/DELETE allowed at the API layer.
   @@index([entityType, entityId])
@@ -351,20 +454,20 @@ enum DedupFlagStatus {
 }
 
 model DedupFlag {
-  id                String   @id @default(cuid())
-  cityId            String
-  wardId            String                          // denormalised from the flagged ticket
-  departmentId      String?                         // denormalised from the flagged ticket's category
-  ticketId          String                          // the citizen's new ticket (the one that was flagged)
-  originalTicketId  String                          // the existing ticket it was near
-  citizenReason     String?                         // optional free-text the citizen provided on decline
-  status            DedupFlagStatus @default(pending)
-  flaggedAt         DateTime @default(now())
-  resolvedById      String?
-  resolvedAt        DateTime?
+  id               String          @id @default(cuid())
+  cityId           String
+  wardId           String // denormalised from the flagged ticket
+  departmentId     String? // denormalised from the flagged ticket's category
+  ticketId         String // the citizen's new ticket (the one that was flagged)
+  originalTicketId String // the existing ticket it was near
+  citizenReason    String? // optional free-text the citizen provided on decline
+  status           DedupFlagStatus @default(pending)
+  flaggedAt        DateTime        @default(now())
+  resolvedById     String?
+  resolvedAt       DateTime?
 
-  ticket         Ticket  @relation("DedupFlagFlaggedTicket", fields: [ticketId], references: [id], onDelete: Cascade)
-  originalTicket Ticket  @relation("DedupFlagOriginalTicket", fields: [originalTicketId], references: [id], onDelete: Cascade)
+  ticket         Ticket @relation("DedupFlagFlaggedTicket", fields: [ticketId], references: [id], onDelete: Cascade)
+  originalTicket Ticket @relation("DedupFlagOriginalTicket", fields: [originalTicketId], references: [id], onDelete: Cascade)
 
   // One pending flag per (ticketId) — a ticket can be flagged
   // against multiple originals across time, but only one

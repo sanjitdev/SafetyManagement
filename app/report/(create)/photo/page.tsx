@@ -32,8 +32,12 @@ import { useRouter } from 'next/navigation';
 import { ReportStepAside } from '@/components/ui/ReportStepAside';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
-import { loadDraft, saveDraft } from '@/lib/report-draft';
+import { loadDraft, saveDraft, type ReportDraftPhotoBlob } from '@/lib/report-draft';
 import { derivePhotoCap, type CategorySummaryLike } from '@/lib/report-photo-cap';
+// Client-safe import — `lib/storage/blob` is server-only (it pulls in
+// `next/headers` via `lib/auth/guards`), so a `'use client'` page
+// must not import it directly.
+import { isBlobProviderActive } from '@/lib/storage/blob-provider';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -41,6 +45,16 @@ const LANG: Language = 'bn';
 export default function PhotoPage() {
   const router = useRouter();
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  /**
+   * WO-000 platform layer — the raw bytes for each photo, kept
+   * in lock-step with `photoUrls`. Populated only when a blob
+   * provider is configured; the summary page POSTs them and the
+   * API route writes them to the blob store. When the provider is
+   * NOT configured this stays empty and the v1 inline data-URL
+   * behaviour is unchanged (so the visual baselines stay
+   * byte-identical).
+   */
+  const [photoBlobs, setPhotoBlobs] = useState<ReportDraftPhotoBlob[]>([]);
   const [cap, setCap] = useState<number>(3);
   const [authed, setAuthed] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,32 +94,76 @@ export default function PhotoPage() {
     if (!files) return;
     const remaining = cap - photoUrls.length;
     const incoming = Array.from(files).slice(0, remaining);
+    // The blob path needs the raw bytes; the render path needs the
+    // data URL. Both are produced from the same File.
+    const wantsBytes = isBlobProviderActive();
     Promise.all(
       incoming.map(
         (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          }),
+          new Promise<{ url: string; blob: ReportDraftPhotoBlob | null }>(
+            (resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const dataUrl = reader.result as string;
+                if (!wantsBytes) {
+                  resolve({ url: dataUrl, blob: null });
+                  return;
+                }
+                // Strip the `data:<mime>;base64,` prefix — the API
+                // route re-assembles the bytes from the bare
+                // base64 payload.
+                const comma = dataUrl.indexOf(',');
+                const dataBase64 =
+                  comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+                resolve({
+                  url: dataUrl,
+                  blob: {
+                    dataBase64,
+                    mimeType: file.type || 'image/jpeg',
+                    fileName: file.name,
+                  },
+                });
+              };
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            },
+          ),
       ),
-    ).then((urls) => {
-      const next = [...photoUrls, ...urls].slice(0, cap);
-      setPhotoUrls(next);
-      const draft = loadDraft();
-      if (draft) {
-        saveDraft({ ...draft, photoUrls: next, step: 'photo' });
-      }
-    });
+    )
+      .then((results) => {
+        const next = [...photoUrls, ...results.map((r) => r.url)].slice(0, cap);
+        const nextBlobs = [
+          ...photoBlobs,
+          ...results.map((r) => r.blob).filter((b): b is ReportDraftPhotoBlob => b !== null),
+        ].slice(0, cap);
+        setPhotoUrls(next);
+        setPhotoBlobs(nextBlobs);
+        const draft = loadDraft();
+        if (draft) {
+          saveDraft({
+            ...draft,
+            photoUrls: next,
+            photoBlobs: nextBlobs,
+            step: 'photo',
+          });
+        }
+      })
+      .catch(() => undefined);
   }
 
   function removePhoto(idx: number) {
     const next = photoUrls.filter((_, i) => i !== idx);
+    const nextBlobs = photoBlobs.filter((_, i) => i !== idx);
     setPhotoUrls(next);
+    setPhotoBlobs(nextBlobs);
     const draft = loadDraft();
     if (draft) {
-      saveDraft({ ...draft, photoUrls: next, step: 'photo' });
+      saveDraft({
+        ...draft,
+        photoUrls: next,
+        photoBlobs: nextBlobs,
+        step: 'photo',
+      });
     }
   }
 
@@ -113,7 +171,7 @@ export default function PhotoPage() {
     if (photoUrls.length < 1) return;
     const draft = loadDraft();
     if (!draft) return;
-    saveDraft({ ...draft, photoUrls, step: 'note' });
+    saveDraft({ ...draft, photoUrls, photoBlobs, step: 'note' });
     router.push('/report/note');
   }
 

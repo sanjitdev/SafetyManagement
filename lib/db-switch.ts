@@ -380,6 +380,14 @@ export const db = {
         ticketId: string;
         url: string;
         uploadedByRole: 'citizen' | 'crew';
+        // Blob-storage metadata (WO-000 platform layer). Optional
+        // so the legacy inline data-URL rows keep working
+        // unchanged.
+        storageKey?: string | null;
+        mimeType?: string | null;
+        sizeBytes?: number | null;
+        width?: number | null;
+        height?: number | null;
       };
     }) => {
       if (isDevStore()) return devDb.ticketPhoto.create({ data: args.data });

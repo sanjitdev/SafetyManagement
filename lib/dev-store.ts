@@ -115,6 +115,14 @@ export interface DevTicketPhoto {
   url: string;
   uploadedByRole: 'citizen' | 'crew' | string; // defensive: unknown string still surfaces
   uploadedAt: string; // ISO
+  // WO-000 platform layer — the blob-storage metadata. NULL for
+  // the legacy inline data-URL rows (the dev store never had
+  // real bytes to store before the blob pipeline landed).
+  storageKey?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface DevTicket {

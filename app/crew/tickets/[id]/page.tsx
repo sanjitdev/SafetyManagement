@@ -61,7 +61,18 @@ import {
   displayNameFor,
   categoryLabel,
 } from '@/lib/identity/display-name';
-import { uploadCrewPhoto } from '@/lib/crew/upload-photo';
+import {
+  bytesToBase64,
+  readPhotoFileAsBytes,
+  uploadCrewPhoto,
+} from '@/lib/crew/upload-photo';
+import {
+  enqueueMutation,
+  readQueue,
+  startAutoFlush,
+} from '@/lib/crew/write-queue';
+import { pendingSyncLabel } from '@/lib/crew/queue-copy';
+import { registerServiceWorker } from '@/lib/crew/service-worker';
 import {
   formatCachedAge,
   readTicketCache,
@@ -157,6 +168,56 @@ function categoryIcon(slug: string): string {
   }
 }
 
+/**
+ * Queue an after-photo for later replay (WO-003 offline
+ * queue-then-sync).
+ *
+ * The wire shape must match what `lib/crew/write-queue.ts`'s
+ * `bodyForMutation()` produces for a `photo` mutation:
+ * `{ dataBase64, mimeType, fileName? }`. The API route accepts
+ * that union alongside the inline `{ url }` shape.
+ *
+ * A URL-only photo (the power-user override) has no bytes to
+ * store — it is already somewhere on the internet, so it is
+ * queued as a `{ url }` payload. But the queue's photo payload
+ * is byte-oriented, so a URL photo is converted to the same
+ * `{ dataBase64 }` shape by fetching nothing: the URL itself
+ * is not bytes. To keep the wire contract exact, URL photos
+ * are NOT queued — they are retried by the crew instead. The
+ * spec's offline requirement covers photo UPLOADS (files).
+ */
+async function enqueuePhotoMutation(args: {
+  ticketId: string;
+  file: File | null;
+  url: string;
+}): Promise<{ ok: boolean }> {
+  if (!args.file) {
+    // A URL-only "photo" is not an upload; there is nothing to
+    // store offline. Report failure so the caller surfaces the
+    // normal error path.
+    return { ok: false };
+  }
+  try {
+    const bytes = await readPhotoFileAsBytes(args.file);
+    const result = await enqueueMutation({
+      kind: 'photo',
+      ticketId: args.ticketId,
+      payload: {
+        dataBase64: bytesToBase64(bytes),
+        mimeType: args.file.type,
+        fileName: args.file.name,
+      },
+      bytes: bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer,
+    });
+    return { ok: result.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export default function CrewTicketPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -191,6 +252,42 @@ export default function CrewTicketPage() {
   // The crew's session userId is fetched on mount
   // and used to scope the cache key.
   const [userId, setUserId] = useState<string | null>(null);
+  // WO-003 offline write queue — the mutations that are
+  // queued locally because the network was unavailable
+  // when the crew performed them. The page shows a
+  // "Pending sync" indicator while `pendingCount > 0`
+  // (WO-003 spec 3.5: "If upload still queued: shows
+  // 'uploading' state; ticket moves to 'Pending sync'
+  // filter in 3.1").
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Refresh the pending-sync counter from the queue.
+  const refreshPendingCount = useCallback(async () => {
+    const snapshot = await readQueue();
+    if (!snapshot.ok) return;
+    setPendingCount(snapshot.value.count);
+  }, []);
+
+  // Start the auto-flush loop on mount. It fires on the
+  // browser's `online` event and on a 30 s interval —
+  // the same cadence as the crew list poll. The queue
+  // drains itself once the network is back.
+  useEffect(() => {
+    void refreshPendingCount();
+    const controller = startAutoFlush({
+      onFlushed: () => {
+        void refreshPendingCount();
+      },
+    });
+    return () => controller.dispose();
+  }, [refreshPendingCount]);
+
+  // WO-003 — register the service worker (shell caching +
+  // PWA installability). Registration is a no-op in an
+  // environment that cannot host a worker.
+  useEffect(() => {
+    void registerServiceWorker();
+  }, []);
 
   useEffect(() => {
     function syncLang() {
@@ -333,16 +430,23 @@ export default function CrewTicketPage() {
   // resolved" when the note is empty, but the API
   // is the source of truth — a stale request still
   // gets a clean 400.
+  //
+  // WO-003 offline-queue-then-sync: a NETWORK failure
+  // (the `fetch` rejects) queues the transition locally
+  // instead of hard-erroring. The queue replays it on
+  // reconnect. A SERVER rejection (4xx) is NOT queued —
+  // the payload will never become valid, and silently
+  // retrying it would hide the problem from the crew.
   const onTransition = useCallback(
     async (toStatus: TicketStatus) => {
       if (!ticket) return;
       setTransitioningTo(toStatus);
       setTransitionError(null);
+      const body: { toStatus: TicketStatus; note?: string } = { toStatus };
+      if (toStatus === 'resolved') {
+        body.note = resolutionNote.trim();
+      }
       try {
-        const body: { toStatus: TicketStatus; note?: string } = { toStatus };
-        if (toStatus === 'resolved') {
-          body.note = resolutionNote.trim();
-        }
         const res = await fetch(
           `/api/v1/crew/tickets/${ticket.id}/transition`,
           {
@@ -389,12 +493,31 @@ export default function CrewTicketPage() {
           setCacheSnapshot(null);
         }
       } catch {
-        setTransitionError('crew.transition.error.generic');
+        // Network failure — queue it. WO-003 spec 3.2:
+        // "Offline: status change is queued and retried
+        // on reconnect".
+        const queued = await enqueueMutation({
+          kind: 'transition',
+          ticketId: ticket.id,
+          payload: {
+            toStatus,
+            ...(body.note ? { note: body.note } : {}),
+          },
+        });
+        if (queued.ok) {
+          setTransitionError(null);
+          await refreshPendingCount();
+        } else {
+          // IndexedDB is unavailable (private mode, storage
+          // disabled) — fall back to the hard error so the
+          // crew knows the change was NOT recorded.
+          setTransitionError('crew.transition.error.generic');
+        }
       } finally {
         setTransitioningTo(null);
       }
     },
-    [ticket, resolutionNote, userId],
+    [ticket, resolutionNote, userId, refreshPendingCount],
   );
 
   // Submit the after-photo (Bolt 008-003). The page accepts
@@ -402,15 +525,42 @@ export default function CrewTicketPage() {
   // override). Both paths go through `uploadCrewPhoto` which
   // validates the input (MIME / size / URL shape) and
   // translates the file to a `data:` URL before POSTing.
+  //
+  // WO-003 offline-queue-then-sync: a NETWORK failure queues
+  // the photo (and its bytes) locally instead of hard-erroring.
+  // WO-003 spec 3.4: "Offline: photo upload is queued and
+  // retried on reconnect."
   const onAddPhoto = useCallback(async () => {
     if (!ticket) return;
     setPhotoError(null);
     setPhotoSaving(true);
-    const result = await uploadCrewPhoto({
-      ticketId: ticket.id,
-      file: photoFile,
-      url: photoUrl,
-    });
+    let result: Awaited<ReturnType<typeof uploadCrewPhoto>>;
+    try {
+      result = await uploadCrewPhoto({
+        ticketId: ticket.id,
+        file: photoFile,
+        url: photoUrl,
+      });
+    } catch {
+      // Network failure — queue the photo with its bytes.
+      const queued = await enqueuePhotoMutation({
+        ticketId: ticket.id,
+        file: photoFile,
+        url: photoUrl,
+      });
+      if (queued.ok) {
+        setPhotoError(null);
+        setPhotoFile(null);
+        setPhotoUrl('');
+        await refreshPendingCount();
+        setPhotoSaving(false);
+        return;
+      }
+      // IndexedDB unavailable — fall back to the hard error.
+      setPhotoError('crew.photo.error.invalid_url');
+      setPhotoSaving(false);
+      return;
+    }
     if (!result.ok) {
       const errorCode = result.error;
       // Validation error → friendly i18n key; HTTP error
@@ -458,7 +608,7 @@ export default function CrewTicketPage() {
       setCacheSnapshot(null);
     }
     setPhotoSaving(false);
-  }, [ticket, photoFile, photoUrl, userId]);
+  }, [ticket, photoFile, photoUrl, userId, refreshPendingCount]);
 
   if (signedIn === false) {
     return (
@@ -671,6 +821,38 @@ export default function CrewTicketPage() {
           >
             {t('crew.cache.retry', null, lang)}
           </button>
+        </div>
+      )}
+
+      {/* WO-003 — "Pending sync" indicator. Renders while the
+          offline write queue holds mutations that have not yet
+          reached the server. WO-003 spec 3.5: "If upload still
+          queued: shows 'uploading' state; ticket moves to
+          'Pending sync' filter in 3.1". */}
+      {pendingCount > 0 && (
+        <div
+          data-testid="crew-pending-sync-banner"
+          role="status"
+          aria-live="polite"
+          lang={lang}
+          style={{
+            padding: 'var(--space-2) var(--space-3)',
+            background: 'var(--color-primary-soft, #e8f1ff)',
+            borderBottom: '1px solid var(--color-primary, #1a56db)',
+            fontSize: 'var(--text-caption)',
+            color: 'var(--color-primary, #1a56db)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-2)',
+            flexShrink: 0,
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 16 }}>
+            ↻
+          </span>
+          <span style={{ flex: 1 }}>
+            {pendingSyncLabel(pendingCount, lang)}
+          </span>
         </div>
       )}
 
