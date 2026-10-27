@@ -249,12 +249,21 @@ export default function AdminCitiesPage() {
                     {c.counts.departments}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      className="text-emerald-700 hover:underline"
-                      href={`/admin/cities/${c.id}/setup`}
-                    >
-                      {t('admin.cities.cta.view', null, lang)}
-                    </Link>
+                    <span className="flex items-center justify-end gap-3">
+                      <Link
+                        className="text-emerald-700 hover:underline"
+                        href={`/admin/cities/${c.id}/adoption`}
+                        data-testid={`admin-cities-link-adoption-${c.id}`}
+                      >
+                        {t('admin.cities.viewAdoption', null, lang)}
+                      </Link>
+                      <Link
+                        className="text-emerald-700 hover:underline"
+                        href={`/admin/cities/${c.id}/setup`}
+                      >
+                        {t('admin.cities.cta.view', null, lang)}
+                      </Link>
+                    </span>
                   </td>
                 </tr>
               ))}
