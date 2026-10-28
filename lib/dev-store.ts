@@ -1274,14 +1274,28 @@ export const devDb = {
       where?: {
         cityId?: string;
         categoryId?: string;
+        reporterId?: string;
         status?: { in: TicketStatus[] };
         locationLat?: { gte: number; lte: number };
         locationLng?: { gte: number; lte: number };
       };
-      reporterId?: string;
       orderBy?: { createdAt: 'asc' | 'desc' };
       take?: number;
     }): DevTicket[] {
+      // The dev store mirrors the Prisma query surface. Prisma rejects
+      // unknown top-level filter keys (e.g. a `reporterId` placed
+      // beside `where` instead of inside it), so the shim must too —
+      // otherwise a malformed query passes against the dev store and
+      // only fails against real Prisma in production.
+      const KNOWN_ARGS = new Set(['where', 'orderBy', 'take', 'skip']);
+      for (const key of Object.keys(args)) {
+        if (!KNOWN_ARGS.has(key)) {
+          throw new Error(
+            `dev-store: unsupported ticket.findMany argument "${key}" ` +
+              `(filters must be nested inside "where")`,
+          );
+        }
+      }
       const all = [...getStore().tickets.values()];
       const filtered = all.filter((t) => {
         for (const [k, v] of Object.entries(args.where ?? {})) {
@@ -1298,7 +1312,6 @@ export const devDb = {
           }
           if ((t as unknown as Record<string, unknown>)[k] !== v) return false;
         }
-        if (args.reporterId && t.reporterId !== args.reporterId) return false;
         return true;
       });
       filtered.sort((a, b) => {

@@ -301,8 +301,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'role_not_supported' }, { status: 403 });
   }
   const tickets = await db.ticket.findMany({
-    where: { cityId: session.cityId },
-    reporterId: session.userId,
+    where: { cityId: session.cityId, reporterId: session.userId },
     orderBy: { createdAt: 'desc' },
   });
   const serialized = await Promise.all(

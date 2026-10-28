@@ -86,8 +86,8 @@ describe('dev-store ticket CRUD', () => {
       where: {
         cityId: DEV_CITY_ID,
         categoryId: 'cat_pothole',
+        reporterId: DEV_CITIZEN_ID,
       },
-      reporterId: DEV_CITIZEN_ID,
     });
     // The dev-store seed has `cat_pothole` tickets for
     // `DEV_CITIZEN_ID`; this test creates one more,

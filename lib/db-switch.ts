@@ -317,11 +317,11 @@ export const db = {
       where?: Partial<{
         cityId: string;
         categoryId: string;
+        reporterId: string;
         status: { in: TicketStatus[] };
         locationLat: { gte: number; lte: number };
         locationLng: { gte: number; lte: number };
       }>;
-      reporterId?: string;
       orderBy?: { createdAt: 'asc' | 'desc' };
       take?: number;
     }) =>
