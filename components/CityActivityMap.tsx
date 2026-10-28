@@ -261,11 +261,16 @@ export default function CityActivityMap({
         }
 
         // Single pins.
+        //
+        // The `filter` key must be OMITTED entirely when clustering is
+        // off — MapLibre rejects an explicit `filter: undefined`
+        // ("array expected, undefined found") and aborts addLayer,
+        // leaving the citizen's activity-map pins undrawn.
         map.addLayer({
           id: PINS_LAYER_ID,
           type: 'circle',
           source: PINS_SOURCE_ID,
-          filter: clusterEnabled ? ['!', ['has', 'point_count']] : undefined,
+          ...(clusterEnabled ? { filter: ['!', ['has', 'point_count']] } : {}),
           paint: {
             'circle-color': [
               'match',

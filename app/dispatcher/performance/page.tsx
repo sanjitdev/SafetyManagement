@@ -33,6 +33,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTicketId } from '@/lib/format/ticket-id';
 import { categoryLabel } from '@/lib/identity/display-name';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -424,7 +425,9 @@ export default function DispatcherPerformancePage() {
             textOverflow: 'ellipsis',
           }}
         >
-          {t('dispatcher.performance.ward_title', { ward: wardLabel }, lang)}
+          {wardLabel
+            ? t('dispatcher.performance.ward_title', { ward: wardLabel }, lang)
+            : t('dispatcher.performance.title', null, lang)}
         </h1>
         <div
           data-testid="dispatcher-performance-range"
@@ -606,8 +609,16 @@ export default function DispatcherPerformancePage() {
                   {t('dispatcher.performance.crew.empty', null, lang)}
                 </p>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  {/* `minWidth` forces the wrapper to scroll sideways on
+                      a phone instead of letting the columns collapse. */}
+                  <table
+                    style={{
+                      width: '100%',
+                      minWidth: 620,
+                      borderCollapse: 'collapse',
+                    }}
+                  >
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                         {(
@@ -748,8 +759,16 @@ export default function DispatcherPerformancePage() {
                   {t('dispatcher.performance.long_tail.empty', null, lang)}
                 </p>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  {/* `minWidth` forces the wrapper to scroll sideways on
+                      a phone instead of letting the columns collapse. */}
+                  <table
+                    style={{
+                      width: '100%',
+                      minWidth: 620,
+                      borderCollapse: 'collapse',
+                    }}
+                  >
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                         <th scope="col" style={thStyle}>
@@ -787,7 +806,7 @@ export default function DispatcherPerformancePage() {
                                 fontSize: 'var(--text-caption)',
                               }}
                             >
-                              #{row.id}
+                              {formatTicketId(row.id)}
                             </Link>
                           </td>
                           <td style={tdStyle}>

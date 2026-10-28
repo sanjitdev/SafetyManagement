@@ -7,6 +7,12 @@ playwright/.cache/
 coverage/
 playwright-report/
 
+# UI audit output (regenerated on every `ui-audit.mjs` / `flow-walk.mjs`
+# run; ~25MB of PNGs). The Playwright BASELINES under
+# tests-mockups/baselines/ ARE committed — they are regression gates.
+# These are not: they are a record of one audit pass.
+ui-audit-shots/
+
 # Local curl cookie jars used by the manual smoke-test loop.
 # These carry live `cityfix_session` cookies — never commit them.
 cf-cookies.txt

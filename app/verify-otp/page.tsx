@@ -113,8 +113,10 @@ function VerifyOtpInner() {
     // Auto-focus the first box
     inputRefs.current[0]?.focus();
     // Fire the initial send-otp on mount so the user gets an SMS in prod
-    // (or a dev_code in dev mode).
-    void requestCode();
+    // (or a dev_code in dev mode). Only when we actually know the
+    // phone — without `?phone=` the request would 400 and log a
+    // console error on every direct visit to this page.
+    if (phoneParam) void requestCode();
   }, []);
 
   // Resend countdown

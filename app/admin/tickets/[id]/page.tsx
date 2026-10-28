@@ -32,6 +32,9 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTimestamp } from '@/lib/format/datetime';
+import { formatTicketId } from '@/lib/format/ticket-id';
+import { displayNameFor } from '@/lib/identity/display-name';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -214,12 +217,12 @@ export default function AdminTicketDetailPage() {
           >
             {t('admin.tickets.detail.back', null, lang)}
           </Link>
-          <span className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold text-slate-900">
             {t('admin.tickets.title', null, lang)}
-          </span>
+          </h1>
           {ticket && (
             <span className="text-xs text-slate-500 font-mono">
-              {ticket.id}
+              {formatTicketId(ticket.id)}
             </span>
           )}
         </div>
@@ -271,11 +274,26 @@ export default function AdminTicketDetailPage() {
               data-testid="admin-tickets-meta"
               style={{
                 display: 'grid',
-                gridTemplateColumns: '160px 1fr',
+                // Stack the label above its value on a phone. The
+                // inline `gridTemplateColumns` out-prioritises any
+                // plain class rule, so the override needs
+                // `!important`.
+                gridTemplateColumns: 'var(--meta-columns, 160px) 1fr',
                 gap: '4px 12px',
                 fontSize: 'var(--text-caption)',
               }}
             >
+              <style
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    @media (max-width: 640px) {
+                      [data-testid="admin-tickets-meta"] {
+                        --meta-columns: 1fr;
+                      }
+                    }
+                  `,
+                }}
+              />
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('status.submitted', null, lang)}
               </dt>
@@ -283,36 +301,40 @@ export default function AdminTicketDetailPage() {
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.category', null, lang)}
               </dt>
-              <dd style={{ fontFamily: 'monospace' }}>{ticket.categoryId}</dd>
+              <dd>{categoryLabel(ticket, lang)}</dd>
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.ward', null, lang)}
               </dt>
-              <dd style={{ fontFamily: 'monospace' }}>{ticket.wardId}</dd>
+              <dd>{wardLabel(ticket, lang)}</dd>
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.reporter', null, lang)}
               </dt>
-              <dd style={{ fontFamily: 'monospace' }}>{ticket.reporterId}</dd>
+              <dd>{ticket.reporterName ?? ticket.reporterId}</dd>
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.assigned', null, lang)}
               </dt>
-              <dd style={{ fontFamily: 'monospace' }}>
-                {ticket.assignedCrewId ?? '—'}
+              <dd>
+                {ticket.assignedCrewId
+                  ? displayNameFor('crew', ticket.assignedCrewId)
+                  : '—'}
               </dd>
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.created', null, lang)}
               </dt>
-              <dd>{new Date(ticket.createdAt).toLocaleString()}</dd>
+              <dd>{formatTimestamp(ticket.createdAt, lang)}</dd>
               {ticket.resolvedAt && (
                 <>
                   <dt style={{ color: 'var(--color-ink-secondary)' }}>
                     {t('status.resolved', null, lang)}
                   </dt>
-                  <dd>{new Date(ticket.resolvedAt).toLocaleString()}</dd>
+                  <dd>{formatTimestamp(ticket.resolvedAt, lang)}</dd>
                 </>
               )}
               {ticket.note && (
                 <>
-                  <dt style={{ color: 'var(--color-ink-secondary)' }}>Note</dt>
+                  <dt style={{ color: 'var(--color-ink-secondary)' }}>
+                    {t('admin.tickets.detail.citizenNote', null, lang)}
+                  </dt>
                   <dd>{ticket.note}</dd>
                 </>
               )}
@@ -370,7 +392,7 @@ export default function AdminTicketDetailPage() {
                       {t(`status.${entry.toStatus}`, null, lang)}
                     </span>
                     <code style={{ fontSize: 'var(--text-small)' }}>
-                      {entry.actorLabel}
+                      {trailActorLabel(entry, lang)}
                     </code>
                     <span
                       style={{
@@ -378,7 +400,7 @@ export default function AdminTicketDetailPage() {
                         color: 'var(--color-ink-secondary)',
                       }}
                     >
-                      {new Date(entry.timestamp).toLocaleString()}
+                      {formatTimestamp(entry.timestamp, lang)}
                     </span>
                     {entry.note && (
                       <div
@@ -531,4 +553,58 @@ export default function AdminTicketDetailPage() {
       )}
     </div>
   );
+}
+
+/**
+ * The trail actor's display name.
+ *
+ * The staff branch of the serializer hands the client the raw actor
+ * id (plus the role) so the UI can resolve a name. The admin
+ * surface is a staff surface, so it resolves the same way.
+ */
+function trailActorLabel(
+  entry: SerializedTicket['trail'][number],
+  lang: Language,
+): string {
+  const actorId = entry.actorId ?? entry.actorLabel;
+  if (!actorId) return '—';
+  if (entry.actorRole) {
+    return displayNameFor(entry.actorRole, actorId);
+  }
+  // No role on the entry — fall back to the role inferred from the
+  // id prefix, then to the raw id.
+  if (actorId.startsWith('user_citizen')) {
+    return displayNameFor('citizen', actorId);
+  }
+  if (actorId.startsWith('user_dispatcher')) {
+    return displayNameFor('dispatcher', actorId);
+  }
+  if (actorId.startsWith('user_crew')) {
+    return displayNameFor('crew', actorId);
+  }
+  if (actorId.startsWith('user_admin')) {
+    return displayNameFor('admin', actorId);
+  }
+  void lang;
+  return actorId;
+}
+
+/**
+ * The category's display name.
+ *
+ * The serializer denormalises the category's name onto the ticket,
+ * so prefer that; fall back to the id when the join is absent.
+ */
+function categoryLabel(ticket: SerializedTicket, lang: Language): string {
+  const name = lang === 'bn' ? ticket.categoryNameBn : ticket.categoryName;
+  return name ?? ticket.categoryId;
+}
+
+/**
+ * The ward's display name. Same fallback contract as
+ * `categoryLabel`.
+ */
+function wardLabel(ticket: SerializedTicket, lang: Language): string {
+  const name = lang === 'bn' ? ticket.wardNameBn : ticket.wardName;
+  return name ?? ticket.wardId;
 }

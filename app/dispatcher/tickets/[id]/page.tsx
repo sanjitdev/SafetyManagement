@@ -44,6 +44,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTicketId } from '@/lib/format/ticket-id';
 import { StatusPill } from '@/components/ui/StatusPill';
 import {
   displayNameFor,
@@ -474,6 +475,26 @@ export default function DispatcherTicketDetailPage() {
       }}
       data-testid="dispatcher-ticket-detail"
     >
+      {/*
+        The two-region grid is pinned to `minmax(0, 1fr) 320px` via an
+        inline style, so a phone viewport kept the 320px sidebar
+        beside a main column that collapsed to a sliver — the sidebar
+        then rendered OVER the main content and hid it entirely.
+        Force a single column below 1025px so the regions stack.
+        `!important` is required: the inline `grid-template-columns`
+        on the same node out-prioritises any plain class rule.
+      */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media (max-width: 1024px) {
+              .dispatcher-detail-grid {
+                grid-template-columns: minmax(0, 1fr) !important;
+              }
+            }
+          `,
+        }}
+      />
       {/* Sub-header: back link only. Brand, lang, theme, and user
           menu are rendered by the global AppHeader (AppShell). */}
       <div
@@ -558,7 +579,7 @@ export default function DispatcherTicketDetailPage() {
                 color: 'var(--color-ink-tertiary)',
               }}
             >
-              #{ticket.id}
+              {formatTicketId(ticket.id)}
             </span>
             <StatusPill
               status={ticket.status}
@@ -696,8 +717,12 @@ export default function DispatcherTicketDetailPage() {
               <FieldValue>
                 {/* Bolt 008-002 — Story 002: render the city
                     display name (Dhaka North) when the joined
-                    city row carries one; fall back to the id. */}
-                {ticket.cityName ?? ticket.cityId}
+                    city row carries one; fall back to the id.
+                    The Bangla variant is preferred on a Bangla
+                    page. */}
+                {(lang === 'bn'
+                  ? ticket.cityNameBn ?? ticket.cityName
+                  : ticket.cityName) ?? ticket.cityId}
               </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.ward', null, lang)}</FieldLabel>
               <FieldValue>
@@ -803,8 +828,8 @@ export default function DispatcherTicketDetailPage() {
                         lang={lang}
                         style={{
                           padding: '2px var(--space-2)',
-                          background: 'var(--color-status-routed, #e7f5ff)',
-                          color: 'var(--color-primary)',
+                          background: 'var(--color-status-routed-soft, #E6F2EE)',
+                          color: 'var(--color-status-routed, #2C5282)',
                           borderRadius: 'var(--radius-pill)',
                           fontSize: 10,
                           fontWeight: 'var(--weight-bold)',

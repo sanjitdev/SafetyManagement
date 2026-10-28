@@ -262,6 +262,11 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           onClick={() => router.push('/report/location')}
           lang={lang}
           className="appheader-cta"
+          // The label is hidden below 640px (the button collapses to
+          // its "+" icon), so the accessible name has to come from
+          // the attribute, not the visible text.
+          aria-label={t('header.nav.report', null, lang)}
+          title={t('header.nav.report', null, lang)}
           style={{
             height: 44,
             padding: '0 var(--space-5)',
@@ -281,7 +286,9 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           }}
         >
           <PlusIcon />
-          {t('header.nav.report', null, lang)}
+          <span className="appheader-cta-label">
+            {t('header.nav.report', null, lang)}
+          </span>
         </button>
       )}
 
@@ -440,7 +447,20 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
         </div>
       )}
 
-      <style>{`
+      {/*
+       * The header's responsive rules live in a plain <style> with
+       * `dangerouslySetInnerHTML` rather than a JSX text child.
+       *
+       * React ESCAPES a <style> element's text child, so the
+       * server-rendered markup and the client's copy diverged the
+       * moment the CSS contained a quote character — which produced
+       * a hydration mismatch on every page that renders the header
+       * (/reports, /feed, /home). A static literal passed through
+       * dangerouslySetInnerHTML is emitted verbatim on both sides.
+       */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @media (max-width: 768px) {
           .appheader-nav { display: none !important; }
           .appheader-burger { display: inline-flex !important; }
@@ -448,9 +468,18 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           .appheader-signin { display: none !important; }
         }
         @media (max-width: 640px) {
-          .appheader-cta span { display: none; }
+          /* Collapse the Report CTA to its plus icon below 640px.
+             The rule used to target ".appheader-cta span", but the
+             CTA label was a bare text node, so the selector matched
+             nothing and the full label stayed — overflowing a 390px
+             viewport onto the brand logo. The label now lives in a
+             real span element so this rule can hit it. */
+          .appheader-cta-label { display: none; }
+          .appheader-cta { padding: 0 var(--space-3); }
         }
-      `}</style>
+      `,
+        }}
+      />
     </header>
   );
 }

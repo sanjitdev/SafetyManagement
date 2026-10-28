@@ -109,6 +109,24 @@ export function clampLimit(n: number | undefined): number {
   return Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, Math.floor(n)));
 }
 
+/**
+ * The role encoded in an actor id, used only when the actor's user
+ * row can no longer be found.
+ *
+ * Every seeded and generated user id carries its role as
+ * `user_<role>_<name>` (`user_admin_dncc`, `user_crew_rashid`). When
+ * the user row is gone the id is all that is left, and reading the
+ * role from it beats guessing "citizen" — which would misattribute
+ * an admin action to a citizen in the audit trail.
+ *
+ * An id with no recognisable role prefix falls back to `citizen`,
+ * the most common actor type.
+ */
+export function roleFromActorId(actorId: string): AuditRole {
+  const m = /^user_(admin|dispatcher|crew|citizen)_/.exec(actorId);
+  return (m?.[1] as AuditRole | undefined) ?? 'citizen';
+}
+
 async function hydrateActors(
   ids: string[],
 ): Promise<Map<string, AdminActor>> {
@@ -143,11 +161,20 @@ export async function listAuditEntries(
   );
   const entries: AuditEntryView[] = trimmed.map((r) => {
     const a = actors.get(r.actorId);
+    // An actor whose user row no longer exists (deleted, or an id
+    // written by a script that never created the user) must NOT be
+    // rendered as a raw id in the audit table, and must NOT be
+    // silently labelled a citizen — that misattributes the action.
+    // The `user_<role>_` id prefix is the only signal left, so read
+    // the role from it and show the id as a "(deleted user)" name.
+    const fallbackRole = roleFromActorId(r.actorId);
     return {
       id: r.id,
       actorId: r.actorId,
-      actorName: a ? `${a.name} (${a.role})` : r.actorId,
-      actorRole: a?.role ?? 'citizen',
+      actorName: a
+        ? `${a.name} (${a.role})`
+        : `${r.actorId} (${fallbackRole} — deleted user)`,
+      actorRole: a?.role ?? fallbackRole,
       action: r.action,
       entityType: r.entityType as AuditEntityType,
       entityId: r.entityId,

@@ -131,11 +131,22 @@ describe('listAuditEntries', () => {
     expect(entries[0].actorRole).toBe('dispatcher');
   });
 
-  test('falls back to the raw actor id for an unknown actor', async () => {
+  test('marks an unknown actor as deleted, and reads the role from the id', async () => {
+    // A user row that no longer exists must not be labelled a citizen
+    // — that misattributes the action in the audit trail. The id's
+    // `user_<role>_` prefix is the only surviving signal.
+    seedAudit('aud_a', { actorId: 'user_admin_dncc' });
+
+    const { entries } = await listAuditEntries({ from: FROM, to: TO });
+    expect(entries[0].actorName).toBe('user_admin_dncc (admin — deleted user)');
+    expect(entries[0].actorRole).toBe('admin');
+  });
+
+  test('falls back to citizen for an unrecognised actor id', async () => {
     seedAudit('aud_a', { actorId: 'user_ghost' });
 
     const { entries } = await listAuditEntries({ from: FROM, to: TO });
-    expect(entries[0].actorName).toBe('user_ghost');
+    expect(entries[0].actorName).toBe('user_ghost (citizen — deleted user)');
     expect(entries[0].actorRole).toBe('citizen');
   });
 

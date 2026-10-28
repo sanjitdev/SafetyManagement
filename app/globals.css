@@ -65,6 +65,26 @@ h1, h2, h3, h4 {
 }
 
 /*
+ * Dispatcher two-region grids (app/dispatcher/page.tsx,
+ * app/dispatcher/map/page.tsx).
+ *
+ * The filter rail + content split is pinned to `240px 1fr` by an
+ * inline style on the grid node, so a phone viewport kept the
+ * 240px rail and squeezed the queue list / map into a sliver that
+ * then overflowed horizontally. An inline style out-prioritises any
+ * plain class rule, so the override needs `!important`.
+ *
+ * The rail stacks above the content below 1025px; the map page
+ * additionally re-orders itself so the map comes first.
+ */
+@media (max-width: 1024px) {
+  .dispatcher-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+/*
  * Brand link (app/home/page.tsx) — keep "CityFix" + dot visible on
  * narrow viewports by hiding the city name span when the brand can't
  * fit it. The text-overflow ellipsis fallback in the inline style

@@ -765,7 +765,7 @@ function seed(): Store {
         entityType: 'ward',
         entityId: 'ward_14',
         action: 'create',
-        actorId: 'user_admin_dncc',
+        actorId: 'user_admin_anwar',
         beforeValue: null,
         afterValue: {
           number: 14,
@@ -779,7 +779,7 @@ function seed(): Store {
         entityType: 'city',
         entityId: 'city_dhaka_north',
         action: 'update',
-        actorId: 'user_admin_dncc',
+        actorId: 'user_admin_anwar',
         beforeValue: { dedupRadiusMeters: 50 },
         afterValue: { dedupRadiusMeters: 100 },
         timestamp: new Date(now - 30 * 60_000).toISOString(),
@@ -789,7 +789,7 @@ function seed(): Store {
         entityType: 'category',
         entityId: 'cat_streetlight',
         action: 'create',
-        actorId: 'user_admin_dncc',
+        actorId: 'user_admin_anwar',
         beforeValue: null,
         afterValue: {
           slug: 'streetlight',
@@ -804,7 +804,7 @@ function seed(): Store {
         entityType: 'city',
         entityId: 'city_dhaka_north',
         action: 'create',
-        actorId: 'user_admin_dncc',
+        actorId: 'user_admin_anwar',
         beforeValue: null,
         afterValue: {
           slug: 'dhaka-north',
@@ -1717,6 +1717,15 @@ export interface DevTicketWithTrail extends DevTicket {
   cityName: string | null;
   cityNameBn: string | null;
   reporterName: string | null;
+  /**
+   * Denormalised category display fields, mirrored from the
+   * `category` join so the dev-store and Prisma paths return the
+   * same shape. `categorySlug` is the machine key the staff
+   * surfaces switch on to pick a glyph.
+   */
+  categorySlug: string | null;
+  categoryName: string | null;
+  categoryNameBn: string | null;
 }
 
 export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
@@ -1740,5 +1749,8 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
     cityName: city?.name ?? null,
     cityNameBn: city?.nameBn ?? null,
     reporterName: reporter?.name ?? null,
+    categorySlug: category?.slug ?? null,
+    categoryName: category?.name ?? null,
+    categoryNameBn: category?.nameBn ?? null,
   };
 }

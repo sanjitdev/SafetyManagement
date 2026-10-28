@@ -199,11 +199,20 @@ export interface AdminUserCard {
   /** Raw Prisma role, for the API consumer. */
   prismaRole: string;
   wardIds: string[];
+  /** Ward display names, English. */
   wardLabels: string[];
+  /** Ward display names, Bangla (falls back to the English label). */
+  wardLabelsBn: string[];
   crewId: string | null;
+  /** Crew display name, English. */
   crewLabel: string | null;
+  /** Crew display name, Bangla (falls back to the English label). */
+  crewLabelBn: string | null;
   departmentId: string | null;
+  /** Department display name, English. */
   departmentLabel: string | null;
+  /** Department display name, Bangla (falls back to the English label). */
+  departmentLabelBn: string | null;
   status: UserStatus;
   lastLoginAt: string | null;
 }
@@ -537,10 +546,13 @@ export function buildUsersList(
       prismaRole: u.role,
       wardIds: u.wardId ? [u.wardId] : [],
       wardLabels: ward ? [ward.name] : [],
+      wardLabelsBn: ward ? [ward.nameBn ?? ward.name] : [],
       crewId: u.crewId ?? crew?.id ?? null,
       crewLabel: crew?.name ?? null,
+      crewLabelBn: crew ? crew.nameBn || crew.name : null,
       departmentId: u.departmentId,
       departmentLabel: dept?.name ?? null,
+      departmentLabelBn: dept ? dept.nameBn ?? dept.name : null,
       status: deriveUserStatus(u, userSessions),
       lastLoginAt: deriveLastLoginAt(u, userSessions),
     });

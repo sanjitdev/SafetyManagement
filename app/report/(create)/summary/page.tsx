@@ -30,6 +30,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
+import { formatTimestamp } from '@/lib/format/datetime';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -270,7 +271,7 @@ export default function SummaryPage() {
                 color: 'var(--color-ink-secondary)',
               }}
             >
-              {new Date(existing.createdAt).toLocaleString()} · {Math.round(ctx.distanceMeters)}m {t('report.summary.away_suffix', null, LANG)}
+              {formatTimestamp(existing.createdAt, LANG)} · {Math.round(ctx.distanceMeters)}m {t('report.summary.away_suffix', null, LANG)}
             </div>
           </div>
         </div>

@@ -60,11 +60,21 @@ interface CrewTicket {
   status: TicketStatus;
   cityId: string;
   wardId: string;
+  /** The ward's display name ("Ward 14 — Mirpur"), when known. */
+  wardName?: string | null;
+  wardNameBn?: string | null;
   categoryId: string;
+  /** The category's slug ("streetlight") — drives the icon. */
+  categorySlug?: string | null;
+  /** The category's display name, when known. */
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
   locationLat: number;
   locationLng: number;
   note: string | null;
   reporterId: string;
+  /** The citizen's display name, when known. */
+  reporterName?: string | null;
   photoUrls: string[];
   createdAt: string;
   assignedCrewId: string | null;
@@ -131,7 +141,7 @@ function formatDistance(meters: number, lang: Language): string {
     : `${km.toFixed(1)}km away`;
 }
 
-function categoryIcon(slug: string): string {
+function categoryIcon(slug: string | null | undefined): string {
   switch (slug) {
     case 'streetlight':
       return '💡';
@@ -144,6 +154,54 @@ function categoryIcon(slug: string): string {
     default:
       return '❓';
   }
+}
+
+/**
+ * The card's headline: the ward's display name + the
+ * category's display name. Falls back to the raw ids when the
+ * join is absent (a city with no ward/category row).
+ */
+function ticketLabel(ticket: CrewTicket, lang: Language): string {
+  const ward = lang === 'bn' ? ticket.wardNameBn : ticket.wardName;
+  const category = lang === 'bn' ? ticket.categoryNameBn : ticket.categoryName;
+  return `${ward ?? ticket.wardId} · ${category ?? ticket.categoryId}`;
+}
+
+/**
+ * The scope tag in the sub-header: the crew's ward and
+ * department. The scope bar used to be a hardcoded
+ * "· Crew · ward_14 · dept_streetlight" string — the raw ids
+ * were the only thing the page had. It now reads the session's
+ * display names from `/api/auth/status`.
+ */
+function scopeLabel(
+  lang: Language,
+  scope: {
+    wardName?: string | null;
+    wardNameBn?: string | null;
+    departmentName?: string | null;
+    departmentNameBn?: string | null;
+  } | null,
+): string {
+  const parts: string[] = [t('crew.list.scope', null, lang)];
+  const ward = lang === 'bn' ? scope?.wardNameBn : scope?.wardName;
+  if (ward) {
+    // The ward's display name already carries its own prefix
+    // ("Ward 14 — Mirpur" / "ওয়ার্ড ১৪ — মিরপুর"), so wrapping it in
+    // the "Ward {ward}" template would render
+    // "ওয়ার্ড ওয়ার্ড ১৪ — মিরপুর". Only bare-number wards get the
+    // template.
+    parts.push(
+      /^\s*(ward|ওয়ার্ড)\b/i.test(ward)
+        ? ward
+        : t('crew.list.scope.ward', { ward }, lang),
+    );
+  }
+  const dept = lang === 'bn' ? scope?.departmentNameBn : scope?.departmentName;
+  if (dept) {
+    parts.push(t('crew.list.scope.department', { dept }, lang));
+  }
+  return parts.join(' · ');
 }
 
 export default function CrewPage() {
@@ -163,6 +221,17 @@ export default function CrewPage() {
   // The crew's session userId is fetched on mount
   // and used to scope the cache keys.
   const [userId, setUserId] = useState<string | null>(null);
+  // The session's scope labels (ward + department display
+  // names) for the scope bar under the header. Null while the
+  // auth check is still in flight.
+  const [scope, setScope] = useState<{
+    wardId?: string | null;
+    wardName?: string | null;
+    wardNameBn?: string | null;
+    departmentId?: string | null;
+    departmentName?: string | null;
+    departmentNameBn?: string | null;
+  } | null>(null);
   // Geolocation: the page may render a distance column
   // when the device grants permission. Three states:
   //   null  — not asked yet (idle)
@@ -198,14 +267,30 @@ export default function CrewPage() {
   // cache keys are scoped correctly. (The page
   // also has a signedIn check; userId is
   // available only after the auth check lands.)
+  //
+  // The same response carries the session's scope labels
+  // (ward / department display names) for the scope bar
+  // under the header.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch('/api/auth/status', { credentials: 'include' });
         if (cancelled) return;
-        const data = (await res.json()) as { authenticated: boolean; userId?: string };
+        const data = (await res.json()) as {
+          authenticated: boolean;
+          userId?: string;
+          session?: {
+            wardId?: string | null;
+            wardName?: string | null;
+            wardNameBn?: string | null;
+            departmentId?: string | null;
+            departmentName?: string | null;
+            departmentNameBn?: string | null;
+          };
+        };
         if (data.authenticated && data.userId) setUserId(data.userId);
+        if (data.session) setScope(data.session);
       } catch {
         // ignore
       }
@@ -229,11 +314,17 @@ export default function CrewPage() {
         status: t.status,
         cityId: t.cityId,
         wardId: t.wardId,
+        wardName: t.wardName,
+        wardNameBn: t.wardNameBn,
         categoryId: t.categoryId,
+        categorySlug: t.categorySlug,
+        categoryName: t.categoryName,
+        categoryNameBn: t.categoryNameBn,
         locationLat: t.locationLat,
         locationLng: t.locationLng,
         note: t.note,
         reporterId: t.reporterId,
+        reporterName: t.reporterName,
         photoUrls: t.photoUrls,
         createdAt: t.createdAt,
         assignedCrewId: t.assignedCrewId,
@@ -269,12 +360,18 @@ export default function CrewPage() {
           status: TicketStatus;
           cityId: string;
           wardId: string;
+          wardName?: string | null;
+          wardNameBn?: string | null;
           categoryId: string;
+          categorySlug?: string | null;
+          categoryName?: string | null;
+          categoryNameBn?: string | null;
           locationLat: number;
           locationLng: number;
           note: string | null;
           photoUrls: string[];
           reporterId: string;
+          reporterName?: string | null;
           createdAt: string;
           assignedCrewId: string | null;
           internalNote: string | null;
@@ -291,11 +388,17 @@ export default function CrewPage() {
         status: t.status,
         cityId: t.cityId,
         wardId: t.wardId,
+        wardName: t.wardName,
+        wardNameBn: t.wardNameBn,
         categoryId: t.categoryId,
+        categorySlug: t.categorySlug,
+        categoryName: t.categoryName,
+        categoryNameBn: t.categoryNameBn,
         locationLat: t.locationLat,
         locationLng: t.locationLng,
         note: t.note,
         reporterId: t.reporterId,
+        reporterName: t.reporterName,
         photoUrls: t.photoUrls,
         createdAt: t.createdAt,
         assignedCrewId: t.assignedCrewId,
@@ -475,7 +578,7 @@ export default function CrewPage() {
             textOverflow: 'ellipsis',
           }}
         >
-          · Crew · ward_14 · dept_streetlight
+          {scopeLabel(lang, scope)}
         </span>
       </div>
 
@@ -740,7 +843,7 @@ function CrewRow({
           fontSize: 18,
         }}
       >
-        {categoryIcon(ticket.categoryId)}
+        {categoryIcon(ticket.categorySlug)}
       </span>
       <div style={{ minWidth: 0 }}>
         <div
@@ -761,7 +864,7 @@ function CrewRow({
               textOverflow: 'ellipsis',
             }}
           >
-            {ticket.wardId} · {ticket.categoryId}
+            {ticketLabel(ticket, lang)}
           </span>
           <StatusPill status={ticket.status} lang={lang} />
         </div>
@@ -801,25 +904,28 @@ function CrewRow({
 }
 
 function StatusPill({ status, lang }: { status: TicketStatus; lang: Language }) {
+  // `*-soft` background + saturated `*-status` foreground — see the
+  // dispatcher queue's StatusPill for why the saturated token must
+  // not be used as the background.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted, #fff4e6)',
-      fg: 'var(--color-warning, #b58410)',
+      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
+      fg: 'var(--color-status-submitted, #718096)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-routed-soft, #E6F2EE)',
+      fg: 'var(--color-status-routed, #2C5282)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
+      fg: 'var(--color-status-in-progress, #B7791F)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved, #e6fcf5)',
-      fg: 'var(--color-success, #1f7a3f)',
+      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
+      fg: 'var(--color-status-resolved, #2F7A4F)',
       label: 'status.resolved',
     },
     closed: {

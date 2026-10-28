@@ -839,7 +839,7 @@ export async function getTicketWithTrail(
     where: { id },
     include: {
       trail: { orderBy: { timestamp: 'asc' } },
-      category: { select: { departmentId: true } },
+      category: { select: { departmentId: true, slug: true, name: true, nameBn: true } },
       ward: { select: { name: true, nameBn: true } },
       // Bolt 008-002 — Story 002: city + reporter display names
       // so the route layer can render the ticket's H1 / record
@@ -917,6 +917,13 @@ export async function getTicketWithTrail(
     cityName: t.city?.name ?? null,
     cityNameBn: t.city?.nameBn ?? null,
     reporterName: t.reporter?.name ?? null,
+    // Denormalised category display fields. `slug` is the machine
+    // key the UI switches on to pick a glyph; the names are the
+    // human label. Without these the staff surfaces had to render
+    // the raw `cat_*` id.
+    categorySlug: t.category?.slug ?? null,
+    categoryName: t.category?.name ?? null,
+    categoryNameBn: t.category?.nameBn ?? null,
   };
 }
 

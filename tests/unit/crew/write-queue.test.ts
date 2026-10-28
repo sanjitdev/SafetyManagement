@@ -47,6 +47,7 @@ import {
   sortMutations,
   startAutoFlush,
   type IdbLike,
+  type IdbTransactionLike,
   type QueuedMutation,
 } from '@/lib/crew/write-queue';
 
@@ -170,6 +171,21 @@ class FakeDatabase {
     return new FakeTransaction(this.data, names);
   }
 
+  /**
+   * Create an object store. Only legal inside the upgrade
+   * transaction of an `open()` — mirroring the real API.
+   */
+  createObjectStore(name: string) {
+    const backing = new Map<string, unknown>();
+    this.data.set(name, backing);
+    this.names.push(name);
+    // A store handed back by `createObjectStore` is a bare
+    // view — the transaction-scoped fake store needs a
+    // transaction, so reuse a throwaway one.
+    const tx = new FakeTransaction(this.data, [name]);
+    return new FakeStore(backing, 'id', tx);
+  }
+
   get objectStoreNames() {
     const names = this.names;
     return { contains: (name: string) => names.includes(name) };
@@ -205,11 +221,13 @@ function makeFakeIdb(): {
     open(name: string, version: number) {
       const request: {
         result: unknown;
+        transaction: IdbTransactionLike | null;
         onsuccess: ((ev: unknown) => void) | null;
         onerror: ((ev: unknown) => void) | null;
         onupgradeneeded: ((ev: unknown) => void) | null;
       } = {
         result: db,
+        transaction: null,
         onsuccess: null,
         onerror: null,
         onupgradeneeded: null,
@@ -554,6 +572,114 @@ describe('write-queue — the IndexedDB seam', () => {
       payload: { toStatus: 'in_progress' },
     });
     expect(enqueued.ok).toBe(false);
+  });
+});
+
+// =====================================================================
+// The shared-handle contract
+// =====================================================================
+
+describe('write-queue — the shared database handle', () => {
+  let openCalls = 0;
+
+  /**
+   * A factory whose `open()` resolves only when the test says so.
+   * This models a COLD database: the first `open()` is still
+   * pending (upgrade in flight) when a second caller arrives.
+   */
+  function makeSlowIdb(): { factory: IdbLike; release: () => void } {
+    openCalls = 0;
+    let releaseFn: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => {
+      releaseFn = resolve;
+    });
+    const data = new Map<string, Map<string, unknown>>([
+      [QUEUE_MUTATION_STORE, new Map<string, unknown>()],
+      [QUEUE_BLOB_STORE, new Map<string, unknown>()],
+    ]);
+    const db = new FakeDatabase(data, [
+      QUEUE_MUTATION_STORE,
+      QUEUE_BLOB_STORE,
+    ]);
+    const factory: IdbLike = {
+      open() {
+        openCalls += 1;
+        const request: {
+          result: unknown;
+          transaction: IdbTransactionLike | null;
+          onsuccess: ((ev: unknown) => void) | null;
+          onerror: ((ev: unknown) => void) | null;
+          onupgradeneeded: ((ev: unknown) => void) | null;
+        } = {
+          result: db,
+          transaction: null,
+          onsuccess: null,
+          onerror: null,
+          onupgradeneeded: null,
+        };
+        void gate.then(() => request.onsuccess?.({ target: request }));
+        return request;
+      },
+    };
+    return { factory, release: () => releaseFn?.() };
+  }
+
+  afterEach(() => {
+    setIdbFactory(null);
+  });
+
+  it('issues a single open() for concurrent callers', async () => {
+    // Regression: the crew ticket page mounts with the
+    // pending-sync counter AND the auto-flush loop opening the
+    // database at the same time. On a cold database the second
+    // open queued behind the first's version-change transaction
+    // and its `db.transaction(...)` threw:
+    //   "A version change transaction is running."
+    const { factory, release } = makeSlowIdb();
+    setIdbFactory(factory);
+
+    const first = readQueue();
+    const second = readQueue();
+    const third = readQueue();
+    release();
+
+    const results = await Promise.all([first, second, third]);
+    expect(openCalls).toBe(1);
+    for (const r of results) expect(r.ok).toBe(true);
+  });
+
+  it('reuses the handle across sequential operations', async () => {
+    const { factory, release } = makeSlowIdb();
+    setIdbFactory(factory);
+    const pending = enqueueMutation({
+      kind: 'transition',
+      ticketId: 't1',
+      payload: { toStatus: 'in_progress' },
+      now: 1_000,
+    });
+    release();
+    await pending;
+    await readQueue();
+    await removeMutation('nope');
+    expect(openCalls).toBe(1);
+  });
+
+  it('re-opens after the factory is swapped', async () => {
+    const { factory, release } = makeSlowIdb();
+    setIdbFactory(factory);
+    const pending = readQueue();
+    release();
+    await pending;
+    expect(openCalls).toBe(1);
+
+    // A new factory means a new database — the old handle must
+    // not be reused.
+    const second = makeSlowIdb();
+    setIdbFactory(second.factory);
+    const secondPending = readQueue();
+    second.release();
+    await secondPending;
+    expect(openCalls).toBe(1);
   });
 });
 

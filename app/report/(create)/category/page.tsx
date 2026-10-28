@@ -214,7 +214,17 @@ export default function CategoryPage() {
       }}
       className="report-two-region"
     >
-      <style>{`
+      {/*
+        The CSS is injected raw. React escapes quote characters in a
+        `<style>` child's text content, so the server emitted
+        `&quot;` / `&#x27;` where the client rendered `"` / `'`
+        — a hydration mismatch that forced a full client re-render.
+        `dangerouslySetInnerHTML` keeps the CSS byte-identical on
+        both sides. The content is a static literal, not user input.
+      */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @media (max-width: 1024px) {
           .report-two-region { grid-template-columns: 1fr !important; }
         }
@@ -233,7 +243,9 @@ export default function CategoryPage() {
                       box-shadow var(--duration-fast) var(--ease-out),
                       transform var(--duration-fast) var(--ease-out);
         }
-      `}</style>
+      `,
+        }}
+      />
 
       <div
         style={{

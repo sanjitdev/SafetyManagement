@@ -25,6 +25,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTicketId } from '@/lib/format/ticket-id';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -376,7 +377,7 @@ export default function MyReportDetailPage() {
                   color: 'var(--color-ink-tertiary)',
                 }}
               >
-                #{ticket.id}
+                {formatTicketId(ticket.id)}
               </span>
             </div>
             <h1
@@ -398,6 +399,49 @@ export default function MyReportDetailPage() {
               {wardLabel} · {createdRel} {t('time.filed', null, LANG)}
             </div>
           </div>
+
+          {/* The citizen's own description. The report flow collects
+              a note ("অনুরোধ"), and the reporter must be able to read
+              it back — otherwise the description they typed is
+              accepted by the system and then never seen again, which
+              reads as the report having been dropped. Rendered only
+              when there IS a note so the card never shows an empty
+              shell. */}
+          {ticket.note && (
+            <div
+              data-testid="report-detail-description"
+              style={{
+                background: 'var(--color-surface-card, #fff)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-5)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 'var(--text-micro, 11px)',
+                  color: 'var(--color-ink-tertiary)',
+                  fontWeight: 'var(--weight-semibold)',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  marginBottom: 'var(--space-2)',
+                }}
+              >
+                {t('detail.section.description', null, LANG)}
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-body)',
+                  color: 'var(--color-ink)',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {ticket.note}
+              </p>
+            </div>
+          )}
 
           {/* Photo groups — Bolt 007-001.
               The Before group renders the citizen's own photos

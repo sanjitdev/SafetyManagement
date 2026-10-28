@@ -53,6 +53,18 @@ export interface MapPin {
   categoryId: string;
   wardId: string;
   createdAt: string;
+  /**
+   * Denormalised display fields. The API resolves them from the
+   * category / ward joins so the map's side panel can show
+   * "Roadside streetlight missing" instead of `cat_streetlight`.
+   * `null` when the join is unavailable — consumers fall back to
+   * the raw id.
+   */
+  categorySlug?: string | null;
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
+  wardName?: string | null;
+  wardNameBn?: string | null;
 }
 
 interface DispatcherMapProps {
@@ -258,11 +270,18 @@ export default function DispatcherMap({
         }
 
         // Single pins.
+        //
+        // The `filter` key must be OMITTED entirely when clustering is
+        // off. MapLibre validates the layer spec and rejects an
+        // explicit `filter: undefined` with
+        // "layers.<id>.filter: array expected, undefined found" —
+        // which aborted `addLayer` and left the pin layer missing
+        // from the map entirely.
         map.addLayer({
           id: PINS_LAYER_ID,
           type: 'circle',
           source: PINS_SOURCE_ID,
-          filter: clusterEnabled ? ['!', ['has', 'point_count']] : undefined,
+          ...(clusterEnabled ? { filter: ['!', ['has', 'point_count']] } : {}),
           paint: {
             'circle-color': [
               'match',

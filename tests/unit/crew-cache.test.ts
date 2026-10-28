@@ -55,6 +55,10 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
   return {
     id: 'tkt_abc',
     cityId: 'city_dhaka_north',
+    // Same contract for the denormalised city names: the
+    // serializer ships explicit `null` when the join is absent.
+    cityName: null,
+    cityNameBn: null,
     wardId: 'ward_14',
     // The serializer (lib/serializers/ticket.ts) ships explicit
     // `null` for the denormalised ward names when the join is
@@ -62,6 +66,11 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     wardName: null,
     wardNameBn: null,
     categoryId: 'cat_streetlight',
+    // Same contract for the denormalised category fields: the
+    // serializer ships explicit `null` when the join is absent.
+    categorySlug: null,
+    categoryName: null,
+    categoryNameBn: null,
     locationLat: 23.789,
     locationLng: 90.4075,
     locationLabel: 'Mirpur 14',
@@ -69,6 +78,7 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     note: 'Streetlight out',
     status: 'routed',
     reporterId: 'user_citizen_rahim',
+    reporterName: null,
     // Bolt 007-001: the new photo split.
     photoUrls: [],
     beforePhotoUrls: [],

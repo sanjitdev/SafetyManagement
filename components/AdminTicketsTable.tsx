@@ -18,6 +18,9 @@
 
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTimestamp } from '@/lib/format/datetime';
+import { formatTicketId } from '@/lib/format/ticket-id';
+import { displayNameFor } from '@/lib/identity/display-name';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 
 interface AdminTicketsTableProps {
@@ -29,13 +32,44 @@ interface AdminTicketsTableProps {
   lang: Language;
 }
 
-const STATUS_BG: Record<string, string> = {
-  submitted: 'var(--color-status-submitted)',
-  routed: 'var(--color-status-routed)',
-  in_progress: 'var(--color-status-in-progress)',
-  resolved: 'var(--color-status-resolved)',
-  closed: 'var(--color-status-closed)',
-  cancelled: 'var(--color-status-cancelled)',
+/**
+ * The status pill's background + foreground.
+ *
+ * The convention across the app is a `*-soft` background with the
+ * SATURATED `*-status` colour as the foreground. Using the
+ * saturated token as the BACKGROUND made the label unreadable
+ * (white text on a saturated blue).
+ */
+const STATUS_STYLE: Record<
+  string,
+  { background: string; color: string }
+> = {
+  submitted: {
+    background: 'var(--color-status-submitted-soft)',
+    color: 'var(--color-status-submitted)',
+  },
+  routed: {
+    background: 'var(--color-status-routed-soft)',
+    color: 'var(--color-status-routed)',
+  },
+  in_progress: {
+    background: 'var(--color-status-in-progress-soft)',
+    color: 'var(--color-status-in-progress)',
+  },
+  resolved: {
+    background: 'var(--color-status-resolved-soft)',
+    color: 'var(--color-status-resolved)',
+  },
+  // `closed` and `cancelled` have no dedicated soft token — they
+  // render neutral, the same as the other admin surfaces.
+  closed: {
+    background: 'var(--color-surface-raised)',
+    color: 'var(--color-ink-secondary)',
+  },
+  cancelled: {
+    background: 'var(--color-surface-raised)',
+    color: 'var(--color-ink-secondary)',
+  },
 };
 
 export function AdminTicketsTable({
@@ -90,11 +124,19 @@ export function AdminTicketsTable({
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    /*
+     * Seven columns cannot fit a 390px phone. The wrapper scrolls
+     * sideways, but a `width: 100%` table shrinks its columns to fit
+     * instead of overflowing — every cell collapsed to a sliver and
+     * the Bangla labels wrapped character by character. A `minWidth`
+     * forces the horizontal scroll and keeps each cell legible.
+     */
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <table
         data-testid="admin-tickets-table"
         style={{
           width: '100%',
+          minWidth: 860,
           borderCollapse: 'collapse',
           fontSize: 'var(--text-caption)',
         }}
@@ -127,7 +169,7 @@ export function AdminTicketsTable({
               }}
             >
               <td style={{ ...tdStyle, fontFamily: 'monospace' }}>
-                {truncate(row.id, 14)}
+                {formatTicketId(row.id)}
               </td>
               <td style={tdStyle}>
                 <span
@@ -135,8 +177,11 @@ export function AdminTicketsTable({
                     display: 'inline-block',
                     padding: '2px 8px',
                     background:
-                      STATUS_BG[row.status] ?? 'var(--color-surface-raised)',
-                    color: 'var(--color-on-primary, white)',
+                      STATUS_STYLE[row.status]?.background ??
+                      'var(--color-surface-raised)',
+                    color:
+                      STATUS_STYLE[row.status]?.color ??
+                      'var(--color-ink-secondary)',
                     border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-pill)',
                     fontSize: 'var(--text-small)',
@@ -145,21 +190,24 @@ export function AdminTicketsTable({
                   {t(`status.${row.status}`, null, lang)}
                 </span>
               </td>
-              <td style={tdStyle}>{row.categoryId}</td>
-              <td style={tdStyle}>{row.wardId}</td>
-              <td style={{ ...tdStyle, fontFamily: 'monospace' }}>
-                {row.reporterId}
+              <td style={tdStyle}>
+                {categoryLabel(row, lang)}
+              </td>
+              <td style={tdStyle}>{wardLabel(row, lang)}</td>
+              <td style={tdStyle}>
+                {row.reporterName ?? row.reporterId}
               </td>
               <td style={tdStyle}>
                 {row.assignedCrewId ? (
-                  <span style={{ fontFamily: 'monospace' }}>
-                    {row.assignedCrewId}
-                  </span>
+                  <span>{displayNameFor('crew', row.assignedCrewId)}</span>
                 ) : (
                   <span style={{ color: 'var(--color-ink-secondary)' }}>—</span>
                 )}
               </td>
-              <td style={tdStyle}>{formatTimestamp(row.createdAt, lang)}</td>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                {formatTimestamp(row.createdAt, lang)}
+              </td>
+
             </tr>
           ))}
         </tbody>
@@ -212,31 +260,23 @@ const tdStyle: React.CSSProperties = {
   verticalAlign: 'middle',
 };
 
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + '…';
+/**
+ * The category's display name.
+ *
+ * The admin table used to print the raw `cat_*` id. The
+ * serializer denormalises the category's name onto the ticket,
+ * so prefer that; fall back to the id when the join is absent.
+ */
+function categoryLabel(row: SerializedTicket, lang: Language): string {
+  const name = lang === 'bn' ? row.categoryNameBn : row.categoryName;
+  return name ?? row.categoryId;
 }
 
-function formatTimestamp(iso: string, lang: Language): string {
-  try {
-    const d = new Date(iso);
-    if (lang === 'bn') {
-      return d.toLocaleString('bn-BD', {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    }
-    return d.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
+/**
+ * The ward's display name. Same fallback contract as
+ * `categoryLabel`.
+ */
+function wardLabel(row: SerializedTicket, lang: Language): string {
+  const name = lang === 'bn' ? row.wardNameBn : row.wardName;
+  return name ?? row.wardId;
 }

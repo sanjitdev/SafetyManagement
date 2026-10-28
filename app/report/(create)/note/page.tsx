@@ -161,8 +161,10 @@ export default function NotePage() {
           gap: 'var(--space-3)',
         }}
       >
-        <label
-          htmlFor="report-note-textarea"
+        {/* The step heading. The `<label>` stays wrapped inside the
+            `<h1>` so the textarea keeps its accessible name while
+            the step still exposes a real heading. */}
+        <h1
           lang="bn"
           style={{
             fontSize: 'var(--text-display-md)',
@@ -173,8 +175,10 @@ export default function NotePage() {
             letterSpacing: 'var(--tracking-tight)',
           }}
         >
-          {t('report.note.label', null, LANG)}
-        </label>
+          <label htmlFor="report-note-textarea">
+            {t('report.note.label', null, LANG)}
+          </label>
+        </h1>
         <p
           lang="bn"
           id="report-note-helper"

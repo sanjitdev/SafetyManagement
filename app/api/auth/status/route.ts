@@ -32,6 +32,16 @@ export async function GET() {
   const user = await db.user.findUnique({
     where: { id: session.userId },
   });
+  // Resolve the dispatcher's / crew's scope labels. The staff
+  // sub-headers render "Ward 14 — Mirpur" and the department name
+  // rather than the raw `ward_14` / `dept_streetlight` ids. Both
+  // joins are optional — a city-wide admin has neither.
+  const ward = session.wardId
+    ? await db.ward.findUnique({ where: { id: session.wardId } })
+    : null;
+  const department = session.departmentId
+    ? await db.department.findUnique({ where: { id: session.departmentId } })
+    : null;
   return NextResponse.json({
     authenticated: true,
     session: {
@@ -40,6 +50,11 @@ export async function GET() {
       role: session.role,
       cityId: session.cityId,
       wardId: session.wardId,
+      wardName: ward?.name ?? null,
+      wardNameBn: ward?.nameBn ?? null,
+      departmentId: session.departmentId,
+      departmentName: department?.name ?? null,
+      departmentNameBn: department?.nameBn ?? null,
       name: user?.name ?? null,
     },
   });

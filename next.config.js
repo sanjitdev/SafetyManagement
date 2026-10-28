@@ -64,15 +64,23 @@ const nextConfig = {
           //   - Nominatim for reverse geocoding
           //   - 'unsafe-inline' for styles (Tailwind + tokens.css; the
           //     nonced style approach is a v1.1 hardening)
+          //   - Google Fonts (Noto Sans Bengali) — the Bangla-first
+          //     typography the design system depends on. The app
+          //     loads the stylesheet from fonts.googleapis.com and
+          //     the woff2 files from fonts.gstatic.com, so BOTH
+          //     hosts must be allowed in style-src + font-src. Without
+          //     them the browser silently drops the Bangla webfont on
+          //     every page and the UI falls back to a system font
+          //     (this was a real, app-wide defect — not a nit).
           //   - data: + blob: + https: for the MapLibre WebGL canvas + photos
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",

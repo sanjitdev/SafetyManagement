@@ -97,6 +97,18 @@ export interface TicketLike {
   cityName?: string | null;
   cityNameBn?: string | null;
   reporterName?: string | null;
+  /**
+   * Denormalised category display names + slug, populated by the
+   * same `getTicketWithTrail` join. `categorySlug` is the stable
+   * machine key the UI uses to pick a glyph (the slug is what
+   * `categoryIcon` switches on — passing the id there always
+   * fell through to the "unknown" glyph). The names let the UI
+   * render "Roadside streetlight missing" instead of the raw
+   * `cat_streetlight` id.
+   */
+  categorySlug?: string | null;
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
 }
 
 export interface SerializedTicketTrailEntry {
@@ -119,6 +131,12 @@ export interface SerializedTicketTrailEntry {
 export interface SerializedTicket {
   id: string;
   cityId: string;
+  /**
+   * Human-readable city name(s). `null` when the backend join is
+   * absent — consumers must fall back to `cityId` in that case.
+   */
+  cityName: string | null;
+  cityNameBn: string | null;
   wardId: string;
   /**
    * Human-readable ward name(s) for the citizen. Resolved by the
@@ -129,6 +147,14 @@ export interface SerializedTicket {
   wardName: string | null;
   wardNameBn: string | null;
   categoryId: string;
+  /**
+   * Denormalised category display names + slug. `null` when the
+   * backend join is absent (older callers) — consumers must fall
+   * back to `categoryId` in that case.
+   */
+  categorySlug: string | null;
+  categoryName: string | null;
+  categoryNameBn: string | null;
   status: TicketStatus;
   locationLng: number;
   locationLat: number;
@@ -158,6 +184,13 @@ export interface SerializedTicket {
   assignedCrewId: string | null;
   internalNote: string | null;
   reporterId: string;
+  /**
+   * The reporter's display name. Exposed to staff roles only — a
+   * dispatcher needs to know WHO filed the report ("Rahim") without
+   * having to read a raw `user_citizen_rahim` id. Null when the
+   * join is unavailable.
+   */
+  reporterName: string | null;
   trail: SerializedTicketTrailEntry[];
 }
 
@@ -219,10 +252,15 @@ export function serializeTicketForRole(
     return {
       id: ticket.id,
       cityId: ticket.cityId,
+      cityName: ticket.cityName ?? null,
+      cityNameBn: ticket.cityNameBn ?? null,
       wardId: ticket.wardId,
       wardName: ticket.wardName ?? null,
       wardNameBn: ticket.wardNameBn ?? null,
       categoryId: ticket.categoryId,
+      categorySlug: ticket.categorySlug ?? null,
+      categoryName: ticket.categoryName ?? null,
+      categoryNameBn: ticket.categoryNameBn ?? null,
       status: ticket.status,
       locationLng: ticket.locationLng,
       locationLat: ticket.locationLat,
@@ -244,6 +282,7 @@ export function serializeTicketForRole(
       assignedCrewId: null,
       internalNote: null,
       reporterId: ticket.reporterId, // citizens see their own id (it's them)
+      reporterName: null,
       trail: serializedTrail,
     };
   }
@@ -255,10 +294,15 @@ export function serializeTicketForRole(
   return {
     id: ticket.id,
     cityId: ticket.cityId,
+    cityName: ticket.cityName ?? null,
+    cityNameBn: ticket.cityNameBn ?? null,
     wardId: ticket.wardId,
     wardName: ticket.wardName ?? null,
     wardNameBn: ticket.wardNameBn ?? null,
     categoryId: ticket.categoryId,
+    categorySlug: ticket.categorySlug ?? null,
+    categoryName: ticket.categoryName ?? null,
+    categoryNameBn: ticket.categoryNameBn ?? null,
     status: ticket.status,
     locationLng: ticket.locationLng,
     locationLat: ticket.locationLat,
@@ -279,6 +323,7 @@ export function serializeTicketForRole(
     assignedCrewId: ticket.assignedCrewId,
     internalNote: ticket.internalNote,
     reporterId: ticket.reporterId,
+    reporterName: ticket.reporterName ?? null,
     trail: serializedTrail,
   };
 }

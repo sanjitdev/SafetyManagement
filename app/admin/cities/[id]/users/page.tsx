@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTimestamp } from '@/lib/format/datetime';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -34,10 +35,13 @@ interface AdminUserCard {
   prismaRole: string;
   wardIds: string[];
   wardLabels: string[];
+  wardLabelsBn: string[];
   crewId: string | null;
   crewLabel: string | null;
+  crewLabelBn: string | null;
   departmentId: string | null;
   departmentLabel: string | null;
+  departmentLabelBn: string | null;
   status: 'active' | 'invited' | 'disabled';
   lastLoginAt: string | null;
 }
@@ -497,22 +501,32 @@ export default function AdminCityUsersPage() {
                     <div className="flex gap-1">
                       <dt>{t('admin.users.form.wards', null, lang)}:</dt>
                       <dd>
-                        {u.wardLabels.length > 0
-                          ? u.wardLabels.join(', ')
-                          : t('admin.users.notAssigned', null, lang)}
+                        {wardLabelsFor(u, lang).join(', ') ||
+                          t('admin.users.notAssigned', null, lang)}
                       </dd>
                     </div>
                     <div className="flex gap-1">
                       <dt>{t('admin.users.form.crew', null, lang)}:</dt>
                       <dd>
-                        {u.crewLabel ?? t('admin.users.notAssigned', null, lang)}
+                        {(lang === 'bn'
+                          ? u.crewLabelBn
+                          : u.crewLabel) ?? t('admin.users.notAssigned', null, lang)}
+                      </dd>
+                    </div>
+                    <div className="flex gap-1">
+                      <dt>{t('admin.users.form.department', null, lang)}:</dt>
+                      <dd>
+                        {(lang === 'bn'
+                          ? u.departmentLabelBn
+                          : u.departmentLabel) ??
+                          t('admin.users.notAssigned', null, lang)}
                       </dd>
                     </div>
                     <div className="flex gap-1">
                       <dt>{t('admin.users.lastLogin.at', null, lang)}:</dt>
                       <dd>
                         {u.lastLoginAt
-                          ? new Date(u.lastLoginAt).toLocaleString()
+                          ? formatTimestamp(u.lastLoginAt, lang)
                           : t('admin.users.lastLogin.never', null, lang)}
                       </dd>
                     </div>
@@ -871,3 +885,27 @@ export default function AdminCityUsersPage() {
     </div>
   );
 }
+
+/**
+ * The ward display names for a card, in the active language.
+ *
+ * The API emits both the English and the Bangla label; the page
+ * picks the one that matches the reader's language. A missing
+ * Bangla variant falls back to the English one. The leading
+ * "Ward"/"ওয়ার্ড" is stripped because the row's own label
+ * ("ওয়ার্ড:") already says it.
+ */
+function wardLabelsFor(u: AdminUserCard, lang: Language): string[] {
+  const labels = lang === 'bn' ? u.wardLabelsBn : u.wardLabels;
+  const picked = labels.length > 0 ? labels : lang === 'bn' ? u.wardLabels : u.wardLabelsBn;
+  return picked.map((label) =>
+    label.replace(/^\s*(ward|ওয়ার্ড)\s*[:\-–—]?\s*/i, ''),
+  );
+}
+
+/**
+ * The last-login timestamp, formatted for the active language.
+ *
+ * `toLocaleString()` with no locale falls back to the runtime
+ * default, which rendered US-format dates on the Bangla page.
+ */

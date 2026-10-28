@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTicketId } from '@/lib/format/ticket-id';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -595,8 +596,8 @@ function TicketPanel({
           lang={lang}
           style={{
             padding: '2px var(--space-2)',
-            background: 'var(--color-status-routed, #e7f5ff)',
-            color: 'var(--color-primary)',
+            background: 'var(--color-status-routed-soft, #E6F2EE)',
+            color: 'var(--color-status-routed, #2C5282)',
             borderRadius: 'var(--radius-pill)',
             fontSize: 10,
             fontWeight: 'var(--weight-bold)',
@@ -615,7 +616,7 @@ function TicketPanel({
           fontFamily: 'monospace',
         }}
       >
-        {ticket.id}
+        {formatTicketId(ticket.id)}
       </div>
       <div
         lang={lang}

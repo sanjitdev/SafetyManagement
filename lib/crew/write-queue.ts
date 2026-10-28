@@ -208,6 +208,14 @@ export const MAX_FLUSH_ATTEMPTS = 10;
 export interface IdbLike {
   open(name: string, version: number): {
     result: unknown;
+    /**
+     * The transaction the upgrade runs in. During
+     * `onupgradeneeded` this is the ONLY transaction that may
+     * touch the schema — opening a NEW transaction on the
+     * database throws:
+     *   "A version change transaction is running."
+     */
+    transaction: IdbTransactionLike | null;
     onsuccess: ((ev: unknown) => void) | null;
     onerror: ((ev: unknown) => void) | null;
     onupgradeneeded: ((ev: unknown) => void) | null;
@@ -220,6 +228,11 @@ export interface IdbDatabaseLike {
     mode: 'readonly' | 'readwrite',
   ): IdbTransactionLike;
   objectStoreNames: { contains(name: string): boolean };
+  /**
+   * Create an object store. ONLY legal inside the version-change
+   * transaction of an `open()` upgrade.
+   */
+  createObjectStore(name: string): IdbStoreLike;
   close(): void;
 }
 
@@ -254,9 +267,14 @@ let idbFactoryOverride: IdbLike | null = null;
 /**
  * Test-only: inject an IndexedDB seam. Pass `null` to reset to
  * the browser's `indexedDB`.
+ *
+ * Injecting a NEW factory also drops the shared handle — the
+ * cached handle belongs to the previous factory, and reusing it
+ * would silently read the wrong database.
  */
 export function setIdbFactory(factory: IdbLike | null): void {
   idbFactoryOverride = factory;
+  resetQueueDb();
 }
 
 function getIdbFactory(): IdbLike | null {
@@ -358,17 +376,62 @@ export function isParked(mutation: QueuedMutation): boolean {
 // =====================================================================
 
 /**
+ * The single shared database handle.
+ *
+ * Every queue operation used to call `factory.open()` for itself.
+ * On a COLD database that is a race: the first `open()` fires
+ * `onupgradeneeded`, which holds a version-change transaction open
+ * for the duration of the upgrade. A second, concurrent `open()`
+ * queues behind it, and when its `onsuccess` resolves the upgrade
+ * transaction may STILL be running — so the caller's
+ * `db.transaction(...)` throws:
+ *
+ *   Failed to execute 'transaction' on 'IDBDatabase':
+ *   A version change transaction is running.
+ *
+ * The crew ticket page hits this on every mount: the pending-sync
+ * counter (`readQueue`) and the auto-flush loop (`flushQueue` →
+ * `readQueue`) both open the database at the same time.
+ *
+ * So: ONE handle, opened ONCE, shared by every operation. The
+ * handle stays open for the life of the page; the operations that
+ * used to `db.close()` after each transaction now leave it open
+ * (closing it between operations is what allowed the race in the
+ * first place — a closed handle cannot be reused, so the next
+ * caller had to re-open).
+ *
+ * `null` means "IndexedDB is unavailable" — the caller degrades
+ * to online-only behaviour.
+ */
+let sharedDb: IdbDatabaseLike | null = null;
+
+/**
+ * The in-flight open promise. Concurrent callers that arrive
+ * while the first `open()` is still pending await THIS promise
+ * instead of issuing their own `open()` request.
+ */
+let openingDb: Promise<IdbDatabaseLike | null> | null = null;
+
+/**
  * Open (and if necessary create) the queue database.
  *
  * Returns `null` when IndexedDB is unavailable (Node SSR, a
  * browser with storage disabled, private mode). Every caller
  * treats `null` as "the queue is not available" and degrades to
  * the v1 online-only behaviour.
+ *
+ * The handle is shared and memoised — see `sharedDb` above.
  */
 export async function openQueueDb(): Promise<IdbDatabaseLike | null> {
   const factory = getIdbFactory();
   if (!factory) return null;
-  return new Promise<IdbDatabaseLike | null>((resolve) => {
+  // Already open — reuse it.
+  if (sharedDb) return sharedDb;
+  // An open is already in flight — await it rather than issuing
+  // a second `open()` request (which is what lost the race).
+  if (openingDb) return openingDb;
+
+  openingDb = new Promise<IdbDatabaseLike | null>((resolve) => {
     let request: ReturnType<IdbLike['open']>;
     try {
       request = factory.open(QUEUE_DB_NAME, QUEUE_DB_VERSION);
@@ -379,26 +442,52 @@ export async function openQueueDb(): Promise<IdbDatabaseLike | null> {
     request.onupgradeneeded = () => {
       const db = (request as unknown as { result?: IdbDatabaseLike }).result;
       if (!db) return;
+      // The upgrade runs inside a version-change transaction that
+      // the browser opened for us. We MUST create the stores on
+      // THAT transaction — opening a fresh `db.transaction(...)`
+      // here is exactly what throws
+      // "A version change transaction is running."
+      //
+      // Stores are created with `db.createObjectStore(name)`,
+      // which is legal only during this upgrade.
       if (!db.objectStoreNames.contains(QUEUE_MUTATION_STORE)) {
-        const store = db.transaction(
-          [QUEUE_MUTATION_STORE],
-          'readwrite',
-        ).objectStore(QUEUE_MUTATION_STORE);
+        const store = db.createObjectStore(QUEUE_MUTATION_STORE);
         store.createIndex?.('createdAt', 'createdAt', { unique: false });
       }
       if (!db.objectStoreNames.contains(QUEUE_BLOB_STORE)) {
-        db.transaction([QUEUE_BLOB_STORE], 'readwrite').objectStore(
-          QUEUE_BLOB_STORE,
-        );
+        db.createObjectStore(QUEUE_BLOB_STORE);
       }
     };
     request.onsuccess = () => {
-      resolve(
-        (request as unknown as { result?: IdbDatabaseLike }).result ?? null,
-      );
+      const db =
+        (request as unknown as { result?: IdbDatabaseLike }).result ?? null;
+      // The upgrade transaction is finished by the time
+      // `onsuccess` fires for the open request, so the handle is
+      // safe to hand out here.
+      sharedDb = db;
+      resolve(db);
     };
     request.onerror = () => resolve(null);
+  }).finally(() => {
+    openingDb = null;
   });
+
+  return openingDb;
+}
+
+/**
+ * Close the shared handle and forget it. Test-only helper —
+ * the production code keeps the handle open for the life of the
+ * page so that concurrent operations never race the upgrade.
+ */
+export function resetQueueDb(): void {
+  try {
+    sharedDb?.close();
+  } catch {
+    // ignore
+  }
+  sharedDb = null;
+  openingDb = null;
 }
 
 /**
@@ -431,7 +520,6 @@ export async function readQueue(): Promise<QueueResult<QueueSnapshot>> {
     const rows = await reqToPromise<QueuedMutation[]>(
       tx.objectStore(QUEUE_MUTATION_STORE).getAll(),
     );
-    db.close();
     const list = Array.isArray(rows) ? rows : [];
     return { ok: true, value: buildSnapshot(list) };
   } catch (e) {
@@ -452,7 +540,6 @@ export async function readQueuedBlob(
     const row = await reqToPromise<QueuedBlob | undefined>(
       tx.objectStore(QUEUE_BLOB_STORE).get(mutationId),
     );
-    db.close();
     return { ok: true, value: row ?? null };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -511,7 +598,6 @@ export async function enqueueMutation(args: {
       tx.onerror = () => reject(tx.error ?? new Error('transaction failed'));
       tx.onabort = () => reject(new Error('transaction aborted'));
     });
-    db.close();
     return { ok: true, value: mutation };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -539,7 +625,6 @@ export async function removeMutation(
       tx.onerror = () => reject(tx.error ?? new Error('transaction failed'));
       tx.onabort = () => reject(new Error('transaction aborted'));
     });
-    db.close();
     return { ok: true, value: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -576,7 +661,6 @@ export async function markMutationFailed(
       readTx.objectStore(QUEUE_MUTATION_STORE).get(mutationId),
     );
     if (!current) {
-      db.close();
       return { ok: true, value: true };
     }
     const writeTx = db.transaction([QUEUE_MUTATION_STORE], 'readwrite');
@@ -591,7 +675,6 @@ export async function markMutationFailed(
         reject(writeTx.error ?? new Error('transaction failed'));
       writeTx.onabort = () => reject(new Error('transaction aborted'));
     });
-    db.close();
     return { ok: true, value: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -617,7 +700,6 @@ export async function clearQueue(): Promise<QueueResult<true>> {
       tx.onerror = () => reject(tx.error ?? new Error('transaction failed'));
       tx.onabort = () => reject(new Error('transaction aborted'));
     });
-    db.close();
     return { ok: true, value: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

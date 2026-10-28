@@ -199,7 +199,11 @@ export default function AdminCitiesPage() {
             {t('admin.cities.empty', null, lang)}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            {/* Seven columns cannot fit a 390px phone. The wrapper
+                scrolls sideways and the table's `minWidth` stops the
+                browser from squeezing every column into a sliver. */}
+            <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-slate-100 text-slate-700">
               <tr>
                 <th className="text-left px-4 py-2">
@@ -211,9 +215,15 @@ export default function AdminCitiesPage() {
                 <th className="text-right px-4 py-2">
                   {t('admin.cities.col.ticketsPerDay', null, lang)}
                 </th>
-                <th className="text-right px-4 py-2">Wards</th>
-                <th className="text-right px-4 py-2">Categories</th>
-                <th className="text-right px-4 py-2">Departments</th>
+                <th className="text-right px-4 py-2">
+                  {t('admin.cities.col.wards', null, lang)}
+                </th>
+                <th className="text-right px-4 py-2">
+                  {t('admin.cities.col.categories', null, lang)}
+                </th>
+                <th className="text-right px-4 py-2">
+                  {t('admin.cities.col.departments', null, lang)}
+                </th>
                 <th className="text-right px-4 py-2"></th>
               </tr>
             </thead>
@@ -221,7 +231,7 @@ export default function AdminCitiesPage() {
               {cities.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-900">
-                    {c.name}
+                    {lang === 'bn' ? c.nameBn ?? c.name : c.name}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -268,7 +278,8 @@ export default function AdminCitiesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </main>
     </div>

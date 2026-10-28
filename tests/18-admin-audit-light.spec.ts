@@ -14,7 +14,7 @@
  *   - GET with a citizen session → 403 forbidden
  *   - GET with admin session → 200 (returns 5 entries
  *     + nextCursor: null on the first page)
- *   - GET ?actorId=user_admin_dncc → 200 with 4 entries
+ *   - GET ?actorId=user_admin_anwar → 200 with 4 entries
  *     (excludes the otp_send_failed row whose actor is
  *     the citizen)
  *   - GET ?action=create → 200 with 3 entries
@@ -96,7 +96,7 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
     // other 4 rows (the admin created the city, ward, category,
     // and updated the dedup radius).
     const adminRows = body.entries.filter(
-      (e) => e.actorId === 'user_admin_dncc',
+      (e) => e.actorId === 'user_admin_anwar',
     );
     expect(adminRows.length).toBe(4);
     for (const r of adminRows) {
@@ -104,11 +104,11 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
     }
   });
 
-  test('GET ?actorId=user_admin_dncc → 200 + 4 entries', async () => {
+  test('GET ?actorId=user_admin_anwar → 200 + 4 entries', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
     const res = await ctx.get(
-      `${BASE}/api/v1/admin/audit?actorId=user_admin_dncc`,
+      `${BASE}/api/v1/admin/audit?actorId=user_admin_anwar`,
       { failOnStatusCode: false },
     );
     expect(res.status()).toBe(200);

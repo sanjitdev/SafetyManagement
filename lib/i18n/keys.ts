@@ -253,6 +253,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'detail.meta.sla_value': { bn: '৪৮ ঘণ্টা', en: '48 hours' },
   'detail.meta.resolution': { bn: 'সমাধানের সময়', en: 'Resolution time' },
   'detail.ward.fallback': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'detail.section.description': { bn: 'আপনার বর্ণনা', en: 'Your description' },
   'detail.section.progress': { bn: 'অগ্রগতি', en: 'Progress' },
   'detail.progress.empty': {
     bn: 'কোনো অগ্রগতি এখনও নেই।',
@@ -967,6 +968,24 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'dispatcher.queue.filter.all': { bn: 'সব', en: 'All' },
   'dispatcher.queue.filter.submitted': { bn: 'শুধু নতুন', en: 'Submitted only' },
   'dispatcher.queue.filter.routed': { bn: 'শুধু রাউট', en: 'Routed only' },
+  'dispatcher.queue.filter.heading': { bn: 'অবস্থা', en: 'Status' },
+  'dispatcher.queue.row.reporter': { bn: 'রিপোর্টকারী:', en: 'Reporter:' },
+  // The dispatcher's scope tag in the sub-header. `{ward}` is the
+  // ward NAME (not the `ward_14` id) and `{dept}` the department
+  // name; both are omitted gracefully when the dispatcher is not
+  // bound to a ward / department.
+  'dispatcher.queue.scope': {
+    bn: 'ডিসপ্যাচার',
+    en: 'Dispatcher',
+  },
+  'dispatcher.queue.scope.ward': {
+    bn: 'ওয়ার্ড {ward}',
+    en: 'Ward {ward}',
+  },
+  'dispatcher.queue.scope.department': {
+    bn: '{dept}',
+    en: '{dept}',
+  },
   'dispatcher.queue.empty.title': {
     bn: 'সারি খালি',
     en: 'Queue is empty',
@@ -1638,6 +1657,9 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'প্রতিদিনের রিপোর্ট',
     en: 'Reports / day',
   },
+  'admin.cities.col.wards': { bn: 'ওয়ার্ড', en: 'Wards' },
+  'admin.cities.col.categories': { bn: 'বিভাগ', en: 'Categories' },
+  'admin.cities.col.departments': { bn: 'বিভাগ', en: 'Departments' },
   'admin.cities.cta.newCity': { bn: 'নতুন শহর', en: 'Set up new city' },
   'admin.cities.cta.view': { bn: 'দেখুন', en: 'View' },
   'admin.cities.empty': {
@@ -1920,6 +1942,12 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'admin.taxonomy.departments': { bn: 'বিভাগ', en: 'Departments' },
   'admin.taxonomy.categories': { bn: 'ক্যাটাগরি', en: 'Categories' },
+  'admin.taxonomy.col.name': { bn: 'নাম', en: 'Name' },
+  'admin.taxonomy.col.slug': { bn: 'স্লাগ', en: 'Slug' },
+  'admin.taxonomy.col.department': { bn: 'বিভাগ', en: 'Department' },
+  'admin.taxonomy.form.name': { bn: 'নাম', en: 'Name' },
+  'admin.taxonomy.form.slug': { bn: 'স্লাগ', en: 'Slug' },
+  'admin.taxonomy.form.none': { bn: '(কোনোটি নয়)', en: '(none)' },
   'admin.taxonomy.cta.newDept': {
     bn: 'নতুন বিভাগ',
     en: 'New department',
@@ -1949,6 +1977,13 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'admin.wards.title': {
     bn: 'ওয়ার্ড ও সীমানা',
     en: 'Wards & boundaries',
+  },
+  'admin.wards.col.name': { bn: 'নাম', en: 'Name' },
+  'admin.wards.col.polygon': { bn: 'বহুভুজ', en: 'Polygon' },
+  'admin.wards.form.name': { bn: 'নাম', en: 'Name' },
+  'admin.wards.form.polygon': {
+    bn: 'বহুভুজ (GeoJSON)',
+    en: 'Polygon (GeoJSON)',
   },
   'admin.wards.cta.newWard': { bn: 'নতুন ওয়ার্ড', en: 'New ward' },
   'admin.wards.cta.save': { bn: 'ওয়ার্ড সংরক্ষণ', en: 'Save ward' },
@@ -2083,6 +2118,10 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'admin.tickets.detail.trail': { bn: 'অগ্রগতি', en: 'Progress' },
   'admin.tickets.detail.note': { bn: 'অভ্যন্তরীণ নোট', en: 'Internal note' },
+  'admin.tickets.detail.citizenNote': {
+    bn: 'নাগরিকের নোট',
+    en: 'Citizen note',
+  },
 
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {
@@ -2098,6 +2137,22 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'crew.list.filter.in_progress': {
     bn: 'চলমান',
     en: 'In progress only',
+  },
+  // The crew's scope tag in the sub-header. `{ward}` is the ward
+  // NAME (not the `ward_14` id) and `{dept}` the department
+  // name; both are omitted gracefully when the crew member is
+  // not bound to a ward / department.
+  'crew.list.scope': {
+    bn: 'ক্রু',
+    en: 'Crew',
+  },
+  'crew.list.scope.ward': {
+    bn: 'ওয়ার্ড {ward}',
+    en: 'Ward {ward}',
+  },
+  'crew.list.scope.department': {
+    bn: '{dept}',
+    en: '{dept}',
   },
   'crew.list.empty.title': {
     bn: 'আজকের জন্য কোনো কাজ নেই',

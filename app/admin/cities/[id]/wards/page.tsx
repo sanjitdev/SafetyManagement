@@ -216,12 +216,18 @@ export default function WardsPage() {
           <p className="text-xs text-slate-600 mb-3">
             {t('admin.wards.instruction', null, lang)}
           </p>
-          <table className="w-full text-sm">
+          {/* The ward name is Bangla and long; without a `minWidth`
+              the browser squeezed it to a few characters per line on
+              a phone. The wrapper scrolls sideways instead. */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-sm">
             <thead className="text-left text-slate-700">
               <tr>
                 <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Polygon</th>
+                <th className="px-3 py-2">{t('admin.wards.col.name', null, lang)}</th>
+                <th className="px-3 py-2">
+                  {t('admin.wards.col.polygon', null, lang)}
+                </th>
                 <th className="px-3 py-2 text-right"></th>
               </tr>
             </thead>
@@ -229,7 +235,9 @@ export default function WardsPage() {
               {wards.map((w) => (
                 <tr key={w.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 text-slate-700">{w.number}</td>
-                  <td className="px-3 py-2 text-slate-900">{w.name}</td>
+                  <td className="px-3 py-2 text-slate-900">
+                    {lang === 'bn' ? w.nameBn ?? w.name : w.name}
+                  </td>
                   <td className="px-3 py-2 text-slate-600">
                     {w.polygonGeoJson ? '✓' : '—'}
                   </td>
@@ -245,7 +253,8 @@ export default function WardsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
         {showForm ? (
           <div className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
@@ -270,7 +279,7 @@ export default function WardsPage() {
               </div>
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-slate-700">
-                  Name
+                  {t('admin.wards.form.name', null, lang)}
                 </label>
                 <input
                   type="text"
@@ -284,7 +293,7 @@ export default function WardsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
-                Polygon (GeoJSON)
+                {t('admin.wards.form.polygon', null, lang)}
               </label>
               <textarea
                 className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-xs font-mono"

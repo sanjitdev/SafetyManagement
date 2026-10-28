@@ -72,6 +72,7 @@ import {
   startAutoFlush,
 } from '@/lib/crew/write-queue';
 import { pendingSyncLabel } from '@/lib/crew/queue-copy';
+import { formatTicketId } from '@/lib/format/ticket-id';
 import { registerServiceWorker } from '@/lib/crew/service-worker';
 import {
   formatCachedAge,
@@ -113,6 +114,11 @@ interface TicketDetail {
   wardName?: string | null;
   wardNameBn?: string | null;
   categoryId: string;
+  /** The category's slug ("streetlight") — drives the icon. */
+  categorySlug?: string | null;
+  /** The category's display name, when the join is present. */
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
   locationLat: number;
   locationLng: number;
   locationLabel: string | null;
@@ -153,7 +159,7 @@ const TRANSITIONS_BY_FROM: Record<TicketStatus, TicketStatus[]> = {
 // of the chain and cancellation.
 const CREW_ALLOWED = ['in_progress', 'resolved'] as const;
 
-function categoryIcon(slug: string): string {
+function categoryIcon(slug: string | null | undefined): string {
   switch (slug) {
     case 'streetlight':
       return '💡';
@@ -887,7 +893,7 @@ export default function CrewTicketPage() {
               fontSize: 22,
             }}
           >
-            {categoryIcon(ticket.categoryId)}
+            {categoryIcon(ticket.categorySlug)}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1
@@ -918,7 +924,7 @@ export default function CrewTicketPage() {
                 fontFamily: 'monospace',
               }}
             >
-              #{ticket.id}
+              {formatTicketId(ticket.id)}
             </p>
           </div>
           <StatusPill status={ticket.status} lang={lang} />
@@ -1607,25 +1613,28 @@ function StatusPill({
   lang: Language;
   small?: boolean;
 }) {
+  // `*-soft` background + saturated `*-status` foreground — see the
+  // dispatcher queue's StatusPill for why the saturated token must
+  // not be used as the background.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted, #fff4e6)',
-      fg: 'var(--color-warning, #b58410)',
+      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
+      fg: 'var(--color-status-submitted, #718096)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-routed-soft, #E6F2EE)',
+      fg: 'var(--color-status-routed, #2C5282)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
+      fg: 'var(--color-status-in-progress, #B7791F)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved, #e6fcf5)',
-      fg: 'var(--color-success, #1f7a3f)',
+      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
+      fg: 'var(--color-status-resolved, #2F7A4F)',
       label: 'status.resolved',
     },
     closed: {

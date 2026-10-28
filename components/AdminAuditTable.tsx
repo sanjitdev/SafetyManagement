@@ -13,7 +13,7 @@
  * Empty: a single empty row.
  */
 
-import { useId } from 'react';
+import { Fragment, useId } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { AuditEntryView } from '@/lib/admin/audit-query';
 
@@ -81,11 +81,20 @@ export function AdminAuditTable({
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    /*
+     * The wrapper scrolls horizontally, but a `width: 100%` table
+     * shrinks its columns to fit instead of overflowing — on a 390px
+     * phone the timestamp column collapsed to ~40px and the date
+     * broke across five lines, which made the whole log unreadable.
+     * A `minWidth` larger than a phone viewport forces the wrapper to
+     * scroll sideways and keeps every cell legible.
+     */
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <table
         id={tableId}
         style={{
           width: '100%',
+          minWidth: 720,
           borderCollapse: 'collapse',
           fontSize: 'var(--text-caption)',
         }}
@@ -109,14 +118,27 @@ export function AdminAuditTable({
           {entries.map((row) => {
             const isOpen = expanded.has(row.id);
             return (
-              <>
+              // The `key` must sit on the OUTERMEST element of the
+              // list item. It used to sit on the inner `<tr>`, so
+              // the fragment was the unkeyed element React warned
+              // about ("Each child in a list should have a unique
+              // 'key' prop").
+              <Fragment key={row.id}>
                 <tr
-                  key={row.id}
                   style={{
                     borderBottom: '1px solid var(--color-border)',
                   }}
                 >
-                  <td style={tdStyle}>{formatTimestamp(row.createdAt, lang)}</td>
+                  <td
+                    style={{
+                      ...tdStyle,
+                      // The Bangla date string is long; without this it
+                      // wraps mid-value even on a wide-enough screen.
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {formatTimestamp(row.createdAt, lang)}
+                  </td>
                   <td style={tdStyle}>{row.actorName}</td>
                   <td style={tdStyle}>{row.action}</td>
                   <td style={tdStyle}>
@@ -170,7 +192,7 @@ export function AdminAuditTable({
                   </td>
                 </tr>
                 {isOpen && (
-                  <tr key={`${row.id}-detail`}>
+                  <tr>
                     <td
                       colSpan={6}
                       style={{
@@ -238,7 +260,7 @@ export function AdminAuditTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

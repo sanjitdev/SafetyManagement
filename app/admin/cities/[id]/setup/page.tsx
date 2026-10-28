@@ -206,9 +206,10 @@ export default function CitySetupPage() {
           >
             ← {t('admin.cities.title', null, lang)}
           </Link>
-          <span className="text-lg font-semibold text-slate-900">
-            {t('admin.setup.title', null, lang)} — {city.name}
-          </span>
+          <h1 className="text-lg font-semibold text-slate-900">
+            {t('admin.setup.title', null, lang)} —{' '}
+            {lang === 'bn' ? city.nameBn ?? city.name : city.name}
+          </h1>
         </div>
       </div>
       <main className="px-6 py-8 max-w-3xl mx-auto space-y-6">

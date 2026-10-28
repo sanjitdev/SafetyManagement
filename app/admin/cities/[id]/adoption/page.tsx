@@ -514,7 +514,10 @@ export default function AdminCityAdoptionPage() {
                   );
                 })}
               </svg>
-              <table className="mt-3 w-full text-sm">
+              {/* Scroll the table sideways on a phone instead of
+                  letting the columns collapse. */}
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
                 <caption className="sr-only">
                   {t('admin.adoption.funnel.tableCaption', null, lang)}
                 </caption>
@@ -547,6 +550,7 @@ export default function AdminCityAdoptionPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </section>
 
             {/* ---------------- Daily activity chart ---------------- */}
@@ -638,7 +642,8 @@ export default function AdminCityAdoptionPage() {
                   </span>
                 ) : null}
               </div>
-              <table className="mt-3 w-full text-sm">
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
                 <caption className="sr-only">
                   {t('admin.adoption.daily.tableCaption', null, lang)}
                 </caption>
@@ -671,6 +676,7 @@ export default function AdminCityAdoptionPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </section>
 
             {/* ---------------- Ward heatmap ---------------- */}
@@ -729,7 +735,8 @@ export default function AdminCityAdoptionPage() {
                 <span className="inline-block h-2 w-24 rounded bg-gradient-to-r from-emerald-100 to-emerald-600" />
                 <span>{t('admin.adoption.heatmap.legend.high', null, lang)}</span>
               </div>
-              <table className="mt-3 w-full text-sm">
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
                 <caption className="sr-only">
                   {t('admin.adoption.heatmap.tableCaption', null, lang)}
                 </caption>
@@ -754,6 +761,7 @@ export default function AdminCityAdoptionPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </section>
 
             {/* ---------------- Engagement signals ---------------- */}

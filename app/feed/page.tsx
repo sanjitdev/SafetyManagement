@@ -598,11 +598,14 @@ function FeedRow({
 }
 
 function StatusPill({ status, lang }: { status: ActivityItem['status']; lang: Language }) {
+  // `*-soft` background + saturated `*-status` foreground. Using the
+  // saturated token as the background made `routed` (--color-status-routed
+  // === --color-primary) render as a solid blob with invisible text.
   const map: Record<ActivityItem['status'], { bg: string; fg: string }> = {
-    submitted: { bg: 'var(--color-status-submitted, #fff4e6)', fg: 'var(--color-warning, #b58410)' },
-    routed: { bg: 'var(--color-status-routed, #e7f5ff)', fg: 'var(--color-primary)' },
-    in_progress: { bg: 'var(--color-status-in-progress, #e7f5ff)', fg: 'var(--color-primary)' },
-    resolved: { bg: 'var(--color-status-resolved, #e6fcf5)', fg: 'var(--color-success, #1f7a3f)' },
+    submitted: { bg: 'var(--color-status-submitted-soft, #EDF2F7)', fg: 'var(--color-status-submitted, #718096)' },
+    routed: { bg: 'var(--color-status-routed-soft, #E6F2EE)', fg: 'var(--color-status-routed, #2C5282)' },
+    in_progress: { bg: 'var(--color-status-in-progress-soft, #FFFAF0)', fg: 'var(--color-status-in-progress, #B7791F)' },
+    resolved: { bg: 'var(--color-status-resolved-soft, #F0F8F4)', fg: 'var(--color-status-resolved, #2F7A4F)' },
     closed: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
     cancelled: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
   };

@@ -550,12 +550,30 @@ export async function getPerformanceSnapshot(
     },
     orderBy: { name: 'asc' },
   });
+  // The v1 schema has no specialty column; the crew's
+  // `departmentId` is the closest available proxy. Resolve it to
+  // the department's DISPLAY NAME — the raw `dept_streetlight` id
+  // used to land in the "Specialty" column of the crew table.
+  const departmentNames: Record<string, string> = {};
+  const departmentIds = [
+    ...new Set(
+      crewRows
+        .map((c) => c.departmentId)
+        .filter((d): d is string => typeof d === 'string' && d.length > 0),
+    ),
+  ];
+  for (const deptId of departmentIds) {
+    const dept = await db.department.findUnique({ where: { id: deptId } });
+    if (dept?.name) departmentNames[deptId] = dept.name;
+  }
   const crew: PerfCrew[] = crewRows.map((c) => ({
     id: c.id,
     name: c.name,
     // The v1 schema has no specialty column; the crew's
     // `departmentId` is the closest available proxy.
-    specialty: c.departmentId ?? null,
+    specialty: c.departmentId
+      ? (departmentNames[c.departmentId] ?? c.departmentId)
+      : null,
   }));
   const crewNames: Record<string, string> = {};
   for (const c of crew) crewNames[c.id] = c.name;

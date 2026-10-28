@@ -46,7 +46,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { db, getActiveSession } from '@/lib/db-switch';
+import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity } from '@/lib/auth/guards';
 
 const MAP_STATUS_VALUES = ['submitted', 'routed', 'in_progress'] as const;
@@ -165,18 +165,34 @@ export async function GET(req: NextRequest) {
   // a pin (we don't need the trail / internalNote on the map);
   // the API just returns what the map needs to draw + the click
   // handler needs to fetch the detail page.
-  const pins = filtered.slice(0, limit).map((t) => ({
-    id: t.id,
-    lat: t.locationLat,
-    lng: t.locationLng,
-    status: t.status,
-    categoryId: t.categoryId,
-    wardId: t.wardId,
-    createdAt:
-      typeof t.createdAt === 'string'
-        ? t.createdAt
-        : (t.createdAt as Date).toISOString(),
-  }));
+  //
+  // The denormalised category / ward display names come along for
+  // the ride: the side panel opened on pin click used to render the
+  // raw `cat_*` / `ward_*` ids, which meant a dispatcher had to
+  // know the id scheme to read the map. Resolved through the same
+  // `getTicketWithTrail` join the queue uses.
+  const pins = await Promise.all(
+    filtered.slice(0, limit).map(async (t) => {
+      const withTrail = await getTicketWithTrail(t.id);
+      return {
+        id: t.id,
+        lat: t.locationLat,
+        lng: t.locationLng,
+        status: t.status,
+        categoryId: t.categoryId,
+        categorySlug: withTrail?.categorySlug ?? null,
+        categoryName: withTrail?.categoryName ?? null,
+        categoryNameBn: withTrail?.categoryNameBn ?? null,
+        wardId: t.wardId,
+        wardName: withTrail?.wardName ?? null,
+        wardNameBn: withTrail?.wardNameBn ?? null,
+        createdAt:
+          typeof t.createdAt === 'string'
+            ? t.createdAt
+            : (t.createdAt as Date).toISOString(),
+      };
+    }),
+  );
 
   return NextResponse.json({ pins });
 }

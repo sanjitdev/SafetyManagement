@@ -25,6 +25,7 @@ const LANG_KEY = 'cityfix.preferred_language.v1';
 interface City {
   id: string;
   name: string;
+  nameBn: string | null;
   dedupRadiusMeters: number;
 }
 
@@ -247,11 +248,11 @@ export default function TaxonomyPage() {
             href={`/admin/cities/${id}/setup`}
             className="text-sm text-slate-600 hover:underline"
           >
-            ← {city.name}
+            ← {lang === 'bn' ? city.nameBn ?? city.name : city.name}
           </Link>
-          <span className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold text-slate-900">
             {t('admin.taxonomy.title', null, lang)}
-          </span>
+          </h1>
         </div>
       </div>
       <main className="px-6 py-8 max-w-6xl mx-auto space-y-6">
@@ -288,23 +289,32 @@ export default function TaxonomyPage() {
             {t('admin.taxonomy.saveDedup', null, lang)}
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-6">
+        {/* Two side-by-side panels cannot fit a 390px phone — stack
+            them so neither is squeezed to a sliver. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
             <h2 className="text-base font-semibold text-slate-900">
               {t('admin.taxonomy.departments', null, lang)}
             </h2>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
               <thead className="text-left text-slate-700">
                 <tr>
-                  <th className="px-2 py-1">Name</th>
-                  <th className="px-2 py-1">Slug</th>
+                  <th className="px-2 py-1">
+                    {t('admin.taxonomy.col.name', null, lang)}
+                  </th>
+                  <th className="px-2 py-1">
+                    {t('admin.taxonomy.col.slug', null, lang)}
+                  </th>
                   <th className="px-2 py-1 text-right"></th>
                 </tr>
               </thead>
               <tbody>
                 {departments.map((d) => (
                   <tr key={d.id} className="border-t border-slate-100">
-                    <td className="px-2 py-2 text-slate-900">{d.name}</td>
+                    <td className="px-2 py-2 text-slate-900">
+                      {lang === 'bn' ? d.nameBn ?? d.name : d.name}
+                    </td>
                     <td className="px-2 py-2 text-slate-600">{d.slug}</td>
                     <td className="px-2 py-2 text-right">
                       <button
@@ -318,25 +328,30 @@ export default function TaxonomyPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              </table>
+            </div>
+            {/* `min-w-0` lets the inputs shrink below their content
+                width. Without it a flex item refuses to shrink, so
+                the two inputs pushed the "new" button off the right
+                edge of a 390px phone. */}
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
               <input
                 type="text"
-                placeholder="slug"
-                className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                placeholder={t('admin.taxonomy.form.slug', null, lang)}
+                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
                 value={newDept.slug}
                 onChange={(e) => setNewDept({ ...newDept, slug: e.target.value })}
               />
               <input
                 type="text"
-                placeholder="name"
-                className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                placeholder={t('admin.taxonomy.form.name', null, lang)}
+                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
                 value={newDept.name}
                 onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
               />
               <button
                 type="button"
-                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white"
+                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white shrink-0"
                 onClick={handleCreateDept}
               >
                 {t('admin.taxonomy.cta.newDept', null, lang)}
@@ -347,11 +362,16 @@ export default function TaxonomyPage() {
             <h2 className="text-base font-semibold text-slate-900">
               {t('admin.taxonomy.categories', null, lang)}
             </h2>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
               <thead className="text-left text-slate-700">
                 <tr>
-                  <th className="px-2 py-1">Name</th>
-                  <th className="px-2 py-1">Department</th>
+                  <th className="px-2 py-1">
+                    {t('admin.taxonomy.col.name', null, lang)}
+                  </th>
+                  <th className="px-2 py-1">
+                    {t('admin.taxonomy.col.department', null, lang)}
+                  </th>
                   <th className="px-2 py-1 text-right"></th>
                 </tr>
               </thead>
@@ -362,9 +382,15 @@ export default function TaxonomyPage() {
                   );
                   return (
                     <tr key={c.id} className="border-t border-slate-100">
-                      <td className="px-2 py-2 text-slate-900">{c.name}</td>
+                      <td className="px-2 py-2 text-slate-900">
+                        {lang === 'bn' ? c.nameBn ?? c.name : c.name}
+                      </td>
                       <td className="px-2 py-2 text-slate-600">
-                        {dept?.name ?? '—'}
+                        {dept
+                          ? lang === 'bn'
+                            ? dept.nameBn ?? dept.name
+                            : dept.name
+                          : '—'}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <button
@@ -379,39 +405,46 @@ export default function TaxonomyPage() {
                   );
                 })}
               </tbody>
-            </table>
-            <div className="flex gap-2 pt-3 border-t border-slate-100">
+              </table>
+            </div>
+            {/* `min-w-0` lets the inputs shrink below their content
+                width. Without it a flex item refuses to shrink, so
+                the two inputs pushed the "new" button off the right
+                edge of a 390px phone. */}
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
               <input
                 type="text"
-                placeholder="slug"
-                className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                placeholder={t('admin.taxonomy.form.slug', null, lang)}
+                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
                 value={newCat.slug}
                 onChange={(e) => setNewCat({ ...newCat, slug: e.target.value })}
               />
               <input
                 type="text"
-                placeholder="name"
-                className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                placeholder={t('admin.taxonomy.form.name', null, lang)}
+                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
                 value={newCat.name}
                 onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
               />
               <select
-                className="rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 shrink-0 rounded border border-slate-300 px-2 py-1 text-xs"
                 value={newCat.departmentId}
                 onChange={(e) =>
                   setNewCat({ ...newCat, departmentId: e.target.value })
                 }
               >
-                <option value="">(none)</option>
+                <option value="">
+                  {t('admin.taxonomy.form.none', null, lang)}
+                </option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name}
+                    {lang === 'bn' ? d.nameBn ?? d.name : d.name}
                   </option>
                 ))}
               </select>
               <button
                 type="button"
-                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white"
+                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white shrink-0"
                 onClick={handleCreateCat}
               >
                 {t('admin.taxonomy.cta.newCat', null, lang)}

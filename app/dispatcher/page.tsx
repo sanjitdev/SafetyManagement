@@ -43,14 +43,16 @@ interface QueueTicket {
   cityId: string;
   wardId: string;
   categoryId: string;
-  categoryName?: string;
-  categoryNameBn?: string;
-  wardName?: string;
-  wardNameBn?: string;
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
+  categorySlug?: string | null;
+  wardName?: string | null;
+  wardNameBn?: string | null;
   locationLat: number;
   locationLng: number;
   note: string | null;
   reporterId: string;
+  reporterName?: string | null;
   photoUrls: string[];
   createdAt: string;
 }
@@ -80,8 +82,11 @@ function formatAge(iso: string, lang: Language): string {
     : `${days} day ago`;
 }
 
-function categoryIcon(slug: string): string {
-  // Tiny inline glyphs; no SVG sprite dependency.
+function categoryIcon(slug: string | null | undefined): string {
+  // Tiny inline glyphs; no SVG sprite dependency. The argument is the
+  // category SLUG (e.g. "streetlight"), not the id — the id
+  // (`cat_streetlight`) never matched a case below and every card
+  // rendered the "unknown" glyph.
   switch (slug) {
     case 'streetlight':
       return '💡';
@@ -96,9 +101,69 @@ function categoryIcon(slug: string): string {
   }
 }
 
+/**
+ * Human label for the ticket's ward. Falls back to the raw id when
+ * the backend join is missing (older API payloads), so the row is
+ * never blank.
+ */
+function wardLabel(ticket: QueueTicket, lang: Language): string {
+  const name = lang === 'bn' ? ticket.wardNameBn : ticket.wardName;
+  return name ?? ticket.wardId;
+}
+
+/**
+ * Human label for the ticket's category. Falls back to the raw id
+ * when the backend join is missing.
+ */
+function categoryLabel(ticket: QueueTicket, lang: Language): string {
+  const name = lang === 'bn' ? ticket.categoryNameBn : ticket.categoryName;
+  return name ?? ticket.categoryId;
+}
+
+/**
+ * The dispatcher's scope tag in the sub-header: role + ward +
+ * department. Previously a hardcoded English string that also leaked
+ * the raw `ward_14` / `dept_streetlight` ids into the UI. The ward +
+ * department names come from the session (`/api/auth/status`).
+ */
+function scopeLabel(
+  lang: Language,
+  scope: {
+    wardName?: string | null;
+    wardNameBn?: string | null;
+    departmentName?: string | null;
+    departmentNameBn?: string | null;
+  } | null,
+): string {
+  const parts: string[] = [t('dispatcher.queue.scope', null, lang)];
+  const ward = lang === 'bn' ? scope?.wardNameBn : scope?.wardName;
+  if (ward) {
+    // The ward's display name already carries its own prefix
+    // ("Ward 14 — Mirpur" / "ওয়ার্ড ১৪ — মিরপুর"), so wrapping it in
+    // the "Ward {ward}" template rendered "ওয়ার্ড ওয়ার্ড ১৪ — মিরপুর".
+    // Only bare-number wards get the template.
+    parts.push(
+      /^\s*(ward|ওয়ার্ড)\b/i.test(ward)
+        ? ward
+        : t('dispatcher.queue.scope.ward', { ward }, lang),
+    );
+  }
+  const dept = lang === 'bn' ? scope?.departmentNameBn : scope?.departmentName;
+  if (dept) {
+    parts.push(t('dispatcher.queue.scope.department', { dept }, lang));
+  }
+  return parts.join(' · ');
+}
+
 export default function DispatcherPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [scope, setScope] = useState<{
+    wardName?: string | null;
+    wardNameBn?: string | null;
+    departmentName?: string | null;
+    departmentNameBn?: string | null;
+  } | null>(null);
   const [tickets, setTickets] = useState<QueueTicket[]>([]);
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -152,12 +217,18 @@ export default function DispatcherPage() {
           status: TicketStatus;
           cityId: string;
           wardId: string;
+          wardName?: string | null;
+          wardNameBn?: string | null;
           categoryId: string;
+          categorySlug?: string | null;
+          categoryName?: string | null;
+          categoryNameBn?: string | null;
           locationLat: number;
           locationLng: number;
           note: string | null;
           photoUrls: string[];
           reporterId: string;
+          reporterName?: string | null;
           createdAt: string;
           internalNote: string | null;
           assignedCrewId: string | null;
@@ -174,15 +245,19 @@ export default function DispatcherPage() {
         status: t.status,
         cityId: t.cityId,
         wardId: t.wardId,
+        wardName: t.wardName ?? null,
+        wardNameBn: t.wardNameBn ?? null,
         categoryId: t.categoryId,
+        categorySlug: t.categorySlug ?? null,
+        categoryName: t.categoryName ?? null,
+        categoryNameBn: t.categoryNameBn ?? null,
         locationLat: t.locationLat,
         locationLng: t.locationLng,
         note: t.note,
         reporterId: t.reporterId,
+        reporterName: t.reporterName ?? null,
         photoUrls: t.photoUrls,
         createdAt: t.createdAt,
-        // Category and ward labels are looked up client-side via the
-        // known seed map; full bootstrap comes in a future bolt.
       }));
       setTickets(items);
       setLastPollAt(new Date().toISOString());
@@ -201,9 +276,18 @@ export default function DispatcherPage() {
     (async () => {
       try {
         const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as { authenticated: boolean };
+        const status = (await statusRes.json()) as {
+          authenticated: boolean;
+          session?: {
+            wardName?: string | null;
+            wardNameBn?: string | null;
+            departmentName?: string | null;
+            departmentNameBn?: string | null;
+          } | null;
+        };
         if (cancelled) return;
         setSignedIn(status.authenticated);
+        setScope(status.session ?? null);
       } catch {
         if (!cancelled) setSignedIn(false);
       }
@@ -343,7 +427,7 @@ export default function DispatcherPage() {
             textOverflow: 'ellipsis',
           }}
         >
-          · Dispatcher · ward_14 · dept_streetlight
+          {scopeLabel(lang, scope)}
         </span>
 
         <div
@@ -430,7 +514,7 @@ export default function DispatcherPage() {
                 margin: '0 0 var(--space-3)',
               }}
             >
-              Status
+              {t('dispatcher.queue.filter.heading', null, lang)}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
               {(
@@ -614,7 +698,7 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           fontSize: 18,
         }}
       >
-        {categoryIcon(ticket.categoryId)}
+        {categoryIcon(ticket.categorySlug)}
       </span>
       <div style={{ minWidth: 0 }}>
         <div
@@ -628,7 +712,7 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           }}
         >
           <span lang={lang} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {ticket.wardId} · {ticket.categoryId}
+            {wardLabel(ticket, lang)} · {categoryLabel(ticket, lang)}
           </span>
           <StatusPill status={ticket.status} lang={lang} />
         </div>
@@ -639,8 +723,10 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
             color: 'var(--color-ink-tertiary)',
           }}
         >
-          {formatAge(ticket.createdAt, lang)} · reporter:{' '}
-          <code style={{ fontSize: 11 }}>{ticket.reporterId}</code>
+          {formatAge(ticket.createdAt, lang)} · {t('dispatcher.queue.row.reporter', null, lang)}{' '}
+          <span style={{ fontWeight: 'var(--weight-semibold)' }}>
+            {ticket.reporterName ?? ticket.reporterId}
+          </span>
         </div>
       </div>
       <span
@@ -659,25 +745,31 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
 }
 
 function StatusPill({ status, lang }: { status: TicketStatus; lang: Language }) {
+  // The design tokens define a `*-soft` background + a saturated
+  // `*-status` foreground for every status. The pill previously used
+  // the SATURATED token as the background, which for `routed` is
+  // `--color-status-routed: #2C5282` — byte-identical to
+  // `--color-primary`, the foreground colour. The pill rendered as
+  // a solid blue blob with invisible text.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted, #fff4e6)',
-      fg: 'var(--color-warning, #b58410)',
+      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
+      fg: 'var(--color-status-submitted, #718096)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-routed-soft, #E6F2EE)',
+      fg: 'var(--color-status-routed, #2C5282)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
+      fg: 'var(--color-status-in-progress, #B7791F)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved, #e6fcf5)',
-      fg: 'var(--color-success, #1f7a3f)',
+      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
+      fg: 'var(--color-status-resolved, #2F7A4F)',
       label: 'status.resolved',
     },
     closed: {

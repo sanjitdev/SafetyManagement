@@ -371,7 +371,7 @@ export default function DispatcherMapPage() {
                 margin: '0 0 var(--space-3)',
               }}
             >
-              Status
+              {t('dispatcher.queue.filter.heading', null, lang)}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
               {(
@@ -680,7 +680,7 @@ function SidePanel({
             fontWeight: 'var(--weight-semibold)',
           }}
         >
-          <code style={{ fontSize: 12 }}>{pin.categoryId}</code>
+          {pin.categoryNameBn || pin.categoryName || pin.categoryId}
         </dd>
 
         <dt
@@ -696,7 +696,7 @@ function SidePanel({
             color: 'var(--color-ink)',
           }}
         >
-          <code style={{ fontSize: 12 }}>{pin.wardId}</code>
+          {pin.wardNameBn || pin.wardName || pin.wardId}
         </dd>
 
         <dt
@@ -771,20 +771,23 @@ function SidePanel({
 }
 
 function StatusPill({ status, lang }: { status: MapStatus; lang: Language }) {
+  // `*-soft` background + saturated `*-status` foreground — see the
+  // dispatcher queue's StatusPill for why the saturated token must
+  // not be used as the background.
   const map: Record<MapStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted, #fff4e6)',
-      fg: 'var(--color-warning, #b58410)',
+      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
+      fg: 'var(--color-status-submitted, #718096)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-routed-soft, #E6F2EE)',
+      fg: 'var(--color-status-routed, #2C5282)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress, #e7f5ff)',
-      fg: 'var(--color-primary)',
+      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
+      fg: 'var(--color-status-in-progress, #B7791F)',
       label: 'status.in_progress',
     },
   };

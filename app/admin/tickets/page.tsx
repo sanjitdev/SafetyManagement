@@ -241,9 +241,9 @@ export default function AdminTicketsPage() {
           >
             {t('admin.tickets.back', null, lang)}
           </Link>
-          <span className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold text-slate-900">
             {t('admin.tickets.title', null, lang)}
-          </span>
+          </h1>
           <span className="text-xs text-slate-500">
             {t('admin.tickets.subtitle', null, lang)}
           </span>
@@ -257,10 +257,17 @@ export default function AdminTicketsPage() {
           </Link>
         </div>
       </div>
-      <div className="flex-1 flex" style={{ minHeight: 0 }}>
+      {/*
+        The filter rail is a fixed 288px column on wide screens, but
+        a fixed-width flex child never shrinks — on a 390px phone it
+        ate the whole viewport and crushed the table into a ~100px
+        sliver. The rail stacks above the table below the `lg`
+        breakpoint and only pins its width once there is room.
+      */}
+      <div className="flex-1 flex flex-col lg:flex-row" style={{ minHeight: 0 }}>
         <aside
-          className="border-r border-slate-200 bg-white"
-          style={{ width: 288, flexShrink: 0 }}
+          className="border-b lg:border-b-0 lg:border-r border-slate-200 bg-white lg:w-[288px] lg:flex-shrink-0"
+          style={{ width: undefined }}
         >
           <AdminTicketsFilters
             initial={filters}
