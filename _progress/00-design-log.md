@@ -3683,3 +3683,104 @@ as the fallback.
 
 File: `docs/adr/ADR-016-monitor-read-marker.md`.
 
+
+### 2026-10-28 — v1.1 batch deployed to Vercel + Neon; production 500 found and fixed
+
+**Deployment.** The 008-012 → 008-017 batch (13 commits) is live on
+**`https://cityfix-bd.vercel.app`**, backed by Neon Postgres
+(`icy-moon-71538414`, `aws-us-east-2`). Vercel auto-deploy on `main`
+fired within 5 s of each push and promoted the tracked project
+domain automatically.
+
+- `483009a` — `chore: add S3 blob SDK and patch Next.js to 14.2.35`
+- `6120c99` — `fix: nest reporterId inside where on GET /api/tickets`
+
+**Migrations applied to production.** Both pending migrations are now
+applied (`npx prisma migrate deploy`, exit 0):
+
+- `20261013000000_add_ticket_photo` — the `TicketPhoto` table, the
+  `photoUrls` → `TicketPhoto` move, and the `height`/`width`/
+  `storageKey` columns.
+- `20261027140000_platform_gaps` — the `Crew` + `SlaPolicy` tables,
+  `User.crewId`, `City.status`, `Ticket.feedback`, the
+  `TicketPhoto.storageKey` index, and their foreign keys.
+
+The earlier `P1001` was **not** a Neon outage — the `DATABASE_URL`
+simply was not exported into the process running the Prisma CLI. With
+the env var loaded, Neon answered normally. Existing production data
+was verified intact afterwards: 1 city, 50 wards, 13 users, 10
+tickets, 5 categories.
+
+**A real production bug, found by the smoke test.** `GET /api/tickets`
+— the citizen's own reports page — returned **HTTP 500**. The route
+built its Prisma query with `reporterId` as a *sibling* of `where`
+instead of a key inside it:
+
+```ts
+where: { cityId: session.cityId },
+reporterId: session.userId,   // ← Prisma rejects this
+```
+
+Prisma throws `PrismaClientValidationError: Unknown argument
+'reporterId'`. The reason **857 unit tests stayed green** is that the
+in-memory dev store (`lib/dev-store.ts`) had grown a top-level
+`reporterId` argument of its own, mirroring the malformed call — so
+the dev store filtered by it happily while only real Prisma rejected
+it. The dev store now **throws on unknown top-level `findMany`
+arguments**, so the shim can no longer mask this class of bug, and
+`tests/unit/tickets-route-query-shape.test.ts` pins both halves (the
+route's nesting and the shim's strictness). The test was verified to
+fail against the pre-fix shape before the fix was kept.
+
+**Production verification (live, against `cityfix-bd.vercel.app`).**
+13/13 on the broad suite and 8/8 on the 008-017 happy path:
+
+- public routes `/`, `/feed`, `/dispatcher/monitor`,
+  `/dispatcher/performance`, `/reports`, `/splash` → 200
+- citizen auth: register → send-otp → verify-otp → session cookie
+- `GET /api/tickets` → 200 (the route that was 500-ing)
+- feedback endpoint: 401 unauthenticated, 400 invalid rating,
+  404 unknown ticket, **409 on an unresolved ticket**
+- feedback happy path: created a ticket through the public API,
+  drove it to `resolved`, then `201 {changed:true}`, the rating
+  persisted to `Ticket.feedback` as
+  `{"rating":"positive","comment":"…"}`, a re-submit of the same
+  rating was a no-op (`changed:false`), and the citizen saw
+  `feedback_rating: "positive"` on the ticket detail response
+- dev routes correctly inert in production: `/api/dev/login` → 404,
+  `/api/dev/reset` → 405
+- no login wall: the production URL serves the app with no Vercel
+  account required (the "Deployment Protection" concern recorded on
+  2026-10-12 is resolved)
+
+**Security posture.** `npm audit` reports 17 advisories, all
+**pre-existing** — none introduced by the AWS SDK added here. Next.js
+was taken to 14.2.35, the newest 14.x, which is the last release
+carrying a fix inside the supported major; the remaining critical
+advisories are fixed only in 15.5.27+, a major upgrade that is out of
+scope for a deploy. The advisories that DO apply to this app are
+mitigated by its shape: no middleware, no Server Actions, and no
+`next/image` `remotePatterns` config, which removes the Server
+Actions DoS/SSRF, Middleware-bypass, and Image-Optimizer RCE paths.
+The residual Next.js and MapLibre advisories are **deferred to a
+v1.1 major-version upgrade** and recorded as such.
+
+**Still outstanding — the authentication gap.** Production has **13
+citizens and zero dispatcher / crew / admin users**. The dispatcher
+monitor, performance reporting, admin user management, and adoption
+dashboard all deploy and render, but they cannot be *exercised* until
+staff accounts exist. The provisioning chain is circular by design:
+an admin must exist before the admin's CSV import
+(`POST /api/v1/admin/cities/[id]/users/import`) can create
+dispatchers and crew, and admin writes require a WebAuthn ceremony
+(`@simplewebauthn/server`). The `Crew` and `SlaPolicy` tables are
+also empty, so the crew roster and the SLA-driven surfaces have no
+rows to show. **This is the remaining human step and it is
+deliberately not automated here.**
+
+**Other open items.** `npm audit` majors are deferred (above). The
+`backup-before-msg-fix` branch still exists — deleting it was
+permission-denied, so it was left rather than working around the
+guard. The `docs/adr/ADR-016` read-marker remains a frozen v1.1
+follow-up, and its migration must land **after** `platform_gaps`
+(now applied) rather than before, as the earlier ADR text assumed.

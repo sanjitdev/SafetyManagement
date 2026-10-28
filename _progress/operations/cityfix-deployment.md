@@ -14,7 +14,7 @@
 | **Production URL (primary)** | **`https://cityfix-bd.vercel.app`** |
 | Primary domain type | **Tracked project domain** (auto-promotes on new production builds) |
 | Additional aliases | `cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
-| Deployment URL (current build) | `https://cityfix-kmx55a3ii-super-max1.vercel.app` |
+| Deployment URL (current build) | `https://cityfix-8ecejba4r-super-max1.vercel.app` (commit `6120c99`, 2026-10-28) |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
@@ -34,15 +34,12 @@
 
 ## Deployment Protection
 
-> **Status (as of 2026-10-12):** Vercel default "All Environments" (login
-> wall on every URL, including production). User has decided to revisit
-> the setting themselves. **For a citizen-facing app, this must be
-> changed to "Standard Protection" (preview-only) before launch**, or
-> citizens will see a Vercel login wall instead of the app.
-
-Recommended: Project Settings → Security → Deployment Protection →
-"Standard Protection" (production publicly accessible, preview URLs
-gated to Vercel account).
+> **Status (as of 2026-10-28): RESOLVED.** Verified live — an
+> unauthenticated `GET https://cityfix-bd.vercel.app/` returns
+> **HTTP 200** with the app's Bangla HTML, not a Vercel login page.
+> The production URL is publicly reachable with no Vercel account
+> required, so the citizen-facing launch constraint recorded on
+> 2026-10-12 is satisfied. Preview URLs remain account-gated.
 
 ## Database
 
@@ -55,10 +52,22 @@ gated to Vercel account).
 | Hostname | `ep-empty-water-b41dwd0x-pooler.c-6.us-east-2.aws.neon.tech` |
 | Connection | **Pooled** (PgBouncer, `-pooler` in hostname) |
 | Schema | `public` |
-| Migrations | `prisma/migrations/20261012102438_init/migration.sql` (applied) |
+| Migrations | **3 applied** (2026-10-28): `20261012102438_init`, `20261013000000_add_ticket_photo`, `20261027140000_platform_gaps` |
 | Seeded | Dhaka North City Corporation + 3 departments + 5 categories + 50 placeholder wards |
 | Roles enum | `citizen / dispatcher / crew / admin` |
-| Tables | City, Ward, Department, Category, User, Session, Ticket, TicketEvent, Photo, DedupFlag, AuditEntry, WebAuthnChallenge |
+| Tables | City, Ward, Department, **Crew**, **SlaPolicy**, Category, User, Session, Ticket, TicketEvent, **TicketPhoto**, DedupFlag, AuditEntry, WebAuthnChallenge, OtpCode, PushSubscription |
+| Data (verified 2026-10-28) | 1 city, 50 wards, 13 users (all citizens), 10 tickets, 5 categories, 0 crew, 0 SLA policies |
+
+> **Migration note.** The earlier `P1001` "Neon unreachable" was a
+> **missing `DATABASE_URL` in the shell**, not a Neon outage. Load the
+> env var (`set -a && . ./.env.local && set +a`) before running any
+> Prisma CLI command, or use `npm run db:migrate:deploy`.
+
+> **Auth gap.** Production has no dispatcher / crew / admin users.
+> Admin provisioning is circular by design (an admin must exist
+> before the admin's CSV import can create dispatchers and crew), and
+> admin writes require a WebAuthn ceremony. Seeding staff accounts is
+> the outstanding human step — see the 2026-10-28 design-log entry.
 
 ## Environment variables (Vercel)
 
@@ -153,10 +162,12 @@ are explicitly deferred per the table below.
 | 1 | Twilio real OTP SMS | No | `OTP_PROVIDER=stub` surfaces the 6-digit code in the `dev_code` field of the send-otp response (commit `11459db`); the verify-otp page renders it in a "Dev code" hint box. v1.1 swap is a one-flag flip + 3 env vars. The TwilioProvider class is implemented (Bolt 005-003) and 18/18 unit tests pass. |
 | 2 | Web Push via VAPID | No | `PushSubscription` model + helpers are in place; the wire call is not invoked. v1 citizens won't get push notifications but can poll the activity feed. v1.1 follow-up. |
 | 3 | Custom domain (Vercel subdomain) | No | `cityfix-bd.vercel.app` is a tracked project domain that auto-promotes; citizens can reach the app without a login wall. Custom domain is cosmetic. |
-| 4 | CI on PRs (GitHub Actions) | No | Vercel auto-deploys on push to `main`; PR previews work via Vercel's git integration. GitHub Actions CI is a future-quality investment. |
+| 4 | CI on PRs (GitHub Actions) | No | **DONE (2026-10-28)** — `.github/workflows/ci.yml` runs lint, typecheck, unit, coverage (80% floor), visual regression, and build on every push to `main` and every PR. |
 | 5 | CSV export of audit log | No | Admin can see the audit dashboard in the browser. CSV export is a future-quality convenience. |
-| 6 | Standard Protection on Vercel (preview-only login wall) | No | Tracked project domain already serves production publicly. Cosmetic. |
-| 7 | Postgres migration history (v1 used `prisma db push`) | No | v1 schema is single-migration. Migrations are forward-only; we can adopt `migrate dev` for v1.1. |
+| 6 | Standard Protection on Vercel (preview-only login wall) | No | **DONE (2026-10-28)** — verified: unauthenticated `GET /` returns HTTP 200 with the app HTML. No login wall on production. |
+| 7 | Postgres migration history (v1 used `prisma db push`) | No | **DONE (2026-10-28)** — 3 proper migrations now applied via `prisma migrate deploy`. Adopt `migrate dev` for new schema work. |
+| 8 | Next.js / MapLibre major-version security upgrade | No | `npm audit` reports 17 pre-existing advisories. Next.js was taken to 14.2.35 (newest 14.x); the remaining critical advisories need 15.5.27+ (major). Deferred to a v1.1 upgrade. Mitigated meanwhile: no middleware, no Server Actions, no `next/image` `remotePatterns` — the Server-Actions DoS/SSRF, Middleware-bypass, and Image-Optimizer RCE paths do not apply. |
+| 9 | Staff accounts (dispatcher / crew / admin) | **Yes — for staff surfaces** | Production has 13 citizens and zero staff users. Admin provisioning is circular (an admin must exist before the admin's CSV import can create dispatchers/crew) and admin writes require WebAuthn. The dispatcher monitor, performance reporting, admin user management, and adoption dashboard deploy and render but cannot be exercised until staff accounts exist. **Outstanding human step.** |
 
 No follow-up is a v1 blocker. The 5AIDLC intents + the
 2 prod hot-fixes (OTP dev_code, Prisma getTicketWithTrail)
