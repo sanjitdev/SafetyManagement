@@ -14,7 +14,7 @@
 | **Production URL (primary)** | **`https://cityfix-bd.vercel.app`** |
 | Primary domain type | **Tracked project domain** (auto-promotes on new production builds) |
 | Additional aliases | `cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
-| Deployment URL (current build) | `https://cityfix-8ecejba4r-super-max1.vercel.app` (commit `6120c99`, 2026-10-28) |
+| Deployment URL (current build) | `https://cityfix-dygnu6hmj-super-max1.vercel.app` (commit `57fea1d`, 2026-10-29) |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
@@ -62,6 +62,31 @@
 > **missing `DATABASE_URL` in the shell**, not a Neon outage. Load the
 > env var (`set -a && . ./.env.local && set +a`) before running any
 > Prisma CLI command, or use `npm run db:migrate:deploy`.
+
+> **Neon account quota — OUTSTANDING HUMAN STEP (2026-10-29).** The
+> production database stopped accepting connections. The cause is **not**
+> a network or TLS problem: DNS resolves, TCP connects, the TLS
+> handshake succeeds (cert `*.c-6.us-east-2.aws.neon.tech`, issuer
+> YR2), and the server offers SASL mechanisms. The real failure is an
+> **account/project quota rejection** — Neon returns SQLSTATE
+> `53000`, *"Your account or project has exceeded the quota"*, at the
+> **auth stage**, long after the connection and the handshake succeed.
+>
+> **Prisma hides this.** It renders every connection-phase failure as
+> *"Can't reach database server"*, which sends you hunting for a network
+> fault that does not exist. Diagnose with a real client (`pg`), whose
+> error text names the cause outright; a raw SSLRequest probe is not
+> enough (it stops at the `S` byte and only proves TLS is fine).
+>
+> **Fix:** upgrade the Neon plan (or reduce usage) on project
+> `icy-moon-71538414`. No code change can restore the data.
+>
+> **Mitigation shipped** (`b468c4f`): `GET /api/v1/activity/public`
+> now degrades to `200 {"tickets":[],"categories":[]}` instead of
+> `500` when the DB is unreachable, so the public landing page and
+> `/feed` stay up (they cost the site its data, not its availability).
+> Verified live: `/`, `/feed` and `/api/v1/activity/public` all return
+> `200`.
 
 > **Auth gap.** Production has no dispatcher / crew / admin users.
 > Admin provisioning is circular by design (an admin must exist

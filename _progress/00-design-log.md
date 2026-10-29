@@ -3784,3 +3784,85 @@ permission-denied, so it was left rather than working around the
 guard. The `docs/adr/ADR-016` read-marker remains a frozen v1.1
 follow-up, and its migration must land **after** `platform_gaps`
 (now applied) rather than before, as the earlier ADR text assumed.
+
+### 2026-10-29 — Production DB outage diagnosed; public feed degraded; UI audit harness repaired
+
+**The production database stopped accepting connections.** The
+diagnosis is the interesting part: Prisma reported *"Can't reach
+database server"* and the naive reading is a network fault. It is
+not. DNS resolves, TCP connects, the TLS handshake succeeds (cert
+`*.c-6.us-east-2.aws.neon.tech`, issuer YR2), and the server offers
+SASL mechanisms. The real failure is a **Neon account/project quota
+rejection** — SQLSTATE `53000`, *"Your account or project has
+exceeded the quota"*, returned at the **auth stage**, long after the
+connection and the handshake succeed.
+
+**Prisma masks this.** It renders every connection-phase failure with
+that one message, which sends you hunting for a fault that does not
+exist. The tool that actually names the cause is a real Postgres
+client (`pg`), whose error text carries the raw SQLSTATE and the
+Neon message. A raw SSLRequest probe is *not* enough — it stops at
+the `S` byte and proves only that TLS is fine, nothing more.
+
+**Fix (user-side, no code):** upgrade the Neon plan on project
+`icy-moon-71538414`. **Mitigation shipped** (`b468c4f`): every DB
+read on the public activity endpoint is now guarded, so a backend
+fault costs the marketing site its data, not its availability — the
+endpoint answers `200 {"tickets":[],"categories":[]}` instead of
+`500`. Verified live: `/`, `/feed` and `/api/v1/activity/public` all
+return `200`.
+
+**UI audit — the crew's list was permanently empty.** The crew
+list, the dispatcher queue and the dispatcher map all filtered on a
+hardcoded `t.categoryId !== 'cat_streetlight'` shortcut, so every
+other category in the ward was dropped and a crew member saw no
+assignments. The route's own comment had flagged it as v1.1 work.
+The fix resolves each ticket's department from its **category's**
+`departmentId`. The seed contradicted the rule it was meant to
+exercise — the in-progress ticket was a `pothole` (`dept_roads`)
+assigned to a `dept_streetlight` crew — so the seed is now coherent
+too.
+
+**The harness had five defects of its own**, each repaired at the
+root rather than by loosening an assertion:
+
+| # | Defect | Repair |
+|---|--------|--------|
+| 1 | The live-audit spec pointed at port **3002** while the suite's `webServer` runs on **3000** — it was auditing a stale, unrelated server where every route but `/` 404'd, so 24 of its 40 tests failed on routes that were never broken | Point it at `baseURL`/3000 |
+| 2 | The admin write specs could **never** pass: every write under `/api/v1/admin/*` passes through `requireWebAuthn`, which demands a registered credential plus a live challenge. The dev seam (`DEV_SKIP_WEBAUTHN=1`, gated on the dev store) existed but was never set on the Playwright web server | Set it in `playwright.config.ts`'s `webServer.env` |
+| 3 | The crew-auth spec asserted a **relative** `Location` header, but `NextResponse.redirect` always sends an absolute URL | Assert on `new URL(location).pathname` |
+| 4 | The slow-motion E2E spec aimed at **port 3100** (the dedicated local rig) while the standard suite runs on 3000 — every request died with `ECONNREFUSED` | Default to 3000 |
+| 5 | The admin-audit spec clicked `button[aria-expanded]` — which matched the **AppHeader's mobile hamburger** (it carries the same attribute and renders first), so no audit row ever expanded and the before/after JSON never appeared | Scope to `table tbody button[aria-expanded]` |
+
+**Playwright was also sweeping the Vitest files.** `testDir:
+'./tests'` had no `testMatch`, so the runner tried to execute the unit
+suite and died on *"Vitest cannot be imported in a CommonJS module"*
+before a single assertion ran. Scoped to `testMatch: '*.spec.ts'`.
+
+**Two "visual baselines" were capture scripts.** The admin-cities
+spec called `page.screenshot({ path })`, which overwrites the
+committed PNG on every run and asserts nothing — the gate could never
+fail. Converted to `expect(page).toHaveScreenshot(...)`; the
+committed images were stale and had to be re-captured. The per-run
+audit screenshots (`tests-mockups/audit/`) were tracked and rewritten
+by every spec run despite headers claiming they were gitignored; the
+tree is now untracked and the missing `.gitignore` rule added.
+
+**Stale baselines re-generated** (each A/B-verified by stashing the
+change and confirming the mismatch persisted on clean `main`): the
+admin-tickets and admin-audit images still showed the raw ids
+(`cat_streetlight`, `ward_14`, `user_admin_ffcc`) that the
+human-readable-name fixes replaced, and the crew-assignments and
+crew-ticket-detail baselines had never been captured at all.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**885/885** across 62 files · `npm run test:mockups` **15/15** ·
+the full Playwright route suite **262 passed / 7 skipped / 0 failed**,
+twice in a row · production `/`, `/feed` and `/api/v1/activity/public`
+all `200`.
+
+**Still outstanding — the same two human steps as before.** The
+**Neon plan quota** must be raised before production data returns.
+Production still has **zero dispatcher / crew / admin users**; admin
+provisioning is circular by design and admin writes require a
+WebAuthn ceremony. Both are deliberately not automated.
