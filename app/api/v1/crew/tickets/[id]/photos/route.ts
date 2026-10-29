@@ -43,7 +43,8 @@ import {
   putObject,
 } from '@/lib/storage/blob';
 import { base64ToBytes } from '@/lib/crew/upload-photo';
-import { isAcceptablePhotoUrl } from '@/lib/format/photo-url';
+import { isAcceptablePhotoUrl, MAX_PHOTO_URL_CHARS } from '@/lib/format/photo-url';
+import { hasOversizedPhoto } from '@/lib/photo/payload';
 
 /**
  * The photo payload has TWO shapes (see the wire contract in
@@ -68,14 +69,14 @@ const PhotoInput = z.union([
   z.object({
     url: z
       .string()
-      .max(2_000_000)
+      .max(MAX_PHOTO_URL_CHARS)
       .refine(isAcceptablePhotoUrl, {
         message:
           'photo URL must be an inline image data URL, an http(s) URL, or a root-relative path',
       }),
   }),
   z.object({
-    dataBase64: z.string().min(1).max(8_000_000),
+    dataBase64: z.string().min(1).max(MAX_PHOTO_URL_CHARS),
     mimeType: z.string().min(1).max(100),
     fileName: z.string().max(255).optional(),
   }),
@@ -101,6 +102,21 @@ export async function POST(
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+  }
+  // ── Photo size pre-check ─────────────────────────────────────
+  // Runs after the auth check (so an unauthenticated caller cannot
+  // probe the limit) and before the ticket lookup (so an oversized
+  // body is rejected before any DB work).
+  //
+  // The Zod `.max()` failure below is indistinguishable from any
+  // other invalid input, so the dedicated `photo_too_large` code is
+  // decided on the RAW payload, where the photo fields are still
+  // addressable by name.
+  if (hasOversizedPhoto(body)) {
+    return NextResponse.json(
+      { error: 'photo_too_large', max_chars: MAX_PHOTO_URL_CHARS },
+      { status: 413 },
+    );
   }
   const parsed = PhotoInput.safeParse(body);
   if (!parsed.success) {

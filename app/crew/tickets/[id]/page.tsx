@@ -584,6 +584,11 @@ export default function CrewTicketPage() {
         errorCode === 'file_too_large'
       ) {
         key = 'crew.photo.error.invalid_file';
+      } else if (errorCode === 'photo_too_large') {
+        // The API rejected the photo as too large (HTTP 413). The
+        // crew member needs to know to pick a smaller image, not
+        // that the URL was invalid.
+        key = 'crew.photo.error.too_large';
       } else if (
         errorCode === 'invalid_url' ||
         errorCode === 'empty_url'

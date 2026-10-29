@@ -17,8 +17,16 @@ const nextConfig = {
   experimental: {
     // Server actions are stable in 14.x but we keep the experimental flag
     // until WO-000 decides on the route-handler vs. server-action split.
+    //
+    // NOTE: `bodySizeLimit` governs SERVER ACTIONS ONLY. It does not
+    // apply to the `app/api/**` route handlers, which are where the
+    // citizen photo upload actually goes. Do NOT rely on this as the
+    // photo size cap — the real per-photo cap is
+    // `MAX_PHOTO_URL_CHARS` in `lib/format/photo-url.ts` (7,000,000
+    // chars), and the load-bearing defence is the client-side downscale
+    // in `lib/photo/downscale.ts` (1600px long edge, JPEG q80).
     serverActions: {
-      bodySizeLimit: '4mb', // generous for citizen photo upload (max 1600px q80)
+      bodySizeLimit: '4mb',
     },
     // Maplibre pulls in its own CSS at runtime; we import it inside the
     // client component that uses it. This keeps client bundles reasonable.

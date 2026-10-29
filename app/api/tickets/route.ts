@@ -28,7 +28,8 @@ import {
   putObject,
 } from '@/lib/storage/blob';
 import { base64ToBytes } from '@/lib/crew/upload-photo';
-import { isAcceptablePhotoUrl } from '@/lib/format/photo-url';
+import { isAcceptablePhotoUrl, MAX_PHOTO_URL_CHARS } from '@/lib/format/photo-url';
+import { hasOversizedPhoto } from '@/lib/photo/payload';
 
 /**
  * A photo URL accepted at the API boundary.
@@ -59,7 +60,7 @@ import { isAcceptablePhotoUrl } from '@/lib/format/photo-url';
  */
 const PhotoUrl = z
   .string()
-  .max(2_000_000)
+  .max(MAX_PHOTO_URL_CHARS)
   .refine(isAcceptablePhotoUrl, {
     message:
       'photo URL must be an inline image data URL, an http(s) URL, or a root-relative path',
@@ -84,7 +85,7 @@ const CreateTicketInput = z.object({
   photoBlobs: z
     .array(
       z.object({
-        dataBase64: z.string().min(1).max(8_000_000),
+        dataBase64: z.string().min(1).max(MAX_PHOTO_URL_CHARS),
         mimeType: z.string().min(1).max(100),
         fileName: z.string().max(255).optional(),
       }),
@@ -111,6 +112,22 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+  }
+  // ── Photo size pre-check ─────────────────────────────────────
+  // The Zod `.max()` failure below is indistinguishable from any
+  // other invalid input (a long `note` produces the identical
+  // `too_big` issue code), so the dedicated `photo_too_large` code
+  // is decided on the RAW payload, where the photo fields are still
+  // addressable by name. Status 413 is the honest signal.
+  //
+  // The client downscales photos to 1600px/q80 before sending
+  // (`lib/photo/downscale.ts`), so this only fires for a client
+  // that skipped the downscale or for a pathological image.
+  if (hasOversizedPhoto(body)) {
+    return NextResponse.json(
+      { error: 'photo_too_large', max_chars: MAX_PHOTO_URL_CHARS },
+      { status: 413 },
+    );
   }
   const parsed = CreateTicketInput.safeParse(body);
   if (!parsed.success) {

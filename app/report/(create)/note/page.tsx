@@ -26,6 +26,7 @@ import { ReportStepAside } from '@/components/ui/ReportStepAside';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
+import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const NOTE_MAX = 280;
@@ -130,7 +131,15 @@ export default function NotePage() {
           return;
         }
         if (!res.ok) {
-          setError(body.error ?? `${t('report.note.submit_failed', null, LANG)} (${res.status})`);
+          // The RAW machine code must NEVER reach the citizen. Known
+          // codes map to their own copy; everything else falls back
+          // to the generic localised message.
+          const specificKey = photoErrorKeyForCode(body?.error);
+          setError(
+            specificKey
+              ? t(specificKey, null, LANG)
+              : `${t('report.note.submit_failed', null, LANG)} (${res.status})`,
+          );
           setSubmitting(false);
           return;
         }

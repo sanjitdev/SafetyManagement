@@ -32,6 +32,7 @@ import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
+import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -140,7 +141,15 @@ export default function SummaryPage() {
         return;
       }
       if (!res.ok) {
-        setError(t('report.summary.error_retry', null, LANG));
+        // A photo that is still too large gets its own actionable
+        // copy — the citizen must know to go back and pick a
+        // smaller photo, not just "try again".
+        const specificKey = photoErrorKeyForCode(body?.error);
+        setError(
+          specificKey
+            ? t(specificKey, null, LANG)
+            : t('report.summary.error_retry', null, LANG),
+        );
         setSubmitting(false);
         return;
       }

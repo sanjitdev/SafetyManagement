@@ -257,6 +257,84 @@ evidence: **`./ddd-05-counter-placeholder-hotfix.md`**.
   touched files).
 - 8 new unit assertions in 1 file.
 
+## Hotfix — 2026-10-29 — photo size: the downscale, the raised cap, the readable message
+
+The user reported: *"report note input shows invalid input when
+submitting"*. **The note was never the problem — the photo was.**
+
+`app/report/(create)/photo/page.tsx` read the chosen file with a raw
+`reader.readAsDataURL(file)`: no downscale, no compression, no size
+check. A modern phone photo is 3–8 MB binary → a 4–11 MB base64
+data-URL string. `app/api/tickets/route.ts` capped the photo URL at
+`z.string().max(2_000_000)` (~1.5 MB binary), answered `400
+{ error: 'invalid_input' }`, and the note page rendered that raw
+machine code verbatim — so the citizen saw the literal string
+`invalid_input`.
+
+The cap was a **regression** from commit `a7ef078` (the thumbnail
+hotfix), which replaced `z.string().url()` (no length cap) with the
+capped form. The crew path carried the identical defect.
+
+**The fix is two-sided, because the deployment ceiling forces it.**
+CityFix v1 is live on Vercel, whose ~4.5 MB serverless request-body
+ceiling sits *below* the raised 7 M-char cap. So the **client-side
+downscale is the load-bearing fix** and the raised cap is the backstop:
+
+- `lib/photo/downscale.ts` (new) implements the compression policy the
+  design artifacts already recorded but nobody built — WO-003's
+  *"max 1600px long edge, JPEG quality 80"*. The MIME gate rejects
+  HEIC/GIF/empty-type before any DOM access; files ≤ 256 KB pass
+  through byte-identically (PNG alpha survives, so the visual
+  baselines do not move); `createImageBitmap` applies the EXIF
+  orientation; the canvas is filled **white before** `drawImage` (JPEG
+  has no alpha); the result's MIME prefix is verified (browsers
+  silently fall back to PNG); it **never throws** — on failure the
+  caller falls back to the original bytes.
+- `lib/format/photo-url.ts` — `MAX_PHOTO_URL_CHARS = 7_000_000`, sized
+  so the URL cap admits everything `MAX_BLOB_BYTES` (5 MiB) would
+  accept. The old `2_000_000` literal is gone from both routes.
+- `lib/photo/payload.ts` (new) — `hasOversizedPhoto(body)` runs
+  **before** the Zod parse, because a long `note` produces the
+  *identical* `too_big` issue code and would otherwise be misclassified
+  as a photo problem.
+- Both API routes answer **413 `photo_too_large`** above the cap — on
+  the crew route after the auth check and before the ticket lookup, so
+  an unauthenticated caller cannot probe the limit.
+- `lib/photo/error-code.ts` (new) maps the code to an i18n key, and the
+  note and summary pages render **the localised message, never the raw
+  code** — `expect(page).not.toMatch(/setError\(body\.error\b/)` is
+  the direct regression guard.
+- `lib/crew/upload-photo.ts` downscales in **both** branches and now
+  **reads the error body**, so `photo_too_large` survives instead of
+  collapsing into the generic `invalid_url` bucket.
+
+Two latent bugs were corrected in the photo page while wiring the
+downscale: `photoUrls` and `photoBlobs` were built by two independent
+`.filter()` passes and could drift (they are now derived from a single
+`photoEntries` array of `{ url, blob }` pairs), and the draft's
+`photoBlobs` were never restored on mount (only the URLs were, so the
+bytes were lost on refresh).
+
+Full write-up, file-by-file change list, and the verification
+evidence: **`./ddd-06-photo-size-hotfix.md`**.
+
+### Hotfix exit criteria (all met)
+
+- `npx tsc --noEmit` — clean.
+- `npm run test:unit` — **1034 passed / 1034**, 70 files.
+- `npm run test:unit:coverage` — **90.44%** overall; `lib/photo`
+  **97.63%**; `downscale.ts` **97.27%** (floor: 80%).
+- `npm run check:i18n` — ok, 718 keys registered.
+- `npm run test:mockups` — **15 passed**, byte-for-byte, no
+  regeneration.
+- `npm run lint` — 0 errors (55 warnings, none in the touched files).
+- 87 new unit assertions across 4 files.
+- **Live HTTP repro** (dev store, port 3010) — 9/9 assertions:
+  2,000,023 chars → **201** (was 400 `invalid_input`); 4,000,000 chars
+  → **201**; 7,000,001 chars → **413 `photo_too_large`**; the crew
+  route over the cap → **413**; the 1×1 PNG fixture → **200**
+  (unchanged).
+
 ## Cross-references
 
 - **Active intent**:

@@ -606,6 +606,16 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'সর্বোচ্চ {cap}টি ছবি যোগ করা যাবে',
     en: 'You can add up to {cap} photos',
   },
+  'report.photo.processing': {
+    // No placeholder: the `report.photo.*` family must not carry a
+    // size placeholder (see `tests/unit/i18n-placeholder-contract.test.ts`).
+    bn: 'ছবি প্রস্তুত করা হচ্ছে…',
+    en: 'Preparing your photo…',
+  },
+  'report.photo.too_large': {
+    bn: 'ছবিটি বড়। ছোট করে আবার চেষ্টা করুন।',
+    en: 'That photo is too large. Please try a smaller one.',
+  },
   'report.note.label': {
     bn: 'নোট যোগ করুন',
     en: 'Add a note',
@@ -621,6 +631,12 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'report.note.too_long': {
     bn: 'নোট {max} অক্ষরের বেশি হতে পারবে না',
     en: 'Note cannot exceed {max} characters',
+  },
+  'report.note.photo_too_large': {
+    // No placeholder — the copy names no number, so it works for any
+    // future cap change.
+    bn: 'ছবিটি বড় হওয়ায় রিপোর্টটি জমা দেওয়া যায়নি। অনুগ্রহ করে ছবির সাইজ ছোট করে আবার চেষ্টা করুন, অথবা ছবি ছাড়া রিপোর্টটি জমা দিন।',
+    en: 'The photo is too large, so the report could not be submitted. Please try a smaller photo, or submit the report without a photo.',
   },
   'report.summary.duplicate_again': {
     bn: 'এই রিপোর্টটি পুনরায় জমা দেওয়া যাবে না',
@@ -2298,6 +2314,10 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'crew.photo.error.invalid_file': {
     bn: 'JPEG, PNG, বা WebP ছবি দিন (সর্বোচ্চ ৫ মেগাবাইট)',
     en: 'Choose a JPEG / PNG / WebP image up to 5 MB',
+  },
+  'crew.photo.error.too_large': {
+    bn: 'ছবিটি বড় হওয়ায় আপলোড হয়নি। অনুগ্রহ করে ছোট ছবি বেছে নিন।',
+    en: 'The photo was too large to upload. Please choose a smaller image.',
   },
   'crew.transition.error.role_cannot': {
     bn: 'এই পদক্ষেপ শুধু ডিসপ্যাচার নিতে পারে',

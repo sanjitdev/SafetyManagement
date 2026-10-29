@@ -40,6 +40,7 @@ import { z } from 'zod';
 import {
   isAcceptablePhotoUrl,
   isRenderablePhotoUrl,
+  MAX_PHOTO_URL_CHARS,
 } from '@/lib/format/photo-url';
 
 const CREATE_TICKET_ROUTE = path.join(
@@ -62,6 +63,13 @@ const CREW_PHOTO_ROUTE = path.join(
   'route.ts',
 );
 
+const BLOB_STORE_SOURCE = path.join(
+  process.cwd(),
+  'lib',
+  'storage',
+  'blob.ts',
+);
+
 const DATA_URL =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJ';
 
@@ -71,7 +79,7 @@ const DATA_URL =
  */
 const PhotoUrlSchema = z
   .string()
-  .max(2_000_000)
+  .max(MAX_PHOTO_URL_CHARS)
   .refine(isAcceptablePhotoUrl, {
     message:
       'photo URL must be an inline image data URL, an http(s) URL, or a root-relative path',
@@ -166,5 +174,81 @@ describe('POST /api/v1/crew/tickets/[id]/photos — photo URL boundary', () => {
 
   it('validates the inline photo url with the shared contract', () => {
     expect(source).toContain('isAcceptablePhotoUrl');
+  });
+});
+
+/**
+ * ── The per-photo size cap ──────────────────────────────────────
+ *
+ * The cap used to be 2,000,000 characters (≈1.5 MB binary). A
+ * modern phone photo is 3–8 MB binary → a 4–11 MB base64 data-URL
+ * string → the API rejected it → the citizen saw the literal
+ * string `invalid_input` on submit. The cap now matches the blob
+ * store's own ceiling, and the client downscales to 1600px/q80
+ * before sending (`lib/photo/downscale.ts`).
+ */
+describe('the per-photo size cap', () => {
+  const atCap = `data:image/jpeg;base64,${'A'.repeat(
+    MAX_PHOTO_URL_CHARS - 'data:image/jpeg;base64,'.length,
+  )}`;
+
+  it('accepts a photo at exactly the cap', () => {
+    expect(atCap.length).toBe(MAX_PHOTO_URL_CHARS);
+    expect(PhotoUrlSchema.safeParse(atCap).success).toBe(true);
+  });
+
+  it('rejects a photo one character over the cap', () => {
+    const parsed = PhotoUrlSchema.safeParse(`${atCap}A`);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.code).toBe('too_big');
+    }
+  });
+
+  it('accepts a 4 MB data URL — the size that broke the submission', () => {
+    // The regression guard for "report note input shows invalid
+    // input when submitting". Under the old 2 M cap this was a
+    // 400 `invalid_input`.
+    const big = `data:image/jpeg;base64,${'A'.repeat(4_000_000)}`;
+    expect(PhotoUrlSchema.safeParse(big).success).toBe(true);
+  });
+
+  it('admits everything the blob store would accept', () => {
+    // 5 MiB binary → base64 is 4 chars per 3 bytes.
+    const base64CharsForMaxBlob = Math.ceil((5 * 1024 * 1024) / 3) * 4;
+    expect(MAX_PHOTO_URL_CHARS).toBeGreaterThanOrEqual(
+      base64CharsForMaxBlob + 64,
+    );
+  });
+
+  it('stays in sync with the blob store\'s own 5 MiB ceiling', () => {
+    // The URL cap cannot import `MAX_BLOB_BYTES` (that module is
+    // server-only), so the relationship is pinned here instead.
+    const blobSource = readFileSync(BLOB_STORE_SOURCE, 'utf8');
+    expect(blobSource).toMatch(
+      /MAX_BLOB_BYTES\s*=\s*5\s*\*\s*1024\s*\*\s*1024/,
+    );
+  });
+});
+
+describe('the shared cap constant is used by both routes', () => {
+  const createSource = readFileSync(CREATE_TICKET_ROUTE, 'utf8');
+  const crewSource = readFileSync(CREW_PHOTO_ROUTE, 'utf8');
+
+  it('replaces the old hard-coded 2,000,000 literal', () => {
+    expect(createSource).not.toMatch(/2_000_000/);
+    expect(crewSource).not.toMatch(/2_000_000/);
+  });
+
+  it('is imported by both routes', () => {
+    expect(createSource).toContain('MAX_PHOTO_URL_CHARS');
+    expect(crewSource).toContain('MAX_PHOTO_URL_CHARS');
+  });
+
+  it('gives both routes the dedicated photo_too_large code', () => {
+    expect(createSource).toContain("'photo_too_large'");
+    expect(crewSource).toContain("'photo_too_large'");
+    expect(createSource).toContain('hasOversizedPhoto');
+    expect(crewSource).toContain('hasOversizedPhoto');
   });
 });

@@ -4127,3 +4127,106 @@ candidate. A manual audit for this hotfix found no other mismatched call
 site.
 
 **Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-05-counter-placeholder-hotfix.md`.
+
+### 2026-10-29 — Photo size: the downscale, the raised cap, and the readable message
+
+The user reported: **"report note input shows invalid input when submitting"**.
+
+**The note was never the problem. The photo was.**
+
+`app/report/(create)/photo/page.tsx` read the chosen file with a raw
+`reader.readAsDataURL(file)` — no downscale, no compression, no size
+check. A modern phone photo is 3–8 MB binary → a 4–11 MB base64
+data-URL string. `app/api/tickets/route.ts` capped the photo URL at
+`z.string().max(2_000_000)` (~1.5 MB binary), answered
+`400 { error: 'invalid_input' }`, and the note page did
+`setError(body.error ?? …)` — so the citizen saw the literal string
+`invalid_input`, an API contract code presented as if it were a message.
+
+**The cap was a regression.** Commit `a7ef078` (the thumbnail hotfix)
+replaced `z.string().url()` (no length cap) with
+`z.string().max(2_000_000)…`. Measured over HTTP before the fix:
+2,000,000 chars → 200; 2,000,023 → 400 `too_big max=2000000`; 4 M and
+8 M → 400. The crew route carried the identical defect.
+
+**The design intent was recorded but never built.**
+`design-artifacts/E-Development/WO-003-field-crew-app.md:177` says
+*"max 1600px long edge, JPEG quality 80, EXIF stripped except GPS"*.
+`next.config.js` even carries `serverActions.bodySizeLimit: '4mb'`
+with the comment `// generous for citizen photo upload (max 1600px
+q80)` — but `bodySizeLimit` governs **server actions only**, not route
+handlers. Dead code for this flow.
+
+**Why the fix is two-sided.** CityFix v1 is live on Vercel, whose ~4.5 MB
+serverless body ceiling sits *below* the raised 7 M-char cap. So the
+**client-side downscale is the load-bearing fix** and the raised cap is
+the backstop; the dedicated code guarantees a readable Bangla message
+even if a client skips the downscale.
+
+- `lib/photo/downscale.ts` (new) — implements the WO-003 policy. The
+  MIME gate rejects HEIC/GIF/empty-type *before* any DOM access; files
+  ≤ 256 KB pass through byte-identically (PNG alpha survives → the
+  visual baselines do not move); `createImageBitmap` applies the EXIF
+  orientation with a no-options retry and an `HTMLImageElement`
+  fallback; the canvas is filled **white before** `drawImage` (JPEG
+  has no alpha — transparent regions would otherwise encode black); the
+  result's MIME prefix is verified (browsers silently fall back to
+  PNG); it **never throws** — on failure the caller falls back to the
+  original bytes, so the downscale is an optimisation, never a new
+  hard failure mode.
+- `lib/format/photo-url.ts` — `MAX_PHOTO_URL_CHARS = 7_000_000`, sized
+  so the URL cap admits everything `MAX_BLOB_BYTES` (5 MiB) would
+  accept. The old `2_000_000` literal is gone from both routes.
+- `lib/photo/payload.ts` (new) — `hasOversizedPhoto(body)` runs
+  **before** the Zod parse. This matters: a long `note` produces the
+  *identical* `too_big` issue code, so deciding the dedicated code on
+  the raw payload (where the photo fields are still addressable by
+  name) is the only way to avoid misclassifying a long note as a photo
+  problem.
+- Both API routes answer **413 `photo_too_large`** above the cap — on
+  the crew route after the auth check and before the ticket lookup, so
+  an unauthenticated caller cannot probe the limit.
+- `lib/photo/error-code.ts` (new) maps the code to an i18n key, and the
+  note and summary pages render **the localised message, never the raw
+  code**.
+- `lib/crew/upload-photo.ts` downscales in **both** branches and now
+  **reads the error body**, so `photo_too_large` survives instead of
+  collapsing into the generic `invalid_url` bucket.
+
+**Two latent bugs were corrected in the photo page** while wiring the
+downscale: `photoUrls` and `photoBlobs` were built by two *independent*
+`.filter()` passes and could drift (they are now derived from a single
+`photoEntries` array of `{ url, blob }` pairs, so the drift is
+structurally impossible), and the draft's `photoBlobs` were never
+restored on mount — only the URLs were, so the bytes were lost on
+refresh.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**1034/1034** across 70 files · `npm run test:unit:coverage`
+**90.44%** overall with `lib/photo` at **97.63%** and `downscale.ts` at
+**97.27%** (floor: 80%) · `npm run check:i18n` ok (718 keys) ·
+`npm run test:mockups` **15/15** byte-for-byte, no regeneration ·
+`npm run lint` 0 errors (55 warnings, none in the touched files).
+**87 new unit assertions** across 4 files.
+
+**Live HTTP repro** (dev store, port 3010) — 9/9 assertions:
+
+| Payload | Before | After |
+|---|---|---|
+| 2,000,023 chars (the old cliff) | 400 `invalid_input` | **201 Created** |
+| 4,000,000 chars | 400 `invalid_input` | **201 Created** |
+| 7,000,001 chars (over the cap) | 400 `invalid_input` | **413 `photo_too_large`** |
+| 300,000 chars (a downscaled photo) | — | **201 Created** |
+| Crew route, over the cap | 400 | **413 `photo_too_large`** |
+| Crew route, the 1×1 PNG fixture | 200 | **200** (unchanged) |
+
+**Residual.** HEIC/HEIF (the iPhone default) is not decodable outside
+Safari and is not in the allow-list → the MIME gate rejects it and the
+helper falls back to the original bytes; a dedicated
+`report.photo.unsupported_type` key is a **v1.1** item (the repo
+already documents HEIC as deferred to v1.1). A total-body guard
+(`request_too_large`) is also v1.1 — 5 photos × 7 M chars is far above
+Vercel's ceiling, and the downscale is what makes that worst case
+unreachable in practice.
+
+**Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-06-photo-size-hotfix.md`.

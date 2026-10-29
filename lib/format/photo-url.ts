@@ -1,4 +1,41 @@
 /**
+ * The maximum number of characters a single inline photo URL may
+ * contain at an API boundary.
+ *
+ * ── Why this number ───────────────────────────────────────────
+ *
+ * The inline `data:image/…;base64,…` URL carries 4 base64
+ * characters per 3 binary bytes, plus the `data:<mime>;base64,`
+ * prefix. The blob store's own hard ceiling is `MAX_BLOB_BYTES`
+ * (5 MiB binary) in `lib/storage/blob.ts` — that module is
+ * server-only (it pulls in `next/headers` via `lib/auth/guards`),
+ * so this constant CANNOT import it. The value is therefore
+ * derived here from the same number and kept in sync by
+ * `tests/unit/photo-url-api-boundary.test.ts`:
+ *
+ *   5 MiB = 5 × 1024 × 1024 = 5_242_880 binary bytes
+ *   base64 length = ceil(5_242_880 / 3) × 4 = 6_990_508 characters
+ *   + a generous `data:image/jpeg;base64,` prefix allowance (64)
+ *   = 6_990_572 → rounded UP to 7_000_000
+ *
+ * The round-up is deliberate: the API never rejects a photo the
+ * blob store would have accepted.
+ *
+ * ── Why the client-side downscale is still the load-bearing fix ──
+ *
+ * On Vercel the serverless request-body ceiling (~4.5 MB) sits
+ * BELOW 7_000_000 chars (~5.25 MB binary). This constant is the
+ * BACKSTOP and the effective local/dev behaviour; the real fix is
+ * the client-side 1600px/q80 downscale (`lib/photo/downscale.ts`),
+ * which produces ~270–540 K chars.
+ *
+ * The previous cap was 2_000_000 chars (≈1.5 MB binary), which
+ * rejected a normal 3–8 MB phone photo inlined as a data URL —
+ * the citizen saw an opaque `invalid_input` on submit.
+ */
+export const MAX_PHOTO_URL_CHARS = 7_000_000;
+
+/**
  * Photo URL helpers (lib/format/photo-url.ts).
  *
  * ── Why this module exists ─────────────────────────────────────

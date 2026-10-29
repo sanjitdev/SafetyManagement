@@ -139,3 +139,45 @@ describe('every registry template uses the same placeholder names in bn and en',
     ).toEqual([]);
   });
 });
+
+/**
+ * ── The photo-size fix's new keys ───────────────────────────────
+ *
+ * The four keys added with the photo downscale + the dedicated
+ * `photo_too_large` API code. They carry NO placeholder: the copy
+ * names no number, so it survives any future change to the cap.
+ */
+describe('the photo-size keys carry no placeholder', () => {
+  const NEW_KEYS = [
+    'report.photo.processing',
+    'report.photo.too_large',
+    'report.note.photo_too_large',
+    'crew.photo.error.too_large',
+  ] as const;
+
+  it('are all registered with both locales', () => {
+    for (const key of NEW_KEYS) {
+      const entry = TRANSLATIONS[key];
+      expect(entry, key).toBeDefined();
+      expect(entry.bn.length, key).toBeGreaterThan(0);
+      expect(entry.en.length, key).toBeGreaterThan(0);
+    }
+  });
+
+  it('name no size in either locale', () => {
+    for (const key of NEW_KEYS) {
+      const entry = TRANSLATIONS[key];
+      expect(placeholders(entry.bn), key).toEqual([]);
+      expect(placeholders(entry.en), key).toEqual([]);
+    }
+  });
+
+  it('render without leaving a literal placeholder', () => {
+    for (const key of NEW_KEYS) {
+      for (const lang of ['bn', 'en'] as const) {
+        const out = t(key, null, lang);
+        expect(out, `${key}/${lang}`).not.toContain('{');
+      }
+    }
+  });
+});

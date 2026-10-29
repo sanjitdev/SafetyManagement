@@ -300,3 +300,67 @@ describe('uploadCrewPhoto (high-level)', () => {
     expect(calledUrl).toBe('/api/v1/crew/tickets/tkt%20with%2Fslash/photos');
   });
 });
+
+/**
+ * ── The downscale + the dedicated too-large code ─────────────────
+ *
+ * The vitest environment is `node`, so there is no `document` and
+ * no `createImageBitmap` — the downscale returns `decode_failed`
+ * and the helper falls back to the ORIGINAL bytes. That is the
+ * documented fallback contract, and it is what keeps these tests
+ * meaningful without a DOM.
+ */
+describe('uploadCrewPhoto — the downscale fallback', () => {
+  function makeFetcher(init: ResponseInit & { body?: object } = { status: 200 }): typeof fetch {
+    return vi.fn(async () =>
+      new Response(JSON.stringify(init.body ?? { ticket: { id: 'tkt_x' } }), {
+        status: init.status,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ) as unknown as typeof fetch;
+  }
+
+  it('falls back to the original bytes when the downscale cannot run', async () => {
+    const file = makeFile({ type: 'image/png', size: 16 });
+    const fetcher = makeFetcher({ status: 200, body: { ticket: { id: 'tkt_y' } } });
+    const result = await uploadCrewPhoto({
+      ticketId: 'tkt_y',
+      file,
+      fetcher,
+    });
+    expect(result.ok).toBe(true);
+    const mock = fetcher as unknown as { mock: { calls: Array<[string, RequestInit]> } };
+    const [, calledInit] = mock.mock.calls[0];
+    const body = JSON.parse(calledInit.body as string) as { url: string };
+    // The original MIME is preserved — the downscale never ran.
+    expect(body.url).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('surfaces the dedicated photo_too_large code from the API body', async () => {
+    // Without reading the error body, `http_413` would collapse into
+    // the generic "invalid URL" bucket and the crew member would
+    // never learn the photo was simply too big.
+    const fetcher = makeFetcher({
+      status: 413,
+      body: { error: 'photo_too_large' },
+    });
+    const result = await uploadCrewPhoto({
+      ticketId: 'tkt_x',
+      url: 'https://example.com/p.jpg',
+      fetcher,
+    });
+    expect(result).toEqual({ ok: false, error: 'photo_too_large' });
+  });
+
+  it('still degrades to http_<status> for a non-JSON error body', async () => {
+    const fetcher = vi.fn(async () =>
+      new Response('not json', { status: 400 }),
+    ) as unknown as typeof fetch;
+    const result = await uploadCrewPhoto({
+      ticketId: 'tkt_x',
+      url: 'https://example.com/p.jpg',
+      fetcher,
+    });
+    expect(result).toEqual({ ok: false, error: 'http_400' });
+  });
+});

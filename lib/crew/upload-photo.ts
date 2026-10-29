@@ -81,6 +81,10 @@
 // helper lives in a dependency-free module so this file — which is
 // imported by `'use client'` pages — stays browser-safe.
 import { isBlobProviderActive } from '@/lib/storage/blob-provider';
+import {
+  base64PayloadFromDataUrl,
+  downscalePhotoFile,
+} from '@/lib/photo/downscale';
 
 export const ALLOWED_PHOTO_MIME_TYPES = [
   'image/jpeg',
@@ -105,7 +109,13 @@ export type CrewPhotoValidationError =
   | 'file_too_large'
   | 'invalid_url'
   | 'empty_url'
-  | 'no_source';
+  | 'no_source'
+  /**
+   * The server rejected the photo as too large (HTTP 413 with
+   * `error: 'photo_too_large'`). Distinct from `file_too_large`,
+   * which is the CLIENT-side raw-byte gate.
+   */
+  | 'photo_too_large';
 
 export interface CrewPhotoValidationOk {
   ok: true;
@@ -351,24 +361,50 @@ export async function uploadCrewPhoto(
 
   let body: Record<string, unknown>;
   if (source!.kind === 'file') {
+    // ── Downscale + compress ────────────────────────────────────
+    // The raw-byte gate above (`MAX_PHOTO_BYTES`) is a CHEAP
+    // pre-decode rejection, but it is not the only gate: a 4 MB
+    // phone photo passes it and still produces a 5.5 MB base64
+    // string, which the API rejects. The downscale is what fixes
+    // that — it applies the recorded WO-003 policy (1600px long
+    // edge, JPEG q80).
+    //
+    // If the downscale FAILS, we fall back to the ORIGINAL bytes —
+    // the downscale is an optimisation, never a new hard failure
+    // mode.
+    const scaled = await downscalePhotoFile(source!.file);
+
     if (blobActive) {
-      let bytes: Uint8Array;
-      try {
-        bytes = await readPhotoFileAsBytes(source!.file);
-      } catch {
-        return { ok: false, error: 'invalid_file_type' };
+      let dataBase64: string;
+      let mimeType: string;
+      if (scaled.ok) {
+        dataBase64 = base64PayloadFromDataUrl(scaled.dataUrl);
+        mimeType = scaled.mimeType;
+      } else {
+        let bytes: Uint8Array;
+        try {
+          bytes = await readPhotoFileAsBytes(source!.file);
+        } catch {
+          return { ok: false, error: 'invalid_file_type' };
+        }
+        dataBase64 = bytesToBase64(bytes);
+        mimeType = source!.file.type;
       }
       body = {
-        dataBase64: bytesToBase64(bytes),
-        mimeType: source!.file.type,
+        dataBase64,
+        mimeType,
         fileName: source!.file.name,
       };
     } else {
       let dataUrl: string;
-      try {
-        dataUrl = await readPhotoFileAsDataUrl(source!.file);
-      } catch {
-        return { ok: false, error: 'invalid_file_type' };
+      if (scaled.ok) {
+        dataUrl = scaled.dataUrl;
+      } else {
+        try {
+          dataUrl = await readPhotoFileAsDataUrl(source!.file);
+        } catch {
+          return { ok: false, error: 'invalid_file_type' };
+        }
       }
       body = { url: dataUrl };
     }
@@ -383,7 +419,21 @@ export async function uploadCrewPhoto(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    return { ok: false, error: `http_${res.status}` };
+    // Read the error body's code. The API returns a DEDICATED code
+    // for a too-large photo (`photo_too_large`, HTTP 413); without
+    // reading the body, `http_400` would collapse into the generic
+    // "invalid URL" bucket and the crew member would never learn
+    // that the photo was simply too big.
+    let code: string = `http_${res.status}`;
+    try {
+      const errorBody = (await res.clone().json()) as { error?: string };
+      if (errorBody?.error === 'photo_too_large') {
+        code = 'photo_too_large';
+      }
+    } catch {
+      // A non-JSON error body → keep `http_<status>`.
+    }
+    return { ok: false, error: code };
   }
   const data = (await res.json()) as { ticket: unknown };
   return { ok: true, ticket: data.ticket };

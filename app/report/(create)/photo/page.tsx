@@ -39,26 +39,70 @@ import { derivePhotoCap, type CategorySummaryLike } from '@/lib/report-photo-cap
 // must not import it directly.
 import { isBlobProviderActive } from '@/lib/storage/blob-provider';
 import { thumbnailBackground } from '@/lib/format/photo-url';
+import {
+  base64PayloadFromDataUrl,
+  downscalePhotoFile,
+} from '@/lib/photo/downscale';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
 
+/**
+ * One photo, as a PAIRED entry.
+ *
+ * The URL and its blob must travel together — the previous code
+ * built the two arrays with independent `.filter()` passes, so they
+ * could drift apart (and did, when the blob provider is inactive).
+ * Deriving both from one array makes drift structurally impossible.
+ */
+interface PhotoEntry {
+  url: string;
+  blob: ReportDraftPhotoBlob | null;
+}
+
+/**
+ * Read a `File` as a data URL. NEVER throws.
+ *
+ * Used as the fallback when the downscale could not run — the
+ * original bytes are better than no photo (the API's size gate
+ * remains the last line of defence).
+ */
+async function readFileAsDataUrl(file: File): Promise<string | null> {
+  try {
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(typeof reader.result === 'string' ? reader.result : null);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export default function PhotoPage() {
   const router = useRouter();
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   /**
-   * WO-000 platform layer — the raw bytes for each photo, kept
-   * in lock-step with `photoUrls`. Populated only when a blob
-   * provider is configured; the summary page POSTs them and the
-   * API route writes them to the blob store. When the provider is
-   * NOT configured this stays empty and the v1 inline data-URL
-   * behaviour is unchanged (so the visual baselines stay
-   * byte-identical).
+   * The source of truth for the picked photos. `photoUrls` and
+   * `photoBlobs` are DERIVED from this array.
    */
-  const [photoBlobs, setPhotoBlobs] = useState<ReportDraftPhotoBlob[]>([]);
+  const [photoEntries, setPhotoEntries] = useState<PhotoEntry[]>([]);
   const [cap, setCap] = useState<number>(3);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  /**
+   * True while a large photo is being decoded + re-encoded. A
+   * 4000×3000 decode plus a JPEG encode takes ~300–800 ms on a
+   * mid-range phone, so the citizen needs feedback.
+   */
+  const [processing, setProcessing] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const photoUrls = photoEntries.map((e) => e.url);
+  const photoBlobs = photoEntries
+    .map((e) => e.blob)
+    .filter((b): b is ReportDraftPhotoBlob => b !== null);
 
   useEffect(() => {
     (async () => {
@@ -71,7 +115,15 @@ export default function PhotoPage() {
       setAuthed(true);
       const draft = loadDraft();
       if (draft?.photoUrls) {
-        setPhotoUrls(draft.photoUrls);
+        // The draft's blobs are restored ALONGSIDE its URLs — the two
+        // must stay in lock-step, otherwise a refresh would submit
+        // the inline path with the raw bytes lost.
+        setPhotoEntries(
+          draft.photoUrls.map((url, idx) => ({
+            url,
+            blob: draft.photoBlobs?.[idx] ?? null,
+          })),
+        );
       }
       // The cap is re-derived from the draft's categoryId on every
       // mount: if the citizen bounced back from a later step (e.g.
@@ -93,52 +145,61 @@ export default function PhotoPage() {
 
   function addFiles(files: FileList | null) {
     if (!files) return;
-    const remaining = cap - photoUrls.length;
+    const remaining = cap - photoEntries.length;
     const incoming = Array.from(files).slice(0, remaining);
+    if (incoming.length === 0) return;
     // The blob path needs the raw bytes; the render path needs the
     // data URL. Both are produced from the same File.
     const wantsBytes = isBlobProviderActive();
+    setProcessing(true);
     Promise.all(
-      incoming.map(
-        (file) =>
-          new Promise<{ url: string; blob: ReportDraftPhotoBlob | null }>(
-            (resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                const dataUrl = reader.result as string;
-                if (!wantsBytes) {
-                  resolve({ url: dataUrl, blob: null });
-                  return;
-                }
-                // Strip the `data:<mime>;base64,` prefix — the API
-                // route re-assembles the bytes from the bare
-                // base64 payload.
-                const comma = dataUrl.indexOf(',');
-                const dataBase64 =
-                  comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-                resolve({
-                  url: dataUrl,
-                  blob: {
-                    dataBase64,
-                    mimeType: file.type || 'image/jpeg',
-                    fileName: file.name,
-                  },
-                });
-              };
-              reader.onerror = () => reject(reader.error);
-              reader.readAsDataURL(file);
-            },
-          ),
-      ),
+      incoming.map(async (file): Promise<PhotoEntry> => {
+        // ── Downscale + compress ────────────────────────────────
+        // A modern phone photo is 3–8 MB → a 4–11 MB base64 data
+        // URL → the API rejects it and the citizen sees
+        // "invalid_input". The WO-003 recommendation (1600px long
+        // edge, JPEG q80) is applied here, client-side.
+        //
+        // If the downscale FAILS (unsupported codec, decode error),
+        // we fall back to the ORIGINAL bytes — the downscale is an
+        // optimisation, never a new hard failure mode. The API's
+        // size gate still protects the server.
+        const scaled = await downscalePhotoFile(file);
+        const dataUrl = scaled.ok
+          ? scaled.dataUrl
+          : await readFileAsDataUrl(file);
+        if (!dataUrl) {
+          return { url: '', blob: null };
+        }
+        // The MIME type must reflect the DOWNSCALED bytes, not the
+        // original file's — otherwise the blob store writes JPEG
+        // bytes under a `.png` key.
+        const mimeType = scaled.ok ? scaled.mimeType : file.type;
+        if (!wantsBytes) {
+          return { url: dataUrl, blob: null };
+        }
+        // Strip the `data:<mime>;base64,` prefix — the API
+        // route re-assembles the bytes from the bare
+        // base64 payload.
+        const dataBase64 = base64PayloadFromDataUrl(dataUrl);
+        return {
+          url: dataUrl,
+          blob: {
+            dataBase64,
+            mimeType,
+            fileName: file.name,
+          },
+        };
+      }),
     )
       .then((results) => {
-        const next = [...photoUrls, ...results.map((r) => r.url)].slice(0, cap);
-        const nextBlobs = [
-          ...photoBlobs,
-          ...results.map((r) => r.blob).filter((b): b is ReportDraftPhotoBlob => b !== null),
-        ].slice(0, cap);
-        setPhotoUrls(next);
-        setPhotoBlobs(nextBlobs);
+        const added = results.filter((r) => r.url.length > 0);
+        const nextEntries = [...photoEntries, ...added].slice(0, cap);
+        setPhotoEntries(nextEntries);
+        const next = nextEntries.map((e) => e.url);
+        const nextBlobs = nextEntries
+          .map((e) => e.blob)
+          .filter((b): b is ReportDraftPhotoBlob => b !== null);
         const draft = loadDraft();
         if (draft) {
           saveDraft({
@@ -149,14 +210,17 @@ export default function PhotoPage() {
           });
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setProcessing(false));
   }
 
   function removePhoto(idx: number) {
-    const next = photoUrls.filter((_, i) => i !== idx);
-    const nextBlobs = photoBlobs.filter((_, i) => i !== idx);
-    setPhotoUrls(next);
-    setPhotoBlobs(nextBlobs);
+    const nextEntries = photoEntries.filter((_, i) => i !== idx);
+    setPhotoEntries(nextEntries);
+    const next = nextEntries.map((e) => e.url);
+    const nextBlobs = nextEntries
+      .map((e) => e.blob)
+      .filter((b): b is ReportDraftPhotoBlob => b !== null);
     const draft = loadDraft();
     if (draft) {
       saveDraft({
@@ -260,6 +324,23 @@ export default function PhotoPage() {
           />
           {t('report.photo.counter', { count: photoUrls.length, cap }, LANG)}
         </div>
+
+        {/* Processing hint — a large photo is decoded + re-encoded
+            before it is sent, which takes a moment on a phone. */}
+        {processing && (
+          <p
+            role="status"
+            aria-live="polite"
+            lang="bn"
+            style={{
+              margin: 0,
+              fontSize: 'var(--text-caption)',
+              color: 'var(--color-ink-secondary)',
+            }}
+          >
+            {t('report.photo.processing', null, LANG)}
+          </p>
+        )}
 
         {/* Primary action area — full-width on mobile, 96dp tall */}
         <button
