@@ -88,8 +88,11 @@ test('report-location-1440x900 matches light baseline', async ({ page }) => {
   await forceLightTheme(page);
   await clearDraft(page);
   await signInAsCitizen(page);
+  // `networkidle` is unreliable on a MapLibre page (tile
+  // connections stay open) — wait for the DOM and let
+  // waitForMapIdle() do the settling.
   const resp = await page.goto(BASE + '/report/location', {
-    waitUntil: 'networkidle',
+    waitUntil: 'domcontentloaded',
   });
   expect(resp, 'expected response for /report/location').not.toBeNull();
   expect(resp!.status(), `expected 200 for /report/location, got ${resp!.status()}`).toBe(
@@ -108,8 +111,11 @@ test('report-location-out-of-bounds-1440x900 matches light baseline', async ({
   await forceLightTheme(page);
   await clearDraft(page);
   await signInAsCitizen(page);
+  // `networkidle` is unreliable on a MapLibre page (tile
+  // connections stay open) — wait for the DOM and let
+  // waitForMapIdle() do the settling.
   const resp = await page.goto(BASE + '/report/location', {
-    waitUntil: 'networkidle',
+    waitUntil: 'domcontentloaded',
   });
   expect(resp, 'expected response for /report/location').not.toBeNull();
   expect(resp!.status(), `expected 200 for /report/location, got ${resp!.status()}`).toBe(
@@ -141,7 +147,10 @@ test('report-location-out-of-bounds-1440x900 matches light baseline', async ({
       );
     } catch {}
   });
-  await page.reload({ waitUntil: 'networkidle' });
+  // NOTE: `networkidle` never fires here — MapLibre holds tile
+  // connections open for the life of the map. Wait for the DOM and
+  // let waitForMapIdle() do the settling.
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForMapIdle(page);
 
   await expect(page).toHaveScreenshot(
@@ -157,8 +166,11 @@ test('report-location-with-dedup-ring-1440x900 matches light baseline', async ({
   await forceLightTheme(page);
   await clearDraft(page);
   await signInAsCitizen(page);
+  // `networkidle` is unreliable on a MapLibre page (tile
+  // connections stay open) — wait for the DOM and let
+  // waitForMapIdle() do the settling.
   const resp = await page.goto(BASE + '/report/location', {
-    waitUntil: 'networkidle',
+    waitUntil: 'domcontentloaded',
   });
   expect(resp, 'expected response for /report/location').not.toBeNull();
   expect(resp!.status(), `expected 200 for /report/location, got ${resp!.status()}`).toBe(
@@ -183,7 +195,8 @@ test('report-location-with-dedup-ring-1440x900 matches light baseline', async ({
       );
     } catch {}
   });
-  await page.reload({ waitUntil: 'networkidle' });
+  // See the note above — `networkidle` never fires on a live map.
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await waitForMapIdle(page);
 
   await expect(page).toHaveScreenshot(

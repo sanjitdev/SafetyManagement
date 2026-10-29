@@ -33,6 +33,7 @@ import {
   filterToI18nKey,
   type StatusFilter,
 } from '@/lib/home-filter';
+import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import CityActivityMap, {
   type CityActivityPin,
 } from '@/components/CityActivityMap';
@@ -614,6 +615,14 @@ function ActivityCard({
 }) {
   const categoryName = lang === 'bn' ? item.categoryNameBn : item.categoryName;
   const wardName = lang === 'bn' ? item.wardNameBn : item.wardName;
+  /*
+   * The thumbnail. `startsWith('http')` used to guard this, which
+   * missed the inline `data:` URL (the DEFAULT upload path) and the
+   * root-relative `/api/blob/…` path — the citizen's own photo
+   * rendered as a blank gradient square.
+   */
+  const photoUrl = firstRenderablePhotoUrl(item.photoUrls);
+  const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link
       href={`/reports/${item.id}`}
@@ -629,19 +638,35 @@ function ActivityCard({
         transition: 'background 0.3s',
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 'var(--radius-sm)',
-          background:
-            item.photoUrls[0] && item.photoUrls[0].startsWith('http')
-              ? `url(${item.photoUrls[0]}) center/cover`
-              : 'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
-          flexShrink: 0,
-        }}
-      />
+      {thumbBackground ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl!}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-sm)',
+            objectFit: 'cover',
+            background: 'var(--color-surface-raised)',
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div
+          aria-hidden
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-sm)',
+            background:
+              'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+            flexShrink: 0,
+          }}
+        />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{

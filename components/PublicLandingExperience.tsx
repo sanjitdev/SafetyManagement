@@ -35,6 +35,7 @@ import CityActivityMap, {
   type CityActivityPin,
 } from '@/components/CityActivityMap';
 import { t, type Language } from '@/lib/i18n/keys';
+import { firstRenderablePhotoUrl } from '@/lib/format/photo-url';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -664,8 +665,14 @@ function PublicActivityCard({
   // ward and the note; the category label is intentionally
   // hidden from anonymous visitors (categories are city-configured
   // and not part of the public data contract yet).
-  const hasPhoto = ticket.photoUrls[0]?.startsWith('http') ||
-    ticket.photoUrls[0]?.startsWith('data:');
+  /*
+   * A stored photo URL can be an inline `data:` URL (the default
+   * upload path), an absolute `https://` URL (R2/S3), or a
+   * root-relative `/api/blob/…` path (the local blob provider).
+   * The old guard only accepted the first two.
+   */
+  const photoUrl = firstRenderablePhotoUrl(ticket.photoUrls);
+  const hasPhoto = photoUrl !== null;
 
   return (
     <article
@@ -682,7 +689,7 @@ function PublicActivityCard({
       {hasPhoto ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={ticket.photoUrls[0]}
+          src={photoUrl!}
           alt=""
           style={{
             width: 80,

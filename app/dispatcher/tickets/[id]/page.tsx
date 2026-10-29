@@ -45,6 +45,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill } from '@/components/ui/StatusPill';
 import {
   displayNameFor,
@@ -633,9 +634,14 @@ export default function DispatcherTicketDetailPage() {
                         style={{
                           aspectRatio: '1 / 1',
                           borderRadius: 'var(--radius-md)',
-                          background: url.startsWith('http')
-                            ? `url(${url}) center/cover`
-                            : 'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+                          // `startsWith('http')` missed the inline
+                          // `data:` URL (the default upload path) and
+                          // the root-relative `/api/blob/…` path, so
+                          // the dispatcher's evidence photos rendered
+                          // as blank gradient squares.
+                          background:
+                            thumbnailBackground(url) ??
+                            'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
                           border: '1px solid var(--color-border)',
                         }}
                       />
@@ -671,9 +677,9 @@ export default function DispatcherTicketDetailPage() {
                         style={{
                           aspectRatio: '1 / 1',
                           borderRadius: 'var(--radius-md)',
-                          background: url.startsWith('http')
-                            ? `url(${url}) center/cover`
-                            : 'linear-gradient(135deg, var(--color-status-resolved-soft, #e6fcf5) 0%, var(--color-surface-raised) 100%)',
+                          background:
+                            thumbnailBackground(url) ??
+                            'linear-gradient(135deg, var(--color-status-resolved-soft, #e6fcf5) 0%, var(--color-surface-raised) 100%)',
                           border: '1px solid var(--color-border)',
                         }}
                       />

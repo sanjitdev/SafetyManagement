@@ -126,11 +126,14 @@ async function seedOneTicket(
     },
   });
   expect(res.status(), `seed ticket returned ${res.status()}`).toBe(201);
-  const body = (await res.json()) as { id?: string };
-  if (!body.id) {
-    throw new Error(`seed ticket returned 201 but no id in body: ${JSON.stringify(body).slice(0, 200)}`);
+  // POST /api/tickets returns the serialized ticket under a `ticket` key.
+  const body = (await res.json()) as { ticket?: { id?: string } };
+  if (!body.ticket?.id) {
+    throw new Error(
+      `seed ticket returned 201 but no id in body: ${JSON.stringify(body).slice(0, 200)}`,
+    );
   }
-  return body.id;
+  return body.ticket.id;
 }
 
 async function capture(
@@ -314,30 +317,39 @@ test.describe('Theme toggle from an authenticated surface', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await devLogin(page.request);
     await page.goto(BASE + '/home');
-    // The toggle on /home lives in the <header>, not <main>.
-    const group = page.locator('[role="radiogroup"]').first();
-    await expect(group).toBeVisible();
-    const options = group.locator('[role="radio"]');
-    await expect(options).toHaveCount(3);
+    // The control is a single sun/moon icon button in the <header> (the
+    // earlier 3-option segmented pill was replaced — see the
+    // ThemeToggle header comment). Its aria-label is the localized
+    // *target* state ("হালকা" / "গাঢ়"), which no other header button
+    // uses — the Report CTA also carries an SVG, so match on the
+    // label, not on the icon.
+    const toggle = page.locator(
+      'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]',
+    );
+    await expect(toggle).toBeVisible();
 
-    await options.nth(1).click(); // dark
-    await waitForThemeClass(page, 'theme-dark');
+    const wasDark = await page.evaluate(() =>
+      document.documentElement.className.includes('theme-dark'),
+    );
+
+    await toggle.click();
+    await waitForThemeClass(page, wasDark ? 'theme-light' : 'theme-dark');
     expect(
       await page.evaluate(() =>
         localStorage.getItem('cityfix.preferred_appearance.v1'),
       ),
-    ).toBe('dark');
+    ).toBe(wasDark ? 'light' : 'dark');
 
-    await options.nth(0).click(); // light
-    await waitForThemeClass(page, 'theme-light');
+    await toggle.click();
+    await waitForThemeClass(page, wasDark ? 'theme-dark' : 'theme-light');
     expect(
       await page.evaluate(() =>
         localStorage.getItem('cityfix.preferred_appearance.v1'),
       ),
-    ).toBe('light');
+    ).toBe(wasDark ? 'dark' : 'light');
 
     await page.reload();
-    await waitForThemeClass(page, 'theme-light');
+    await waitForThemeClass(page, wasDark ? 'theme-dark' : 'theme-light');
   });
 
   test('system + dark OS = dark on /home', async ({ page }) => {

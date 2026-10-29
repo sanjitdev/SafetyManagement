@@ -121,34 +121,46 @@ test.describe('Welcome — primary CTA contrast', () => {
 });
 
 test.describe('Theme toggle', () => {
-  test('three-state toggle is visible on welcome and switches theme', async ({ page }) => {
+  /**
+   * The theme control is a single 36x36 sun/moon icon button in the
+   * shared AppHeader (the earlier 3-option segmented pill was replaced
+   * — see the ThemeToggle header comment). The AppHeader only renders
+   * on authenticated surfaces, so `/` (the dev demo page) has no
+   * toggle at all — these tests use `/home`.
+   *
+   * The aria-label is the localized *target* state, not the current
+   * one: "গাঢ়" (Dark) while light is active, "হালকা" (Light) while
+   * dark is active. Match on that label — the Report CTA in the same
+   * header also carries an SVG, so an icon-based selector would hit
+   * the wrong button.
+   */
+  const THEME_TOGGLE = 'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]';
+
+  test('two-state toggle is visible in the header and switches theme', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(BASE + '/');
-    // The aria-label is in Bangla ("থিম পরিবর্তন করুন") — match by role only.
-    const group = page.locator('main [role="radiogroup"]').first();
-    await expect(group).toBeVisible();
-    const options = group.locator('[role="radio"]');
-    await expect(options).toHaveCount(3);
+    await page.goto(BASE + '/home');
+    const toggle = page.locator(THEME_TOGGLE).first();
+    await expect(toggle).toBeVisible();
+
     // Default is 'system'; HTML class is either theme-light or theme-dark
     // depending on the emulateMedia default (light).
     const before = await page.evaluate(() => document.documentElement.className);
     expect(before).toMatch(/theme-(light|dark)/);
+    const wasDark = before.includes('theme-dark');
 
-    // Click "Dark"
-    await options.nth(1).click();
-    await expectThemeClass(page, 'theme-dark');
-    expect(await page.evaluate(() => localStorage.getItem('cityfix.preferred_appearance.v1'))).toBe('dark');
+    // One click flips the resolved theme and stores it.
+    await toggle.click();
+    await expectThemeClass(page, wasDark ? 'theme-light' : 'theme-dark');
+    expect(await page.evaluate(() => localStorage.getItem('cityfix.preferred_appearance.v1'))).toBe(
+      wasDark ? 'light' : 'dark',
+    );
 
-    // Click "Light"
-    await options.nth(0).click();
-    await expectThemeClass(page, 'theme-light');
-    expect(await page.evaluate(() => localStorage.getItem('cityfix.preferred_appearance.v1'))).toBe('light');
-
-    // Click "System"
-    await options.nth(2).click();
-    const cls = await page.evaluate(() => document.documentElement.className);
-    expect(cls).toContain('theme-system');
-    expect(await page.evaluate(() => localStorage.getItem('cityfix.preferred_appearance.v1'))).toBe('system');
+    // A second click flips it back.
+    await toggle.click();
+    await expectThemeClass(page, wasDark ? 'theme-dark' : 'theme-light');
+    expect(await page.evaluate(() => localStorage.getItem('cityfix.preferred_appearance.v1'))).toBe(
+      wasDark ? 'dark' : 'light',
+    );
   });
 
   test('system mode + dark OS = dark theme', async ({ page }) => {
@@ -169,11 +181,14 @@ test.describe('Theme toggle', () => {
 
   test('theme persists across reload', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(BASE + '/');
-    const group = page.locator('main [role="radiogroup"]').first();
-    await group.locator('[role="radio"]').nth(1).click(); // dark
+    await page.goto(BASE + '/home');
+    const toggle = page.locator(THEME_TOGGLE).first();
+    const wasDark = await page.evaluate(() =>
+      document.documentElement.className.includes('theme-dark'),
+    );
+    await toggle.click();
     await page.reload();
-    await expectThemeClass(page, 'theme-dark');
+    await expectThemeClass(page, wasDark ? 'theme-light' : 'theme-dark');
   });
 });
 

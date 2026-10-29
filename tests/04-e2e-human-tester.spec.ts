@@ -251,8 +251,11 @@ async function submitReport(
     .catch(() => undefined);
   // Belt-and-braces: still give React an extra tick.
   await page.waitForTimeout(800);
+  // The Report CTA now lives in the shared AppHeader, labelled
+  // "রিপোর্ট করুন" (bn) / "Report" (en). The old "নতুন রিপোর্ট"
+  // top-bar button was removed when the header was unified.
   const reportCta = page
-    .getByRole('button', { name: /নতুন রিপোর্ট|New report|Report/i })
+    .getByRole('button', { name: /রিপোর্ট করুন|New report|Report/i })
     .first();
   await reportCta.waitFor({ state: 'visible', timeout: 15_000 });
   await capture(page, '01-citizen-home');
@@ -299,16 +302,37 @@ async function submitReport(
   await page.waitForSelector('h1', { timeout: 30_000 });
   await capture(page, '02-citizen-report-location');
 
-  // Step 3 — continue from location
+  // Step 3 — continue from location. The report flow is
+  // Location → Category → Photo → Note → Summary (see
+  // app/report/(create)/layout.tsx STEP_BY_PATH).
+  await page
+    .getByRole('button', { name: /পরবর্তী|Continue/i })
+    .first()
+    .click();
+  await page.waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 });
+  await page.waitForSelector('h1', { timeout: 30_000 });
+  await capture(page, '03-citizen-report-category');
+
+  // Step 4 — pick the "Broken streetlight" category. The page renders
+  // a radiogroup of options; each option is a <button role="radio">,
+  // so match on the `radio` role (an explicit role overrides the
+  // implicit `button` role). We click by visible text to be
+  // persona-stable across seeds.
+  const streetlightOption = page.getByRole('radio', {
+    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
+  }).first();
+  await streetlightOption.click();
+  await capture(page, '04-citizen-report-category-selected');
+
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })
     .first()
     .click();
   await page.waitForURL(/\/report\/photo/, { waitUntil: 'commit', timeout: 30_000 });
   await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '03-citizen-report-photo-empty');
+  await capture(page, '05-citizen-report-photo-empty');
 
-  // Step 4 — upload a 1x1 PNG via the hidden file input. The "Take
+  // Step 5 — upload a 1x1 PNG via the hidden file input. The "Take
   // photo" CTA is the visible button (it's the only visible button on
   // the empty photo page besides Continue); clicking it opens the
   // hidden file picker. We bypass the click and set the file input
@@ -335,24 +359,7 @@ async function submitReport(
     { timeout: 15_000 },
   );
   await page.waitForTimeout(300);
-  await capture(page, '04-citizen-report-photo-with-image');
-
-  await page
-    .getByRole('button', { name: /পরবর্তী|Continue/i })
-    .first()
-    .click();
-  await page.waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 });
-  await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '05-citizen-report-category');
-
-  // Step 5 — pick the "Broken streetlight" category. The page renders
-  // a list of buttons; the first option is Streetlight per the dev
-  // seed. We click by visible text to be persona-stable across seeds.
-  const streetlightOption = page.getByRole('button', {
-    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
-  }).first();
-  await streetlightOption.click();
-  await capture(page, '06-citizen-report-category-selected');
+  await capture(page, '06-citizen-report-photo-with-image');
 
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })

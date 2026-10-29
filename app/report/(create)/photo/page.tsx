@@ -38,6 +38,7 @@ import { derivePhotoCap, type CategorySummaryLike } from '@/lib/report-photo-cap
 // `next/headers` via `lib/auth/guards`), so a `'use client'` page
 // must not import it directly.
 import { isBlobProviderActive } from '@/lib/storage/blob-provider';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -318,7 +319,9 @@ export default function PhotoPage() {
                   flex: '0 0 auto',
                   width: 120,
                   height: 120,
-                  background: `url(${url}) center/cover no-repeat`,
+                  background:
+                    thumbnailBackground(url) ??
+                    'var(--color-surface-raised)',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border)',
                   overflow: 'hidden',

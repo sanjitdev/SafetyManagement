@@ -22,6 +22,7 @@
 
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill, type StatusKey } from './StatusPill';
 
 export interface ReportCardProps {
@@ -33,7 +34,11 @@ export interface ReportCardProps {
   wardName?: string;
   /** Free-text note shown on a single ellipsised line. */
   note?: string | null;
-  /** First photo URL; empty / non-http falls back to a gradient. */
+  /**
+   * First photo URL. A `data:` URL (the inline upload path), an
+   * absolute `https://` URL, or a root-relative `/api/blob/…` path
+   * all render; anything else falls back to a gradient.
+   */
   photoUrl?: string | null;
   /** Status key driving the StatusPill on the right. */
   status: StatusKey;
@@ -75,10 +80,16 @@ export function ReportCard({
   className,
   'data-testid': testId,
 }: ReportCardProps) {
+  /*
+   * The thumb used to be guarded by `photoUrl.startsWith('http')`,
+   * which missed the inline `data:` URL (the DEFAULT upload path)
+   * and the root-relative `/api/blob/…` path — so the citizen's own
+   * photo rendered as a blank gradient square on every list that
+   * uses this card.
+   */
   const thumbBg =
-    photoUrl && photoUrl.startsWith('http')
-      ? `url(${photoUrl}) center/cover`
-      : 'linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-surface-raised) 100%)';
+    thumbnailBackground(photoUrl) ??
+    'linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-surface-raised) 100%)';
 
   return (
     <Link

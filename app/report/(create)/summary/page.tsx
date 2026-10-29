@@ -31,6 +31,7 @@ import { useRouter } from 'next/navigation';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { formatTimestamp } from '@/lib/format/datetime';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG: Language = 'bn';
@@ -221,7 +222,9 @@ export default function SummaryPage() {
                 width: '100%',
                 aspectRatio: '1 / 1',
                 maxWidth: 240,
-                background: `url(${existing.photoUrls[0]}) center/cover no-repeat`,
+                background:
+                  thumbnailBackground(existing.photoUrls[0]) ??
+                  'var(--color-surface-raised)',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--color-border)',
                 margin: '0 auto',

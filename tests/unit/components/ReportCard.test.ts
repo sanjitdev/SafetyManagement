@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 
 describe('ReportCard', () => {
   it('accepts a minimum-viable prop set without throwing', () => {
@@ -41,6 +42,26 @@ describe('ReportCard', () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString();
     expect(formatAgeForTest(twoDaysAgo, 'en')).toBe('2 day ago');
     expect(formatAgeForTest(twoDaysAgo, 'bn')).toBe('2 দিন আগে');
+  });
+
+  it('renders an inline data-URL photo as a thumbnail', () => {
+    // Regression: the thumb used to be guarded by
+    // `photoUrl.startsWith('http')`, which missed the inline
+    // `data:` URL — the DEFAULT upload path — so the citizen's own
+    // photo rendered as a blank gradient square.
+    const dataUrl = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ';
+    expect(thumbnailBackground(dataUrl)).toContain('url("data:image/jpeg');
+  });
+
+  it('renders a root-relative blob path as a thumbnail', () => {
+    expect(thumbnailBackground('/api/blob/tickets/a.jpg')).toBe(
+      'url("/api/blob/tickets/a.jpg") center/cover no-repeat',
+    );
+  });
+
+  it('falls back to a gradient only when there is no usable photo', () => {
+    expect(thumbnailBackground(undefined)).toBeNull();
+    expect(thumbnailBackground('')).toBeNull();
   });
 });
 

@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -487,7 +488,9 @@ export default function MyReportDetailPage() {
                         borderRadius: 'var(--radius-md)',
                         overflow: 'hidden',
                         border: '1px solid var(--color-border)',
-                        background: `url(${url}) center/cover no-repeat`,
+                        background:
+                          thumbnailBackground(url) ??
+                          'var(--color-surface-raised)',
                       }}
                     >
                       <button
@@ -563,7 +566,9 @@ export default function MyReportDetailPage() {
                           borderRadius: 'var(--radius-md)',
                           overflow: 'hidden',
                           border: '1px solid var(--color-border)',
-                          background: `url(${url}) center/cover no-repeat`,
+                          background:
+                          thumbnailBackground(url) ??
+                          'var(--color-surface-raised)',
                         }}
                         role="img"
                         aria-label={t('photo.after', null, LANG)}

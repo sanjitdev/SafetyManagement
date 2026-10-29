@@ -39,6 +39,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 15_000;
@@ -497,6 +498,20 @@ function FeedRow({
 }) {
   const categoryName = lang === 'bn' ? item.categoryNameBn : item.categoryName;
   const wardName = lang === 'bn' ? item.wardNameBn : item.wardName;
+  /*
+   * The thumbnail. The stored photo URL can be an inline `data:` URL
+   * (the default — the photo picker inlines the file bytes), an
+   * absolute `https://` URL (R2/S3 with a public base URL), or a
+   * root-relative `/api/blob/…` path (the local blob provider). The
+   * old guard was `startsWith('http')`, which matched only the
+   * middle shape — so the citizen's own submitted photo rendered as
+   * a blank gradient square in the feed.
+   *
+   * `firstRenderablePhotoUrl` picks the first URL we can actually
+   * render; the gradient is the genuine "no photo attached" state.
+   */
+  const photoUrl = firstRenderablePhotoUrl(item.photoUrls);
+  const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link
       href={`/reports/${item.id}`}
@@ -512,19 +527,35 @@ function FeedRow({
         transition: 'background 0.3s',
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 'var(--radius-sm)',
-          background:
-            item.photoUrls[0] && item.photoUrls[0].startsWith('http')
-              ? `url(${item.photoUrls[0]}) center/cover`
-              : 'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
-          flexShrink: 0,
-        }}
-      />
+      {thumbBackground ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl!}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-sm)',
+            objectFit: 'cover',
+            background: 'var(--color-surface-raised)',
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div
+          aria-hidden
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-sm)',
+            background:
+              'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+            flexShrink: 0,
+          }}
+        />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
