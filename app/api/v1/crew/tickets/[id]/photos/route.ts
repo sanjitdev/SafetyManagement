@@ -43,6 +43,7 @@ import {
   putObject,
 } from '@/lib/storage/blob';
 import { base64ToBytes } from '@/lib/crew/upload-photo';
+import { isAcceptablePhotoUrl } from '@/lib/format/photo-url';
 
 /**
  * The photo payload has TWO shapes (see the wire contract in
@@ -54,10 +55,24 @@ import { base64ToBytes } from '@/lib/crew/upload-photo';
  *     route writes the bytes to the blob provider and persists
  *     the `storageKey` / `mimeType` / `sizeBytes` metadata
  *     alongside the rendered URL.
+ *
+ * The inline `url` accepts the same shapes the renderer can display
+ * (inline image data URL, absolute http(s) URL, or root-relative
+ * path). The previous boundary was `z.string().url()`, which in Zod
+ * 3.x parses ANY absolute scheme: it rejected the root-relative
+ * `/api/blob/…` shape, and it ACCEPTED `javascript:` / `data:text/html`
+ * — a stored-URL XSS vector, since the URL is persisted verbatim and
+ * later handed to `<img src>` / `background-image: url(...)`.
  */
 const PhotoInput = z.union([
   z.object({
-    url: z.string().url().max(2_000_000),
+    url: z
+      .string()
+      .max(2_000_000)
+      .refine(isAcceptablePhotoUrl, {
+        message:
+          'photo URL must be an inline image data URL, an http(s) URL, or a root-relative path',
+      }),
   }),
   z.object({
     dataBase64: z.string().min(1).max(8_000_000),

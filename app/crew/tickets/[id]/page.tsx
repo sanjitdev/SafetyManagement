@@ -73,6 +73,7 @@ import {
 } from '@/lib/crew/write-queue';
 import { pendingSyncLabel } from '@/lib/crew/queue-copy';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { isRenderablePhotoUrl } from '@/lib/format/photo-url';
 import { registerServiceWorker } from '@/lib/crew/service-worker';
 import {
   formatCachedAge,
@@ -1049,7 +1050,7 @@ export default function CrewTicketPage() {
                     {ticket.beforePhotoUrls.map((u, i) => (
                       <a
                         key={`b-${u}-${i}`}
-                        href={u}
+                        href={isRenderablePhotoUrl(u) ? u : undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         data-testid="crew-photo"
@@ -1100,7 +1101,7 @@ export default function CrewTicketPage() {
                     {ticket.afterPhotoUrls.map((u, i) => (
                       <a
                         key={`a-${u}-${i}`}
-                        href={u}
+                        href={isRenderablePhotoUrl(u) ? u : undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         data-testid="crew-photo"

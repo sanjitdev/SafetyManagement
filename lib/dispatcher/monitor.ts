@@ -37,6 +37,7 @@ import { ApiError } from '@/lib/auth/guards';
 import { writeAudit } from '@/lib/platform/audit';
 import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { lastRenderablePhotoUrl } from '@/lib/format/photo-url';
 import type { SessionContext } from '@/lib/auth/session';
 
 /** The statuses a dispatcher "watches" on the monitor surface. */
@@ -244,7 +245,18 @@ export function buildMonitorRows(
             note: e.note,
             timestamp: e.timestamp,
           })),
-        thumbnailUrl: t.photoUrls.length > 0 ? t.photoUrls[t.photoUrls.length - 1] : null,
+        /*
+         * The thumbnail is the LAST photo (the freshest evidence —
+         * e.g. the crew's after-photo). `firstRenderablePhotoUrl` is
+         * used to scan the list BACKWARDS for the first URL the
+         * renderer can display: the stored URL can be an inline
+         * `data:image/…` URL (the default), an absolute `https://`
+         * URL, or a root-relative `/api/blob/…` path, and picking
+         * the last element blindly could land on an unrenderable
+         * value and blank the thumbnail even though an older photo
+         * would have rendered fine.
+         */
+        thumbnailUrl: lastRenderablePhotoUrl(t.photoUrls),
         photoCount: t.photoUrls.length,
       };
     })

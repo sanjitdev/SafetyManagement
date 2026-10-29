@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -668,6 +669,17 @@ function FilterRow({
 }
 
 function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
+  /*
+   * The triage thumbnail. The dispatcher needs to recognise the
+   * issue at a glance — the photo is the strongest signal. The
+   * stored URL can be an inline `data:image/…` URL (the default),
+   * an absolute `https://` URL, or a root-relative `/api/blob/…`
+   * path, so `firstRenderablePhotoUrl` picks the first one we can
+   * actually render. Without a photo, the row falls back to the
+   * category glyph.
+   */
+  const photoUrl = firstRenderablePhotoUrl(ticket.photoUrls);
+  const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link
       href={`/dispatcher/tickets/${ticket.id}`}
@@ -685,21 +697,38 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
         color: 'var(--color-ink)',
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--color-surface-raised)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 18,
-        }}
-      >
-        {categoryIcon(ticket.categorySlug)}
-      </span>
+      {thumbBackground ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl!}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 'var(--radius-sm)',
+            objectFit: 'cover',
+            background: 'var(--color-surface-raised)',
+          }}
+        />
+      ) : (
+        <span
+          aria-hidden
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--color-surface-raised)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+          }}
+        >
+          {categoryIcon(ticket.categorySlug)}
+        </span>
+      )}
       <div style={{ minWidth: 0 }}>
         <div
           style={{

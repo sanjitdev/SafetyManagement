@@ -19,8 +19,11 @@ stages_completed:
   - name: test
     completed: 2026-10-11T23:55:00Z
     artifact: ./ddd-03-test-report.md
+  - name: hotfix
+    completed: 2026-10-29T00:00:00Z
+    artifact: ./ddd-04-thumbnail-hotfix.md
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-11T23:55:00Z
+updated: 2026-10-29T00:00:00Z
 bolt_id: 002-004-my-reports
 unit: 002-citizen-report-flow/004-my-reports
 intent: 002-citizen-report-flow
@@ -162,6 +165,52 @@ hidden behind "City corporation" / "সিটি কর্পোরেশন".
     `tests/unit/serializer.test.ts`; green)
   - 3 PNGs (list-empty, list-with-rows,
     detail-resolved; deferred to v1.1)
+
+## Hotfix — 2026-10-29 — missing report-card thumbnails
+
+The user reported that the "My reports" report cards show no
+thumbnail image, and asked for "similar affected pages" to be fixed
+too. A remediation pass was run inside this bolt's scope (the
+`/reports` list surface) plus the sibling surfaces that share the
+same rendering gap.
+
+**Root cause: the render side, not the data side.** The citizen's
+photo picker inlines the file bytes as a `data:image/…` URL, the API
+persists that URL verbatim on a `TicketPhoto` row, the serializer
+exposes it as `photoUrls`, and `GET /api/v1/activity` returns it —
+all of that was already correct and was verified end-to-end against
+the dev store. But `app/reports/page.tsx` mapped `photoUrls` into
+client state and the card markup **never emitted an image element
+at all**. The same gap existed on the dispatcher queue and the crew
+assignment list (both showed only a category glyph), and the
+dispatcher monitor DID render a thumbnail but built its CSS
+`background` with an unquoted `url(${row.thumbnailUrl})` — an inline
+data URL contains commas and parentheses that break out of the CSS
+function, so the square stayed blank.
+
+**A second, narrower defect was found and fixed at the API
+boundary.** `POST /api/tickets` and
+`POST /api/v1/crew/tickets/[id]/photos` validated the photo URL with
+`z.string().url()`. In Zod 3.x that check is `new URL(value)`, which
+parses ANY absolute scheme — so it **rejected** the root-relative
+`/api/blob/…` shape (the local blob provider's URL, failing the
+whole submission with HTTP 400) and **accepted** `javascript:` and
+`data:text/html` URLs, which are persisted verbatim and later
+rendered — a stored-URL XSS vector. Both boundaries now use
+`isAcceptablePhotoUrl`, the write-side counterpart of the renderer's
+`isRenderablePhotoUrl`, so the two contracts agree.
+
+Full write-up, file-by-file change list, and the verification
+evidence: **`./ddd-04-thumbnail-hotfix.md`**.
+
+### Hotfix exit criteria (all met)
+
+- `npx tsc --noEmit` — clean.
+- `npm run test:unit` — **939 passed / 939**, 65 files.
+- `npm run test:mockups` — **15 passed**.
+- `npm run lint` — 0 errors (53 pre-existing warnings, none in the
+  touched files).
+- 46 new/updated unit assertions across 3 files.
 
 ## Cross-references
 

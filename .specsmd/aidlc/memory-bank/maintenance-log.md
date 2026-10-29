@@ -286,3 +286,54 @@ The project's `master-agent.md` "analyze" skill now returns zero status inconsis
 - `_progress/operations/vercel-neon-deploy-runbook.md` Phase D "Deployment Protection" could grow a 1-line footnote: *"Live exception (2026-10-12): the tracked project domain `cityfix-bd.vercel.app` bypasses the 'All Environments' login wall without flipping the setting, so production is publicly reachable today. The Standard Protection recommendation still applies as a hygiene default + for the preview URLs."* This is optional; the runbook's recommendation is still correct as a future-deploy default.
 
 ---
+---
+
+## 2026-10-29T00:00:00Z - Hotfix: missing report-card thumbnails (bolt 002-004)
+
+**Triggered by**: user report — *"my reports page, where the report card doesn't show the thumbnail image"*, extended to *"similar affected pages"*.
+
+**Bolt**: `002-004-my-reports` (was `status: complete`; this is a remediation pass inside its scope).
+**Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-04-thumbnail-hotfix.md`.
+
+### Root cause: the render side, not the data side
+
+The full data path was traced and **empirically verified** against the dev store (create ticket → `TicketPhoto` row → `getTicketWithTrail` → `serializeTicketForRole`): the inline `data:image/…` URL survives every hop byte-for-byte. **The data was never lost. The data was never rendered.**
+
+- **Defect A (the reported symptom)** — `app/reports/page.tsx` mapped `photoUrls` into client state and the card markup emitted **no image element at all**. The same gap existed on `app/dispatcher/page.tsx` (`QueueRow`) and `app/crew/page.tsx` (`CrewRow`), both of which showed only a category glyph.
+- **Defect B** — `app/dispatcher/monitor/page.tsx` DID render a thumbnail but built its CSS `background` with an unquoted `` `url(${row.thumbnailUrl})` ``; a data URL's commas/parens break out of the CSS function, so the square stayed blank. `lib/dispatcher/monitor.ts` also took the last array element blindly.
+- **Defect C** — `POST /api/tickets` and `POST /api/v1/crew/tickets/[id]/photos` validated the photo URL with `z.string().url()`. In Zod 3.25.76 that check is `new URL(value)`, which parses ANY absolute scheme: it **rejected** the root-relative `/api/blob/…` shape (local blob provider → HTTP 400, photo never persisted) and **accepted** `javascript:` / `data:text/html` (a stored-URL XSS vector — the URL is persisted verbatim and later rendered).
+
+> **Correction to a working hypothesis.** The first hypothesis — that `z.string().url()` rejected the inline `data:` URL and so dropped the citizen's photo at submission — was **wrong** and was discarded once Zod's behaviour was measured instead of assumed. `new URL()` accepts `data:` URLs. The data path was never broken; the bug was entirely on the render side. The API boundary was still wrong, but for two different reasons than first thought.
+
+### Fix
+
+- `lib/format/photo-url.ts` — added `lastRenderablePhotoUrl` (scans backwards; the freshest renderable entry) and `isAcceptablePhotoUrl` (the write-side counterpart of `isRenderablePhotoUrl`).
+- `app/reports/page.tsx` — 56×56 thumbnail row + `PhotoPlaceholder` fallback; the card moved from `display: 'block'` to `display: 'flex'`.
+- `app/dispatcher/page.tsx`, `app/crew/page.tsx` — 40×40 thumbnail, falling back to the pre-existing `categoryIcon(...)` glyph.
+- `app/dispatcher/monitor/page.tsx` + `lib/dispatcher/monitor.ts` — quoted `thumbnailBackground(...)` and `lastRenderablePhotoUrl(...)`.
+- `app/api/tickets/route.ts`, `app/api/v1/crew/tickets/[id]/photos/route.ts` — both now validate with `isAcceptablePhotoUrl`, so the write and read contracts agree.
+- `app/crew/tickets/[id]/page.tsx` — the clickable photo `<a href>` now goes through `isRenderablePhotoUrl` (defence in depth; `<img src>` is not a script vector, an `href` is).
+
+**Design principle**: *a URL shape the API accepts is a shape the renderer can display — and nothing else.*
+
+### Tests
+
+- `tests/unit/format/photo-url.test.ts` — extended (+81 lines): `lastRenderablePhotoUrl` (4 tests) + `isAcceptablePhotoUrl` (5 tests).
+- `tests/unit/photo-url-api-boundary.test.ts` — **new, 12 tests**: pins the API-boundary contract and asserts `z.string().url()` is the wrong contract (accepts `javascript:`, rejects `/api/blob/…`) so the reasoning cannot silently regress.
+- `tests/unit/report-card-thumbnail-render.test.ts` — **new, 13 tests**: pins the render contract on every list-row surface.
+
+### Verification
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | **939 passed / 939**, 65 files |
+| Visual | `npm run test:mockups` | **15 passed** |
+| Lint | `npm run lint` | 0 errors (53 pre-existing warnings, none in touched files) |
+
+**One pre-existing flake**, unrelated to this work: `tests/unit/webauthn-prod-guard.test.ts` timed out at 5000 ms in the first full-suite run. Confirmed pre-existing — passes in isolation (2337 ms) and on a clean stashed tree (1857 ms). Final suite run shows it green (1922 ms).
+
+### Follow-up noted
+
+- The bolt's 3 deferred Playwright baselines (list-empty, list-with-rows, detail-resolved) are still outstanding. The `list-with-rows` baseline is now affected by this hotfix — the `/reports` row layout changed to thumbnail + text — so it will show the thumbnail when eventually captured.
+

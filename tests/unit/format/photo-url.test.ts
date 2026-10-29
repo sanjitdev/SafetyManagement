@@ -24,7 +24,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   firstRenderablePhotoUrl,
+  isAcceptablePhotoUrl,
   isRenderablePhotoUrl,
+  lastRenderablePhotoUrl,
   thumbnailBackground,
 } from '@/lib/format/photo-url';
 
@@ -116,5 +118,84 @@ describe('thumbnailBackground', () => {
     expect(thumbnailBackground('')).toBeNull();
     expect(thumbnailBackground(null)).toBeNull();
     expect(thumbnailBackground('javascript:alert(1)')).toBeNull();
+  });
+});
+
+describe('lastRenderablePhotoUrl', () => {
+  it('returns the last renderable URL (the freshest evidence)', () => {
+    expect(
+      lastRenderablePhotoUrl([DATA_URL, 'https://cdn.example.com/a.jpg']),
+    ).toBe('https://cdn.example.com/a.jpg');
+  });
+
+  it('skips an unrenderable trailing entry rather than blanking the thumbnail', () => {
+    // Regression: the dispatcher monitor used to take the LAST array
+    // element blindly. A trailing unrenderable value blanked the
+    // thumbnail even though an older photo would have rendered fine.
+    expect(
+      lastRenderablePhotoUrl([DATA_URL, 'javascript:alert(1)']),
+    ).toBe(DATA_URL);
+  });
+
+  it('returns null for an empty, null, or fully-unrenderable list', () => {
+    expect(lastRenderablePhotoUrl([])).toBeNull();
+    expect(lastRenderablePhotoUrl(null)).toBeNull();
+    expect(lastRenderablePhotoUrl(undefined)).toBeNull();
+    expect(lastRenderablePhotoUrl(['javascript:alert(1)'])).toBeNull();
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(lastRenderablePhotoUrl(['  ' + DATA_URL + '  '])).toBe(DATA_URL);
+  });
+});
+
+describe('isAcceptablePhotoUrl', () => {
+  it('accepts every shape the renderer can display', () => {
+    // The WRITE-side contract must agree with the READ-side contract
+    // (`isRenderablePhotoUrl`). When they drifted — the API used
+    // `z.string().url()` while the renderer accepted all three
+    // shapes — the API rejected the root-relative local-blob path
+    // AND accepted `javascript:` / `data:text/html` script schemes
+    // that were then persisted verbatim and rendered.
+    expect(isAcceptablePhotoUrl(DATA_URL)).toBe(true);
+    expect(isAcceptablePhotoUrl('https://cdn.example.com/a.jpg')).toBe(true);
+    expect(isAcceptablePhotoUrl('http://cdn.example.com/a.jpg')).toBe(true);
+    expect(isAcceptablePhotoUrl('/api/blob/tickets/a.jpg')).toBe(true);
+  });
+
+  it('rejects an empty or whitespace-only value', () => {
+    expect(isAcceptablePhotoUrl('')).toBe(false);
+    expect(isAcceptablePhotoUrl('   ')).toBe(false);
+    expect(isAcceptablePhotoUrl(null)).toBe(false);
+    expect(isAcceptablePhotoUrl(undefined)).toBe(false);
+  });
+
+  it('rejects a script scheme (stored-URL XSS vector)', () => {
+    expect(isAcceptablePhotoUrl('javascript:alert(1)')).toBe(false);
+    expect(isAcceptablePhotoUrl('vbscript:msgbox(1)')).toBe(false);
+  });
+
+  it('rejects a non-image data URL', () => {
+    expect(isAcceptablePhotoUrl('data:text/html;base64,PHNjcmlwdD4=')).toBe(false);
+  });
+
+  it('agrees with isRenderablePhotoUrl on every case', () => {
+    const cases: Array<string | null | undefined> = [
+      DATA_URL,
+      'https://cdn.example.com/a.jpg',
+      'http://cdn.example.com/a.jpg',
+      '/api/blob/tickets/a.jpg',
+      '',
+      '   ',
+      null,
+      undefined,
+      'javascript:alert(1)',
+      'vbscript:msgbox(1)',
+      'data:text/html;base64,PHNjcmlwdD4=',
+      'ftp://example.com/a.jpg',
+    ];
+    for (const value of cases) {
+      expect(isAcceptablePhotoUrl(value)).toBe(isRenderablePhotoUrl(value));
+    }
   });
 });

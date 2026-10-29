@@ -24,6 +24,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -492,12 +494,25 @@ export default function ReportsListPage() {
                   lang === 'bn'
                     ? tkt.wardNameBn ?? tkt.wardName
                     : tkt.wardName ?? tkt.wardNameBn;
+                /*
+                 * The report thumbnail. The stored photo URL can be an
+                 * inline `data:image/…` URL (the default — the photo
+                 * picker inlines the file bytes), an absolute
+                 * `https://` URL (R2/S3 with a public base URL), or a
+                 * root-relative `/api/blob/…` path (the local blob
+                 * provider). `firstRenderablePhotoUrl` picks the first
+                 * URL we can actually render; the shared placeholder
+                 * is the genuine "no photo attached" state.
+                 */
+                const photoUrl = firstRenderablePhotoUrl(tkt.photoUrls);
+                const thumbBackground = thumbnailBackground(photoUrl);
                 return (
                   <li key={tkt.id}>
                     <Link
                       href={`/reports/${tkt.id}`}
                       style={{
-                        display: 'block',
+                        display: 'flex',
+                        gap: 'var(--space-3)',
                         padding: 'var(--space-4)',
                         background: 'var(--color-surface-card)',
                         border: '1px solid var(--color-border)',
@@ -506,67 +521,89 @@ export default function ReportsListPage() {
                         color: 'var(--color-ink)',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 'var(--space-2)',
-                          marginBottom: 'var(--space-2)',
-                        }}
-                      >
-                        <span
-                          lang={lang}
+                      {thumbBackground ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photoUrl!}
+                          alt=""
+                          aria-hidden
+                          loading="lazy"
                           style={{
-                            display: 'inline-block',
-                            padding: '2px 10px',
-                            background: pill.bg,
-                            color: pill.fg,
-                            fontSize: 'var(--text-caption)',
-                            fontWeight: 'var(--weight-semibold)',
-                            borderRadius: 'var(--radius-pill)',
+                            width: 56,
+                            height: 56,
+                            borderRadius: 'var(--radius-sm)',
+                            objectFit: 'cover',
+                            background: 'var(--color-surface-raised)',
+                            flexShrink: 0,
                           }}
-                        >
-                          {t(statusLabelKey(tkt.status), null, lang)}
-                        </span>
-                        <span
-                          lang={lang}
-                          style={{
-                            fontSize: 'var(--text-caption)',
-                            color: 'var(--color-ink-tertiary)',
-                          }}
-                        >
-                          {formatAge(tkt.createdAt, lang)}
-                        </span>
-                      </div>
-                      <div
-                        lang={lang}
-                        style={{
-                          fontSize: 'var(--text-body-lg)',
-                          fontWeight: 'var(--weight-semibold)',
-                          color: 'var(--color-ink)',
-                          marginBottom: 'var(--space-1)',
-                        }}
-                      >
-                        {catName ?? tkt.categoryId}
-                        {wardName ? ` · ${wardName}` : ''}
-                      </div>
-                      {tkt.note && (
-                        <p
-                          lang={lang}
-                          style={{
-                            fontSize: 'var(--text-body-sm)',
-                            color: 'var(--color-ink-secondary)',
-                            margin: 0,
-                            lineHeight: 1.4,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {tkt.note}
-                        </p>
+                        />
+                      ) : (
+                        /* No renderable photo → the shared "no photo" empty state. */
+                        <PhotoPlaceholder size={56} lang={lang} />
                       )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--space-2)',
+                            marginBottom: 'var(--space-2)',
+                          }}
+                        >
+                          <span
+                            lang={lang}
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 10px',
+                              background: pill.bg,
+                              color: pill.fg,
+                              fontSize: 'var(--text-caption)',
+                              fontWeight: 'var(--weight-semibold)',
+                              borderRadius: 'var(--radius-pill)',
+                            }}
+                          >
+                            {t(statusLabelKey(tkt.status), null, lang)}
+                          </span>
+                          <span
+                            lang={lang}
+                            style={{
+                              fontSize: 'var(--text-caption)',
+                              color: 'var(--color-ink-tertiary)',
+                            }}
+                          >
+                            {formatAge(tkt.createdAt, lang)}
+                          </span>
+                        </div>
+                        <div
+                          lang={lang}
+                          style={{
+                            fontSize: 'var(--text-body-lg)',
+                            fontWeight: 'var(--weight-semibold)',
+                            color: 'var(--color-ink)',
+                            marginBottom: 'var(--space-1)',
+                          }}
+                        >
+                          {catName ?? tkt.categoryId}
+                          {wardName ? ` · ${wardName}` : ''}
+                        </div>
+                        {tkt.note && (
+                          <p
+                            lang={lang}
+                            style={{
+                              fontSize: 'var(--text-body-sm)',
+                              color: 'var(--color-ink-secondary)',
+                              margin: 0,
+                              lineHeight: 1.4,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {tkt.note}
+                          </p>
+                        )}
+                      </div>
                     </Link>
                   </li>
                 );

@@ -28,6 +28,42 @@ import {
   putObject,
 } from '@/lib/storage/blob';
 import { base64ToBytes } from '@/lib/crew/upload-photo';
+import { isAcceptablePhotoUrl } from '@/lib/format/photo-url';
+
+/**
+ * A photo URL accepted at the API boundary.
+ *
+ * The citizen's photo picker produces an inline `data:image/…` URL
+ * by default (no blob provider is configured out of the box), and
+ * the blob providers produce either an absolute `https://` URL or a
+ * root-relative `/api/blob/…` path.
+ *
+ * The previous boundary was `z.string().url()`, which is NOT a safe
+ * contract for this field in Zod 3.x:
+ *
+ *   - It REJECTED the root-relative `/api/blob/…` shape — the local
+ *     blob provider's URL — so a report filed with the local
+ *     provider failed validation with HTTP 400 and the photo was
+ *     never persisted.
+ *   - It ACCEPTED `javascript:` and `data:text/html` URLs. Zod's
+ *     `url()` check is `new URL(value)`, which parses ANY absolute
+ *     scheme, so a stored URL could carry a script scheme — a
+ *     stored-URL XSS vector that is persisted verbatim and later
+ *     handed to `<img src>` / `background-image: url(...)`.
+ *
+ * `isAcceptablePhotoUrl` accepts exactly the shapes the renderer can
+ * display (see `lib/format/photo-url.ts`) and rejects script
+ * schemes, keeping the write and read sides in agreement: a URL
+ * shape the API accepts is a shape the renderer can display, and
+ * nothing else.
+ */
+const PhotoUrl = z
+  .string()
+  .max(2_000_000)
+  .refine(isAcceptablePhotoUrl, {
+    message:
+      'photo URL must be an inline image data URL, an http(s) URL, or a root-relative path',
+  });
 
 const CreateTicketInput = z.object({
   cityId: z.string().min(1),
@@ -38,7 +74,7 @@ const CreateTicketInput = z.object({
   locationLabel: z.string().max(500).optional(),
   locationLabelBn: z.string().max(500).optional(),
   note: z.string().max(2000).optional(),
-  photoUrls: z.array(z.string().url()).max(5).default([]),
+  photoUrls: z.array(PhotoUrl).max(5).default([]),
   // WO-000 platform layer — the blob-storage path for the
   // citizen's photos. When a blob provider is configured the
   // client sends the raw bytes (base64) instead of inline data

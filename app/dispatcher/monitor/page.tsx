@@ -33,6 +33,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { categoryLabel, displayNameFor } from '@/lib/identity/display-name';
+import { thumbnailBackground } from '@/lib/format/photo-url';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 /** The spec's v1 polling cadence: every 5 seconds. */
@@ -669,7 +670,13 @@ function MonitorRowItem({
           padding: 'var(--space-3)',
         }}
       >
-        {/* Thumbnail — 40x40 */}
+        {/*
+          Thumbnail — 40x40. The background is built by
+          `thumbnailBackground`, which QUOTES the URL: an inline
+          `data:image/…` URL contains commas and parentheses that
+          would otherwise break out of an unquoted `url(...)` and
+          leave the square blank.
+        */}
         <span
           aria-hidden
           data-testid="dispatcher-monitor-thumbnail"
@@ -677,9 +684,9 @@ function MonitorRowItem({
             width: 40,
             height: 40,
             borderRadius: 'var(--radius-sm)',
-            background: row.thumbnailUrl
-              ? `url(${row.thumbnailUrl}) center/cover`
-              : 'var(--color-surface-raised)',
+            background:
+              thumbnailBackground(row.thumbnailUrl) ??
+              'var(--color-surface-raised)',
             border: '1px solid var(--color-border)',
             display: 'inline-flex',
             alignItems: 'center',

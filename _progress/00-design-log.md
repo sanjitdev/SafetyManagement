@@ -3989,3 +3989,87 @@ response ~268 KB of base64; a 50-ticket feed would carry megabytes.
 `lib/storage/blob.ts` exists to solve this, but it cannot be switched
 on locally yet — **there is no `/api/blob/[key]` serving route**, so
 every local-blob URL would 404. The route is the missing piece.
+
+### 2026-10-29 — My Reports card thumbnail: same class of defect, three surfaces, and an API-boundary contract to match
+
+The user reported that the **My Reports** report cards show no thumbnail
+image, and asked for "similar affected pages" to be fixed too. This is
+the sibling of the feed-thumbnail entry above (same day): the feed's
+photo path had already been repaired by commit `4f93969`, but
+`/reports` and the two staff list surfaces had the same gap in a
+different shape and were never touched.
+
+**The data path was never broken — verified, not assumed.** Before
+changing anything, the whole chain was traced and probed end-to-end
+against the dev store: the picker inlines the file bytes as a
+`data:image/…` URL → `POST /api/tickets` writes a `TicketPhoto` row →
+`getTicketWithTrail` joins it → `serializeTicketForRole` exposes it as
+`photoUrls` → `GET /api/v1/activity` returns it. The probe came back
+byte-for-byte identical:
+
+```text
+photos joined by getTicketWithTrail: 1
+serialized.photoUrls: 1
+photoUrls[0] === DATA_URL: true
+```
+
+**The data was never lost. The data was never rendered.**
+
+| # | Surface | Defect | Repair |
+|---|---------|--------|--------|
+| 1 | `app/reports/page.tsx` | Mapped `photoUrls` into client state; the card markup emitted **no image element at all** | 56×56 `<img>` + the shared `PhotoPlaceholder` fallback; card moved from `display: 'block'` to `display: 'flex'` |
+| 2 | `app/dispatcher/page.tsx` | `QueueRow` showed only `categoryIcon(...)` and ignored `photoUrls` | 40×40 thumbnail, category glyph as the no-photo fallback |
+| 3 | `app/crew/page.tsx` | `CrewRow` — same gap | same |
+| 4 | `app/dispatcher/monitor/page.tsx` | Rendered a thumbnail, but built the CSS `background` with an **unquoted** `url(...)` — a data URL's commas and parens break out of the CSS function, so the square stayed blank | `thumbnailBackground(row.thumbnailUrl)`, which quotes the URL |
+| 5 | `lib/dispatcher/monitor.ts` | Took the **last** array element blindly, so a trailing unrenderable value blanked the thumbnail | `lastRenderablePhotoUrl(t.photoUrls)` — scans backwards |
+| 6 | `app/crew/tickets/[id]/page.tsx` | Put a raw photo URL into a **clickable** `<a href>` | href now goes through `isRenderablePhotoUrl` |
+
+**The API boundary had a real defect too — but not the one I first
+assumed.** My working hypothesis was that `z.string().url()` rejected
+the inline `data:` URL and so dropped the citizen's photo at
+submission. **That was wrong.** I measured it rather than assuming:
+in Zod 3.25.76 that check is `new URL(value)`, which parses *any*
+absolute scheme. Measured against every shape the app stores:
+
+```text
+true  inline data URL      ← accepted (hypothesis wrong)
+true  http URL
+false root-relative       ← REJECTED the local blob provider's shape
+true  javascript scheme    ← ACCEPTED a script scheme
+true  data:text/html       ← ACCEPTED a non-image data URL
+```
+
+So the boundary was wrong in two *different* ways than first thought:
+it **rejected** the root-relative `/api/blob/…` shape (the local blob
+provider — failing the whole submission with HTTP 400), and it
+**accepted** `javascript:` / `data:text/html`, which are persisted
+verbatim and later rendered — a stored-URL XSS vector. Both photo
+routes now validate with `isAcceptablePhotoUrl`, the write-side
+counterpart of the renderer's `isRenderablePhotoUrl`.
+
+**The principle now enforced on both sides:** *a URL shape the API
+accepts is a shape the renderer can display — and nothing else.*
+`lib/format/photo-url.ts` owns the answer; call sites ask the module
+instead of sniffing `startsWith('http')`.
+
+**Every other surface was audited and left alone.** `home`, `feed`,
+`PublicLandingExperience`, the two ticket-detail pages, the admin
+ticket detail, and the report picker/summary all already render
+correctly.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**939/939** across 65 files · `npm run test:mockups` **15/15** ·
+`npm run lint` 0 errors (53 pre-existing warnings, none in the touched
+files). **46 new/updated unit assertions** across 3 files: 12 pinning
+the API-boundary contract, 13 pinning the render contract on every
+list-row surface, 21 covering the two new helpers.
+
+**One pre-existing flake, ruled out:** `tests/unit/webauthn-prod-guard.test.ts`
+timed out at 5000 ms in the first full-suite run. It passes in
+isolation (2337 ms) and on a clean stashed tree (1857 ms) — a timeout
+flake under parallel transform load, unrelated to this work.
+
+**Still deferred:** this bolt's 3 Playwright baselines (list-empty,
+list-with-rows, detail-resolved). The `list-with-rows` baseline is now
+affected by this hotfix — the `/reports` row is a thumbnail + text row
+now — so it will show the thumbnail when eventually captured.

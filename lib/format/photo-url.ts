@@ -87,6 +87,26 @@ export function firstRenderablePhotoUrl(
 }
 
 /**
+ * The LAST renderable photo URL in a list, or `null`.
+ *
+ * Used by surfaces that want the freshest evidence (e.g. the
+ * dispatcher monitor prefers the crew's after-photo over the
+ * citizen's before-photo). Scans BACKWARDS and returns the first
+ * renderable entry, so an unrenderable trailing row does not blank
+ * the thumbnail.
+ */
+export function lastRenderablePhotoUrl(
+  urls: readonly string[] | null | undefined,
+): string | null {
+  if (!urls) return null;
+  for (let i = urls.length - 1; i >= 0; i -= 1) {
+    const url = urls[i];
+    if (isRenderablePhotoUrl(url)) return url.trim();
+  }
+  return null;
+}
+
+/**
  * A CSS `background` value that renders `url` as a cover-cropped
  * thumbnail, or `null` when there is nothing renderable.
  *
@@ -99,4 +119,36 @@ export function thumbnailBackground(
 ): string | null {
   if (!isRenderablePhotoUrl(url)) return null;
   return `url("${url.trim().replace(/"/g, '%22')}") center/cover no-repeat`;
+}
+
+/**
+ * True when `url` is an acceptable photo source at an API boundary
+ * (i.e. a value we are willing to persist and later render).
+ *
+ * This is the WRITE-side counterpart of `isRenderablePhotoUrl`. The
+ * two must agree: a URL shape that the API accepts is a shape the
+ * renderer can display, and vice versa.
+ *
+ * The API boundary used to be `z.string().url()`, which is not the
+ * same contract. In Zod 3.x that check is `new URL(value)`, which
+ * parses ANY absolute scheme — so it:
+ *
+ *   - rejected the root-relative `/api/blob/…` shape (the local blob
+ *     provider's URL), failing the whole submission with HTTP 400;
+ *   - ACCEPTED `javascript:` and `data:text/html` URLs. The photo
+ *     URL is persisted VERBATIM and later handed to `<img src>` and
+ *     `background-image: url(...)`, so a stored script scheme is a
+ *     stored-URL XSS vector.
+ *
+ * Accepted shapes:
+ *   - `data:image/<subtype>;base64,<payload>` (inline, the default)
+ *   - `http://` / `https://` absolute URLs
+ *   - root-relative paths (`/api/blob/…`, `/bucket/key`)
+ *
+ * Rejected: empty values, non-image `data:` URLs, and script schemes.
+ */
+export function isAcceptablePhotoUrl(
+  url: string | null | undefined,
+): url is string {
+  return isRenderablePhotoUrl(url);
 }
