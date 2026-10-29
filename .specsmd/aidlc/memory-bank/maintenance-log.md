@@ -337,3 +337,47 @@ The full data path was traced and **empirically verified** against the dev store
 
 - The bolt's 3 deferred Playwright baselines (list-empty, list-with-rows, detail-resolved) are still outstanding. The `list-with-rows` baseline is now affected by this hotfix — the `/reports` row layout changed to thumbnail + text — so it will show the thumbnail when eventually captured.
 
+---
+
+## 2026-10-29T00:00:00Z - Hotfix: photo-counter placeholder drift (bolt 002-004)
+
+**Triggered by**: user report — *"fix the [Image #1] 0/{max}"*, with a screenshot of the Bangla photo-capture page showing the counter pill rendering the literal text `0 / {max} ছবি`.
+
+**Bolt**: `002-004-my-reports` (was `status: complete`; this is a second remediation pass inside its scope).
+**Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-05-counter-placeholder-hotfix.md`.
+
+### Root cause: the template and the call site disagreed on a name
+
+The `report.photo.counter` template in `lib/i18n/keys.ts` used `{max}`, while the call site in `app/report/(create)/photo/page.tsx:261` passes `{ count, cap }`. `interpolate()` deliberately leaves an unmatched `{placeholder}` intact so the gap stays visible — the mechanism was right, the input was wrong. `{count}` interpolated fine, which is why the pill read as half-broken rather than as a missing translation.
+
+`tests/unit/i18n.test.ts` only asserts that every referenced key is *registered* in `TRANSLATIONS`; registration is not correctness, so nothing flagged a placeholder no call site supplies.
+
+### Fix
+
+- `lib/i18n/keys.ts` — `report.photo.counter` template: `{max}` → `{cap}`, in both `bn` and `en`. The template was changed rather than the call site because `cap` is the codebase-wide name (`lib/report-photo-cap.ts` → `derivePhotoCap`), the sibling key `report.photo.cap_tooltip` was always correct, and Bolt 008-001's `bolt.md` records the intended output as `0 / 3 ছবি`.
+
+### Tests
+
+- `tests/unit/i18n-placeholder-contract.test.ts` — **new, 8 tests**: pins the specific regression (numbers render, no literal placeholder survives), the `{cap}` convention across the `report.photo.*` family, and a general registry-wide guard against bn/en placeholder drift.
+
+**The guard was proven non-vacuous.** Re-injecting `{max}` into the `en` template made **5 of the 8 tests fail** (including the whole-registry drift guard); the template was then restored from a backup.
+
+### Verification
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | **947 passed / 947**, 66 files |
+| Visual | `npm run test:mockups` | **15 passed** |
+| Lint | `npm run lint` | 0 errors (53 pre-existing warnings, none in touched files) |
+
+Runtime confirmation: `bn: 0 / 3 ছবি` · `en: 0 / 3 photos`.
+
+### Follow-up noted
+
+- The registry-level guard catches bn/en drift only. It does **not** catch a template that agrees with itself but matches no call site — the original failure mode. Catching that class needs call-site variable extraction across `app/` and `components/`; a v1.1 candidate. A manual audit for this hotfix found no other mismatched call site.
+
+### Artifact hygiene
+
+- The thumbnail hotfix's test evidence had been appended to a mis-named file, `dddd-03-test-report.md` (four `d`s), leaving the canonical `ddd-03-test-report.md` unmodified. The content was merged into the canonical report and the stray file removed.
+

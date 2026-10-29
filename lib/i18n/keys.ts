@@ -588,8 +588,15 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Add photos — 1 primary is required, up to 2 more are optional',
   },
   'report.photo.counter': {
-    bn: '{count} / {max} ছবি',
-    en: '{count} / {max} photos',
+    // The placeholder is `{cap}`, not `{max}` — the call site in
+    // `app/report/(create)/photo/page.tsx` passes `{ count, cap }`,
+    // and the sibling `report.photo.cap_tooltip` uses `{cap}` too.
+    // A template placeholder with no matching var is left intact by
+    // `interpolate`, so the counter rendered the literal text
+    // "0 / {max} ছবি" to the citizen. `cap` is the codebase-wide
+    // name (see `lib/report-photo-cap.ts` → `derivePhotoCap`).
+    bn: '{count} / {cap} ছবি',
+    en: '{count} / {cap} photos',
   },
   'report.photo.add_primary': {
     bn: 'প্রাথমিক ছবি যোগ করুন',

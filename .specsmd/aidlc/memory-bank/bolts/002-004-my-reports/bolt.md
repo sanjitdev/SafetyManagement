@@ -22,6 +22,9 @@ stages_completed:
   - name: hotfix
     completed: 2026-10-29T00:00:00Z
     artifact: ./ddd-04-thumbnail-hotfix.md
+  - name: hotfix
+    completed: 2026-10-29T00:00:00Z
+    artifact: ./ddd-05-counter-placeholder-hotfix.md
 created: 2026-10-11T18:00:00Z
 updated: 2026-10-29T00:00:00Z
 bolt_id: 002-004-my-reports
@@ -211,6 +214,48 @@ evidence: **`./ddd-04-thumbnail-hotfix.md`**.
 - `npm run lint` — 0 errors (53 pre-existing warnings, none in the
   touched files).
 - 46 new/updated unit assertions across 3 files.
+
+## Hotfix — 2026-10-29 — photo-counter placeholder drift
+
+The user reported (with a screenshot of the Bangla photo-capture
+page) that the live counter pill rendered the literal text
+`0 / {max} ছবি` instead of `0 / 3 ছবি`.
+
+**Root cause: a placeholder-name drift in the translation
+registry.** The template for `report.photo.counter` said `{max}`,
+while the call site in `app/report/(create)/photo/page.tsx` passes
+`{ count, cap }`. `interpolate()` deliberately leaves an unmatched
+placeholder intact so the gap stays visible — the mechanism was
+right, the input was wrong. The `{count}` half interpolated fine,
+which is why the pill read as half-broken rather than as a missing
+translation.
+
+The template was corrected to `{cap}` — the codebase-wide name
+(`lib/report-photo-cap.ts` → `derivePhotoCap`, and the sibling key
+`report.photo.cap_tooltip` was always correct). Bolt 008-001's
+`bolt.md` records the intended output as `0 / 3 ছবি`, confirming
+`cap` was always the intended name.
+
+**A regression guard was added, and proven non-vacuous.**
+`tests/unit/i18n-placeholder-contract.test.ts` (8 tests) pins the
+specific regression, the `{cap}` convention across the
+`report.photo.*` family, and — as a general guard — that no template
+in the registry may spell a placeholder differently between its `bn`
+and `en` forms. Re-injecting `{max}` into the `en` template made 5
+of the 8 tests fail (including the whole-registry drift guard),
+after which the template was restored.
+
+Full write-up, file-by-file change list, and the verification
+evidence: **`./ddd-05-counter-placeholder-hotfix.md`**.
+
+### Hotfix exit criteria (all met)
+
+- `npx tsc --noEmit` — clean.
+- `npm run test:unit` — **947 passed / 947**, 66 files.
+- `npm run test:mockups` — **15 passed**.
+- `npm run lint` — 0 errors (53 pre-existing warnings, none in the
+  touched files).
+- 8 new unit assertions in 1 file.
 
 ## Cross-references
 

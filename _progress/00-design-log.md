@@ -4073,3 +4073,57 @@ flake under parallel transform load, unrelated to this work.
 list-with-rows, detail-resolved). The `list-with-rows` baseline is now
 affected by this hotfix — the `/reports` row is a thumbnail + text row
 now — so it will show the thumbnail when eventually captured.
+
+### 2026-10-29 — Photo counter: a placeholder-name drift rendered as literal text
+
+The user reported (with a screenshot of the Bangla photo-capture page) that
+the live counter pill rendered the literal text **`0 / {max} ছবি`** instead
+of `0 / 3 ছবি`.
+
+**Root cause: the template and the call site disagreed on a name.** The
+template for `report.photo.counter` in `lib/i18n/keys.ts` said `{max}`,
+while the call site in `app/report/(create)/photo/page.tsx:261` passes
+`{ count, cap }`:
+
+```tsx
+{t('report.photo.counter', { count: photoUrls.length, cap }, LANG)}
+```
+
+`interpolate()` deliberately leaves an unmatched `{placeholder}` intact so the
+gap stays visible — the mechanism was right, the input was wrong. The
+`{count}` half interpolated fine, which is why the pill read as *half*-broken
+rather than as a missing translation.
+
+**Why nothing caught it.** `tests/unit/i18n.test.ts` asserts that every
+referenced key is *registered* in `TRANSLATIONS`. Registration is not
+correctness — a key can be present with a placeholder no call site ever
+supplies, and nothing flagged it.
+
+**Fix.** The template was corrected to `{cap}`, not the call site — `cap` is
+the codebase-wide name (`lib/report-photo-cap.ts` → `derivePhotoCap`), and the
+sibling key `report.photo.cap_tooltip` on the same screen was always
+correct. Bolt 008-001's `bolt.md` records the intended output as
+`0 / 3 ছবি` / `0 / 3 photos`, confirming `cap` was always the intended name.
+
+**A regression guard was added, and proven non-vacuous.**
+`tests/unit/i18n-placeholder-contract.test.ts` (8 tests) pins the specific
+regression, the `{cap}` convention across the whole `report.photo.*` family,
+and — as a general guard — that no template in the registry may spell a
+placeholder differently between its `bn` and `en` forms. Re-injecting `{max}`
+into the `en` template made **5 of the 8 tests fail** (including the
+whole-registry drift guard), after which the template was restored.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**947/947** across 66 files · `npm run test:mockups` **15/15** ·
+`npm run lint` 0 errors (53 pre-existing warnings, none in the touched files).
+**8 new unit assertions** in 1 file.
+
+**Residual.** The registry-level guard catches bn/en drift. It does **not**
+catch a template that agrees with itself but matches no call site — the
+original failure mode, where both templates said `{max}` and both disagreed
+with the call site. Catching that class needs call-site variable extraction
+across `app/` and `components/` — a source-analysis problem, a v1.1
+candidate. A manual audit for this hotfix found no other mismatched call
+site.
+
+**Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-05-counter-placeholder-hotfix.md`.
