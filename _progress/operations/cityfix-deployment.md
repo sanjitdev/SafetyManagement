@@ -14,7 +14,7 @@
 | **Production URL (primary)** | **`https://cityfix-bd.vercel.app`** |
 | Primary domain type | **Tracked project domain** (auto-promotes on new production builds) |
 | Additional aliases | `cityfix-theta.vercel.app`, `cityfix-super-max1.vercel.app`, `cityfix-git-main-super-max1.vercel.app` |
-| Deployment URL (current build) | `https://cityfix-6jnmilkp2-super-max1.vercel.app` (commit `ef95e58`, 2026-10-29) |
+| Deployment URL (current build) | `https://cityfix-f75n5linp-super-max1.vercel.app` (commit `6799229`, 2026-10-29) |
 | Project ID | `prj_av0zjUFXBo9rO70j4EtMJGtTAHaE` |
 | GitHub repo | `https://github.com/sanjitdev/SafetyManagement` |
 | Production branch | `main` |
