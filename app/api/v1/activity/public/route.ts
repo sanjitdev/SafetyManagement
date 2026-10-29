@@ -93,10 +93,20 @@ export async function GET(req: NextRequest) {
     // Anonymous / unauthenticated caller — default to the platform's
     // first seeded city (v1 = Dhaka North). Looking up by createdAt
     // ASC is a stable proxy; the City model carries the seed order.
-    const firstCity = await db.city.findFirst({
-      orderBy: { createdAt: 'asc' },
-    });
-    resolvedCityId = firstCity?.id ?? null;
+    //
+    // If the database is unreachable (outage, suspended compute, quota),
+    // degrade to an empty feed rather than a 500: this endpoint backs
+    // the public landing page and /feed, both of which are read-only
+    // marketing surfaces. A hard 500 there takes down the whole site
+    // for a backend fault that a retry would fix.
+    try {
+      const firstCity = await db.city.findFirst({
+        orderBy: { createdAt: 'asc' },
+      });
+      resolvedCityId = firstCity?.id ?? null;
+    } catch {
+      return NextResponse.json({ tickets: [], categories: [] });
+    }
   }
   if (!resolvedCityId) {
     // No cities seeded yet — return an empty feed rather than 500.
@@ -112,23 +122,37 @@ export async function GET(req: NextRequest) {
   // Prisma path inherits the same default. The shared db-switch type
   // does not expose `orderBy` for categories yet, so we sort in JS
   // here for parity across dev + prod.
-  const categoryRows = await db.category.findMany({
-    where: { cityId: resolvedCityId },
-  });
-  const categories = [...categoryRows]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((c) => ({
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      nameBn: c.nameBn,
-    }));
+  //
+  // A database outage degrades to an empty feed rather than a 500 —
+  // see the note on the city lookup above.
+  let categories: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    nameBn: string | null;
+  }> = [];
+  let tickets: Awaited<ReturnType<typeof db.ticket.findMany>> = [];
+  try {
+    const categoryRows = await db.category.findMany({
+      where: { cityId: resolvedCityId },
+    });
+    categories = [...categoryRows]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        nameBn: c.nameBn,
+      }));
 
-  const tickets = await db.ticket.findMany({
-    where: { cityId: resolvedCityId },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  });
+    tickets = await db.ticket.findMany({
+      where: { cityId: resolvedCityId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  } catch {
+    return NextResponse.json({ tickets: [], categories: [] });
+  }
 
   // Bolt 008-011: hydrate each ticket via `getTicketWithTrail` so the
   // public serializer can surface `wardName` / `wardNameBn` (the
@@ -136,10 +160,17 @@ export async function GET(req: NextRequest) {
   // The trail + photos + reporter fields on the joined row are
   // already dropped by `serializeTicketForPublic`, so this is safe
   // for the anonymous surface.
+  //
+  // A per-ticket hydration failure must not take down the whole feed
+  // — fall back to the un-hydrated row for that one ticket.
   const out = await Promise.all(
     tickets.map(async (t) => {
-      const withTrail = await getTicketWithTrail(t.id);
-      return serializeTicketForPublic((withTrail ?? t) as never);
+      try {
+        const withTrail = await getTicketWithTrail(t.id);
+        return serializeTicketForPublic((withTrail ?? t) as never);
+      } catch {
+        return serializeTicketForPublic(t as never);
+      }
     }),
   );
 

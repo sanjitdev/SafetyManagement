@@ -50,6 +50,7 @@ zero page errors** · `flow-walk.mjs` **PASSED** at both mobile and desktop
 | 18 | **The citizen's own report detail page never rendered the description they typed** — the note was accepted and then never seen again, which reads as the report having been dropped | `app/reports/[id]/page.tsx` + `lib/i18n/keys.ts` (`detail.section.description`) |
 | 19 | Audit table rendered a raw orphan actor id **and mislabelled it `citizen`** — misattributing admin actions in the audit trail | `lib/admin/audit-query.ts` (new `roleFromActorId`) + `tests/unit/admin/audit-query-list.test.ts` |
 | 22 | **The citizen's own submitted photo never appeared as a thumbnail** — the feed, home list and every report card rendered a blank gradient square. Root cause: a `TicketPhoto.url` stores the uploader's string verbatim, so one column holds three shapes (`data:image/…` inline — the **default**, since no blob provider is configured; `https://…` R2/S3; `/api/blob/…` local), but the thumbnails guarded on `photoUrl.startsWith('http')`, which matched only the R2/S3 shape and silently dropped the inline `data:` URL the default upload path produces | NEW `lib/format/photo-url.ts` (`isRenderablePhotoUrl` / `firstRenderablePhotoUrl` / `thumbnailBackground`) + `app/feed/page.tsx`, `app/home/page.tsx`, `app/reports/[id]/page.tsx`, `app/dispatcher/tickets/[id]/page.tsx`, `app/report/(create)/photo/page.tsx`, `app/report/(create)/summary/page.tsx`, `components/ui/ReportCard.tsx`, `components/PublicLandingExperience.tsx` |
+| 32 | **A database outage took down the whole public site with a 500** — the landing page and `/feed` both read from `GET /api/v1/activity/public`, and its three DB reads were unguarded, so an unreachable database returned HTTP 500 to every anonymous visitor. The route already returned an empty feed when no cities were seeded; the outage path just never reached that branch | `app/api/v1/activity/public/route.ts` (city lookup, category+ticket queries and per-ticket trail hydration all degrade to an empty feed) + NEW `tests/unit/public-activity-db-outage.test.ts` |
 
 ---
 
@@ -143,3 +144,15 @@ failure reproduced on clean `main`.
 - **A spec that calls `page.screenshot({ path })` never asserts anything.**
   It overwrites the baseline on every run — that is a capture script, not a
   regression gate, and it produces git churn on every suite run.
+- **"Can't reach database server" from Prisma does not mean the server is
+  unreachable.** Prisma reports every connection-phase failure with that
+  one message. The real cause was a Neon **account quota** failure
+  (`53000 Your account or project has exceeded the quota`), which Postgres
+  returns at the auth stage — long after TCP connect and the TLS
+  handshake succeed. Diagnose it with a real client (`pg`), which surfaces
+  the raw SQLSTATE; the `pg` error text names the cause outright. A raw
+  SSLRequest probe is not enough: it stops at the `S` byte and tells you
+  TLS is fine, nothing more.
+- **A public read surface must degrade, not 500.** A backend fault should
+  cost the marketing site its data, not its availability. Guard the DB
+  reads on any endpoint an anonymous visitor can reach (fix #32).
