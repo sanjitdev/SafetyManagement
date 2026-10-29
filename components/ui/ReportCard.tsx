@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill, type StatusKey } from './StatusPill';
+import { PhotoPlaceholder } from './PhotoPlaceholder';
 
 export interface ReportCardProps {
   /** Destination URL when the row is clicked. */
@@ -87,9 +88,7 @@ export function ReportCard({
    * photo rendered as a blank gradient square on every list that
    * uses this card.
    */
-  const thumbBg =
-    thumbnailBackground(photoUrl) ??
-    'linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-surface-raised) 100%)';
+  const thumbBg = thumbnailBackground(photoUrl);
 
   return (
     <Link
@@ -110,16 +109,25 @@ export function ReportCard({
         transition: 'background var(--duration-base) var(--ease-out)',
       }}
     >
-      <div
-        aria-hidden
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 'var(--radius-sm)',
-          background: thumbBg,
-          flexShrink: 0,
-        }}
-      />
+      {thumbBg ? (
+        <div
+          aria-hidden
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 'var(--radius-sm)',
+            background: thumbBg,
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        /*
+         * No renderable photo → the shared "no photo" empty state
+         * (dashed border + camera glyph) rather than the old bare
+         * gradient square, which read as a broken image.
+         */
+        <PhotoPlaceholder size={56} lang={lang} />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{

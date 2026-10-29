@@ -34,6 +34,7 @@ import {
   type StatusFilter,
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import CityActivityMap, {
   type CityActivityPin,
 } from '@/components/CityActivityMap';
@@ -655,17 +656,8 @@ function ActivityCard({
           }}
         />
       ) : (
-        <div
-          aria-hidden
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 'var(--radius-sm)',
-            background:
-              'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
-            flexShrink: 0,
-          }}
-        />
+        /* No renderable photo → the shared "no photo" empty state. */
+        <PhotoPlaceholder size={56} lang={lang} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div

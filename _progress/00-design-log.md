@@ -3934,3 +3934,58 @@ quota** must be raised before production data returns. Production still
 has **zero dispatcher / crew / admin users**; admin provisioning is
 circular by design and admin writes require a WebAuthn ceremony. Both
 are deliberately not automated.
+
+### 2026-10-29 — Feed thumbnail: the photo was rendering all along; the placeholder was the real defect
+
+The user reported that the feed's left-hand thumbnail did not show the
+submitted photo and that the fallback "doesn't look good".
+
+**The photo was never broken — the tab was stale.** The source already
+fixed the photo path in commit `4f93969` (the `startsWith('http')`
+guard missed the inline `data:` URL, which is the *default* upload
+path). Rather than trust that, the running server was driven with a
+real browser: the row's DOM reported `hasImg: true`,
+`img.complete: true`, `naturalWidth: 1920`, and the 56×56 thumbnail
+screenshot showed the citizen's actual photograph. The tab in the
+screenshot was running a bundle compiled before the fix.
+
+**The placeholder WAS a real defect.** The no-photo state was a bare
+`linear-gradient(135deg, primary-soft, surface-raised)` square — an
+unlabelled teal-grey blob that reads as a broken image rather than as
+an intentional empty state. And it existed in **three** copies: the
+feed, the home activity list, and `ReportCard`. Meanwhile
+`components/PublicLandingExperience.tsx` already had the *right*
+answer (Bolt 008-011 — dashed border + camera glyph + label), but
+only inline in that one component.
+
+That markup is now `components/ui/PhotoPlaceholder.tsx`, and all four
+surfaces point at it. The label comes from the typed i18n registry, so
+no user-facing copy is hard-coded.
+
+**The regression spec was also broken, and it was hiding the truth.**
+`tests/24-feed-photo-thumbnail.spec.ts` minted its session with
+`POST /api/dev/login`, which returns 404 now that development targets
+the real local Postgres — so its authenticated POST came back **401**
+and the spec failed for a harness reason that looked exactly like an
+application bug. Four separate defects were behind that one failure:
+
+| # | Defect | Repair |
+|---|--------|--------|
+| 1 | The spec only knew the dev-store login | `tests/helpers/auth.ts` — dev store when running, real register → OTP → verify when not |
+| 2 | It hard-coded the **seed's** ids (`city_dhaka_north`, `ward_14`, `cat_streetlight`) — the real database assigns **Prisma CUIDs** to every city / ward / category | Resolve the ids from the live API |
+| 3 | It posted a **fixed coordinate**, so the second run hit the 50m **dedup** check and got `200 {dedup_match:true}` instead of `201` | Jitter the coordinates per call |
+| 4 | It located its row with a bare `getByText(fixtureNote)`, which is **strict-mode ambiguous** once a persistent database holds more than one run's fixtures | Scope to the first matching row (the feed is newest-first) |
+
+The spec now passes against **both** backends — 4/4.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**905/905** across 63 files · `npm run test:mockups` **15/15** · the
+full Playwright route suite **262 passed / 7 skipped / 0 failed**.
+
+**One thing worth flagging for v1.1.** The default upload path inlines
+the photo bytes as a `data:` URL in the database column, and the
+public feed returns it verbatim. One 268 KB photo makes a single feed
+response ~268 KB of base64; a 50-ticket feed would carry megabytes.
+`lib/storage/blob.ts` exists to solve this, but it cannot be switched
+on locally yet — **there is no `/api/blob/[key]` serving route**, so
+every local-blob URL would 404. The route is the missing piece.

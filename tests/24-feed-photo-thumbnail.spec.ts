@@ -34,10 +34,67 @@
  */
 
 import { test, expect, APIRequestContext } from '@playwright/test';
+import { loginAsCitizen } from './helpers/auth';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
-const CITY_ID = 'city_dhaka_north';
-const WARD_ID = 'ward_14';
+
+/**
+ * The ids this spec posts against.
+ *
+ * The seed uses stable slugs (`city_dhaka_north`, `ward_14`,
+ * `cat_streetlight`) in the dev store, but the REAL database assigns
+ * Prisma CUIDs to every city / ward / category — the seed's ids are
+ * only used by the in-memory dev store. So the ids are resolved from
+ * the live API instead of hard-coded, which works against BOTH
+ * backends.
+ */
+interface ResolvedIds {
+  cityId: string;
+  wardId: string;
+  streetlightCategoryId: string;
+  potholeCategoryId: string;
+}
+
+/**
+ * Resolve a city, a ward and two categories from the public API.
+ *
+ * Prefers a category whose slug matches; falls back to positional
+ * picks so the spec still runs if the slugs change.
+ */
+async function resolveIds(
+  ctx: APIRequestContext,
+): Promise<ResolvedIds> {
+  const res = await ctx.get(`${BASE}/api/v1/activity/public?limit=50`);
+  expect(res.status(), 'expected 200 from the public activity feed').toBe(200);
+  const body = (await res.json()) as {
+    tickets: Array<{
+      cityId: string;
+      wardId: string;
+      categoryId: string;
+    }>;
+    categories: Array<{ id: string; slug: string }>;
+  };
+
+  const first = body.tickets[0];
+  expect(
+    first,
+    'the feed must contain at least one ticket to resolve city/ward ids from',
+  ).toBeTruthy();
+
+  const bySlug = (slug: string) => body.categories.find((c) => c.slug === slug);
+  const streetlight = bySlug('streetlight') ?? body.categories[0];
+  const pothole =
+    bySlug('pothole') ??
+    body.categories.find((c) => c.id !== streetlight.id) ??
+    streetlight;
+
+  return {
+    cityId: first.cityId,
+    wardId: first.wardId,
+    streetlightCategoryId: streetlight.id,
+    potholeCategoryId: pothole.id,
+  };
+}
 
 /**
  * A 2×2 PNG whose every pixel is opaque magenta (#FF00FF).
@@ -62,16 +119,14 @@ const MAGENTA_PNG_2x2 =
 
 const MAGENTA_DATA_URL = `data:image/png;base64,${MAGENTA_PNG_2x2}`;
 
-async function devLogin(
-  ctx: APIRequestContext,
-  role: 'citizen' | 'dispatcher' | 'crew' | 'admin',
-) {
-  return ctx.post(`${BASE}/api/dev/login?role=${role}`, {
-    maxRedirects: 0,
-    failOnStatusCode: false,
-  });
-}
-
+/**
+ * Reset the dev store, when it is running.
+ *
+ * Against the real database there is no reset — the rows from a
+ * previous run are simply left in place. That is fine for this
+ * spec: it locates its own row by the distinctive fixture note, so
+ * leftover rows from earlier runs do not affect the assertions.
+ */
 async function devReset(ctx: APIRequestContext) {
   return ctx.post(`${BASE}/api/dev/reset`, {
     maxRedirects: 0,
@@ -143,21 +198,39 @@ async function averageRgbOfImage(
 
 async function seedCitizenTicketWithPhoto(
   ctx: APIRequestContext,
+  ids: ResolvedIds,
 ): Promise<string> {
+  /*
+   * The coordinates are jittered per call.
+   *
+   * `POST /api/tickets` runs a DEDUP check (50m radius) and, on a
+   * match, answers **200** with `dedup_match: true` instead of
+   * **201** — no ticket is created. Against a persistent database
+   * (the local Postgres does not reset between runs) a fixed
+   * coordinate would therefore match the previous run's fixture and
+   * the second run would fail with "expected 201, got 200". The
+   * jitter keeps each run's fixture outside the previous one's
+   * dedup radius while staying inside the Dhaka bounding box.
+   */
+  const jitter = () => (Math.random() - 0.5) * 0.004;
+
   const resp = await ctx.post(`${BASE}/api/tickets`, {
     data: {
-      cityId: CITY_ID,
-      wardId: WARD_ID,
-      categoryId: 'cat_streetlight',
+      cityId: ids.cityId,
+      wardId: ids.wardId,
+      categoryId: ids.streetlightCategoryId,
       note: 'Streetlight out — thumbnail regression fixture',
-      locationLat: 23.789,
-      locationLng: 90.4075,
+      locationLat: 23.789 + jitter(),
+      locationLng: 90.4075 + jitter(),
       locationLabel: 'Mirpur 14',
       locationLabelBn: 'মিরপুর ১৪',
       photoUrls: [MAGENTA_DATA_URL],
     },
   });
-  expect(resp.status(), `expected 201, got ${resp.status()}`).toBe(201);
+  expect(
+    resp.status(),
+    `expected 201, got ${resp.status()} — ${await resp.text()}`,
+  ).toBe(201);
   const body = (await resp.json()) as { ticket: { id: string } };
   return body.ticket.id;
 }
@@ -181,20 +254,37 @@ test.describe('report-list photo thumbnail', () => {
     // `page.goto`. A detached `request.newContext()` would seed the
     // data but leave the BROWSER anonymous — and both `/feed` and
     // `/home` gate on an authenticated session.
+    //
+    // `loginAsCitizen` works against BOTH backends: the dev store
+    // (`/api/dev/login`) when it is running, and the real
+    // register → OTP → verify flow when it is not.
     await devReset(page.request);
-    const login = await devLogin(page.request, 'citizen');
-    expect(login.status()).toBe(303);
-    await seedCitizenTicketWithPhoto(page.request);
+    await loginAsCitizen(page);
+    const ids = await resolveIds(page.request);
+    await seedCitizenTicketWithPhoto(page.request, ids);
 
     await page.goto(`${BASE}/feed`, { waitUntil: 'networkidle' });
 
-    // The feed must show the report we just filed.
-    await expect(page.getByText('Streetlight out — thumbnail regression fixture')).toBeVisible();
+    /*
+     * Scope to THIS run's row.
+     *
+     * Against a persistent database (the local Postgres does not
+     * reset between runs) previous runs' fixtures are still in the
+     * feed, so the fixture text matches several rows. `getByText`
+     * in strict mode then fails with "resolved to N elements". The
+     * first matching row is the newest — this run's — because the
+     * feed is ordered newest-first.
+     */
+    const row = page
+      .locator('a[href^="/reports/"]')
+      .filter({ hasText: 'Streetlight out — thumbnail regression fixture' })
+      .first();
+    await expect(row).toBeVisible();
 
-    // Locate the thumbnail: the first <img> inside the report row.
+    // Locate the thumbnail: the <img> inside that row.
     // The fix renders an <img> (with the photo) when a photo exists;
-    // the no-photo state is a gradient <div> with NO <img>.
-    const thumb = page.locator('a[href^="/reports/"] img').first();
+    // the no-photo state is a placeholder <div> with NO <img>.
+    const thumb = row.locator('img');
     await expect(thumb).toHaveCount(1);
 
     // The element must carry the inline data URL as its source.
@@ -229,12 +319,21 @@ test.describe('report-list photo thumbnail', () => {
     page,
   }) => {
     await devReset(page.request);
-    await devLogin(page.request, 'citizen');
-    await seedCitizenTicketWithPhoto(page.request);
+    await loginAsCitizen(page);
+    const ids = await resolveIds(page.request);
+    await seedCitizenTicketWithPhoto(page.request, ids);
 
     await page.goto(`${BASE}/home`, { waitUntil: 'networkidle' });
 
-    const thumb = page.locator('a[href^="/reports/"] img').first();
+    // Scoped to this run's row — see the note in the feed test about
+    // leftover fixtures in a persistent database.
+    const row = page
+      .locator('a[href^="/reports/"]')
+      .filter({ hasText: 'Streetlight out — thumbnail regression fixture' })
+      .first();
+    await expect(row).toBeVisible();
+
+    const thumb = row.locator('img');
     await expect(thumb).toHaveCount(1);
 
     const src = await thumb.getAttribute('src');
@@ -245,33 +344,46 @@ test.describe('report-list photo thumbnail', () => {
     page,
   }) => {
     await devReset(page.request);
-    await devLogin(page.request, 'citizen');
+    await loginAsCitizen(page);
+    const ids = await resolveIds(page.request);
+    // Jittered for the same dedup reason as the photo fixture above —
+    // a fixed coordinate matches a previous run's ticket and the
+    // route answers 200 `dedup_match` instead of creating one.
+    const jitter = () => (Math.random() - 0.5) * 0.004;
     const resp = await page.request.post(`${BASE}/api/tickets`, {
       data: {
-        cityId: CITY_ID,
-        wardId: WARD_ID,
-        categoryId: 'cat_pothole',
+        cityId: ids.cityId,
+        wardId: ids.wardId,
+        categoryId: ids.potholeCategoryId,
         note: 'No photo attached — placeholder regression fixture',
-        locationLat: 23.789,
-        locationLng: 90.4075,
+        locationLat: 23.789 + jitter(),
+        locationLng: 90.4075 + jitter(),
         photoUrls: [],
       },
     });
-    expect(resp.status()).toBe(201);
+    expect(
+      resp.status(),
+      `expected 201, got ${resp.status()} — ${await resp.text()}`,
+    ).toBe(201);
 
     await page.goto(`${BASE}/feed`, { waitUntil: 'networkidle' });
 
-    await expect(
-      page.getByText('No photo attached — placeholder regression fixture'),
-    ).toBeVisible();
-
-    // The no-photo row must NOT contain an <img> — the gradient
-    // placeholder is a <div>. A stray <img> with an empty src would
-    // render the browser's broken-image glyph.
+    // Scoped to this run's row — see the note in the feed test about
+    // leftover fixtures in a persistent database.
     const row = page
       .locator('a[href^="/reports/"]')
       .filter({ hasText: 'No photo attached' })
       .first();
+    await expect(row).toBeVisible();
+
+    // The no-photo row must NOT contain an <img> — the placeholder
+    // is a <div>. A stray <img> with an empty src would render the
+    // browser's broken-image glyph.
     await expect(row.locator('img')).toHaveCount(0);
+
+    // …and it must render the shared "no photo" empty state (dashed
+    // border + camera glyph), NOT the old bare gradient square.
+    const placeholder = row.locator('[data-testid="photo-placeholder"]');
+    await expect(placeholder).toHaveCount(1);
   });
 });

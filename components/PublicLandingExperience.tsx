@@ -36,6 +36,7 @@ import CityActivityMap, {
 } from '@/components/CityActivityMap';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl } from '@/lib/format/photo-url';
+import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -701,53 +702,14 @@ function PublicActivityCard({
           }}
         />
       ) : (
-        // Bolt 008-011: replaced the unbranded teal gradient with a
-        // proper "no photo" empty state — a subtle border + a
-        // camera glyph + a label, so the card reads as
-        // intentional even when the citizen didn't attach a photo.
-        <div
-          aria-label="No photo"
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 'var(--radius-sm)',
-            border: '1px dashed var(--color-border, #e2e8f0)',
-            background: 'var(--color-surface-raised, #f1f3f5)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 2,
-            color: 'var(--color-ink-tertiary, #94a3b8)',
-            flexShrink: 0,
-          }}
-        >
-          {/* Inline camera glyph — 16x16 stroked SVG, currentColor. */}
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M3 7h3l2-2h8l2 2h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" />
-            <circle cx="12" cy="13" r="4" />
-          </svg>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 'var(--weight-semibold, 600)',
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {t('public.feed.no_photo', null, lang)}
-          </span>
-        </div>
+        /*
+         * No renderable photo → the shared "no photo" empty state
+         * (dashed border + camera glyph + label). Bolt 008-011
+         * introduced this markup inline; it now lives in
+         * components/ui/PhotoPlaceholder.tsx so the feed, home list
+         * and report cards all render the SAME empty state.
+         */
+        <PhotoPlaceholder size={80} lang={lang} showLabel />
       )}
       <div
         style={{

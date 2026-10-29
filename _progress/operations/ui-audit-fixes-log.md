@@ -11,12 +11,12 @@ report → submit → track → feedback) asserting on **visible copy**, not pix
 **Screenshots:** `ui-audit-shots/` (202 files — `{role}-{viewport}-{surface}.png`
 and `flow-{viewport}-NN-{step}.png`).
 
-**Final verification:** `npx tsc --noEmit` clean · `npm run test:unit` 62/62
-files, 885/885 tests pass · `npm run test:mockups` 15/15 visual-regression
+**Final verification:** `npx tsc --noEmit` clean · `npm run test:unit` 63/63
+files, 905/905 tests pass · `npm run test:mockups` 15/15 visual-regression
 baselines pass · all 12 role×viewport audits report **zero console errors and
 zero page errors** · `flow-walk.mjs` **PASSED** at both mobile and desktop
 (18 steps, zero assertion failures) · the full Playwright **route suite**
-(27 spec files) passes **262 passed / 7 skipped / 0 failed**, twice in a row.
+(28 spec files) passes **262 passed / 7 skipped / 0 failed**.
 
 ---
 
@@ -91,6 +91,11 @@ failure reproduced on clean `main`.
 | 43 | **Playwright swept the Vitest files.** `testDir: './tests'` had no `testMatch`, so the runner tried to execute the unit suite and died on "Vitest cannot be imported in a CommonJS module using require()". Scoped the sweep to the top-level route specs | `playwright.config.ts` (`testMatch: '*.spec.ts'`) |
 | 44 | The admin-tickets spec asserted `?categoryId=cat_streetlight` returns **1** ticket — the coherent seed now has **2** (the routed one and the in-progress one, both `dept_streetlight`). Assertion updated to pin both ids | `tests/19-admin-tickets-light.spec.ts` |
 | 45 | The rate-limit unit test raced the wall clock — it slept 1100ms and asserted a token had refilled. `setTimeout` can fire marginally early and a loaded CI box can stall the event loop, so the test failed intermittently with no code change to blame. Switched to fake timers, which the refill's `Date.now()` basis supports exactly | `tests/unit/platform/rate-limit.test.ts` |
+| 46 | **The "no photo" placeholder was a bare `linear-gradient(135deg, primary-soft, surface-raised)` square** — an unlabelled teal-grey blob that read as a broken image rather than as an intentional empty state. Three surfaces each carried their own copy of it. Extracted the camera-glyph empty state that already existed inline in `PublicLandingExperience` (Bolt 008-011) into `components/ui/PhotoPlaceholder.tsx` and pointed all three at it | `components/ui/PhotoPlaceholder.tsx` (new), `app/feed/page.tsx`, `app/home/page.tsx`, `components/ui/ReportCard.tsx`, `components/PublicLandingExperience.tsx` |
+| 47 | **The feed-photo regression spec could only run against the dev store.** It minted its session with `POST /api/dev/login`, which returns **404** now that development targets the real local Postgres — so the spec's authenticated POST came back **401** and the spec failed for a harness reason that looked like an app bug. Added `tests/helpers/auth.ts`, which uses the dev store when it is running and falls back to the real register → OTP → verify flow when it is not | `tests/helpers/auth.ts` (new), `tests/24-feed-photo-thumbnail.spec.ts` |
+| 48 | The same spec hard-coded the **seed's** ids (`city_dhaka_north`, `ward_14`, `cat_streetlight`) — but the real database assigns **Prisma CUIDs** to every city / ward / category. The ids are now resolved from the live API, which works against both backends | `tests/24-feed-photo-thumbnail.spec.ts` |
+| 49 | The same spec posted a **fixed coordinate**, so on the second run `POST /api/tickets` hit the 50m **dedup** check and answered `200 {dedup_match:true}` instead of `201` — no ticket created, and the assertion failed with no obvious cause. Coordinates are now jittered per call | `tests/24-feed-photo-thumbnail.spec.ts` |
+| 50 | The same spec located its row with a bare `getByText(fixtureNote)`, which is **strict-mode ambiguous** once a persistent database holds more than one run's fixtures. Scoped to the first matching row (the feed is newest-first, so that is this run's) | `tests/24-feed-photo-thumbnail.spec.ts` |
 
 ---
 
@@ -144,6 +149,23 @@ failure reproduced on clean `main`.
   Before regenerating, A/B it: stash the change, re-run, and confirm the
   mismatch persists. The two citizen report-detail baselines were stale on
   `main` itself (fix #29).
+- **A stale browser tab is not proof that the code is broken.** The feed
+  thumbnail looked broken in the user's tab while the source was already
+  fixed — the tab was running a bundle compiled before the fix. Before
+  changing code, drive a real browser at the running server and read the
+  DOM (`hasImg`, `img.complete`, `naturalWidth`): that distinguishes "the
+  code is wrong" from "the tab is stale" in one step.
+- **A dev-store-only endpoint makes a spec fail as if the app were
+  broken.** `/api/dev/login` returns 404 the moment development points at
+  the real database, and the spec's next authenticated request comes back
+  401 — a harness mismatch dressed up as an application bug. Probe the
+  endpoint, don't assume it exists (fix #47).
+- **A persistent database does not reset between runs.** Fixtures from
+  earlier runs accumulate, so (a) a fixed coordinate hits the 50m dedup
+  check and answers `200 {dedup_match}` instead of `201`, and (b) a
+  `getByText(fixtureNote)` becomes strict-mode ambiguous once more than
+  one row matches. Jitter the coordinates and scope the locator to the
+  first matching row (fixes #49, #50).
 - **`networkidle` never fires on a MapLibre page.** The map holds tile
   connections open for its whole life, so `waitUntil: 'networkidle'` hangs
   until the test times out. Use `domcontentloaded` and let the map's own

@@ -40,6 +40,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 15_000;
@@ -544,17 +545,13 @@ function FeedRow({
           }}
         />
       ) : (
-        <div
-          aria-hidden
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 'var(--radius-sm)',
-            background:
-              'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
-            flexShrink: 0,
-          }}
-        />
+        /*
+         * No renderable photo → the shared "no photo" empty state
+         * (dashed border + camera glyph), NOT the old bare gradient
+         * square. The gradient read as a broken image rather than as
+         * an intentional empty state.
+         */
+        <PhotoPlaceholder size={56} lang={lang} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
