@@ -94,6 +94,67 @@
 > admin writes require a WebAuthn ceremony. Seeding staff accounts is
 > the outstanding human step — see the 2026-10-28 design-log entry.
 
+## Local development database (added 2026-10-29)
+
+Local dev and production now point at **different** databases. The split is
+deliberate: a developer's laptop is the right place to experiment, and Neon
+is the right place to hold citizens' data.
+
+| | Local dev | Production |
+|---|---|---|
+| Engine | **PostgreSQL 18.1** (Windows service `postgresql-x64-18`) | Neon (free tier) |
+| Host | `localhost:5432` | `ep-empty-water-b41dwd0x-pooler.c-6.us-east-2.aws.neon.tech` |
+| Database | `cityfix` | `neondb` |
+| User | `postgres` | `neondb_owner` |
+| Config file | `.env.local` (gitignored) | Vercel project env (Production / Preview / Development) |
+| Migrations | `npm run db:migrate` | `npm run db:migrate:deploy` (run by `npm run db:setup`) |
+| Seed | `npm run db:seed` | `npm run db:seed` |
+
+> **The two databases are independent.** A local migration does not touch
+> Neon, and a Neon migration does not touch the laptop. The Vercel env
+> vars are per-environment and completely unaffected by `.env.local`.
+
+### Setting up the local database from scratch
+
+```bash
+npm run db:setup     # migrate + seed (reads .env.local)
+npm run db:studio    # browse it in Prisma Studio
+npm run db:status    # which migrations are applied
+```
+
+`db:setup` reads `.env.local` — see the note below on why the Prisma CLI
+cannot do that on its own.
+
+> **Why `scripts/load-env-local.mjs` exists.** The Prisma CLI reads
+> `.env` and **nothing else** — not `.env.local`. This repo has no `.env`
+> (it is gitignored by the `.env*` rule), so every `prisma` command used
+> to fail with `P1012 Environment variable not found: DATABASE_URL`.
+> Next.js, by contrast, loads `.env.local` automatically at runtime —
+> hence the split behaviour. `scripts/load-env-local.mjs` parses
+> `.env.local` and injects it into the child process's environment
+> (an explicit process env var still wins), and every `db:*` npm script
+> now goes through it.
+
+### The production database guard (`lib/platform/db-guard.ts`)
+
+With two databases in play, one failure mode is dangerous enough to be
+worth a hard error: if a local-style `DATABASE_URL` ever reaches
+production, the deployed app works *perfectly* and silently writes
+citizens' real names, NID numbers, phone numbers and photos into a
+developer's personal Postgres instance, where it is neither backed up nor
+governed. Nothing in the request path would fail.
+
+So `assertProductionDatabaseConfig()` (wired into `lib/db.ts` before the
+client ever connects) throws in production when `DATABASE_URL` resolves
+to a loopback host (`localhost`, `127.0.0.0/8`, `::1`, `0.0.0.0`). It
+never throws in development — using the local database is the point.
+
+The guard is **lazy**, not module-load: Vercel runs `next build` in a
+separate process that may not have env vars exposed, and a module-load
+throw would fail the build before the app ever serves a request. Same
+pattern as the WebAuthn prod guard in `lib/auth/webauthn.ts` — validate on
+first use, loud-fail on the first real request.
+
 ## Environment variables (Vercel)
 
 All 6 keys × 3 environments (Production / Preview / Development).

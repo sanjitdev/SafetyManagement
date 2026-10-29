@@ -7,10 +7,19 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { assertProductionDatabaseConfig } from './platform/db-guard';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
+
+/**
+ * Local dev uses the Postgres on this machine; production uses Neon.
+ * Before the client ever connects, refuse to run in production against
+ * a loopback database — see lib/platform/db-guard.ts for why that
+ * matters (it would silently write citizens' data to a laptop).
+ */
+assertProductionDatabaseConfig();
 
 export const prisma =
   globalForPrisma.prisma ??

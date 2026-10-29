@@ -3866,3 +3866,71 @@ all `200`.
 Production still has **zero dispatcher / crew / admin users**; admin
 provisioning is circular by design and admin writes require a
 WebAuthn ceremony. Both are deliberately not automated.
+
+### 2026-10-29 — Local PostgreSQL for development; production stays on Neon
+
+Development now runs against a **local PostgreSQL 18.1** (already
+installed on this machine as the Windows service `postgresql-x64-18`,
+listening on `localhost:5432`). Production continues to use Neon. The
+split was requested explicitly: dev must not depend on the hosted
+database, and production data must never sit on a laptop.
+
+**The credentials in `.env.local` were verified, not assumed.** The
+`postgresql_username` / `postgresql_password` pair connects and
+`select version()` returns *PostgreSQL 18.1 on x86_64-pc-windows-64*.
+The `cityfix` database was created, all three Prisma migrations were
+applied (the `_prisma_migrations` ledger shows each with a non-null
+`finished_at`), and the seed produced 1 city / 50 wards / 3
+departments / 5 categories across 16 tables.
+
+**The Prisma CLI could not see the URL at all.** Prisma reads `.env`
+and nothing else — not `.env.local` — and this repo has no `.env`
+(gitignored), so every `prisma` command failed with `P1012 Environment
+variable not found: DATABASE_URL`. Next.js, by contrast, loads
+`.env.local` automatically at runtime. That asymmetry is the whole
+reason the CLI failed while the app would have worked.
+`scripts/load-env-local.mjs` now parses `.env.local` and injects it
+into the child process's environment (an explicit process env var
+still wins), and every `db:*` npm script routes through it.
+
+**The split creates one dangerous failure mode, so it is now a hard
+error.** If a local-style `DATABASE_URL` ever reached production, the
+deployed app would work *perfectly* and silently write citizens' real
+names, NID numbers, phone numbers and photos into a developer's personal
+Postgres instance — unbacked-up, ungoverned, and invisible because
+nothing in the request path would fail. `lib/platform/db-guard.ts`
+(`assertProductionDatabaseConfig()`, wired into `lib/db.ts` before the
+client ever connects) throws in production when `DATABASE_URL` resolves
+to a loopback host — `localhost`, the whole `127.0.0.0/8` range,
+`::1`, `0.0.0.0`. It never throws in development: using the local
+database is the point. It is **lazy**, not module-load, because Vercel
+runs `next build` in a separate process without env vars exposed and a
+module-load throw would fail the build before the app ever serves a
+request — the same pattern as the WebAuthn prod guard.
+
+**Proof the app is on the real Prisma path, not the dev store.** With
+no `CITYFIX_DEV_STORE` set, `GET /api/v1/activity/public` returns the
+seeded categories under Prisma-generated CUID ids, and
+`/api/dev/login` returns **404** — the dev-store routes exist only when
+the dev store is on. A full write path was exercised too: a citizen
+registered through `POST /api/v1/auth/register` and the row was found
+in the local `User` table, linked to the seeded city.
+
+**Proof production was not affected.** Vercel env vars are
+per-environment and entirely independent of `.env.local`; the
+Production `DATABASE_URL` is a Secret and pulls as `[SENSITIVE]`.
+Production still returns the Neon-quota empty-feed signature
+`{"tickets":[],"categories":[]}` rather than the local seeded
+categories, so no local data reached it.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+**905/905** across 63 files (20 new guard tests) · `npm run
+test:mockups` **15/15** · the full Playwright route suite **262 passed
+/ 7 skipped / 0 failed** · `npm run db:status` reports *Database schema
+is up to date* against `localhost:5432`.
+
+**Still outstanding — the same two human steps.** The **Neon plan
+quota** must be raised before production data returns. Production still
+has **zero dispatcher / crew / admin users**; admin provisioning is
+circular by design and admin writes require a WebAuthn ceremony. Both
+are deliberately not automated.
