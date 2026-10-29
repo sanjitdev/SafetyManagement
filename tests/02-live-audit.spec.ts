@@ -17,7 +17,11 @@ import { test, expect, Page, ConsoleMessage } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3002';
+// The Playwright `webServer` (playwright.config.ts) runs `npm run dev:feat`
+// on port 3000 — this spec must target the same port, or it silently
+// audits whatever unrelated server happens to be listening on the port
+// it names. Every other route spec in tests/ uses 3000 for this reason.
+const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
 const ROUTES = [
   { name: 'landing-dev', url: '/' },

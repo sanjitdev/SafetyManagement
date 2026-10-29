@@ -84,7 +84,11 @@ test('dev login route accepts ?role=crew and 303-redirects', async () => {
     // 004-002 when the today's-assignments page shipped. A
     // future refactor that reverts the redirect to /home
     // (or any other target) surfaces a test fail.
-    expect(resp.headers().location).toBe('/crew');
+    //
+    // `NextResponse.redirect` requires an absolute URL, so the route
+    // sends `http://<origin>/crew`. Assert on the path — pinning the
+    // whole header would also pin the origin.
+    expect(new URL(resp.headers().location).pathname).toBe('/crew');
   } finally {
     await ctx.dispose();
   }

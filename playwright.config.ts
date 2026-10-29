@@ -18,6 +18,13 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
+  // `tests/` holds BOTH the Playwright route specs (`*.spec.ts` at the top
+  // level) and the Vitest unit suite (`tests/unit/**.test.ts`). Without an
+  // explicit `testMatch`, Playwright sweeps the whole directory and tries
+  // to run the Vitest files — which fail with "Vitest cannot be imported in
+  // a CommonJS module using require()". Scope the sweep to the top-level
+  // route specs only: the unit files live one level deeper, in `tests/unit/`.
+  testMatch: '*.spec.ts',
   // Output directory for diff artifacts and the HTML report's data.
   // Committed baselines live at tests-mockups/baselines/ (separate folder).
   outputDir: './tests-mockups/artifacts',
@@ -44,6 +51,21 @@ export default defineConfig({
   // every authenticated-flow test fails on its first request. The
   // mockup-only suite (tests/01-mockups.spec.ts) doesn't care, so we
   // always set the flag here.
+  //
+  // `DEV_SKIP_WEBAUTHN=1` short-circuits the WebAuthn guard for admin
+  // WRITES. Every write under /api/v1/admin/* passes through
+  // `requireWebAuthn` (lib/auth/guards.ts), which demands a registered
+  // WebAuthn credential plus a live challenge — impossible to satisfy
+  // in CI, since the rig has no virtual authenticator and no physical
+  // security key. Without this flag those writes answer
+  // 401 `webauthn_required` and the admin provisioning specs
+  // (tests/27-admin-users-adoption.spec.ts) cannot exercise their
+  // happy path at all.
+  //
+  // The seam is safe: it is gated on `isDevStore()`, it still requires
+  // a session, and the route's `requireRole(session, 'admin')` guard
+  // runs BEFORE it — so a non-admin still gets 403. Production never
+  // reads this variable.
   webServer: {
     command: 'npm run dev:feat',
     url: 'http://localhost:3000',
@@ -51,6 +73,7 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       CITYFIX_DEV_STORE: '1',
+      DEV_SKIP_WEBAUTHN: '1',
     },
   },
 

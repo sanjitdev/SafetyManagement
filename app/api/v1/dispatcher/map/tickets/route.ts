@@ -11,9 +11,9 @@
  *   - requireRole(session, 'dispatcher') — 401 / 403
  *   - requireSameCity for any `?cityId=` — 403 cross_city_access_denied
  *   - ward + department scope filtered at the DB / code level
- *     (same shape as the queue route; v1 documents the
- *     cat_streetlight join inline until the dev store grows
- *     a departmentId-aware findMany)
+ *     (same shape as the queue route; the ticket's department is
+ *     resolved from its category's `departmentId` because the dev
+ *     store's findMany does not yet expose a departmentId clause)
  *
  * Query parameters (Zod-validated):
  *   - status?: 'submitted' | 'routed' | 'in_progress'  (single or
@@ -151,12 +151,28 @@ export async function GET(req: NextRequest) {
 
   // Apply the ward + department scope in code (same shape as the
   // queue route — the dev store's findMany does not yet expose
-  // wardId / departmentId clauses; v1 documents the
-  // cat_streetlight join inline).
+  // wardId / departmentId clauses).
+  //
+  // A ticket's department comes from its CATEGORY
+  // (`Category.departmentId`), not from a hardcoded category id — the
+  // earlier `cat_streetlight` shortcut dropped every other category
+  // in the dispatcher's ward.
+  const categoryDepartment = new Map<string, string | null>();
+  const categoryIds = [
+    ...new Set(candidates.map((t) => t.categoryId)),
+  ];
+  for (const categoryId of categoryIds) {
+    const category = await db.category.findUnique({ where: { id: categoryId } });
+    categoryDepartment.set(categoryId, category?.departmentId ?? null);
+  }
+
   const filtered = candidates.filter((t) => {
     if (session!.wardId && t.wardId !== session!.wardId) return false;
     if (session!.departmentId) {
-      if (t.categoryId !== 'cat_streetlight') return false;
+      const ticketDepartment = categoryDepartment.get(t.categoryId) ?? null;
+      if (ticketDepartment && ticketDepartment !== session!.departmentId) {
+        return false;
+      }
     }
     return true;
   });

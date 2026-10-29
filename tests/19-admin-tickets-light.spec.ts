@@ -181,7 +181,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     expect(body.tickets[0].id).toBe('ticket_seed_routed_1');
   });
 
-  test('GET ?categoryId=cat_streetlight → 1 ticket', async () => {
+  test('GET ?categoryId=cat_streetlight → 2 tickets', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -193,9 +193,17 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     const body = (await res.json()) as {
       tickets: Array<{ id: string; categoryId: string }>;
     };
-    expect(body.tickets.length).toBe(1);
-    expect(body.tickets[0].id).toBe('ticket_seed_routed_1');
-    expect(body.tickets[0].categoryId).toBe('cat_streetlight');
+    // Two streetlight tickets, both assigned to Rashid (whose crew
+    // persona is bound to `dept_streetlight`): the routed one and the
+    // in-progress one. The in-progress ticket used to be a `pothole`
+    // (`dept_roads`) assigned to a streetlight crew — an incoherent
+    // seed that the crew list then filtered away (fix #37).
+    expect(body.tickets.length).toBe(2);
+    const ids = body.tickets.map((t) => t.id).sort();
+    expect(ids).toEqual(['ticket_seed_inprogress_1', 'ticket_seed_routed_1']);
+    for (const t of body.tickets) {
+      expect(t.categoryId).toBe('cat_streetlight');
+    }
   });
 
   test('GET ?limit=2 → 2 tickets + non-null nextCursor', async () => {

@@ -203,22 +203,23 @@ test('crew cookie + ?status=in_progress filters to in-progress-only', async () =
   }
 });
 
-test('crew cookie + ?status=submitted returns 0 tickets (submitted lives on dispatcher queue)', async () => {
-  // The crew's list API filters to `routed` + `in_progress`;
-  // a `?status=submitted` query is well-formed and returns 200
-  // with an empty list. This is the fixture the
-  // `crew-assignments-empty-390x844.png` baseline uses.
+test('crew cookie + ?status=submitted is rejected (submitted lives on dispatcher queue)', async () => {
+  // The crew's list API filters to `routed` + `in_progress` — the
+  // crew's actionable statuses. `submitted` belongs to the
+  // dispatcher queue, so the Zod enum rejects it with 400
+  // `invalid_input` rather than returning an empty list.
+  //
+  // (An earlier version of this test asserted 200-with-zero-rows,
+  // which the API never did: the enum has always been
+  // `['routed', 'in_progress']`.)
   const ctx = await pwRequest.newContext();
   try {
     const login = await devLogin(ctx, 'crew');
     expect(login.status()).toBe(303);
 
     const resp = await ctx.get(`${BASE}/api/v1/crew/tickets?status=submitted`);
-    expect(resp.status()).toBe(200);
-    const body = (await resp.json()) as {
-      tickets: Array<{ status: string }>;
-    };
-    expect(body.tickets.length).toBe(0);
+    expect(resp.status()).toBe(400);
+    expect(await resp.json()).toMatchObject({ error: 'invalid_query' });
   } finally {
     await ctx.dispose();
   }

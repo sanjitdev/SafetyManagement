@@ -201,8 +201,8 @@ test.describe('Admin cities page visual baselines (Bolt 005-002)', () => {
     await page.context().request.post(`${BASE}/api/dev/login?role=admin`);
     await page.goto(`${BASE}/admin/cities`, { waitUntil: 'networkidle' });
     await expect(page.locator('h1')).toBeVisible();
-    await page.screenshot({
-      path: 'tests-mockups/baselines/17-admin-cities.spec.ts/01-cities-overview-1440x900.png',
+    await expect(page).toHaveScreenshot('01-cities-overview-1440x900.png', {
+      maxDiffPixelRatio: 0.005,
       fullPage: true,
     });
   });
@@ -217,8 +217,8 @@ test.describe('Admin cities page visual baselines (Bolt 005-002)', () => {
     );
     // setup page uses <h2> for its section heading (no h1 is rendered)
     await expect(page.locator('h2').first()).toBeVisible();
-    await page.screenshot({
-      path: 'tests-mockups/baselines/17-admin-cities.spec.ts/02-setup-1440x900.png',
+    await expect(page).toHaveScreenshot('02-setup-1440x900.png', {
+      maxDiffPixelRatio: 0.005,
       fullPage: true,
     });
   });
@@ -233,8 +233,8 @@ test.describe('Admin cities page visual baselines (Bolt 005-002)', () => {
     );
     // taxonomy page uses <h2> for its section headings (no h1 is rendered)
     await expect(page.locator('h2').first()).toBeVisible();
-    await page.screenshot({
-      path: 'tests-mockups/baselines/17-admin-cities.spec.ts/03-taxonomy-1440x900.png',
+    await expect(page).toHaveScreenshot('03-taxonomy-1440x900.png', {
+      maxDiffPixelRatio: 0.005,
       fullPage: true,
     });
   });
@@ -248,8 +248,8 @@ test.describe('Admin cities page visual baselines (Bolt 005-002)', () => {
       { waitUntil: 'networkidle' },
     );
     await expect(page.locator('h1').first()).toBeVisible();
-    await page.screenshot({
-      path: 'tests-mockups/baselines/17-admin-cities.spec.ts/04-wards-1440x900.png',
+    await expect(page).toHaveScreenshot('04-wards-1440x900.png', {
+      maxDiffPixelRatio: 0.005,
       fullPage: true,
     });
   });

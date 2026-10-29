@@ -26,6 +26,15 @@
  *       tests/22-slow-motion-e2e-demo.spec.ts \
  *       --headed
  *
+ * Port note: the BASE below defaults to 3000 — the port the default
+ * `playwright.config.ts` starts its `webServer` on, and the port every
+ * other route spec targets. It used to default to 3100 (the port used by
+ * the dedicated `playwright.config.local.ts` rig), so when this spec ran
+ * as part of the standard suite it aimed at a server nobody was
+ * listening on: every request died with `ECONNREFUSED ::1:3100` and the
+ * test failed for a reason that had nothing to do with the app. Same
+ * class of defect as the live-audit spec's port-3002 bug (#33).
+ *
  * Tweak the pacing on the fly with `DEMO_SLOW_MO_MS`:
  *   DEMO_SLOW_MO_MS=1200  # very deliberate (≈ 6 min total)
  *   DEMO_SLOW_MO_MS=400   # brisk but readable
@@ -41,7 +50,7 @@ import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:3100';
+const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 // Pacing: each Playwright action is followed by this many ms of
 // pause so a human reviewer can read the screen before the next
 // action lands. 800ms is "deliberate demo" — slow enough to talk

@@ -22,6 +22,15 @@ tests-mockups/artifacts/
 tests-mockups/artifacts/**
 tests-mockups/html-report/
 
+# Per-run UI audit captures. Each spec (02-live-audit, 03-authenticated-flow,
+# 04-e2e-human-tester, …) writes its screenshots here on every run, so the
+# tree churns on each suite execution. These are a record of ONE audit pass,
+# not regression gates — the gates are the `toHaveScreenshot` baselines under
+# tests-mockups/baselines/. The spec headers say as much ("Screenshots from
+# this spec are NOT committed baselines and are gitignored"); this rule is
+# what makes that true.
+tests-mockups/audit/
+
 # Next.js build output
 .next/
 out/

@@ -106,28 +106,34 @@ export async function GET(req: NextRequest) {
   // Apply the ward + department scope in code. The dispatcher
   // persona is bound to (ward_14, dept_streetlight); tickets
   // outside that scope are filtered out.
+  // A ticket's department comes from its CATEGORY
+  // (`Category.departmentId`), not from a hardcoded category id. The
+  // earlier `t.categoryId !== 'cat_streetlight'` shortcut only ever
+  // matched the streetlight category, so every other category in the
+  // dispatcher's ward was silently dropped. Resolve the category's
+  // department instead.
+  const categoryDepartment = new Map<string, string | null>();
+  const categoryIds = [
+    ...new Set(candidates.map((t) => t.categoryId)),
+  ];
+  for (const categoryId of categoryIds) {
+    const category = await db.category.findUnique({ where: { id: categoryId } });
+    categoryDepartment.set(categoryId, category?.departmentId ?? null);
+  }
+
   const filtered = candidates.filter((t) => {
     // DISP-006: drop tickets with a pending dedup-decline
     // flag — the dispatcher must resolve the flag first.
     if (flaggedTicketIds.has(t.id)) return false;
     if (session!.wardId && t.wardId !== session!.wardId) return false;
     // Department: a ticket's category determines its department.
-    // We look up the category's departmentId via db.category and
-    // compare to the session's departmentId. For v1 we only have
-    // one ticket seeded; the dispatcher sees the tickets in their
-    // ward, regardless of department (the dispatcher persona is
-    // bound to dept_streetlight; streetlight-category tickets in
-    // their ward pass the filter; non-streetlight tickets are
-    // filtered out at the category-department level).
+    // A category with no department (e.g. "Other") is not
+    // department-scoped, so it stays visible to every dispatcher.
     if (session!.departmentId) {
-      // The category-department resolution is performed inline
-      // because the dev store does not yet expose a join; for
-      // v1 we accept the ticket if its categoryId is
-      // cat_streetlight (the only category that maps to
-      // dept_streetlight in the seed). A more general
-      // implementation joins `db.category.findUnique` and
-      // compares `category.departmentId` — tracked for v1.1.
-      if (t.categoryId !== 'cat_streetlight') return false;
+      const ticketDepartment = categoryDepartment.get(t.categoryId) ?? null;
+      if (ticketDepartment && ticketDepartment !== session!.departmentId) {
+        return false;
+      }
     }
     return true;
   });

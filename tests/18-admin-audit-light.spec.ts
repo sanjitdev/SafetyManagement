@@ -235,7 +235,19 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
       timeout: 5_000,
     });
     // Open the first row's details (the ▶ chevron in the first data row).
-    await page.locator('button[aria-expanded]').first().click();
+    //
+    // Scope the click to the TABLE's expand buttons. A bare
+    // `button[aria-expanded]` matches the AppHeader's mobile
+    // hamburger first — the header renders above the table, and its
+    // burger carries `aria-expanded` too (components/AppHeader.tsx).
+    // The old selector clicked the burger, no row expanded, and the
+    // `pre` assertion failed for a reason that had nothing to do with
+    // the audit page.
+    const rowToggle = page
+      .locator('table tbody button[aria-expanded]')
+      .first();
+    await expect(rowToggle).toBeVisible();
+    await rowToggle.click();
     // The before/after JSON should be visible.
     await expect(page.locator('pre').first()).toBeVisible();
     await expect(page.locator('text=twilio_api_error')).toBeVisible();

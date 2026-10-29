@@ -105,18 +105,33 @@ export async function GET(req: NextRequest) {
   // push the filter into SQL — v1.1. The crew persona is
   // bound to (ward_14, dept_streetlight) and to
   // `user_crew_rashid` (DEV_CREW_ID).
+  //
+  // A ticket's department is derived from its CATEGORY
+  // (`Category.departmentId`), not from a hardcoded category id.
+  // The earlier `t.categoryId !== 'cat_streetlight'` shortcut only
+  // ever matched the streetlight category, so a ticket assigned to
+  // the crew in any other department — e.g. the seeded
+  // in-progress pothole (roads) — was silently dropped and the crew
+  // saw an empty list. Resolve the category's department instead.
+  const categoryDepartment = new Map<string, string | null>();
+  const categoryIds = [
+    ...new Set(candidates.map((t) => t.categoryId)),
+  ];
+  for (const categoryId of categoryIds) {
+    const category = await db.category.findUnique({ where: { id: categoryId } });
+    categoryDepartment.set(categoryId, category?.departmentId ?? null);
+  }
+
   const filtered = candidates.filter((t) => {
     if (t.assignedCrewId !== session!.userId) return false;
     if (session!.wardId && t.wardId !== session!.wardId) return false;
     if (session!.departmentId) {
-      // The category-department resolution mirrors the
-      // dispatcher's queue filter (route.ts): the dev store
-      // only has cat_streetlight seeded; non-streetlight
-      // tickets in the crew's ward are filtered out at the
-      // category-department level. v1.1 will join
-      // `db.category.findUnique` and compare
-      // `category.departmentId`.
-      if (t.categoryId !== 'cat_streetlight') return false;
+      const ticketDepartment = categoryDepartment.get(t.categoryId) ?? null;
+      // A category with no department (e.g. "Other") is not
+      // department-scoped, so it stays visible to every crew.
+      if (ticketDepartment && ticketDepartment !== session!.departmentId) {
+        return false;
+      }
     }
     return true;
   });

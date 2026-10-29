@@ -308,10 +308,23 @@ describe('db.ticket', () => {
   });
 
   it('findFirst resolves by a where clause', async () => {
+    // `cat_drainage` is the category on a seeded ticket. The point of
+    // the assertion is that findFirst HONOURS the where clause — the
+    // specific category is incidental, so it tracks the seed (the
+    // in-progress ticket used to be `cat_pothole` until it moved to
+    // `cat_streetlight` so it matched its crew's department).
     const row = await db.ticket.findFirst({
-      where: { cityId: DEV_CITY_ID, categoryId: 'cat_pothole' },
+      where: { cityId: DEV_CITY_ID, categoryId: 'cat_drainage' },
     });
     expect(row).not.toBeNull();
+    // The clause is honoured, not just "some row exists".
+    expect(row?.cityId).toBe(DEV_CITY_ID);
+    expect(row?.categoryId).toBe('cat_drainage');
+    // A category no seeded ticket carries resolves to null.
+    const missing = await db.ticket.findFirst({
+      where: { cityId: DEV_CITY_ID, categoryId: 'cat_nope' },
+    });
+    expect(missing).toBeNull();
   });
 
   it('findMany filters by cityId', async () => {

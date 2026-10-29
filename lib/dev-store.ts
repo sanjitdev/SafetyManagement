@@ -471,10 +471,19 @@ function seed(): Store {
   });
   // Bolt 007-002: a second crew user in the same ward so the
   // dispatcher picker dropdown has more than one option. (Same
-  // wardId as Rashid; same departmentId.) The picker is ward-
-  // scoped, not department-scoped, so the departmentId doesn't
-  // change the filter — but a real second crew member makes the
-  // dropdown testable.
+  // wardId as Rashid.) The picker is ward-scoped, not
+  // department-scoped, so the departmentId doesn't change the
+  // filter — but a real second crew member makes the dropdown
+  // testable.
+  //
+  // Karim is bound to `dept_roads` (not `dept_streetlight` like
+  // Rashid) so the ward has a crew for the roads department too.
+  // A ticket's department comes from its category, and the crew
+  // list filters on that department — so the roads-category seed
+  // tickets (the in-progress pothole, the resolved drainage) are
+  // assigned to Karim. Before this, they were assigned to Rashid
+  // (a streetlight crew), which put the seed at odds with the
+  // department rule and left Rashid's in-progress list empty.
   const crewId2 = 'user_crew_karim';
   users.set(crewId2, {
     id: crewId2,
@@ -486,7 +495,7 @@ function seed(): Store {
     email: null,
     passwordHash: DEMO_PASSWORD_HASH,
     wardId,
-    departmentId: deptIds.streetlight,
+    departmentId: deptIds.roads,
     languageOverride: null,
     webAuthnCredentials: null,
     webAuthnChallenge: null,
@@ -614,7 +623,12 @@ function seed(): Store {
       id: 'ticket_seed_inprogress_1',
       cityId,
       wardId,
-      categoryId: catIds.pothole,
+      // A streetlight category, so the ticket belongs to
+      // `dept_streetlight` — the department the crew persona
+      // (Rashid) is bound to. The crew list filters on the
+      // ticket's category department, so a roads-category ticket
+      // would never appear in Rashid's list.
+      categoryId: catIds.streetlight,
       reporterId: citizenId,
       assignedCrewId: crewId,
       status: 'in_progress',
@@ -622,7 +636,7 @@ function seed(): Store {
       locationLat: DHAKA_CENTER.lat + 0.001,
       locationLabel: 'Mirpur 14, main road',
       locationLabelBn: 'মিরপুর ১৪, প্রধান সড়ক',
-      note: 'Deep pothole near the bus stop. Two motorcycles have fallen.',
+      note: 'Streetlight out on the main road for three nights. The stretch is pitch dark after sunset.',
       internalNote: 'Crew dispatched; ETA tomorrow morning.',
       feedback: null,
       duplicateOfId: null,
@@ -637,7 +651,9 @@ function seed(): Store {
       wardId,
       categoryId: catIds.drainage,
       reporterId: citizenId,
-      assignedCrewId: crewId,
+      // Drainage is `dept_roads` — assigned to Karim (the roads
+      // crew), not Rashid (the streetlight crew).
+      assignedCrewId: crewId2,
       status: 'resolved',
       locationLng: DHAKA_CENTER.lng + 0.001,
       locationLat: DHAKA_CENTER.lat - 0.002,
@@ -713,8 +729,9 @@ function seed(): Store {
         id: `trail_seed_${t.id}_inprogress`,
         ticketId: t.id,
         toStatus: 'in_progress',
-        actorId: 'user_crew_rashid',
-        note: 'Crew on site; pothole marked for repair.',
+        // The crew that worked the ticket — matches `assignedCrewId`.
+        actorId: t.assignedCrewId ?? 'user_crew_rashid',
+        note: 'Crew on site; light unit marked for replacement.',
         timestamp: t.updatedAt,
       });
     } else if (t.status === 'resolved' || t.status === 'closed') {
