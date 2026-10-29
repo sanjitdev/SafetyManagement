@@ -22,11 +22,15 @@
  * *rate* invariants, which are identical in both modes.
  */
 
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { rateLimit, _resetRateLimits } from '@/lib/platform/rate-limit';
 
 beforeEach(() => {
   _resetRateLimits();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('rateLimit', () => {
@@ -65,21 +69,31 @@ describe('rateLimit', () => {
     expect(rejected.retryAfterMs).toBeLessThanOrEqual(1000);
   });
 
-  it('refills the bucket over time and allows the request again', async () => {
+  it('refills the bucket over time and allows the request again', () => {
+    // Fake timers: the refill is driven by `Date.now()`, so the test
+    // controls the clock instead of racing a real 1100ms sleep. A
+    // wall-clock sleep can fire marginally early or late, and a
+    // loaded CI box can stall the event loop past the boundary —
+    // which made this test intermittently fail with no code change
+    // to blame.
+    vi.useFakeTimers();
+
     const key = 'actor_1:tkt_1';
     for (let i = 0; i < 4; i += 1) rateLimit(key);
     expect(rateLimit(key).allowed).toBe(false);
 
-    // Wait for at least one refill interval (1 token/sec).
-    await new Promise((r) => setTimeout(r, 1100));
+    // Advance past one refill interval (1 token/sec).
+    vi.advanceTimersByTime(1_100);
 
     expect(rateLimit(key).allowed).toBe(true);
   });
 
-  it('caps the bucket at the burst capacity when idle', async () => {
+  it('caps the bucket at the burst capacity when idle', () => {
+    vi.useFakeTimers();
+
     const key = 'actor_1:tkt_1';
     // Long idle → the bucket refills but must NOT exceed capacity.
-    await new Promise((r) => setTimeout(r, 1100));
+    vi.advanceTimersByTime(1_100);
 
     const results = Array.from({ length: 5 }, () => rateLimit(key));
     expect(results.filter((r) => r.allowed).length).toBe(4);

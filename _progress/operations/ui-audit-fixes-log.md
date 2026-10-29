@@ -90,6 +90,7 @@ failure reproduced on clean `main`.
 | 42 | The slow-motion E2E spec aimed at **port 3100** (the dedicated `playwright.config.local.ts` rig) while the standard suite's `webServer` runs on **3000** — every request died with `ECONNREFUSED ::1:3100`. Same class of defect as #33. Defaulted to 3000 | `tests/22-slow-motion-e2e-demo.spec.ts` |
 | 43 | **Playwright swept the Vitest files.** `testDir: './tests'` had no `testMatch`, so the runner tried to execute the unit suite and died on "Vitest cannot be imported in a CommonJS module using require()". Scoped the sweep to the top-level route specs | `playwright.config.ts` (`testMatch: '*.spec.ts'`) |
 | 44 | The admin-tickets spec asserted `?categoryId=cat_streetlight` returns **1** ticket — the coherent seed now has **2** (the routed one and the in-progress one, both `dept_streetlight`). Assertion updated to pin both ids | `tests/19-admin-tickets-light.spec.ts` |
+| 45 | The rate-limit unit test raced the wall clock — it slept 1100ms and asserted a token had refilled. `setTimeout` can fire marginally early and a loaded CI box can stall the event loop, so the test failed intermittently with no code change to blame. Switched to fake timers, which the refill's `Date.now()` basis supports exactly | `tests/unit/platform/rate-limit.test.ts` |
 
 ---
 
@@ -203,3 +204,8 @@ failure reproduced on clean `main`.
   `testMatch`.** `testDir: './tests'` swept the Vitest unit suite and
   died on a CommonJS/ESM import error before a single assertion ran
   (fix #43).
+- **A wall-clock sleep is a race, even when it sleeps "long enough".**
+  A 1100ms sleep asserting a 1000ms refill boundary fails whenever the
+  timer fires early or the event loop stalls. If the code under test
+  reads the clock, drive the clock instead: fake timers make the
+  assertion exact and the test 200× faster (fix #45).
