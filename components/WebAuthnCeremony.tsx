@@ -196,10 +196,21 @@ export function WebAuthnCeremony(props: WebAuthnCeremonyProps) {
       // Step 3: POST the signed result to the verify
       // endpoint. The challengeId is the link between the
       // challenge row and the verify request.
+      //
+      // `initialBody` is merged in because the verify endpoint may
+      // need more than the signed response: the registration route
+      // (`POST /api/auth/webauthn/register`) requires a
+      // `credentialName` alongside the attestation, and that name
+      // was configured by the caller through `initialBody`. Without
+      // this merge the register endpoint answered 400
+      // `invalid_input` (missing `credentialName`) and no credential
+      // was ever stored — the ceremony component could not complete
+      // a registration from any call site.
       const verifyRes = await fetch(verifyEndpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          ...initialBody,
           challengeId: challenge.challengeId,
           attestationResponse: mode === 'register' ? signed : undefined,
           assertionResponse: mode === 'login' ? signed : undefined,
@@ -231,6 +242,26 @@ export function WebAuthnCeremony(props: WebAuthnCeremonyProps) {
 
   // The 3-state UI. The button is disabled in `in_progress`
   // and `done` so the user cannot double-fire the ceremony.
+  //
+  // The COPY depends on the mode. A registration ceremony ENROLS a
+  // key ("Register a security key"); an assertion ceremony SIGNS IN
+  // with one ("Sign in with security key"). Using the assertion copy
+  // for a registration button told the admin to sign in when the app
+  // actually wanted them to enrol — the exact opposite of what the
+  // button does.
+  const titleKey =
+    mode === 'register'
+      ? 'admin.webauthn.register.title'
+      : 'admin.webauthn.title';
+  const instructionKey =
+    mode === 'register'
+      ? 'admin.webauthn.register.instruction'
+      : 'admin.webauthn.instruction';
+  const successKey =
+    mode === 'register'
+      ? 'admin.webauthn.register.done'
+      : 'admin.webauthn.success';
+
   return (
     <div data-testid="webauthn-ceremony" data-mode={mode} data-state={state}>
       {state === 'idle' && (
@@ -238,19 +269,26 @@ export function WebAuthnCeremony(props: WebAuthnCeremonyProps) {
           type="button"
           onClick={run}
           data-testid="webauthn-ceremony-start"
-          className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="admin-btn-primary px-4 py-2 rounded-md focus:outline-none"
         >
-          {t('admin.webauthn.title', null, lang)}
+          {t(titleKey, null, lang)}
         </button>
       )}
       {state === 'in_progress' && (
         <div data-testid="webauthn-ceremony-progress" className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
+            className="inline-block h-4 w-4 animate-spin rounded-full border-2"
+            style={{
+              borderColor: 'var(--color-primary-soft)',
+              borderTopColor: 'var(--color-primary)',
+            }}
           />
-          <p className="text-sm text-gray-700">
-            {t('admin.webauthn.instruction', null, lang)}
+          <p
+            className="text-sm"
+            style={{ color: 'var(--color-ink-secondary)' }}
+          >
+            {t(instructionKey, null, lang)}
           </p>
         </div>
       )}
@@ -259,7 +297,8 @@ export function WebAuthnCeremony(props: WebAuthnCeremonyProps) {
           {errorCode ? (
             <p
               data-testid="webauthn-ceremony-error"
-              className="text-sm text-red-600"
+              className="text-sm"
+              style={{ color: 'var(--color-danger)' }}
             >
               {errorCode === 'webauthn_no_credential'
                 ? t('admin.webauthn.error.no_credential', null, lang)
@@ -271,9 +310,10 @@ export function WebAuthnCeremony(props: WebAuthnCeremonyProps) {
           ) : (
             <p
               data-testid="webauthn-ceremony-success"
-              className="text-sm text-green-700"
+              className="text-sm"
+              style={{ color: 'var(--color-success)' }}
             >
-              {t('admin.webauthn.success', null, lang)}
+              {t(successKey, null, lang)}
             </p>
           )}
         </div>

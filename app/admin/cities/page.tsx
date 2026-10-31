@@ -142,33 +142,39 @@ export default function AdminCitiesPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.cities.title', null, lang)} …
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-slate-900">
+          <span className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.cities.title', null, lang)}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
             {t('admin.cities.subtitle', null, lang)}
           </span>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/admin/audit"
-            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+            className="admin-pill rounded-full px-3 py-1 text-xs font-medium"
           >
             {t('admin.audit.title', null, lang)}
           </Link>
           <Link
             href="/admin/tickets"
-            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+            className="admin-pill rounded-full px-3 py-1 text-xs font-medium"
           >
             {t('admin.tickets.title', null, lang)}
           </Link>
@@ -176,26 +182,42 @@ export default function AdminCitiesPage() {
       </div>
       <main className="px-6 py-8 max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.cities.title', null, lang)}
           </h1>
           <button
             type="button"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
             onClick={handleNewCity}
           >
             {t('admin.cities.cta.newCity', null, lang)}
           </button>
         </div>
         {error ? (
-          <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div
+            className="rounded border p-3 text-sm"
+            style={{
+              borderColor: 'var(--color-danger)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-danger)',
+            }}
+          >
             {error}
           </div>
         ) : null}
         {!cities ? (
-          <div className="text-sm text-slate-600">…</div>
+          <div className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
+            …
+          </div>
         ) : cities.length === 0 ? (
-          <div className="rounded border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+          <div
+            className="rounded border p-8 text-center text-sm"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-ink-secondary)',
+            }}
+          >
             {t('admin.cities.empty', null, lang)}
           </div>
         ) : (
@@ -204,7 +226,13 @@ export default function AdminCitiesPage() {
                 scrolls sideways and the table's `minWidth` stops the
                 browser from squeezing every column into a sliver. */}
             <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-slate-100 text-slate-700">
+            <thead
+              className="text-left"
+              style={{
+                background: 'var(--color-surface-sunken)',
+                color: 'var(--color-ink-secondary)',
+              }}
+            >
               <tr>
                 <th className="text-left px-4 py-2">
                   {t('admin.cities.col.name', null, lang)}
@@ -227,48 +255,77 @@ export default function AdminCitiesPage() {
                 <th className="text-right px-4 py-2"></th>
               </tr>
             </thead>
-            <tbody className="bg-white">
+            <tbody style={{ background: 'var(--color-surface-card)' }}>
               {cities.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                <tr
+                  key={c.id}
+                  className="border-t"
+                  style={{ borderTop: '1px solid var(--color-border)' }}
+                >
+                  <td
+                    className="px-4 py-3 font-medium"
+                    style={{ color: 'var(--color-ink)' }}
+                  >
                     {lang === 'bn' ? c.nameBn ?? c.name : c.name}
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={
-                        c.status === 'live'
-                          ? 'rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700'
-                          : c.status === 'setup'
-                            ? 'rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700'
-                            : 'rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700'
-                      }
+                      className="rounded-full px-2 py-1 text-xs"
+                      style={{
+                        background:
+                          c.status === 'live'
+                            ? 'var(--color-success-soft, var(--color-surface-sunken))'
+                            : c.status === 'setup'
+                              ? 'var(--color-warning-soft, var(--color-surface-sunken))'
+                              : 'var(--color-surface-sunken)',
+                        color:
+                          c.status === 'live'
+                            ? 'var(--color-success)'
+                            : c.status === 'setup'
+                              ? 'var(--color-warning)'
+                              : 'var(--color-ink-secondary)',
+                      }}
                     >
                       {t(`admin.cities.status.${c.status}`, null, lang)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td
+                    className="px-4 py-3 text-right"
+                    style={{ color: 'var(--color-ink-secondary)' }}
+                  >
                     {c.counts.ticketsPerDay}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td
+                    className="px-4 py-3 text-right"
+                    style={{ color: 'var(--color-ink-secondary)' }}
+                  >
                     {c.counts.wards}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td
+                    className="px-4 py-3 text-right"
+                    style={{ color: 'var(--color-ink-secondary)' }}
+                  >
                     {c.counts.categories}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td
+                    className="px-4 py-3 text-right"
+                    style={{ color: 'var(--color-ink-secondary)' }}
+                  >
                     {c.counts.departments}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="flex items-center justify-end gap-3">
                       <Link
-                        className="text-emerald-700 hover:underline"
+                        className="hover:underline"
+                        style={{ color: 'var(--color-primary)' }}
                         href={`/admin/cities/${c.id}/adoption`}
                         data-testid={`admin-cities-link-adoption-${c.id}`}
                       >
                         {t('admin.cities.viewAdoption', null, lang)}
                       </Link>
                       <Link
-                        className="text-emerald-700 hover:underline"
+                        className="hover:underline"
+                        style={{ color: 'var(--color-primary)' }}
                         href={`/admin/cities/${c.id}/setup`}
                       >
                         {t('admin.cities.cta.view', null, lang)}

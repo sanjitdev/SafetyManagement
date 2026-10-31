@@ -347,35 +347,72 @@ export default function AdminCityUsersPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.users.title', null, lang)} …
       </div>
     );
   }
 
-  const statusPill = (status: AdminUserCard['status']): string => {
-    if (status === 'active') return 'bg-emerald-100 text-emerald-700';
-    if (status === 'invited') return 'bg-amber-100 text-amber-700';
-    return 'bg-slate-200 text-slate-600';
+  /**
+   * The status pill's colours.
+   *
+   * Previously a class-name string carrying a hardcoded palette
+   * that could not follow the theme. Now it returns the token
+   * references the pill's inline style consumes.
+   */
+  const statusPill = (
+    status: AdminUserCard['status'],
+  ): { background: string; color: string } => {
+    if (status === 'active') {
+      return {
+        background: 'var(--color-success-soft)',
+        color: 'var(--color-success)',
+      };
+    }
+    if (status === 'invited') {
+      return {
+        background: 'var(--color-warning-soft)',
+        color: 'var(--color-warning)',
+      };
+    }
+    return {
+      background: 'var(--color-surface-raised)',
+      color: 'var(--color-ink-secondary)',
+    };
   };
 
+  const fieldInputStyle = {
+    borderColor: 'var(--color-border-strong)',
+    background: 'var(--color-surface-card)',
+    color: 'var(--color-ink)',
+  };
+  const labelStyle = { color: 'var(--color-ink-secondary)' };
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div
+      className="min-h-screen pb-24"
+      style={{ background: 'var(--color-surface-page)' }}
+    >
       <header
         data-testid="admin-city-users-header"
-        className="sticky top-0 z-20 border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        className="sticky top-0 z-20 border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
       >
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.users.title', null, lang)}
           </h1>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
             {t('admin.users.subtitle', null, lang)}
           </span>
         </div>
         <Link
           href="/admin/cities"
-          className="text-sm text-emerald-700 hover:underline"
+          className="text-sm hover:underline"
+          style={{ color: 'var(--color-primary)' }}
         >
           {t('admin.users.back', null, lang)}
         </Link>
@@ -391,7 +428,7 @@ export default function AdminCityUsersPage() {
             <button
               type="button"
               data-testid="admin-city-users-button-add"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
               onClick={openAdd}
             >
               {t('admin.users.cta.add', null, lang)}
@@ -400,14 +437,16 @@ export default function AdminCityUsersPage() {
               <button
                 type="button"
                 data-testid="admin-city-users-button-bulk-import"
-                className="text-sm text-emerald-700 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--color-primary)' }}
                 onClick={() => setImportOpen(true)}
               >
                 {t('admin.users.cta.bulkImport', null, lang)}
               </button>
               <button
                 type="button"
-                className="text-sm text-slate-500 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--color-ink-tertiary)' }}
                 onClick={downloadTemplate}
               >
                 {t('admin.users.cta.downloadTemplate', null, lang)}
@@ -435,10 +474,17 @@ export default function AdminCityUsersPage() {
                 aria-selected={tab === key}
                 data-testid={`admin-city-users-tab-${key}`}
                 onClick={() => setTab(key)}
-                className={
+                className="rounded-full px-3 py-1 text-xs font-medium"
+                style={
                   tab === key
-                    ? 'rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white'
-                    : 'rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300'
+                    ? {
+                        background: 'var(--color-primary)',
+                        color: 'var(--color-on-primary)',
+                      }
+                    : {
+                        background: 'var(--color-surface-raised)',
+                        color: 'var(--color-ink-secondary)',
+                      }
                 }
               >
                 {t(`admin.users.tab.${key}`, null, lang)} ({count})
@@ -449,7 +495,12 @@ export default function AdminCityUsersPage() {
           {error ? (
             <div
               data-testid="admin-city-users-error"
-              className="mb-3 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+              className="mb-3 rounded border p-3 text-sm"
+              style={{
+                borderColor: 'var(--color-danger)',
+                background: 'var(--color-surface-card)',
+                color: 'var(--color-danger)',
+              }}
             >
               {error === 'webauthn_required' ||
               error === 'webauthn_assertion_expired'
@@ -460,9 +511,18 @@ export default function AdminCityUsersPage() {
 
           <div data-testid="admin-city-users-list" className="space-y-2">
             {!data ? (
-              <div className="text-sm text-slate-600">…</div>
+              <div className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
+                …
+              </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="rounded border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+              <div
+                className="rounded border p-8 text-center text-sm"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  background: 'var(--color-surface-card)',
+                  color: 'var(--color-ink-secondary)',
+                }}
+              >
                 {t('admin.users.empty', null, lang)}
               </div>
             ) : (
@@ -472,32 +532,55 @@ export default function AdminCityUsersPage() {
                   type="button"
                   data-testid={`admin-city-users-row-${u.id}`}
                   onClick={() => openEdit(u)}
-                  className="w-full rounded border border-slate-200 bg-white p-4 text-left hover:border-emerald-400"
+                  className="admin-card-hover w-full rounded border p-4 text-left"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-surface-card)',
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate font-medium text-slate-900">
+                      <div
+                        className="truncate font-medium"
+                        style={{ color: 'var(--color-ink)' }}
+                      >
                         {u.nameBn}
                       </div>
-                      <div className="truncate text-xs text-slate-500">
+                      <div
+                        className="truncate text-xs"
+                        style={{ color: 'var(--color-ink-tertiary)' }}
+                      >
                         {u.nameEn}
                       </div>
-                      <div className="mt-1 truncate text-xs text-slate-600">
+                      <div
+                        className="mt-1 truncate text-xs"
+                        style={{ color: 'var(--color-ink-secondary)' }}
+                      >
                         {u.identifier}
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-xs"
+                        style={{
+                          background: 'var(--color-primary-soft)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
                         {t(`admin.users.role.${u.role}`, null, lang)}
                       </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${statusPill(u.status)}`}
+                        className="rounded-full px-2 py-0.5 text-xs"
+                        style={statusPill(u.status)}
                       >
                         {t(`admin.users.status.${u.status}`, null, lang)}
                       </span>
                     </div>
                   </div>
-                  <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                  <dl
+                    className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs"
+                    style={{ color: 'var(--color-ink-secondary)' }}
+                  >
                     <div className="flex gap-1">
                       <dt>{t('admin.users.form.wards', null, lang)}:</dt>
                       <dd>
@@ -541,19 +624,24 @@ export default function AdminCityUsersPage() {
         <section>
           <form
             data-testid="admin-city-users-form"
-            className="sticky top-24 space-y-3 rounded border border-slate-200 bg-white p-4"
+            className="sticky top-24 space-y-3 rounded border p-4"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
             onSubmit={(e) => {
               e.preventDefault();
               void handleSave();
             }}
           >
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.nameBn', null, lang)}
               </span>
               <input
                 data-testid="admin-city-users-form-input-name-bn"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.nameBn}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, nameBn: e.target.value }))
@@ -562,12 +650,13 @@ export default function AdminCityUsersPage() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.nameEn', null, lang)}
               </span>
               <input
                 data-testid="admin-city-users-form-input-name-en"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.nameEn}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, nameEn: e.target.value }))
@@ -576,12 +665,13 @@ export default function AdminCityUsersPage() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.identifier', null, lang)}
               </span>
               <input
                 data-testid="admin-city-users-form-input-identifier"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.identifier}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, identifier: e.target.value }))
@@ -590,13 +680,14 @@ export default function AdminCityUsersPage() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.email', null, lang)}
               </span>
               <input
                 data-testid="admin-city-users-form-input-email"
                 type="email"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.email}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, email: e.target.value }))
@@ -605,12 +696,13 @@ export default function AdminCityUsersPage() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.role', null, lang)}
               </span>
               <select
                 data-testid="admin-city-users-form-select-role"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.role}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -631,13 +723,14 @@ export default function AdminCityUsersPage() {
 
             {form.role === 'dispatcher' ? (
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">
+                <span className="mb-1 block font-medium" style={labelStyle}>
                   {t('admin.users.form.wards', null, lang)}
                 </span>
                 <select
                   data-testid="admin-city-users-form-multi-wards"
                   multiple
-                  className="h-24 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  className="h-24 w-full rounded border px-2 py-1.5 text-sm"
+                  style={fieldInputStyle}
                   value={form.wardIds}
                   onChange={(e) =>
                     setForm((f) => ({
@@ -661,12 +754,13 @@ export default function AdminCityUsersPage() {
             {form.role === 'crew' ? (
               <>
                 <label className="block text-sm">
-                  <span className="mb-1 block font-medium text-slate-700">
+                  <span className="mb-1 block font-medium" style={labelStyle}>
                     {t('admin.users.form.crew', null, lang)}
                   </span>
                   <select
                     data-testid="admin-city-users-form-select-crew"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="w-full rounded border px-2 py-1.5 text-sm"
+                    style={fieldInputStyle}
                     value={form.crewId}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, crewId: e.target.value }))
@@ -681,12 +775,13 @@ export default function AdminCityUsersPage() {
                   </select>
                 </label>
                 <label className="block text-sm">
-                  <span className="mb-1 block font-medium text-slate-700">
+                  <span className="mb-1 block font-medium" style={labelStyle}>
                     {t('admin.users.form.department', null, lang)}
                   </span>
                   <select
                     data-testid="admin-city-users-form-select-department"
-                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                    className="w-full rounded border px-2 py-1.5 text-sm"
+                    style={fieldInputStyle}
                     value={form.departmentId}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, departmentId: e.target.value }))
@@ -704,17 +799,27 @@ export default function AdminCityUsersPage() {
             ) : null}
 
             {form.role === 'supervisor' ? (
-              <p className="rounded bg-slate-50 p-2 text-xs text-slate-600">
+              <p
+                className="rounded p-2 text-xs"
+                style={{
+                  background: 'var(--color-surface-sunken)',
+                  color: 'var(--color-ink-secondary)',
+                }}
+              >
                 {t('admin.users.form.supervisor.note', null, lang)}
               </p>
             ) : null}
 
             <label className="block text-sm">
-              <span className="mb-1 flex items-center justify-between font-medium text-slate-700">
+              <span
+                className="mb-1 flex items-center justify-between font-medium"
+                style={labelStyle}
+              >
                 {t('admin.users.form.password', null, lang)}
                 <button
                   type="button"
-                  className="text-xs font-normal text-emerald-700 hover:underline"
+                  className="text-xs font-normal hover:underline"
+                  style={{ color: 'var(--color-primary)' }}
                   onClick={autoGenerate}
                 >
                   {t('admin.users.cta.autoGenerate', null, lang)}
@@ -723,24 +828,29 @@ export default function AdminCityUsersPage() {
               <input
                 data-testid="admin-city-users-form-input-password"
                 type="text"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.password}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, password: e.target.value }))
                 }
               />
-              <span className="mt-1 block text-xs text-slate-500">
+              <span
+                className="mt-1 block text-xs"
+                style={{ color: 'var(--color-ink-tertiary)' }}
+              >
                 {t('admin.users.form.password.hint', null, lang)}
               </span>
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">
+              <span className="mb-1 block font-medium" style={labelStyle}>
                 {t('admin.users.form.status', null, lang)}
               </span>
               <select
                 data-testid="admin-city-users-form-select-status"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                style={fieldInputStyle}
                 value={form.status}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -766,14 +876,15 @@ export default function AdminCityUsersPage() {
                 type="submit"
                 disabled={busy}
                 data-testid="admin-city-users-form-button-save"
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
               >
                 {t('admin.users.cta.save', null, lang)}
               </button>
               <button
                 type="button"
                 data-testid="admin-city-users-form-button-cancel"
-                className="text-sm text-slate-600 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--color-ink-secondary)' }}
                 onClick={() => setForm({ ...EMPTY_FORM })}
               >
                 {t('admin.users.cta.cancel', null, lang)}
@@ -783,7 +894,8 @@ export default function AdminCityUsersPage() {
                   type="button"
                   disabled={busy}
                   data-testid="admin-city-users-form-button-delete"
-                  className="ml-auto text-sm text-rose-600 hover:underline disabled:opacity-50"
+                  className="ml-auto text-sm hover:underline disabled:opacity-50"
+                  style={{ color: 'var(--color-danger)' }}
                   onClick={() => void handleDelete()}
                 >
                   {t('admin.users.cta.delete', null, lang)}
@@ -795,21 +907,36 @@ export default function AdminCityUsersPage() {
       </main>
 
       {/* ---------------- Sticky launch bar ---------------- */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white px-6 py-3">
+      <div
+        className="fixed inset-x-0 bottom-0 border-t px-6 py-3"
+        style={{
+          borderTop: '1px solid var(--color-border)',
+          background: 'var(--color-surface-card)',
+        }}
+      >
         <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-3">
           <button
             type="button"
             disabled={!data?.canLaunch}
             data-testid="admin-city-users-button-launch"
             title={data?.canLaunch ? undefined : t('admin.users.launch.disabled', null, lang)}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:cursor-not-allowed"
+            style={
+              data?.canLaunch
+                ? undefined
+                : {
+                    background: 'var(--color-surface-raised)',
+                    color: 'var(--color-ink-disabled)',
+                  }
+            }
           >
             {t('admin.users.cta.launch', null, lang)}
           </button>
           <Link
             href="/admin/cities"
             data-testid="admin-city-users-link-skip"
-            className="text-sm text-slate-600 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             {t('admin.users.cta.skip', null, lang)}
           </Link>
@@ -818,36 +945,48 @@ export default function AdminCityUsersPage() {
 
       {/* ---------------- Bulk import modal ---------------- */}
       {importOpen ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 p-4">
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15, 23, 42, 0.45)' }}
+        >
           <div
             data-testid="admin-city-users-import"
-            className="w-full max-w-2xl space-y-3 rounded bg-white p-5"
+            className="w-full max-w-2xl space-y-3 rounded p-5"
+            style={{ background: 'var(--color-surface-card)' }}
           >
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
               {t('admin.users.import.title', null, lang)}
             </h2>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
               {t('admin.users.import.columns', null, lang)}
             </p>
             <textarea
               data-testid="admin-city-users-import-csv"
               aria-label={t('admin.users.import.title', null, lang)}
-              className="h-40 w-full rounded border border-slate-300 p-2 font-mono text-xs"
+              className="h-40 w-full rounded border p-2 font-mono text-xs"
+              style={fieldInputStyle}
               value={importCsv}
               onChange={(e) => setImportCsv(e.target.value)}
             />
             {importResult ? (
               <div
                 data-testid="admin-city-users-import-result"
-                className="rounded border border-slate-200 bg-slate-50 p-3 text-xs"
+                className="rounded border p-3 text-xs"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  background: 'var(--color-surface-sunken)',
+                }}
               >
-                <p className="text-emerald-700">
+                <p style={{ color: 'var(--color-success)' }}>
                   {importResult.imported} {t('admin.users.import.success', null, lang)}
                 </p>
-                <p className="text-rose-700">
+                <p style={{ color: 'var(--color-danger)' }}>
                   {importResult.failed} {t('admin.users.import.failed', null, lang)}
                 </p>
-                <ul className="mt-1 space-y-0.5 text-slate-700">
+                <ul
+                  className="mt-1 space-y-0.5"
+                  style={{ color: 'var(--color-ink-secondary)' }}
+                >
                   {importResult.errors.map((e) => (
                     <li key={e.rowNumber}>
                       {t('admin.users.import.row', null, lang)} {e.rowNumber}:{' '}
@@ -862,7 +1001,7 @@ export default function AdminCityUsersPage() {
                 type="button"
                 disabled={busy}
                 data-testid="admin-city-users-import-submit"
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
                 onClick={() => void handleImport()}
               >
                 {t('admin.users.cta.bulkImport', null, lang)}
@@ -870,7 +1009,8 @@ export default function AdminCityUsersPage() {
               <button
                 type="button"
                 data-testid="admin-city-users-import-close"
-                className="text-sm text-slate-600 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--color-ink-secondary)' }}
                 onClick={() => {
                   setImportOpen(false);
                   setImportResult(null);

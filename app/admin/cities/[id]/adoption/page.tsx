@@ -283,31 +283,66 @@ export default function AdminCityAdoptionPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.adoption.title', null, lang)} …
       </div>
     );
   }
 
+  /*
+   * The chart's series colours.
+   *
+   * These were literal hexes (`#047857`, `#2563eb`, `#9333ea`,
+   * `#f59e0b`) so the charts stayed in their light-mode hues in dark
+   * mode. They are now token references, so the whole visualisation
+   * follows the theme. `fill`/`stroke` accept `var(--token)` in SVG.
+   */
+  const SERIES = {
+    submitted: 'var(--color-primary)',
+    resolved: 'var(--color-status-in-progress)',
+    registered: 'var(--color-status-routed)',
+    comparison: 'var(--color-warning)',
+  } as const;
+
+  const panelStyle = {
+    borderColor: 'var(--color-border)',
+    background: 'var(--color-surface-card)',
+  };
+  const tableHeadStyle = {
+    background: 'var(--color-surface-sunken)',
+    color: 'var(--color-ink-secondary)',
+  };
+  const fieldStyle = {
+    borderColor: 'var(--color-border-strong)',
+    background: 'var(--color-surface-card)',
+    color: 'var(--color-ink)',
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .print-block { break-inside: avoid; }
-          body { background: #fff; }
-        }
-      `}</style>
+    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+      {/*
+        The print rules live in the global stylesheet now
+        (`app/globals.css`) — the page-local `body { background: #fff }`
+        was a hardcoded white that would print wrong from a dark
+        theme. `no-print` / `print-block` are global classes.
+      */}
 
       <header
         data-testid="admin-city-adoption-header"
-        className="no-print sticky top-0 z-20 border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        className="no-print sticky top-0 z-20 border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
       >
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.adoption.title', null, lang)}
           </h1>
-          <label className="flex items-center gap-2 text-xs text-slate-600">
+          <label
+            className="flex items-center gap-2 text-xs"
+            style={{ color: 'var(--color-ink-secondary)' }}
+          >
             <input
               type="checkbox"
               data-testid="admin-city-adoption-compare-toggle"
@@ -321,7 +356,7 @@ export default function AdminCityAdoptionPage() {
           <button
             type="button"
             data-testid="admin-city-adoption-button-export-pdf"
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
             onClick={handleExportPdf}
           >
             {t('admin.adoption.cta.exportPdf', null, lang)}
@@ -329,14 +364,16 @@ export default function AdminCityAdoptionPage() {
           <button
             type="button"
             data-testid="admin-city-adoption-button-export-csv"
-            className="text-sm text-emerald-700 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-primary)' }}
             onClick={handleExportCsv}
           >
             {t('admin.adoption.cta.exportCsv', null, lang)}
           </button>
           <Link
             href="/admin/cities"
-            className="text-sm text-slate-600 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             {t('admin.adoption.back', null, lang)}
           </Link>
@@ -350,12 +387,16 @@ export default function AdminCityAdoptionPage() {
         {/* ---------------- Date range ---------------- */}
         <div className="no-print flex flex-wrap items-end gap-3">
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-slate-700">
+            <span
+              className="mb-1 block font-medium"
+              style={{ color: 'var(--color-ink-secondary)' }}
+            >
               {t('admin.adoption.range.label', null, lang)}
             </span>
             <select
               data-testid="admin-city-adoption-range"
-              className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              className="rounded border px-2 py-1.5 text-sm"
+              style={fieldStyle}
               value={range}
               onChange={(e) => setRange(e.target.value as RangeKey)}
             >
@@ -376,7 +417,8 @@ export default function AdminCityAdoptionPage() {
                 <input
                   type="date"
                   data-testid="admin-city-adoption-range-from"
-                  className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  className="rounded border px-2 py-1.5 text-sm"
+                  style={fieldStyle}
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                 />
@@ -386,7 +428,8 @@ export default function AdminCityAdoptionPage() {
                 <input
                   type="date"
                   data-testid="admin-city-adoption-range-to"
-                  className="rounded border border-slate-300 px-2 py-1.5 text-sm"
+                  className="rounded border px-2 py-1.5 text-sm"
+                  style={fieldStyle}
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                 />
@@ -398,14 +441,21 @@ export default function AdminCityAdoptionPage() {
         {error ? (
           <div
             data-testid="admin-city-adoption-error"
-            className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+            className="rounded border p-3 text-sm"
+            style={{
+              borderColor: 'var(--color-danger)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-danger)',
+            }}
           >
             {t('admin.adoption.error', null, lang)} ({error})
           </div>
         ) : null}
 
         {!dash ? (
-          <div className="text-sm text-slate-600">…</div>
+          <div className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
+            …
+          </div>
         ) : (
           <>
             {/* ---------------- Hero stats ---------------- */}
@@ -417,12 +467,16 @@ export default function AdminCityAdoptionPage() {
                 <div
                   key={stat.key}
                   data-testid={`admin-city-adoption-hero-${stat.key}`}
-                  className="rounded border border-slate-200 bg-white p-4"
+                  className="rounded border p-4"
+                  style={panelStyle}
                 >
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                     {t(`admin.adoption.hero.${stat.key}`, null, lang)}
                   </div>
-                  <div className="mt-1 text-2xl font-semibold text-slate-900">
+                  <div
+                    className="mt-1 text-2xl font-semibold"
+                    style={{ color: 'var(--color-ink)' }}
+                  >
                     {stat.unit === 'percent'
                       ? `${stat.value}%`
                       : stat.unit === 'duration'
@@ -430,15 +484,17 @@ export default function AdminCityAdoptionPage() {
                         : stat.value}
                   </div>
                   <div
-                    className={
-                      stat.deltaPercent === null
-                        ? 'mt-1 text-xs text-slate-400'
-                        : stat.deltaPercent > 0
-                          ? 'mt-1 text-xs text-emerald-600'
-                          : stat.deltaPercent < 0
-                            ? 'mt-1 text-xs text-rose-600'
-                            : 'mt-1 text-xs text-slate-500'
-                    }
+                    className="mt-1 text-xs"
+                    style={{
+                      color:
+                        stat.deltaPercent === null
+                          ? 'var(--color-ink-muted)'
+                          : stat.deltaPercent > 0
+                            ? 'var(--color-success)'
+                            : stat.deltaPercent < 0
+                              ? 'var(--color-danger)'
+                              : 'var(--color-ink-tertiary)',
+                    }}
                   >
                     {stat.deltaPercent === null
                       ? t('admin.adoption.hero.delta.none', null, lang)
@@ -459,9 +515,10 @@ export default function AdminCityAdoptionPage() {
             {/* ---------------- Funnel ---------------- */}
             <section
               data-testid="admin-city-adoption-funnel"
-              className="print-block rounded border border-slate-200 bg-white p-4"
+              className="print-block rounded border p-4"
+              style={panelStyle}
             >
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <h2 className="mb-3 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
                 {t('admin.adoption.funnel.title', null, lang)}
               </h2>
               <svg
@@ -487,15 +544,17 @@ export default function AdminCityAdoptionPage() {
                         rx={4}
                         fill={
                           i === 0
-                            ? '#047857'
-                            : `rgba(4, 120, 87, ${1 - i * 0.16})`
+                            ? SERIES.submitted
+                            : `color-mix(in srgb, ${SERIES.submitted} ${
+                                Math.round((1 - i * 0.16) * 100)
+                              }%, transparent)`
                         }
                       />
                       <text
                         x={chart.padL + 8}
                         y={top + 18}
                         fontSize={12}
-                        fill="#ffffff"
+                        fill="var(--color-on-primary)"
                       >
                         {t(`admin.adoption.funnel.${stage.key}`, null, lang)}
                       </text>
@@ -503,7 +562,7 @@ export default function AdminCityAdoptionPage() {
                         x={chart.padL + w + 8}
                         y={top + 18}
                         fontSize={12}
-                        fill="#334155"
+                        fill="var(--color-ink-secondary)"
                       >
                         {stage.count}
                         {stage.conversion !== null
@@ -521,7 +580,7 @@ export default function AdminCityAdoptionPage() {
                 <caption className="sr-only">
                   {t('admin.adoption.funnel.tableCaption', null, lang)}
                 </caption>
-                <thead className="bg-slate-100 text-slate-700">
+                <thead style={tableHeadStyle}>
                   <tr>
                     <th scope="col" className="px-2 py-1 text-left">
                       {t('admin.adoption.funnel.title', null, lang)}
@@ -536,7 +595,11 @@ export default function AdminCityAdoptionPage() {
                 </thead>
                 <tbody>
                   {dash.funnel.map((stage) => (
-                    <tr key={stage.key} className="border-t border-slate-100">
+                    <tr
+                      key={stage.key}
+                      className="border-t"
+                      style={{ borderTop: '1px solid var(--color-border)' }}
+                    >
                       <th scope="row" className="px-2 py-1 text-left font-normal">
                         {t(`admin.adoption.funnel.${stage.key}`, null, lang)}
                       </th>
@@ -556,9 +619,10 @@ export default function AdminCityAdoptionPage() {
             {/* ---------------- Daily activity chart ---------------- */}
             <section
               data-testid="admin-city-adoption-daily-chart"
-              className="print-block rounded border border-slate-200 bg-white p-4"
+              className="print-block rounded border p-4"
+              style={panelStyle}
             >
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <h2 className="mb-3 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
                 {t('admin.adoption.daily.title', null, lang)}
               </h2>
               <svg
@@ -574,7 +638,7 @@ export default function AdminCityAdoptionPage() {
                     x2={chart.width - chart.padR}
                     y1={chart.padT + chart.innerH * (1 - frac)}
                     y2={chart.padT + chart.innerH * (1 - frac)}
-                    stroke="#e2e8f0"
+                    stroke="var(--color-border)"
                     strokeWidth={1}
                   />
                 ))}
@@ -583,26 +647,26 @@ export default function AdminCityAdoptionPage() {
                     <path
                       d={linePath(dailySeries.submitted)}
                       fill="none"
-                      stroke="#047857"
+                      stroke={SERIES.submitted}
                       strokeWidth={2}
                     />
                     <path
                       d={linePath(dailySeries.resolved)}
                       fill="none"
-                      stroke="#2563eb"
+                      stroke={SERIES.resolved}
                       strokeWidth={2}
                     />
                     <path
                       d={linePath(dailySeries.registered)}
                       fill="none"
-                      stroke="#9333ea"
+                      stroke={SERIES.registered}
                       strokeWidth={2}
                     />
                     {compare && dailySeries.comparison.length > 0 ? (
                       <path
                         d={linePath(dailySeries.comparison)}
                         fill="none"
-                        stroke="#f59e0b"
+                        stroke={SERIES.comparison}
                         strokeWidth={2}
                         strokeDasharray="6 4"
                       />
@@ -610,25 +674,28 @@ export default function AdminCityAdoptionPage() {
                   </>
                 ) : null}
               </svg>
-              <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
+              <div
+                className="mt-2 flex flex-wrap gap-4 text-xs"
+                style={{ color: 'var(--color-ink-secondary)' }}
+              >
                 <span className="flex items-center gap-1">
                   <span
                     className="inline-block h-1 w-4"
-                    style={{ background: '#047857' }}
+                    style={{ background: SERIES.submitted }}
                   />
                   {t('admin.adoption.daily.submitted', null, lang)}
                 </span>
                 <span className="flex items-center gap-1">
                   <span
                     className="inline-block h-1 w-4"
-                    style={{ background: '#2563eb' }}
+                    style={{ background: SERIES.resolved }}
                   />
                   {t('admin.adoption.daily.resolved', null, lang)}
                 </span>
                 <span className="flex items-center gap-1">
                   <span
                     className="inline-block h-1 w-4"
-                    style={{ background: '#9333ea' }}
+                    style={{ background: SERIES.registered }}
                   />
                   {t('admin.adoption.daily.registered', null, lang)}
                 </span>
@@ -636,7 +703,7 @@ export default function AdminCityAdoptionPage() {
                   <span className="flex items-center gap-1">
                     <span
                       className="inline-block h-1 w-4"
-                      style={{ background: '#f59e0b' }}
+                      style={{ background: SERIES.comparison }}
                     />
                     {t('admin.adoption.compare.dhaka', null, lang)}
                   </span>
@@ -647,7 +714,7 @@ export default function AdminCityAdoptionPage() {
                 <caption className="sr-only">
                   {t('admin.adoption.daily.tableCaption', null, lang)}
                 </caption>
-                <thead className="bg-slate-100 text-slate-700">
+                <thead style={tableHeadStyle}>
                   <tr>
                     <th scope="col" className="px-2 py-1 text-left">
                       {t('admin.adoption.daily.title', null, lang)}
@@ -665,7 +732,11 @@ export default function AdminCityAdoptionPage() {
                 </thead>
                 <tbody>
                   {dash.daily.map((d) => (
-                    <tr key={d.date} className="border-t border-slate-100">
+                    <tr
+                      key={d.date}
+                      className="border-t"
+                      style={{ borderTop: '1px solid var(--color-border)' }}
+                    >
                       <th scope="row" className="px-2 py-1 text-left font-normal">
                         {d.date}
                       </th>
@@ -682,9 +753,10 @@ export default function AdminCityAdoptionPage() {
             {/* ---------------- Ward heatmap ---------------- */}
             <section
               data-testid="admin-city-adoption-heatmap"
-              className="print-block rounded border border-slate-200 bg-white p-4"
+              className="print-block rounded border p-4"
+              style={panelStyle}
             >
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <h2 className="mb-3 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
                 {t('admin.adoption.heatmap.title', null, lang)}
               </h2>
               <svg
@@ -710,14 +782,16 @@ export default function AdminCityAdoptionPage() {
                         width={cell}
                         height={cell}
                         rx={4}
-                        fill={`rgba(4, 120, 87, ${opacity.toFixed(2)})`}
+                        fill={`color-mix(in srgb, ${SERIES.submitted} ${Math.round(
+                          opacity * 100,
+                        )}%, transparent)`}
                       />
                       <text
                         x={col * (cell + gap) + 8 + cell / 2}
                         y={row * (cell + gap) + 8 + cell / 2 + 4}
                         fontSize={10}
                         textAnchor="middle"
-                        fill="#0f172a"
+                        fill="var(--color-ink)"
                       >
                         {w.wardNumber}
                       </text>
@@ -725,14 +799,28 @@ export default function AdminCityAdoptionPage() {
                   );
                 })}
                 {dash.wards.length === 0 ? (
-                  <text x={360} y={110} fontSize={12} textAnchor="middle" fill="#64748b">
+                  <text
+                    x={360}
+                    y={110}
+                    fontSize={12}
+                    textAnchor="middle"
+                    fill="var(--color-ink-tertiary)"
+                  >
                     {t('admin.adoption.empty', null, lang)}
                   </text>
                 ) : null}
               </svg>
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+              <div
+                className="mt-2 flex items-center gap-2 text-xs"
+                style={{ color: 'var(--color-ink-secondary)' }}
+              >
                 <span>{t('admin.adoption.heatmap.legend.none', null, lang)}</span>
-                <span className="inline-block h-2 w-24 rounded bg-gradient-to-r from-emerald-100 to-emerald-600" />
+                <span
+                  className="inline-block h-2 w-24 rounded"
+                  style={{
+                    background: `linear-gradient(to right, color-mix(in srgb, ${SERIES.submitted} 18%, transparent), ${SERIES.submitted})`,
+                  }}
+                />
                 <span>{t('admin.adoption.heatmap.legend.high', null, lang)}</span>
               </div>
               <div className="mt-3 overflow-x-auto">
@@ -740,7 +828,7 @@ export default function AdminCityAdoptionPage() {
                 <caption className="sr-only">
                   {t('admin.adoption.heatmap.tableCaption', null, lang)}
                 </caption>
-                <thead className="bg-slate-100 text-slate-700">
+                <thead style={tableHeadStyle}>
                   <tr>
                     <th scope="col" className="px-2 py-1 text-left">
                       {t('admin.users.form.wards', null, lang)}
@@ -752,7 +840,11 @@ export default function AdminCityAdoptionPage() {
                 </thead>
                 <tbody>
                   {dash.wards.map((w) => (
-                    <tr key={w.wardId} className="border-t border-slate-100">
+                    <tr
+                      key={w.wardId}
+                      className="border-t"
+                      style={{ borderTop: '1px solid var(--color-border)' }}
+                    >
                       <th scope="row" className="px-2 py-1 text-left font-normal">
                         {w.wardNumber} — {w.wardNameBn ?? w.wardName}
                       </th>
@@ -773,15 +865,19 @@ export default function AdminCityAdoptionPage() {
                 <div
                   key={sig.key}
                   data-testid={`admin-city-adoption-engagement-${sig.key}`}
-                  className="rounded border border-slate-200 bg-white p-4"
+                  className="rounded border p-4"
+                  style={panelStyle}
                 >
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                     {t(`admin.adoption.engagement.${sig.key}`, null, lang)}
                   </div>
-                  <div className="mt-1 text-xl font-semibold text-slate-900">
+                  <div
+                    className="mt-1 text-xl font-semibold"
+                    style={{ color: 'var(--color-ink)' }}
+                  >
                     {sig.unit === 'percent' ? `${sig.value}%` : formatDuration(sig.value)}
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">
+                  <div className="mt-1 text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                     {t(`admin.adoption.engagement.${sig.key}.detail`, null, lang)}
                   </div>
                 </div>
@@ -791,13 +887,14 @@ export default function AdminCityAdoptionPage() {
             {/* ---------------- Health flags ---------------- */}
             <section
               data-testid="admin-city-adoption-health-flags"
-              className="print-block rounded border border-slate-200 bg-white p-4"
+              className="print-block rounded border p-4"
+              style={panelStyle}
             >
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <h2 className="mb-3 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
                 {t('admin.adoption.health.title', null, lang)}
               </h2>
               {dash.healthFlags.length === 0 ? (
-                <p className="text-sm text-emerald-700">
+                <p className="text-sm" style={{ color: 'var(--color-success)' }}>
                   {t('admin.adoption.health.none', null, lang)}
                 </p>
               ) : (
@@ -807,12 +904,25 @@ export default function AdminCityAdoptionPage() {
                       <Link
                         href={flag.href}
                         data-testid={`admin-city-adoption-health-${flag.key}`}
-                        className={
+                        className="block rounded border px-3 py-2 text-sm"
+                        style={
                           flag.kind === 'staff'
-                            ? 'block rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'
+                            ? {
+                                borderColor: 'var(--color-warning)',
+                                background: 'var(--color-warning-soft)',
+                                color: 'var(--color-warning)',
+                              }
                             : flag.kind === 'backlog'
-                              ? 'block rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800'
-                              : 'block rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700'
+                              ? {
+                                  borderColor: 'var(--color-danger)',
+                                  background: 'var(--color-danger-soft)',
+                                  color: 'var(--color-danger)',
+                                }
+                              : {
+                                  borderColor: 'var(--color-border)',
+                                  background: 'var(--color-surface-sunken)',
+                                  color: 'var(--color-ink-secondary)',
+                                }
                         }
                       >
                         {t(`admin.adoption.health.${flag.key}`, flag.vars, lang)}
@@ -826,15 +936,16 @@ export default function AdminCityAdoptionPage() {
             {dash.comparison ? (
               <section
                 data-testid="admin-city-adoption-comparison"
-                className="print-block rounded border border-slate-200 bg-white p-4 text-sm"
+                className="print-block rounded border p-4 text-sm"
+                style={panelStyle}
               >
-                <h2 className="mb-2 text-sm font-semibold text-slate-900">
+                <h2 className="mb-2 text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
                   {t('admin.adoption.compare.legend', null, lang)} —{' '}
                   {t('admin.adoption.compare.dhaka', null, lang)}
                 </h2>
                 <dl className="flex flex-wrap gap-6">
                   <div>
-                    <dt className="text-xs text-slate-500">
+                    <dt className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                       {t('admin.adoption.hero.reportsReceived', null, lang)}
                     </dt>
                     <dd className="text-lg font-semibold">
@@ -842,7 +953,7 @@ export default function AdminCityAdoptionPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-slate-500">
+                    <dt className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                       {t('admin.adoption.hero.resolutionRate', null, lang)}
                     </dt>
                     <dd className="text-lg font-semibold">
@@ -850,7 +961,7 @@ export default function AdminCityAdoptionPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-slate-500">
+                    <dt className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
                       {t('admin.adoption.hero.registeredCitizens', null, lang)}
                     </dt>
                     <dd className="text-lg font-semibold">

@@ -173,47 +173,67 @@ export default function WardsPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.wards.title', null, lang)} …
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <Link
             href={`/admin/cities/${id}/taxonomy`}
-            className="text-sm text-slate-600 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             ← {t('admin.taxonomy.title', null, lang)}
           </Link>
-          <span className="text-lg font-semibold text-slate-900">
+          <span className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.wards.title', null, lang)}
           </span>
         </div>
       </div>
       <main className="px-6 py-8 max-w-6xl mx-auto space-y-6">
         {error ? (
-          <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div
+            className="rounded border p-3 text-sm"
+            style={{
+              borderColor: 'var(--color-danger)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-danger)',
+            }}
+          >
             {error}
           </div>
         ) : null}
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.wards.title', null, lang)}
           </h1>
           <button
             type="button"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
             onClick={() => setShowForm(true)}
           >
             {t('admin.wards.cta.newWard', null, lang)}
           </button>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-600 mb-3">
+        <div
+          className="rounded-lg border p-4"
+          style={{
+            borderColor: 'var(--color-border)',
+            background: 'var(--color-surface-card)',
+          }}
+        >
+          <p className="text-xs mb-3" style={{ color: 'var(--color-ink-secondary)' }}>
             {t('admin.wards.instruction', null, lang)}
           </p>
           {/* The ward name is Bangla and long; without a `minWidth`
@@ -221,7 +241,7 @@ export default function WardsPage() {
               a phone. The wrapper scrolls sideways instead. */}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] text-sm">
-            <thead className="text-left text-slate-700">
+            <thead className="text-left" style={{ color: 'var(--color-ink-secondary)' }}>
               <tr>
                 <th className="px-3 py-2">#</th>
                 <th className="px-3 py-2">{t('admin.wards.col.name', null, lang)}</th>
@@ -233,18 +253,25 @@ export default function WardsPage() {
             </thead>
             <tbody>
               {wards.map((w) => (
-                <tr key={w.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2 text-slate-700">{w.number}</td>
-                  <td className="px-3 py-2 text-slate-900">
+                <tr
+                  key={w.id}
+                  className="border-t"
+                  style={{ borderTop: '1px solid var(--color-border)' }}
+                >
+                  <td className="px-3 py-2" style={{ color: 'var(--color-ink-secondary)' }}>
+                    {w.number}
+                  </td>
+                  <td className="px-3 py-2" style={{ color: 'var(--color-ink)' }}>
                     {lang === 'bn' ? w.nameBn ?? w.name : w.name}
                   </td>
-                  <td className="px-3 py-2 text-slate-600">
+                  <td className="px-3 py-2" style={{ color: 'var(--color-ink-secondary)' }}>
                     {w.polygonGeoJson ? '✓' : '—'}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
-                      className="text-xs text-rose-600 hover:underline"
+                      className="text-xs hover:underline"
+                      style={{ color: 'var(--color-danger)' }}
                       onClick={() => handleDelete(w.id)}
                     >
                       {t('admin.wards.cta.delete', null, lang)}
@@ -257,20 +284,34 @@ export default function WardsPage() {
           </div>
         </div>
         {showForm ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
-            <h2 className="text-base font-semibold text-slate-900">
+          <div
+            className="rounded-lg border p-6 space-y-3"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
+          >
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
               {t('admin.wards.cta.newWard', null, lang)}
             </h2>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700">
+                <label
+                  className="block text-xs font-medium"
+                  style={{ color: 'var(--color-ink-secondary)' }}
+                >
                   #
                 </label>
                 <input
                   type="number"
                   min={1}
                   max={200}
-                  className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  style={{
+                    borderColor: 'var(--color-border-strong)',
+                    background: 'var(--color-surface-card)',
+                    color: 'var(--color-ink)',
+                  }}
                   value={newWard.number}
                   onChange={(e) =>
                     setNewWard({ ...newWard, number: Number(e.target.value) })
@@ -278,12 +319,20 @@ export default function WardsPage() {
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium text-slate-700">
+                <label
+                  className="block text-xs font-medium"
+                  style={{ color: 'var(--color-ink-secondary)' }}
+                >
                   {t('admin.wards.form.name', null, lang)}
                 </label>
                 <input
                   type="text"
-                  className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  style={{
+                    borderColor: 'var(--color-border-strong)',
+                    background: 'var(--color-surface-card)',
+                    color: 'var(--color-ink)',
+                  }}
                   value={newWard.name}
                   onChange={(e) =>
                     setNewWard({ ...newWard, name: e.target.value })
@@ -292,11 +341,19 @@ export default function WardsPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700">
+              <label
+                className="block text-xs font-medium"
+                style={{ color: 'var(--color-ink-secondary)' }}
+              >
                 {t('admin.wards.form.polygon', null, lang)}
               </label>
               <textarea
-                className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-xs font-mono"
+                className="mt-1 block w-full rounded border px-2 py-1 text-xs font-mono"
+                style={{
+                  borderColor: 'var(--color-border-strong)',
+                  background: 'var(--color-surface-card)',
+                  color: 'var(--color-ink)',
+                }}
                 rows={6}
                 value={newWard.polygonGeoJson}
                 onChange={(e) =>
@@ -307,14 +364,14 @@ export default function WardsPage() {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                className="rounded border border-slate-300 bg-white px-3 py-1 text-sm"
+                className="admin-btn-secondary rounded px-3 py-1 text-sm"
                 onClick={() => setShowForm(false)}
               >
                 {t('admin.wards.cta.cancel', null, lang)}
               </button>
               <button
                 type="button"
-                className="rounded bg-emerald-600 px-3 py-1 text-sm text-white"
+                className="admin-btn-primary rounded px-3 py-1 text-sm"
                 onClick={handleCreate}
               >
                 {t('admin.wards.cta.save', null, lang)}

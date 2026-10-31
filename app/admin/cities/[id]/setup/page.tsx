@@ -190,23 +190,30 @@ export default function CitySetupPage() {
 
   if (signedIn === null || !city) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.setup.title', null, lang)} …
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <Link
             href="/admin/cities"
-            className="text-sm text-slate-600 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             ← {t('admin.cities.title', null, lang)}
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.setup.title', null, lang)} —{' '}
             {lang === 'bn' ? city.nameBn ?? city.name : city.name}
           </h1>
@@ -214,29 +221,58 @@ export default function CitySetupPage() {
       </div>
       <main className="px-6 py-8 max-w-3xl mx-auto space-y-6">
         {error ? (
-          <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div
+            className="rounded border p-3 text-sm"
+            style={{
+              borderColor: 'var(--color-danger)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-danger)',
+            }}
+          >
             {error}
           </div>
         ) : null}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 space-y-4">
+        <div
+          className="rounded-lg border p-6 space-y-4"
+          style={{
+            borderColor: 'var(--color-border)',
+            background: 'var(--color-surface-card)',
+          }}
+        >
           <div>
-            <label className="block text-xs font-medium text-slate-700">
+            <label
+              className="block text-xs font-medium"
+              style={{ color: 'var(--color-ink-secondary)' }}
+            >
               {t('admin.setup.field.name', null, lang)}
             </label>
             <input
               type="text"
-              className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 block w-full rounded border px-3 py-2 text-sm"
+              style={{
+                borderColor: 'var(--color-border-strong)',
+                background: 'var(--color-surface-card)',
+                color: 'var(--color-ink)',
+              }}
               value={city.name}
               onChange={(e) => setCity({ ...city, name: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700">
+            <label
+              className="block text-xs font-medium"
+              style={{ color: 'var(--color-ink-secondary)' }}
+            >
               {t('admin.setup.field.nameBn', null, lang)}
             </label>
             <input
               type="text"
-              className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 block w-full rounded border px-3 py-2 text-sm"
+              style={{
+                borderColor: 'var(--color-border-strong)',
+                background: 'var(--color-surface-card)',
+                color: 'var(--color-ink)',
+              }}
               value={city.nameBn ?? ''}
               onChange={(e) =>
                 setCity({ ...city, nameBn: e.target.value || null })
@@ -244,11 +280,19 @@ export default function CitySetupPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700">
+            <label
+              className="block text-xs font-medium"
+              style={{ color: 'var(--color-ink-secondary)' }}
+            >
               {t('admin.setup.field.defaultLanguage', null, lang)}
             </label>
             <select
-              className="mt-1 block rounded border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 block rounded border px-3 py-2 text-sm"
+              style={{
+                borderColor: 'var(--color-border-strong)',
+                background: 'var(--color-surface-card)',
+                color: 'var(--color-ink)',
+              }}
               value={city.defaultLanguage}
               onChange={(e) =>
                 setCity({
@@ -264,7 +308,7 @@ export default function CitySetupPage() {
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
               onClick={handleSave}
               disabled={saving}
             >
@@ -272,16 +316,27 @@ export default function CitySetupPage() {
             </button>
           </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
-          <h2 className="text-base font-semibold text-slate-900">
+        <div
+          className="rounded-lg border p-6 space-y-3"
+          style={{
+            borderColor: 'var(--color-border)',
+            background: 'var(--color-surface-card)',
+          }}
+        >
+          <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.setup.applyDhakaTemplate', null, lang)}
           </h2>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
             {t('admin.setup.applyDhakaTemplate.confirm', null, lang)}
           </p>
           <button
             type="button"
-            className="rounded-md border border-amber-500 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+            className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+            style={{
+              borderColor: 'var(--color-warning)',
+              background: 'var(--color-warning-soft)',
+              color: 'var(--color-warning)',
+            }}
             onClick={() => setShowConfirm(true)}
             disabled={applying}
           >
@@ -289,21 +344,27 @@ export default function CitySetupPage() {
           </button>
         </div>
         {showConfirm ? (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-3">
-            <p className="text-sm text-amber-900">
+          <div
+            className="rounded-lg border p-4 space-y-3"
+            style={{
+              borderColor: 'var(--color-warning)',
+              background: 'var(--color-warning-soft)',
+            }}
+          >
+            <p className="text-sm" style={{ color: 'var(--color-warning)' }}>
               {t('admin.setup.applyDhakaTemplate.confirm', null, lang)}
             </p>
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                className="rounded border border-slate-300 bg-white px-3 py-1 text-sm"
+                className="admin-btn-secondary rounded px-3 py-1 text-sm"
                 onClick={() => setShowConfirm(false)}
               >
                 {t('admin.confirm.cta.cancel', null, lang)}
               </button>
               <button
                 type="button"
-                className="rounded bg-amber-600 px-3 py-1 text-sm text-white"
+                className="admin-btn-primary rounded px-3 py-1 text-sm"
                 onClick={handleApplyTemplate}
               >
                 {t('admin.confirm.cta.confirm', null, lang)}

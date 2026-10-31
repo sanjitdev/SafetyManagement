@@ -234,39 +234,67 @@ export default function TaxonomyPage() {
 
   if (signedIn === null || !city) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.taxonomy.title', null, lang)} …
       </div>
     );
   }
 
+  const panelStyle = {
+    borderColor: 'var(--color-border)',
+    background: 'var(--color-surface-card)',
+  };
+  const inputStyle = {
+    borderColor: 'var(--color-border-strong)',
+    background: 'var(--color-surface-card)',
+    color: 'var(--color-ink)',
+  };
+  const formDividerStyle = { borderTop: '1px solid var(--color-border)' };
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <Link
             href={`/admin/cities/${id}/setup`}
-            className="text-sm text-slate-600 hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             ← {lang === 'bn' ? city.nameBn ?? city.name : city.name}
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.taxonomy.title', null, lang)}
           </h1>
         </div>
       </div>
       <main className="px-6 py-8 max-w-6xl mx-auto space-y-6">
         {error ? (
-          <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div
+            className="rounded border p-3 text-sm"
+            style={{
+              borderColor: 'var(--color-danger)',
+              background: 'var(--color-surface-card)',
+              color: 'var(--color-danger)',
+            }}
+          >
             {error}
           </div>
         ) : null}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
-          <label className="block text-sm font-medium text-slate-900">
+        <div
+          className="rounded-lg border p-6 space-y-3"
+          style={panelStyle}
+        >
+          <label className="block text-sm font-medium" style={{ color: 'var(--color-ink)' }}>
             {t('admin.taxonomy.dedupRadius', null, lang)}:{' '}
             {city.dedupRadiusMeters}m
           </label>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs" style={{ color: 'var(--color-ink-secondary)' }}>
             {t('admin.taxonomy.dedupRadius.helper', null, lang)}
           </p>
           <input
@@ -282,7 +310,7 @@ export default function TaxonomyPage() {
           />
           <button
             type="button"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium"
             onClick={handleSaveRadius}
             disabled={savingRadius}
           >
@@ -292,13 +320,13 @@ export default function TaxonomyPage() {
         {/* Two side-by-side panels cannot fit a 390px phone — stack
             them so neither is squeezed to a sliver. */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
-            <h2 className="text-base font-semibold text-slate-900">
+          <section className="rounded-lg border p-6 space-y-3" style={panelStyle}>
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
               {t('admin.taxonomy.departments', null, lang)}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] text-sm">
-              <thead className="text-left text-slate-700">
+              <thead className="text-left" style={{ color: 'var(--color-ink-secondary)' }}>
                 <tr>
                   <th className="px-2 py-1">
                     {t('admin.taxonomy.col.name', null, lang)}
@@ -311,15 +339,18 @@ export default function TaxonomyPage() {
               </thead>
               <tbody>
                 {departments.map((d) => (
-                  <tr key={d.id} className="border-t border-slate-100">
-                    <td className="px-2 py-2 text-slate-900">
+                  <tr key={d.id} className="border-t" style={formDividerStyle}>
+                    <td className="px-2 py-2" style={{ color: 'var(--color-ink)' }}>
                       {lang === 'bn' ? d.nameBn ?? d.name : d.name}
                     </td>
-                    <td className="px-2 py-2 text-slate-600">{d.slug}</td>
+                    <td className="px-2 py-2" style={{ color: 'var(--color-ink-secondary)' }}>
+                      {d.slug}
+                    </td>
                     <td className="px-2 py-2 text-right">
                       <button
                         type="button"
-                        className="text-xs text-rose-600 hover:underline"
+                        className="text-xs hover:underline"
+                        style={{ color: 'var(--color-danger)' }}
                         onClick={() => handleDeleteDept(d.id)}
                       >
                         {t('admin.wards.cta.delete', null, lang)}
@@ -334,37 +365,39 @@ export default function TaxonomyPage() {
                 width. Without it a flex item refuses to shrink, so
                 the two inputs pushed the "new" button off the right
                 edge of a 390px phone. */}
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap gap-2 pt-3 border-t" style={formDividerStyle}>
               <input
                 type="text"
                 placeholder={t('admin.taxonomy.form.slug', null, lang)}
-                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                style={inputStyle}
                 value={newDept.slug}
                 onChange={(e) => setNewDept({ ...newDept, slug: e.target.value })}
               />
               <input
                 type="text"
                 placeholder={t('admin.taxonomy.form.name', null, lang)}
-                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                style={inputStyle}
                 value={newDept.name}
                 onChange={(e) => setNewDept({ ...newDept, name: e.target.value })}
               />
               <button
                 type="button"
-                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white shrink-0"
+                className="admin-btn-primary rounded px-3 py-1 text-xs shrink-0"
                 onClick={handleCreateDept}
               >
                 {t('admin.taxonomy.cta.newDept', null, lang)}
               </button>
             </div>
           </section>
-          <section className="rounded-lg border border-slate-200 bg-white p-6 space-y-3">
-            <h2 className="text-base font-semibold text-slate-900">
+          <section className="rounded-lg border p-6 space-y-3" style={panelStyle}>
+            <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
               {t('admin.taxonomy.categories', null, lang)}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] text-sm">
-              <thead className="text-left text-slate-700">
+              <thead className="text-left" style={{ color: 'var(--color-ink-secondary)' }}>
                 <tr>
                   <th className="px-2 py-1">
                     {t('admin.taxonomy.col.name', null, lang)}
@@ -381,11 +414,11 @@ export default function TaxonomyPage() {
                     (d) => d.id === c.departmentId,
                   );
                   return (
-                    <tr key={c.id} className="border-t border-slate-100">
-                      <td className="px-2 py-2 text-slate-900">
+                    <tr key={c.id} className="border-t" style={formDividerStyle}>
+                      <td className="px-2 py-2" style={{ color: 'var(--color-ink)' }}>
                         {lang === 'bn' ? c.nameBn ?? c.name : c.name}
                       </td>
-                      <td className="px-2 py-2 text-slate-600">
+                      <td className="px-2 py-2" style={{ color: 'var(--color-ink-secondary)' }}>
                         {dept
                           ? lang === 'bn'
                             ? dept.nameBn ?? dept.name
@@ -395,7 +428,8 @@ export default function TaxonomyPage() {
                       <td className="px-2 py-2 text-right">
                         <button
                           type="button"
-                          className="text-xs text-rose-600 hover:underline"
+                          className="text-xs hover:underline"
+                          style={{ color: 'var(--color-danger)' }}
                           onClick={() => handleDeleteCat(c.id)}
                         >
                           {t('admin.wards.cta.delete', null, lang)}
@@ -411,23 +445,26 @@ export default function TaxonomyPage() {
                 width. Without it a flex item refuses to shrink, so
                 the two inputs pushed the "new" button off the right
                 edge of a 390px phone. */}
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap gap-2 pt-3 border-t" style={formDividerStyle}>
               <input
                 type="text"
                 placeholder={t('admin.taxonomy.form.slug', null, lang)}
-                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                style={inputStyle}
                 value={newCat.slug}
                 onChange={(e) => setNewCat({ ...newCat, slug: e.target.value })}
               />
               <input
                 type="text"
                 placeholder={t('admin.taxonomy.form.name', null, lang)}
-                className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                style={inputStyle}
                 value={newCat.name}
                 onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
               />
               <select
-                className="min-w-0 shrink-0 rounded border border-slate-300 px-2 py-1 text-xs"
+                className="min-w-0 shrink-0 rounded border px-2 py-1 text-xs"
+                style={inputStyle}
                 value={newCat.departmentId}
                 onChange={(e) =>
                   setNewCat({ ...newCat, departmentId: e.target.value })
@@ -444,7 +481,7 @@ export default function TaxonomyPage() {
               </select>
               <button
                 type="button"
-                className="rounded bg-emerald-600 px-3 py-1 text-xs text-white shrink-0"
+                className="admin-btn-primary rounded px-3 py-1 text-xs shrink-0"
                 onClick={handleCreateCat}
               >
                 {t('admin.taxonomy.cta.newCat', null, lang)}

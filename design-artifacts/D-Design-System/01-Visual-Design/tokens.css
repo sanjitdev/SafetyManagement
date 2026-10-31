@@ -15,9 +15,11 @@
 
   /* Status semantic tokens (consumed by app surfaces) */
   --color-success: #15803D;
+  --color-success-soft: #DCFCE7;
   --color-warning: #B45309;
   --color-warning-soft: #FEF3C7;
   --color-danger: #B91C1C;
+  --color-danger-soft: #FEE2E2;
 
   /* Headline scale aliases (consumed via CSS-var references) */
   --text-h1: 1.5rem;     /* 24px */
@@ -222,9 +224,11 @@
 
   /* Status semantic tokens */
   --color-success: #22C55E;
+  --color-success-soft: #052E16;
   --color-warning: #F59E0B;
   --color-warning-soft: #422006;
   --color-danger: #EF4444;
+  --color-danger-soft: #450A0A;
 
   /* Status pills (status trail) */
   --color-status-submitted: #9CA3AF;
@@ -302,9 +306,11 @@
     --color-on-primary: #052E2B;
 
     --color-success: #22C55E;
+    --color-success-soft: #052E16;
     --color-warning: #F59E0B;
     --color-warning-soft: #422006;
     --color-danger: #EF4444;
+    --color-danger-soft: #450A0A;
 
     --color-status-submitted: #9CA3AF;
     --color-status-submitted-soft: #1F2937;

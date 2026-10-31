@@ -191,7 +191,7 @@ export default function AdminTicketDetailPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.tickets.title', null, lang)} …
       </div>
     );
@@ -208,20 +208,36 @@ export default function AdminTicketDetailPage() {
     : true;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: 'var(--color-surface-page)' }}
+    >
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <Link
             href="/admin/tickets"
-            className="text-xs text-slate-600 hover:underline"
+            className="text-xs hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             {t('admin.tickets.detail.back', null, lang)}
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1
+            className="text-lg font-semibold"
+            style={{ color: 'var(--color-ink)' }}
+          >
             {t('admin.tickets.title', null, lang)}
           </h1>
           {ticket && (
-            <span className="text-xs text-slate-500 font-mono">
+            <span
+              className="text-xs font-mono"
+              style={{ color: 'var(--color-ink-tertiary)' }}
+            >
               {formatTicketId(ticket.id)}
             </span>
           )}
@@ -229,13 +245,13 @@ export default function AdminTicketDetailPage() {
       </div>
 
       {error && (
-        <div className="px-6 py-2 text-sm" style={{ color: 'var(--color-error)' }}>
+        <div className="px-6 py-2 text-sm" style={{ color: 'var(--color-danger)' }}>
           {error}
         </div>
       )}
 
       {!ticket && !error && (
-        <div className="p-8 text-sm text-slate-600">
+        <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
           {t('admin.tickets.loading', null, lang)}
         </div>
       )}
@@ -384,14 +400,14 @@ export default function AdminTicketDetailPage() {
                         display: 'inline-block',
                         marginRight: 8,
                         padding: '1px 6px',
-                        background: 'var(--color-bg)',
+                        background: 'var(--color-surface-card)',
                         border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-pill)',
                       }}
                     >
                       {t(`status.${entry.toStatus}`, null, lang)}
                     </span>
-                    <code style={{ fontSize: 'var(--text-small)' }}>
+                    <code style={{ fontSize: 'var(--text-body-sm)' }}>
                       {trailActorLabel(entry, lang)}
                     </code>
                     <span
@@ -419,15 +435,22 @@ export default function AdminTicketDetailPage() {
 
             <Link
               href={`/admin/audit?entityType=ticket&action=ticket.transition`}
-              className="text-xs text-slate-600 hover:underline"
+              className="text-xs hover:underline"
+              style={{ color: 'var(--color-ink-secondary)' }}
             >
               {t('admin.tickets.detail.meta', null, lang)}
             </Link>
           </main>
 
           <aside
-            className="border-l border-slate-200 bg-white"
-            style={{ width: 320, flexShrink: 0, padding: 'var(--space-4)' }}
+            className="border-l"
+            style={{
+              width: 320,
+              flexShrink: 0,
+              padding: 'var(--space-4)',
+              borderLeft: '1px solid var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
           >
             <h2
               style={{
@@ -511,7 +534,7 @@ export default function AdminTicketDetailPage() {
                   padding: '6px 8px',
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg)',
+                  background: 'var(--color-surface-card)',
                   color: 'var(--color-ink)',
                   fontSize: 'var(--text-caption)',
                   fontFamily: 'inherit',
@@ -540,7 +563,7 @@ export default function AdminTicketDetailPage() {
               {isTerminal && (
                 <p
                   style={{
-                    fontSize: 'var(--text-small)',
+                    fontSize: 'var(--text-body-sm)',
                     color: 'var(--color-ink-secondary)',
                   }}
                 >

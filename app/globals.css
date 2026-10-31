@@ -96,3 +96,107 @@ h1, h2, h3, h4 {
     display: none;
   }
 }
+
+/*
+ * Admin surface helpers (app/admin/**).
+ *
+ * The app is 100% CSS-custom-property driven: every colour comes from
+ * a `--color-*` token in tokens.css, and the `.theme-dark` class on
+ * <html> swaps the token values. Inline style objects are the primary
+ * mechanism (they cannot express `:hover`), so the few states that
+ * need a pseudo-class live here — referencing the SAME tokens, not a
+ * second palette.
+ *
+ * These exist because the admin console was written with hardcoded
+ * Tailwind palette utilities (`bg-slate-50`, `text-slate-900`,
+ * `bg-emerald-600`, …). Those classes are static CSS and cannot
+ * respond to `.theme-dark`, which is why the admin surface rendered
+ * light while every other role followed the toggle. The migration to
+ * tokens is enforced by `tests/unit/admin-theme-tokens.test.ts`.
+ */
+.admin-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.admin-btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+.admin-btn-primary:active {
+  background: var(--color-primary-pressed);
+}
+.admin-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-btn-secondary {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-secondary);
+  border: 1px solid var(--color-border);
+}
+.admin-btn-secondary:hover {
+  background: var(--color-surface-raised);
+}
+
+.admin-pill {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-secondary);
+}
+.admin-pill:hover {
+  background: var(--color-surface-raised);
+}
+
+.admin-card-hover {
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.admin-card-hover:hover {
+  border-color: var(--color-border-strong);
+}
+
+/*
+ * Keyboard focus ring.
+ *
+ * The admin surfaces had no visible focus indicator at all, because
+ * every focusable element there was styled with a hardcoded palette
+ * utility rather than a token. This restores a token-driven ring for
+ * the whole app shell.
+ */
+[data-app-shell] :focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/*
+ * Print mode.
+ *
+ * Printing must always produce a white sheet with dark ink, whatever
+ * theme the screen is in. The token override is global (rather than a
+ * page-local `body { background: #fff }`) so every admin page prints
+ * correctly without each one carrying its own print block.
+ */
+@media print {
+  :root,
+  .theme-dark,
+  .theme-light,
+  .theme-system {
+    color-scheme: light;
+    --color-surface-page: #ffffff;
+    --color-surface-card: #ffffff;
+    --color-surface-raised: #f7fafc;
+    --color-surface-sunken: #f1f5f9;
+    --color-surface-inverse: #1e293b;
+    --color-ink: #0f172a;
+    --color-ink-secondary: #334155;
+    --color-ink-tertiary: #64748b;
+    --color-ink-muted: #94a3b8;
+    --color-ink-disabled: #cbd5e1;
+    --color-ink-on-dark: #f8fafc;
+    --color-border: #e2e8f0;
+    --color-border-strong: #cbd5e1;
+    --color-primary: #2c5282;
+    --color-on-primary: #ffffff;
+    --color-primary-hover: #1f3f68;
+    --color-primary-pressed: #16304f;
+    --color-primary-soft: #e8eef7;
+  }
+}

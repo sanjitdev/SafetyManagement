@@ -233,26 +233,36 @@ export default function AdminAuditPage() {
 
   if (signedIn === null) {
     return (
-      <div className="p-8 text-sm text-slate-600">
+      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
         {t('admin.audit.title', null, lang)} …
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: 'var(--color-surface-page)' }}
+    >
+      <div
+        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+        style={{
+          borderBottom: '1px solid var(--color-border)',
+          background: 'var(--color-surface-page)',
+        }}
+      >
         <div className="flex items-center gap-3">
           <Link
             href="/admin/cities"
-            className="text-xs text-slate-600 hover:underline"
+            className="text-xs hover:underline"
+            style={{ color: 'var(--color-ink-secondary)' }}
           >
             {t('admin.audit.back', null, lang)}
           </Link>
-          <h1 className="text-lg font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.audit.title', null, lang)}
           </h1>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
             {t('admin.audit.subtitle', null, lang)}
           </span>
         </div>
@@ -266,8 +276,12 @@ export default function AdminAuditPage() {
       */}
       <div className="flex-1 flex flex-col lg:flex-row" style={{ minHeight: 0 }}>
         <aside
-          className="border-b lg:border-b-0 lg:border-r border-slate-200 bg-white lg:w-[288px] lg:flex-shrink-0"
-          style={{ width: undefined }}
+          className="border-b lg:border-b-0 lg:border-r lg:w-[288px] lg:flex-shrink-0"
+          style={{
+            width: undefined,
+            borderColor: 'var(--color-border)',
+            background: 'var(--color-surface-card)',
+          }}
         >
           <AdminAuditFilters
             initial={filters}
