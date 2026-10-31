@@ -29,6 +29,13 @@
 
 import { test, expect, Page } from '@playwright/test';
 
+declare global {
+  interface Window {
+    /** The Next.js App Router client runtime. Present once hydrated. */
+    next?: { version?: string; appDir?: boolean; router?: unknown };
+  }
+}
+
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
 interface Persona {
@@ -56,10 +63,32 @@ const PASSWORD = '12345678';
  * `+880…` server-side.
  */
 async function loginAs(page: Page, phone: string): Promise<string> {
-  await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  // `domcontentloaded`, NOT `networkidle` — the site root and the
+  // splash page can redirect to the anonymous landing, which runs a
+  // 30-second polling interval, so the network never reliably goes
+  // idle under load.
+  await page.goto(BASE + '/login', { waitUntil: 'domcontentloaded' });
+
+  // The login form is a React client component. `domcontentloaded`
+  // means the HTML is PARSED, not that React has hydrated — and the
+  // form's inputs are CONTROLLED. Filling a controlled input before
+  // hydration writes to the DOM but never reaches React's state, so
+  // `onChange` never fires and the submit button stays `disabled`.
+  //
+  // The signal that hydration is DONE is `window.next.router`: the
+  // Next.js 14 App Router client runtime creates it once the router
+  // is live. (`window.__NEXT_HYDRATED` does NOT exist in the App
+  // Router — only in the Pages Router.)
+  const submit = page.locator('button[type="submit"]');
+  await submit.waitFor({ state: 'visible' });
+  await page.waitForFunction(() => !!(window.next && window.next.router), undefined, {
+    timeout: 15_000,
+  });
   await page.locator('input[type="tel"]').fill(phone);
   await page.locator('input[type="password"]').fill(PASSWORD);
-  await page.locator('button[type="submit"]').click();
+  await expect(submit).toBeEnabled({ timeout: 15_000 });
+  await submit.click();
+
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), {
     timeout: 15_000,
   });
@@ -83,9 +112,14 @@ test.describe('Each persona lands on their own surface', () => {
       // The regression: `/` used to redirect EVERY authenticated user
       // to `/home`, dumping the admin, dispatcher and crew onto the
       // citizen feed.
-      await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+      //
+      // `domcontentloaded`, NOT `networkidle` — the anonymous landing
+      // runs a 30-second polling interval, so the network never
+      // reliably goes idle. The redirect is asserted by the
+      // `waitForURL` below.
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
       await page.waitForURL((url) => !url.pathname.endsWith('/'), {
-        timeout: 10_000,
+        timeout: 15_000,
       });
 
       expect(
@@ -99,9 +133,17 @@ test.describe('Each persona lands on their own surface', () => {
     }) => {
       await loginAs(page, persona.phone);
 
-      await page.goto(BASE + '/splash', { waitUntil: 'networkidle' });
+      // `domcontentloaded`, NOT `networkidle`. The splash page polls
+      // (`/api/auth/status`) and the public landing it can redirect to
+      // runs a 30-second `setInterval` poll of `/api/v1/activity/public`.
+      // Under load the network never reaches an idle state, so
+      // `networkidle` times out on the `goto` before the redirect we
+      // actually care about has a chance to happen. The redirect is
+      // asserted by the `waitForURL` below, which waits on the thing
+      // under test rather than on incidental network quiet.
+      await page.goto(BASE + '/splash', { waitUntil: 'domcontentloaded' });
       await page.waitForURL((url) => !url.pathname.startsWith('/splash'), {
-        timeout: 10_000,
+        timeout: 15_000,
       });
 
       expect(
@@ -116,9 +158,9 @@ test.describe('The citizen home is never a staff landing', () => {
   for (const persona of PERSONAS.filter((p) => p.role !== 'citizen')) {
     test(`${persona.role} is never sent to /home from /`, async ({ page }) => {
       await loginAs(page, persona.phone);
-      await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
       await page.waitForURL((url) => !url.pathname.endsWith('/'), {
-        timeout: 10_000,
+        timeout: 15_000,
       });
       expect(new URL(page.url()).pathname).not.toBe('/home');
     });

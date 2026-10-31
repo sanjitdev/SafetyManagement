@@ -52,6 +52,13 @@
 
 import { test, expect, Page } from '@playwright/test';
 
+declare global {
+  interface Window {
+    /** The Next.js App Router client runtime. Present once hydrated. */
+    next?: { version?: string; appDir?: boolean; router?: unknown };
+  }
+}
+
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
 interface Persona {
@@ -79,10 +86,45 @@ const PASSWORD = '12345678';
  * `+880…` server-side.
  */
 async function loginFrom(page: Page, phone: string, entryUrl: string) {
-  await page.goto(BASE + entryUrl, { waitUntil: 'networkidle' });
-  await page.locator('input[type="tel"]').fill(phone);
-  await page.locator('input[type="password"]').fill(PASSWORD);
-  await page.locator('button[type="submit"]').click();
+  // `domcontentloaded`, NOT `networkidle`. The anonymous landing runs a
+  // 30-second polling interval of `/api/v1/activity/public`, so the
+  // network never reliably goes idle under load and `networkidle`
+  // times out on the `goto`. The post-auth landing is asserted by the
+  // `waitForURL` below.
+  await page.goto(BASE + entryUrl, { waitUntil: 'domcontentloaded' });
+
+  // The login form is a React client component. `domcontentloaded`
+  // means the HTML is PARSED, not that React has hydrated — and the
+  // form's inputs are CONTROLLED. Filling a controlled input before
+  // hydration writes to the DOM but never reaches React's state, so
+  // `onChange` never fires, the component's `phone`/`password` state
+  // stays empty, and the submit button stays `disabled` (its
+  // `disabled` prop is `submitting || !phone || !password`). The click
+  // then does nothing and no request is ever made.
+  //
+  // The signal that hydration is DONE is `window.next.router`: the
+  // Next.js 14 App Router client runtime creates it once the router
+  // is live. (`window.__NEXT_HYDRATED` does NOT exist in the App
+  // Router — only in the Pages Router — so waiting on it times out.)
+  //
+  // Measured hydration times on this machine: 47 ms–1745 ms, so this
+  // wait is load-bearing, not decorative.
+  const phoneInput = page.locator('input[type="tel"]');
+  const passwordInput = page.locator('input[type="password"]');
+  const submit = page.locator('button[type="submit"]');
+
+  await submit.waitFor({ state: 'visible' });
+  await page.waitForFunction(() => !!(window.next && window.next.router), undefined, {
+    timeout: 15_000,
+  });
+
+  await phoneInput.fill(phone);
+  await passwordInput.fill(PASSWORD);
+
+  // Enabled ⇔ both fields registered in React state.
+  await expect(submit).toBeEnabled({ timeout: 15_000 });
+  await submit.click();
+
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), {
     timeout: 15_000,
   });
@@ -136,12 +178,12 @@ test.describe('A deep link never overrides the role model', () => {
   test('the public landing login CTA resolves by role', async ({ page }) => {
     // The entry path the user actually took: the anonymous landing
     // page's "Log in" button links to `/login?next=/report/location`.
-    await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
     const cta = page.locator('a[href*="/login"]').first();
     await expect(cta).toHaveCount(1);
     await cta.click();
     await page.waitForURL((url) => url.pathname.startsWith('/login'), {
-      timeout: 10_000,
+      timeout: 15_000,
     });
     expect(new URL(page.url()).pathname).toBe('/login');
   });

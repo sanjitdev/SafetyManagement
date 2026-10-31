@@ -5247,3 +5247,44 @@ had never been committed, so the previous entry's claim ("the login page
 routed by role correctly") was true of the working copy but not of the
 committed tree. That gap is now closed: the resolver is committed, and the
 source-scan test fails loudly if the call site regresses.
+
+#### A test-infrastructure defect found alongside the bug
+
+The new Playwright suite exposed a latent flake in the existing role-redirect
+spec, and the investigation turned up something worth recording because it
+would bite any future test that fills a form on a client-component page.
+
+**`waitUntil: 'networkidle'` is the wrong wait condition for this app.** The
+anonymous landing runs a 30-second polling interval
+(`components/PublicLandingExperience.tsx` → `setInterval(fetchOnce, 30_000)`)
+against `/api/v1/activity/public`, and the splash page fetches
+`/api/auth/status` and waits on `navigator.geolocation`. Under load the network
+never reaches an idle state, so `page.goto(..., { waitUntil: 'networkidle' })`
+times out before the redirect under test can happen. The symptom was a
+30-second timeout on `/splash` that passed in isolation and failed in a
+sequential run. Both specs now use `domcontentloaded` and let the
+`waitForURL` — which waits on the thing actually under test — do the waiting.
+
+**Filling a controlled input before hydration silently does nothing.** This
+was the subtler one. The login form's inputs are controlled React inputs, and
+`domcontentloaded` means the HTML is *parsed*, not that React has hydrated.
+A `fill()` before hydration writes to the DOM but never reaches React's state:
+`onChange` never fires, `phone`/`password` stay empty, and the submit button
+stays `disabled` (its `disabled` prop is `submitting || !phone || !password`).
+The click then does nothing and **no request is ever made**. A probe confirmed
+it — twelve consecutive logins, `api=[]` every time, every button disabled.
+
+The fix is to wait for hydration before typing. The signal is
+`window.next.router`: the Next.js 14 App Router client runtime creates it once
+the router is live. Measured hydration times on this machine: **47 ms to
+1745 ms** — so the wait is load-bearing, not decorative.
+
+Worth recording as a trap: `window.__NEXT_HYDRATED` does **not** exist in the
+App Router. It is set by the Pages Router's client runtime (visible in
+`node_modules/next/dist/client/index.js`), but Next.js 14's App Router never
+sets it — waiting on it times out after 15 s. The flag was tried first and
+failed for exactly that reason.
+
+With both fixes, the four role/theme suites (46 tests) now pass twice
+consecutively in sequence, in 4.5 min — down from 5.8 min, because the suite
+no longer spends its time waiting on timeouts.
