@@ -21,6 +21,7 @@ import { cookies } from 'next/headers';
 import { isDevStore } from '@/lib/dev-store';
 import { devMintSession, type DevPersonaRole } from '@/lib/dev-session';
 import { SESSION_COOKIE } from '@/lib/auth/session';
+import { ROLE_HOME } from '@/lib/role-home';
 
 const VALID_ROLES: ReadonlySet<DevPersonaRole> = new Set([
   'citizen',
@@ -29,18 +30,24 @@ const VALID_ROLES: ReadonlySet<DevPersonaRole> = new Set([
   'admin',
 ]);
 
-// Where each persona lands after login. The citizen defaults to the
-// start of the submit flow; the dispatcher lands on the triage queue
-// (/dispatcher); the crew lands on the today's-assignments page
-// (/crew); the admin lands on /home — the admin console (Intent
-// 005) is deferred; the platform's /home page is the neutral
-// surface for the admin persona until the intent-specific page
-// ships.
+// Where each persona lands after login.
+//
+// The citizen is the ONE deliberate exception: the dev demo exists to
+// walk the submit-report flow end-to-end, so it lands on the start of
+// that flow rather than on the citizen feed.
+//
+// The staff personas use the shared role→surface mapping
+// (`lib/role-home.ts`) — the same one the login page, the splash page
+// and the site root use — so there is exactly one place that decides
+// where a role belongs. The admin previously landed on `/home` on the
+// strength of a comment saying the admin console was "deferred"; that
+// console now exists (`app/admin/page.tsx`), so the admin persona
+// lands on `/admin` like a real admin login does.
 const REDIRECT_BY_ROLE: Record<DevPersonaRole, string> = {
   citizen: '/report/location',
-  dispatcher: '/dispatcher',
-  crew: '/crew',
-  admin: '/home',
+  dispatcher: ROLE_HOME.dispatcher,
+  crew: ROLE_HOME.crew,
+  admin: ROLE_HOME.admin,
 };
 
 export async function POST(req: NextRequest) {

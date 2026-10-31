@@ -19,6 +19,16 @@
  * for an authed user, and the redirect does not require a client
  * component.
  *
+ * The redirect target is ROLE-AWARE. It used to be a hard-coded
+ * `redirect('/home')`, which dumped every authenticated user on the
+ * citizen feed — an admin who bookmarked the site root, or anyone who
+ * landed on `/` with a live session, ended up on the citizen Home
+ * instead of their own console. The role→surface mapping already
+ * existed in `lib/role-home.ts` (the login page and the splash page
+ * both use it), so this route now uses the same single source of
+ * truth: citizen → `/home`, dispatcher → `/dispatcher`,
+ * crew → `/crew`, admin → `/admin`.
+ *
  * In dev-store mode (`CITYFIX_DEV_STORE=1`) the existing
  * "Sign in as Rahim" demo button is preserved — it's a useful
  * walkthrough handle for local development and is not surfaced
@@ -29,13 +39,17 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getActiveSession } from '@/lib/db-switch';
 import { isDevStore } from '@/lib/dev-store';
+import { roleHome } from '@/lib/role-home';
 import PublicLandingExperience from '@/components/PublicLandingExperience';
 
 export default async function HomePage() {
   const session = await getActiveSession();
   if (session) {
-    // Authed users go straight to their primary surface.
-    redirect('/home');
+    // Authed users go straight to their OWN primary surface. The
+    // role→surface mapping lives in `lib/role-home.ts` and is shared
+    // with the login page and the splash page, so there is exactly
+    // one place that decides where a role belongs.
+    redirect(roleHome(session.role));
   }
 
   // Dev-store only — the demo persona is a local dev affordance.
