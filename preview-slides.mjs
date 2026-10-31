@@ -641,12 +641,12 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
     text(sl, h, x + 0.22, y + 0.3, 2.4, 0.32, { size: 16, bold: true });
     text(
       sl,
-      items.map((t) => `<div style="margin-bottom:7px">• ${t}</div>`).join(''),
+      items.map((t) => `<div>• ${t}</div>`).join(''),
       x + 0.22,
       y + 0.75,
       2.4,
       2.6,
-      { size: 11.5, color: T.inkSecondary, lh: 20 },
+      { size: 11.5, color: T.inkSecondary, lh: 20, bullet: true },
     );
   });
   rect(sl, 0.72, 5.72, 11.9, 0.62, T.primarySoft, {
@@ -783,9 +783,17 @@ const html = `<!doctype html>
   .wrap { padding:24px; }
   .slide { position:relative; width:${W * PX}px; height:${H * PX}px; margin:0 auto 24px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.45); }
   .el { position:absolute; box-sizing:border-box; }
-  .txt { overflow:hidden; display:flex; align-items:flex-start; }
+  /* Block layout, NOT flex: PowerPoint stacks paragraphs vertically.
+     With display:flex the <div> children of a multi-paragraph run were
+     laid out side by side, which made bullet lists look interleaved. */
+  .txt { overflow:hidden; display:block; }
+  .txt > div { display:block; }
+  /* PowerPoint bullet geometry: marL=342900 indent=-342900 => a hanging
+     indent of 0.375in with the glyph in the indent gutter. */
+  .bul { padding-left:0.375in; }
+  .bul > div { padding-left:0.375in; text-indent:-0.375in; margin-bottom:7px; }
+  .bul > div:last-child { margin-bottom:0; }
   .img { overflow:hidden; }
-  .bul div { }
   h1 { color:#fff; font-size:18px; margin:0 0 16px; font-family:${FONT}; }
 </style></head>
 <body><div class="wrap">

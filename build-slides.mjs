@@ -62,6 +62,30 @@ pptx.title = 'CityFix — Citizen-powered city issue reporting & tracking';
 pptx.subject = 'CityFix product presentation';
 
 // ---------------------------------------------------------------------------
+// Guarantee: no text can ever spill outside its box.
+//
+// By default pptxgenjs writes `<a:bodyPr wrap="square">` with NO autofit
+// element. In PowerPoint that means a text box whose content is taller
+// than its frame simply OVERFLOWS — the text spills past the box and can
+// collide with whatever sits below it.
+//
+// `shrinkText: true` makes pptxgenjs emit `<a:normAutofit>`, PowerPoint's
+// "shrink text on overflow". If content is ever too tall, PowerPoint
+// scales the type down to fit instead of spilling.
+//
+// This is applied by wrapping addSlide, so it covers every text box in the
+// deck without having to remember it at each of the ~300 call sites.
+// ---------------------------------------------------------------------------
+const rawAddSlide = pptx.addSlide.bind(pptx);
+pptx.addSlide = (...args) => {
+  const slide = rawAddSlide(...args);
+  const rawAddText = slide.addText.bind(slide);
+  slide.addText = (text, opts = {}) =>
+    rawAddText(text, { ...opts, shrinkText: opts.shrinkText ?? true });
+  return slide;
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

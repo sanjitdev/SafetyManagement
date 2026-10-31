@@ -5,9 +5,17 @@
   .wrap { padding:24px; }
   .slide { position:relative; width:1279.968px; height:720px; margin:0 auto 24px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.45); }
   .el { position:absolute; box-sizing:border-box; }
-  .txt { overflow:hidden; display:flex; align-items:flex-start; }
+  /* Block layout, NOT flex: PowerPoint stacks paragraphs vertically.
+     With display:flex the <div> children of a multi-paragraph run were
+     laid out side by side, which made bullet lists look interleaved. */
+  .txt { overflow:hidden; display:block; }
+  .txt > div { display:block; }
+  /* PowerPoint bullet geometry: marL=342900 indent=-342900 => a hanging
+     indent of 0.375in with the glyph in the indent gutter. */
+  .bul { padding-left:0.375in; }
+  .bul > div { padding-left:0.375in; text-indent:-0.375in; margin-bottom:7px; }
+  .bul > div:last-child { margin-bottom:0; }
   .img { overflow:hidden; }
-  .bul div { }
   h1 { color:#fff; font-size:18px; margin:0 0 16px; font-family:'Segoe UI', system-ui, sans-serif; }
 </style></head>
 <body><div class="wrap">
@@ -343,19 +351,19 @@
 <div class="el rect" style="left:69.12px;top:187.2px;width:266.88px;height:336px;background:#FFFFFF;border-radius:7.68px;border:1px solid #E2E8F0;"></div>
 <div class="el rect" style="left:69.12px;top:187.2px;width:266.88px;height:8.64px;background:#2C5282;"></div>
 <div class="el txt " style="left:90.24px;top:216px;width:230.39999999999998px;height:30.72px;font-size:16px;color:#0F1419;font-weight:700">Client</div>
-<div class="el txt " style="left:90.24px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div style="margin-bottom:7px">• Next.js 14 App Router</div><div style="margin-bottom:7px">• React 18 + TypeScript strict</div><div style="margin-bottom:7px">• Tailwind v3 + CSS custom properties</div><div style="margin-bottom:7px">• MapLibre GL JS + OSM raster</div></div>
+<div class="el txt bul" style="left:90.24px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div>• Next.js 14 App Router</div><div>• React 18 + TypeScript strict</div><div>• Tailwind v3 + CSS custom properties</div><div>• MapLibre GL JS + OSM raster</div></div>
 <div class="el rect" style="left:360px;top:187.2px;width:266.88px;height:336px;background:#FFFFFF;border-radius:7.68px;border:1px solid #E2E8F0;"></div>
 <div class="el rect" style="left:360px;top:187.2px;width:266.88px;height:8.64px;background:#B7791F;"></div>
 <div class="el txt " style="left:381.12px;top:216px;width:230.39999999999998px;height:30.72px;font-size:16px;color:#0F1419;font-weight:700">Server</div>
-<div class="el txt " style="left:381.12px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div style="margin-bottom:7px">• Route handlers + Zod at every boundary</div><div style="margin-bottom:7px">• Signed HTTP-only session cookies</div><div style="margin-bottom:7px">• Rate limiting + login lockout</div><div style="margin-bottom:7px">• Web Push (VAPID)</div></div>
+<div class="el txt bul" style="left:381.12px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div>• Route handlers + Zod at every boundary</div><div>• Signed HTTP-only session cookies</div><div>• Rate limiting + login lockout</div><div>• Web Push (VAPID)</div></div>
 <div class="el rect" style="left:650.8799999999999px;top:187.2px;width:266.88px;height:336px;background:#FFFFFF;border-radius:7.68px;border:1px solid #E2E8F0;"></div>
 <div class="el rect" style="left:650.8799999999999px;top:187.2px;width:266.88px;height:8.64px;background:#2F7A4F;"></div>
 <div class="el txt " style="left:671.9999999999999px;top:216px;width:230.39999999999998px;height:30.72px;font-size:16px;color:#0F1419;font-weight:700">Domain</div>
-<div class="el txt " style="left:671.9999999999999px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div style="margin-bottom:7px">• Service layer returning Result&lt;T, E&gt;</div><div style="margin-bottom:7px">• Ticket transitions + dedup (50 m)</div><div style="margin-bottom:7px">• City / ward / taxonomy model</div><div style="margin-bottom:7px">• WebAuthn for admin writes</div></div>
+<div class="el txt bul" style="left:671.9999999999999px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div>• Service layer returning Result&lt;T, E&gt;</div><div>• Ticket transitions + dedup (50 m)</div><div>• City / ward / taxonomy model</div><div>• WebAuthn for admin writes</div></div>
 <div class="el rect" style="left:941.76px;top:187.2px;width:266.88px;height:336px;background:#FFFFFF;border-radius:7.68px;border:1px solid #E2E8F0;"></div>
 <div class="el rect" style="left:941.76px;top:187.2px;width:266.88px;height:8.64px;background:#805AD5;"></div>
 <div class="el txt " style="left:962.8800000000001px;top:216px;width:230.39999999999998px;height:30.72px;font-size:16px;color:#0F1419;font-weight:700">Data</div>
-<div class="el txt " style="left:962.8800000000001px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div style="margin-bottom:7px">• PostgreSQL 16</div><div style="margin-bottom:7px">• Prisma 5 — typed client only</div><div style="margin-bottom:7px">• Raw SQL forbidden in app code</div><div style="margin-bottom:7px">• Platform audit log</div></div>
+<div class="el txt bul" style="left:962.8800000000001px;top:259.20000000000005px;width:230.39999999999998px;height:249.60000000000002px;font-size:11.5px;color:#4A5568;line-height:20px"><div>• PostgreSQL 16</div><div>• Prisma 5 — typed client only</div><div>• Raw SQL forbidden in app code</div><div>• Platform audit log</div></div>
 <div class="el rect" style="left:69.12px;top:549.12px;width:1142.4px;height:59.519999999999996px;background:#EBF2F8;border-radius:7.68px;border:1px solid #2C5282;"></div>
 <div class="el txt " style="left:96px;top:563.52px;width:1089.6px;height:32.64px;font-size:12px;color:#2C5282;font-weight:700;text-align:center">Every service-layer call returns Result&lt;T, E&gt; — no exception crosses a boundary, and every state change is written to the audit log.</div></div>
 <div class="slide" style="background:#FAFAF7"><div class="el rect" style="left:0px;top:0px;width:1279.968px;height:8.64px;background:#2C5282;"></div>
