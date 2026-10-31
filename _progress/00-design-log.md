@@ -4411,3 +4411,108 @@ confirmed by re-running them with the theme changes stashed:
 
 Neither is a theming regression. Both reproduce identically with the theme
 changes stashed.
+### 2026-10-31 — Every persona landed on the citizen feed, not their own console
+
+**Reported symptom:** *"after login the personas don't get redirected to their
+respective pages, they all go to /home."*
+
+#### The diagnosis — the login page was NOT the problem
+
+The first instinct is to blame the login redirect, and the code there looks
+suspicious at a glance. It does not. `app/login/page.tsx` already routes by
+role:
+
+```tsx
+router.replace(explicitNext ? nextPath : roleHome(data?.role));
+```
+
+and `lib/role-home.ts` already holds the mapping — citizen `/home`,
+dispatcher `/dispatcher`, crew `/crew`, admin `/admin`. A live probe with the
+real seeded personas confirmed the login page was already correct:
+
+```text
+citizen     afterLogin=/home
+dispatcher  afterLogin=/dispatcher
+crew        afterLogin=/crew
+admin       afterLogin=/admin
+```
+
+#### The actual cause — a hard-coded redirect at the site root
+
+`app/page.tsx` — the site root — redirected **every** authenticated user with
+a literal path, ignoring `session.role` on the very object it had just read:
+
+```tsx
+const session = await getActiveSession();
+if (session) {
+  redirect('/home');   // ← role-blind
+}
+```
+
+So the symptom appeared whenever a signed-in persona reached `/` rather than
+`/login`: a bookmarked site root, a refreshed tab, a link pasted into chat, the
+public landing reached from a search result. The probe made the split explicit
+— the login page routed correctly, and then `/` dumped everyone on the citizen
+feed:
+
+```text
+citizen     afterLogin=/home        thenVisit"/" -> /home
+dispatcher  afterLogin=/dispatcher  thenVisit"/" -> /home   ← wrong
+crew        afterLogin=/crew        thenVisit"/" -> /home   ← wrong
+admin       afterLogin=/admin       thenVisit"/" -> /home   ← wrong
+```
+
+This is the same class of defect as the dark-theme bug: the *shared* mechanism
+was correct and well-tested, and a single call site opted out of it.
+
+#### What changed
+
+| File | Change |
+|---|---|
+| `app/page.tsx` | `redirect('/home')` → `redirect(roleHome(session.role))`. The site root now sends each persona to their own surface. |
+| `app/api/dev/login/route.ts` | The admin persona landed on `/home` on the strength of a comment claiming the admin console was "deferred". It is not deferred — `app/admin/page.tsx` exists — so the staff personas now use the shared `ROLE_HOME` mapping. The citizen stays on `/report/location` deliberately: the dev demo exists to walk the submit-report flow. |
+
+#### What deliberately did NOT change
+
+- **`app/verify-otp/page.tsx`** still routes to `/home`, and that is correct.
+  The OTP path is **citizen-only** — the API looks the user up with
+  `role: 'citizen'` hard-coded — so a citizen is the only role that can ever
+  reach it. Changing it would be cargo-culting.
+- **`app/report/[id]/submitted/page.tsx`** keeps its "back to home" button
+  pointing at `/home`. Only a citizen can reach the report-submitted
+  confirmation, and there the user is *choosing* a destination rather than
+  being *assigned* one.
+- **`/feed`** does not redirect by role. It is the shared public activity
+  feed — every role reads the same city activity — so it is legitimately
+  common ground.
+
+#### Two new gates
+
+The mapping itself was already unit-tested, and it was never wrong. **The bug
+was in a call site, so the new tests target call sites.**
+
+- **`tests/unit/role-redirect-call-sites.test.ts`** (Vitest) — a source-level
+  scan asserting each entry point routes by role, and that no page under
+  `app/` contains a literal server-side `redirect('/home')`. It strips
+  comments first, so prose describing the old bug is not mistaken for live
+  code, and it scans server-side `redirect()` only — a `router.push('/home')`
+  inside a button handler is a user *choosing* a destination, not a landing
+  being *assigned*. Verified to fail on the pre-fix code (3 tests) and pass
+  after it.
+- **`tests/30-role-redirect.spec.ts`** (Playwright) — 15 tests driving the
+  real login form with the real seeded passwords against the real database,
+  asserting that login, `/` and `/splash` each land every persona on their own
+  surface, plus an explicit "the citizen home is never a staff landing" check.
+
+#### Verification
+
+```text
+npx tsc --noEmit                                    clean
+npm run test:unit                                   78 files / 1122 tests passed (was 77 / 1114)
+npm run test:mockups                                15/15 baselines passed
+npx playwright test tests/30-role-redirect.spec.ts  15 passed
+npx playwright test tests/29-admin-dark-theme.spec.ts tests/28-role-walkthrough.spec.ts  13 passed
+```
+
+---
+
