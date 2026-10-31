@@ -50,7 +50,21 @@ export function AppShell({
       data-app-shell
       data-shell-role={role}
       style={{
-        minHeight: '100dvh',
+        // `height` (not just `minHeight`) is what makes the shell a
+        // BOUNDED box. With only `minHeight`, the shell GREW to fit
+        // its content (1175px on /admin/tickets) while `overflow:
+        // 'hidden'` prevented it from scrolling — so everything below
+        // the fold was clipped and unreachable.
+        //
+        // Capping the shell at the viewport and letting <main> scroll
+        // is the containment model the AppShell header comment always
+        // described: "a scrollable <main> below it whose inner
+        // regions are free to use overflow: auto without producing a
+        // page-level scrollbar."
+        //
+        // `100dvh` (not `100vh`) so mobile browser chrome (the URL
+        // bar) is accounted for.
+        height: '100dvh',
         background: 'var(--color-surface-page)',
         color: 'var(--color-ink)',
         display: 'flex',
@@ -63,10 +77,28 @@ export function AppShell({
       <main
         style={{
           flex: '1 1 auto',
-          minHeight: 0, // critical: lets inner regions scroll
+          minHeight: 0, // critical: lets the region scroll
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
+          // The shell sets `overflow: hidden` so the STICKY header and
+          // the shell's own chrome never produce a viewport scrollbar.
+          //
+          // That made <main> the scroll region: without this, a page
+          // with no inner `overflow: auto` container grew the shell
+          // past the viewport and the content below the fold was
+          // CLIPPED — unreachable by scrolling. The admin surfaces hit
+          // this hardest (the users, adoption and tickets pages all
+          // measured taller than a 900px viewport).
+          //
+          // `overflowY: 'auto'` + `overscrollBehavior: 'contain'` keeps
+          // the scroll INSIDE <main>, so the sticky header stays put
+          // and the page never gets a viewport-level scrollbar. Pages
+          // that DO have their own inner scroll container (the
+          // dispatcher / crew landing pages) are unaffected — their
+          // inner region consumes the wheel first.
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
       >
         {children}
