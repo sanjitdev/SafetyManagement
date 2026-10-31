@@ -236,10 +236,45 @@ test.describe('Route screenshots — dark theme', () => {
 });
 
 test.describe('Hard-coded color audit', () => {
-  // Surface every element with a literal hex / rgb / hsl color that does
-  // NOT come from the design tokens. These are the "24 hard-coded color
-  // lines" called out in the design log; this test gives us a programmatic
-  // way to count them per route.
+  // ── RETIRED as a gate; replaced by two real gates ─────────────
+  //
+  // WHY THIS SURVEY WAS REPLACED
+  //
+  // 1. It could never fail. It wrote a JSON file and pushed an
+  //    annotation — no assertion, so a page full of hardcoded
+  //    colours still reported PASS.
+  // 2. It had an operator-precedence bug. The condition was
+  //
+  //       v && v !== 'rgba(0, 0, 0, 0)' && v !== 'transparent'
+  //         && !/^var\(--/.test(v) && /^#[0-9a-f]{3,8}$/i.test(v)
+  //         || /^rgb\(/.test(v)
+  //
+  //    `&&` binds tighter than `||`, so the whole thing parsed as
+  //    `(A && B && C && D && E) || F`. Any element with an `rgb(...)`
+  //    background — which is EVERY element, because getComputedStyle
+  //    resolves `var(--x)` to a literal `rgb()` — was reported as an
+  //    offender regardless of where the colour came from.
+  // 3. It surveyed only `ROUTES.slice(0, 4)` — landing, splash,
+  //    register, login. It never reached `/admin`, which is where the
+  //    regression actually was.
+  //
+  // WHY A DOM SCAN CANNOT DO THIS JOB
+  //
+  // `getComputedStyle` resolves `var(--color-surface-card)` to a
+  // literal `rgb(...)`. The DOM therefore cannot distinguish a
+  // token-sourced colour from a hardcoded one. The reliable detector
+  // reads the SOURCE.
+  //
+  // The replacements:
+  //   - tests/unit/admin-theme-tokens.test.ts — source-level scan
+  //     (Vitest). Fails with the file, line and offending class.
+  //   - tests/29-admin-dark-theme.spec.ts — Playwright. Asserts the
+  //     computed background is actually DARK on /admin, /dispatcher,
+  //     /crew and the admin sub-pages.
+  //
+  // This survey is kept only as a human-review aid for the citizen
+  // routes; it no longer pretends to be a gate. The JSON output is
+  // gitignored.
   for (const route of ROUTES.slice(0, 4)) {
     test(`hard-coded colors / ${route.name}`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
@@ -254,30 +289,27 @@ test.describe('Hard-coded color audit', () => {
           const props = ['color', 'background-color', 'border-color', 'fill', 'stroke'];
           for (const p of props) {
             const v = cs.getPropertyValue(p);
-            // Detect literal color values (not CSS var or transparent)
-            if (
-              v &&
-              v !== 'rgba(0, 0, 0, 0)' &&
-              v !== 'transparent' &&
-              !/^var\(--/.test(v) &&
-              /^#[0-9a-f]{3,8}$/i.test(v) || /^rgb\(/.test(v)
-            ) {
-              nodes.push({
-                tag: el.tagName.toLowerCase(),
-                id: el.id,
-                cls: el.className?.toString().slice(0, 60) ?? '',
-                prop: p,
-                value: v,
-              });
-            }
+            // Only fully-transparent values are skipped. Everything
+            // else is recorded for REVIEW — a DOM scan cannot tell a
+            // token-sourced colour from a hardcoded one, so this is a
+            // human-review aid, not an assertion.
+            if (!v || v === 'rgba(0, 0, 0, 0)' || v === 'transparent') continue;
+            nodes.push({
+              tag: el.tagName.toLowerCase(),
+              id: el.id,
+              cls: el.className?.toString().slice(0, 60) ?? '',
+              prop: p,
+              value: v,
+            });
           }
         }
         return nodes.slice(0, 30);
       });
-      // Record to a JSON file for human review
+      // Record to a JSON file for human review.
       const out = path.join(AUDIT_DIR, `hardcoded-${route.name}.json`);
       fs.writeFileSync(out, JSON.stringify(offenders, null, 2));
-      // Don't fail the test — this is a survey, not a hard gate.
+      // NOT a gate — the real gates are the Vitest source scan and the
+      // Playwright dark-theme assertions. See the comment above.
       test.info().annotations.push({ type: 'offender_count', description: String(offenders.length) });
     });
   }
