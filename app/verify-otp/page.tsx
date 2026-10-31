@@ -27,6 +27,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
+import { resolvePostAuthTarget } from '@/lib/role-home';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const CODE_LEN = 6;
@@ -222,8 +223,16 @@ function VerifyOtpInner() {
         body: JSON.stringify({ phone: phoneParam, code }),
       });
       if (res.status === 200) {
-        // Honor the `?next=` deep link (sanitized by safeNextPath).
-        router.replace(nextPath);
+        // Honor the `?next=` deep link (sanitized by safeNextPath) —
+        // but only when the signed-in role may land on it. The OTP
+        // path is citizen-only, so a deep link into a staff surface
+        // (e.g. `?next=/admin`) must not carry a citizen there.
+        const data = (await res.json().catch(() => null)) as {
+          role?: string;
+        } | null;
+        router.replace(
+          resolvePostAuthTarget(data?.role ?? 'citizen', nextPath),
+        );
         return;
       }
       if (res.status === 401) {

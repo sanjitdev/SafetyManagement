@@ -143,5 +143,14 @@ export async function POST(req: NextRequest) {
     afterValue: { scope },
   });
 
-  return NextResponse.json({ ok: true, userId: user.id }, { status: 200 });
+  // `role` is returned so the client can route by ROLE the same way the
+  // password login path does. The OTP flow is citizen-only (the lookup
+  // above pins `role: 'citizen'`), but the client must not have to
+  // hard-code that assumption: `resolvePostAuthTarget` needs to know
+  // which role is signing in to decide whether a `?next=` deep link is
+  // a surface that role may land on.
+  return NextResponse.json(
+    { ok: true, userId: user.id, role: 'citizen' },
+    { status: 200 },
+  );
 }

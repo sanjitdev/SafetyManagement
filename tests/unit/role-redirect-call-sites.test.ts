@@ -41,6 +41,20 @@ const ENTRY_POINTS = [
 ];
 
 /**
+ * A call that routes BY ROLE.
+ *
+ * Two shapes qualify:
+ *   - `roleHome(...)` — the direct mapping.
+ *   - `resolvePostAuthTarget(...)` — the role-aware resolver, which
+ *     routes by role AND refuses a `?next=` deep link the role may not
+ *     follow. The login page uses this one because it has a deep link
+ *     to honour; the site root does not.
+ *
+ * A literal path in either position is a role-blind landing.
+ */
+const ROLE_ROUTING_CALL = /\b(roleHome|resolvePostAuthTarget)\s*\(/;
+
+/**
  * The dev-only persona switcher. The admin persona used to land on
  * `/home` there on the strength of a comment claiming the admin
  * console was "deferred" — it is not deferred, it exists.
@@ -102,8 +116,8 @@ describe('the role→surface redirect is applied at every entry point', () => {
   it.each(ENTRY_POINTS)('%s routes by role, not by a hard-coded path', (rel) => {
     const src = readFileSync(join(REPO_ROOT, rel), 'utf8');
     expect(
-      src.includes('roleHome('),
-      `${rel} does not reference roleHome() — an authenticated user reaching this route may be sent to the wrong surface for their role.`,
+      ROLE_ROUTING_CALL.test(src),
+      `${rel} does not route by role (no roleHome() or resolvePostAuthTarget() call) — an authenticated user reaching this route may be sent to the wrong surface for their role.`,
     ).toBe(true);
   });
 
@@ -127,7 +141,30 @@ describe('the role→surface redirect is applied at every entry point', () => {
 
   it('app/login/page.tsx routes by the role the API returned', () => {
     const src = readFileSync(join(REPO_ROOT, 'app/login/page.tsx'), 'utf8');
-    expect(src).toMatch(/roleHome\(data\?\.role\)/);
+    // The login page has a `?next=` deep link to honour, so it uses the
+    // role-aware resolver rather than the bare mapping. Either shape is
+    // acceptable as long as the API's role is what drives the routing.
+    expect(src).toMatch(
+      /(roleHome|resolvePostAuthTarget)\(\s*data\?\.role/,
+    );
+  });
+
+  it('app/login/page.tsx refuses a deep link the role may not follow', () => {
+    // The deep link must go through the RESOLVER, not be used
+    // directly. `router.replace(explicitNext ? nextPath : ...)` is the
+    // role-blind shape that sent an admin who signed in from the
+    // public landing onto the citizen's report form.
+    const src = stripComments(
+      readFileSync(join(REPO_ROOT, 'app/login/page.tsx'), 'utf8'),
+    );
+    expect(
+      /router\.replace\(\s*explicitNext\s*\?/.test(src),
+      'app/login/page.tsx must not use a raw `?next=` value as the redirect target. It must pass the deep link through resolvePostAuthTarget() so the role can refuse it.',
+    ).toBe(false);
+    expect(
+      /resolvePostAuthTarget\(/.test(src),
+      'app/login/page.tsx must route the post-auth target through resolvePostAuthTarget().',
+    ).toBe(true);
   });
 
   it('app/splash/page.tsx routes by the session role', () => {

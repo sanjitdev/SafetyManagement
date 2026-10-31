@@ -4516,3 +4516,734 @@ npx playwright test tests/29-admin-dark-theme.spec.ts tests/28-role-walkthrough.
 
 ---
 
+
+---
+
+### 2026-10-31 — Two green suites that were quietly red: a calendar-shaped fixture
+
+The Master Agent's project sweep found the Construction Verification
+Command failing on **2 of 1034** unit assertions:
+
+```text
+FAIL tests/unit/citizen/feedback.test.ts
+  > makes the admin funnel AND the dispatcher crew table read the same value
+FAIL tests/unit/dispatcher/performance.test.ts
+  > aggregates the persisted feedback into the crew table
+
+AssertionError: expected +0 to be 1
+```
+
+**The production code was never broken.** `submitTicketFeedback`
+persists `{"rating":"positive"}` correctly; the admin funnel
+(`lib/admin/users-db.ts`) and the dispatcher crew table
+(`lib/dispatcher/performance.ts`) read the *same* `Ticket.feedback`
+column, so there was no divergence to find. Both suites were
+failing on a **stale fixture**.
+
+**The mechanism.** `lib/dev-store.ts` seeds
+`ticket_seed_resolved_1` at `now - 10 * day`, where `now` is
+**wall-clock** time. `getPerformanceSnapshot` filters tickets by
+`createdAt` against the requested range, and `aggregateCrewFeedback`
+reads the **current period only**. Both suites requested a
+hard-coded window of `2026-10-01 → 2026-10-20`. On 2026-10-31 the
+seed landed on **2026-10-21** — one day past the window's `to`.
+
+```text
+seeded createdAt           = 2026-10-21T08:34Z
+inPerfRange(seeded, range) = false
+wide range  (to 2027-01-01) → positiveFeedback = 1
+narrow range (to 2026-10-20) → positiveFeedback = 0
+```
+
+A test that hard-codes a calendar window over a wall-clock-seeded
+row is a **latent failure that only announces itself once the
+calendar moves past it**. It is indistinguishable from a broken
+write path, which is exactly what it looked like.
+
+**The fix — derive the window from the ticket's own `createdAt`.**
+
+- **New** `tests/helpers/perf-range.ts` — `rangeContaining(createdAt)`
+  builds a window centred on the ticket's creation instant, padded
+  5 days each side, with `to` pushed to end-of-day so a late-created
+  ticket still compares as inside. The window is a pure function of
+  the seed, so it is **deterministic** and **calendar-independent**.
+- **4 call sites** updated across the two suites (2 failing, plus 2
+  that were passing by luck and carried the same latent rot —
+  the `FEEDBACK_MIN_SAMPLES` ratio test and the neutral-feedback
+  test). The 3 remaining hard-coded windows in the performance suite
+  are **range-shape** assertions (echo-back, daily-series span,
+  before-range exclusion) that do not depend on the seed's position
+  in time; they were left alone deliberately.
+- Corrected a stale comment: the seeded resolved ticket is assigned
+  to `user_crew_karim`, not `user_crew_rashid` — drainage is
+  `dept_roads`, so it goes to the roads crew.
+
+**The guard (proven non-vacuous).** New
+`tests/unit/perf-range-contract.test.ts` (10 tests) pins the rule:
+*a test that reads a seeded ticket and filters it by date must
+derive its window from the ticket's `createdAt`, never from a
+hard-coded date.* It scans the seed-dependent suites for the
+anti-pattern and fails with an actionable message naming the file,
+the offending call, and the replacement. Re-injecting the original
+bug into `performance.test.ts` made it fire:
+
+```text
+× derives its window from the seed, not the calendar
+  → tests/unit/dispatcher/performance.test.ts: a hard-coded date
+    window is passed to getPerformanceSnapshot:
+      getPerformanceSnapshot(DISPATCHER_SESSION, {
+        from: '2026-10-01T00:00:00.000Z',
+        to:   '2026-10-20T00:00:00.000Z',
+      });
+    Use rangeContaining(<ticket>.createdAt) instead — a hard-coded
+    window drops the wall-clock-seeded ticket out of the current
+    period once the calendar moves.
+```
+
+The guard also pins its own premise — that the seed really is
+wall-clock relative (age 9–11 days) — so if the seed ever becomes
+date-fixed, the guard announces that it needs revisiting rather
+than silently decaying.
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run
+test:unit` **1044/1044** across 71 files · `npm run test:mockups`
+**15/15** byte-for-byte, no regeneration · `npm run
+test:unit:coverage` **90.44%** lines (floor 80%) · `npm run lint`
+0 errors (53 pre-existing warnings, none in the touched files).
+**10 new unit assertions** in 1 file, **4 call sites** repaired.
+
+**No production code changed.** The fix is entirely in the test
+layer — as it should be, because the defect was in the fixture.
+
+### 2026-10-31 — Seeded the full persona roster; the admin audit dashboard was broken on Postgres only
+
+Two things happened in one session, and the second one was found
+only because the first one forced the app onto the real database.
+
+**1. `prisma/seed.ts` grew a roster.**
+
+The seed used to write the *city configuration* only — the city,
+3 departments, 5 categories, 50 ward polygons, and SLA policies —
+and **zero users**. That was not an oversight but a structural
+deadlock: the app can only create staff accounts from the admin
+CSV-import surface, and the admin surface needs an admin to exist
+first, and admin writes need a WebAuthn ceremony. So a fresh
+database could never reach a dispatcher or crew surface.
+
+The seed now writes the full four-role persona roster, mirroring
+`lib/dev-store.ts` exactly — same ids, phones, NIDs, ward and
+department scoping, same demo password (`12345678`) — so a
+developer moving between the dev store and the local Postgres sees
+identical behaviour:
+
+| Role | Id | Phone | Ward | Department | Crew |
+|---|---|---|---|---|---|
+| citizen | `user_citizen_rahim` | `+8801711000000` | 14 | — | — |
+| dispatcher | `user_dispatcher_habib` | `+8801711000001` | 14 | streetlight-maintenance | — |
+| crew | `user_crew_rashid` | `+8801711000002` | 14 | streetlight-maintenance | Mirpur Streetlight Team |
+| crew | `user_crew_karim` | `+8801711000004` | 14 | roads-drainage | Mirpur Roads Team |
+| crew | `user_crew_jamal` | `+8801711000005` | 20 | streetlight-maintenance | Mirpur Streetlight Team |
+| admin | `user_admin_anwar` | `+8801711000003` | — | — | — |
+
+Two details worth recording:
+
+- **The Argon2 parameters are load-bearing.**
+  `ARGON2_OPTIONS` in the seed MUST match `ARGON2_OPTIONS` in
+  `lib/auth/password.ts` character for character
+  (`algorithm: 2` = Argon2id, `memoryCost: 19 * 1024`,
+  `timeCost: 2`, `parallelism: 1`). A hash made with different
+  parameters does not verify, and the failure mode is silent —
+  the demo password simply stops working. The seed carries a
+  comment saying so, because the two files are far apart and a
+  future edit to one will not obviously reach the other.
+- **The password hash is computed once** and shared by all six
+  rows. Hashing six identical passwords separately would burn six
+  times the Argon2 time for no benefit — the salt is internal to
+  the hash, so one hash verifies against the same plaintext for
+  every row.
+
+`Crew` rows are seeded too, deliberately: they are the *production*
+path for `lib/admin/users.ts` → `resolveCrews()`. Without them the
+admin screen falls back to synthesising teams from each member's
+(ward, department) pair, so the real path would never be exercised.
+
+**2. `GET /api/v1/admin/audit` was returning 500 on Postgres.**
+
+Running the seeded app against the real local database (dev store
+off) surfaced it immediately:
+
+```text
+prisma:error
+Invalid `prisma.auditEntry.findMany()` invocation:
+Unknown argument `createdAt`. Available options are marked with ?.
+ GET /api/v1/admin/audit 500 in 176ms
+```
+
+The cause is a **column-name mismatch between the two backends**.
+The dev store names the audit row's time column `createdAt`
+(`DevAuditEntry`), and `lib/admin/audit-query.ts` speaks that
+dialect throughout — `where.createdAt`, `orderBy.createdAt`. The
+Prisma `AuditEntry` model has no such column; the column is named
+`timestamp`. The dev store's `findMany` was hand-written to
+interpret `createdAt` as its own `timestamp`, so it worked; the
+Prisma path had no such translation and passed `createdAt`
+straight through to Prisma, which rejected the unknown argument.
+
+**Every existing audit test drives the dev store**, which is why
+the suite was green while the feature was broken on the only
+backend that ships. The fix belongs in the adapter
+(`lib/db-switch.ts`), which is already the seam that reconciles
+the two dialects — it now translates `where.createdAt` →
+`where.timestamp` and `orderBy.createdAt` → `orderBy.timestamp`
+on the Prisma path only.
+
+**The regression guard (proven non-vacuous).** New
+`tests/unit/admin/audit-prisma-column.test.ts` (4 tests) mocks
+`@/lib/db`, forces the non-dev-store branch, and asserts the
+adapter emits `timestamp` and never leaks `createdAt` into the
+Prisma query. Re-introducing the bug (emitting `createdAt` again)
+made 3 of the 4 tests fail:
+
+```text
+× filters on `timestamp`, not `createdAt`
+  → expected { …(4) } to not have property "createdAt"
+```
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run
+test:unit` **1048/1048** across 72 files · `npm run test:mockups`
+**15/15** byte-for-byte, no regeneration · **4 new unit
+assertions** in 1 file. Against the live local Postgres, all **14**
+role-scoped API surfaces return **200**: dispatcher queue, map
+pins, monitor, performance, crew-for-ward; crew tickets + auth
+status; admin tickets, audit, cities; citizen activity + auth
+status.
+
+**Two product gaps observed (not defects, recorded for later).**
+
+- `GET /admin` is a **404** — there is no `app/admin/page.tsx`
+  index route; `app/admin/` holds only `audit/`, `cities/`,
+  `tickets/` and `layout.tsx`. The three sub-routes are all 200.
+- **Dispatcher and crew have no password login route.**
+  `/api/v1/auth/login` filters on `role: 'citizen'` by design
+  (`app/api/v1/auth/login/route.ts:135`), so the seeded staff
+  passwords cannot be used to sign in. Staff reach the app via
+  WebAuthn (admin) or `/api/dev/issue-session` (dispatcher/crew,
+  gated by `CITYFIX_DEV_PROMOTE_SECRET`). A local-only value for
+  that secret was added to `.env.local` so the staff surfaces can be
+  exercised locally; it is documented as local-only and must never
+  be reused on Vercel.
+
+**No production guard was weakened.** The request was to run the
+project in production mode, but `lib/platform/db-guard.ts`
+refuses to start production against a loopback host. The decision
+on record was to **keep the guard** and run against the real local
+Postgres with the dev store off (`CITYFIX_DEV_STORE` unset) — so
+the prod-only branches stay off and the local URL can never reach
+production by accident.
+
+### 2026-10-31 — All four roles can log in with phone + password
+
+Running the seeded app against the local Postgres exposed the gap
+the previous entry recorded: **only the citizen could sign in.**
+Dispatcher, crew and admin had no password path at all, so the
+seeded staff passwords were unusable and the three staff surfaces
+were reachable only through the dev-only `/api/dev/issue-session`
+route.
+
+The cause was one line in `app/api/v1/auth/login/route.ts`:
+
+```ts
+const user = await db.user.findFirst({
+  where: { cityId: city.id, phone, role: 'citizen' },
+});
+```
+
+The `role: 'citizen'` filter made the route a citizen-only endpoint.
+It was deliberate at the time (the citizen register flow was the
+only one with a password), but it was never revisited when staff
+accounts arrived.
+
+**The fix.**
+
+- The lookup drops the role filter, so `(cityId, phone)` resolves
+  the account whatever role it holds. The `db.user.findFirst`
+  adapter already treated `role` as optional — the dev store's own
+  `findFirst` documents `role?: string` and skips the role check
+  when it is absent — so no adapter change was needed.
+- The response now carries `role`, so the client can route to the
+  right surface.
+- The session binds to the user's **own** scope: a dispatcher/crew
+  session carries their `wardId` + `departmentId`, so
+  `requireScope` (lib/auth/guards.ts) denies cross-ward and
+  cross-department access downstream exactly as it does for a
+  dev-issued session. Citizen and admin sessions carry `null` for
+  both — the admin is city-wide.
+
+**Security boundaries — unchanged and verified.** The admin's
+WebAuthn requirement (ADR-007) is untouched: a password login lets
+an admin *see* the admin surfaces, not *change* them. Every
+mutating route under `/api/v1/admin/*` still goes through
+`requireWebAuthn`, which answers `401 webauthn_required` without a
+registered credential. Verified live:
+
+```text
+=== CROSS-ROLE ACCESS MUST BE DENIED ===
+  OK  citizen -> dispatcher queue      403  {"error":"forbidden_role"}
+  OK  citizen -> admin tickets         403  {"error":"forbidden_role"}
+  OK  citizen -> crew tickets          403  {"error":"forbidden_role"}
+  OK  dispatcher -> admin tickets      403  {"error":"forbidden_role"}
+  OK  dispatcher -> crew tickets       403  {"error":"forbidden_role"}
+  OK  crew -> dispatcher queue         403  {"error":"forbidden_role"}
+  OK  crew -> admin tickets            403  {"error":"forbidden_role"}
+
+=== ADMIN WRITE STILL REQUIRES WEBAUTHN ===
+  401 {"error":"webauthn_required"}
+
+=== WRONG PASSWORD STILL REJECTED ===
+  401 {"error":"wrong_credentials"}
+```
+
+**Where each role lands — `lib/role-home.ts` (new).** The four
+roles have four landing surfaces, and every caller used to
+hard-code `/home` — so a dispatcher who somehow got a session landed
+on the citizen feed. The mapping now lives in one place:
+
+| Role | Home |
+|---|---|
+| citizen | `/home` |
+| dispatcher | `/dispatcher` |
+| crew | `/crew` |
+| admin | `/admin/tickets` |
+
+`/admin` is deliberately **not** the admin home: there is no
+`app/admin/page.tsx` index route, so `/admin` is a 404. The admin
+home is `/admin/tickets`. An unknown role falls back to `/home` —
+the surface every role can read — never to a staff surface, because
+a 403 is worse than a redundant landing.
+
+Both the login page and the splash page now route on the role.
+
+**The lockout counter moved out of the route.** The per-IP failed-
+attempt counter was module-level state inside the route handler, so
+a unit test could not reset it: the Nth test inherited the N−1
+tests' failures and could observe a 423 it did not cause. It now
+lives in `lib/auth/login-lockout.ts` with an explicit
+`resetLoginAttempts()` test seam, and the route is left to its
+actual job — parse, authenticate, respond. The behaviour is
+unchanged: 5 failures in a 10-minute window locks the IP for 10
+minutes; a successful login clears the count (so one typo does not
+put a legitimate user one keystroke from a lockout).
+
+**Final verification.** `npx tsc --noEmit` clean · `npm run
+test:unit` **1078/1078** across 74 files · `npm run test:unit:coverage`
+**90.53%** lines (floor 80%) · `npm run test:mockups` **15/15**
+byte-for-byte · `npm run check:i18n` ok (718 keys) · `npx eslint` on
+the 7 touched files — 0 errors, 0 warnings. **34 new unit
+assertions** across 2 files.
+
+Against the live local Postgres, all **six** seeded personas log in
+with `12345678` and every role-scoped surface renders:
+
+```text
+citizen    Rahim  200  citizen    / Rahim  / ward=-
+dispatcher Habib  200  dispatcher / Habib  / ward=Ward 14
+crew       Rashid 200  crew       / Rashid / ward=Ward 14
+admin      Anwar  200  admin      / Anwar  / ward=-
+crew       Karim  200  crew       / Karim  / ward=Ward 14
+crew       Jamal  200  crew       / Jamal  / ward=Ward 20
+```
+
+```text
+citizen Rahim     200  /home  /reports  /feed
+dispatcher Habib  200  /dispatcher  /dispatcher/map  /dispatcher/monitor  /dispatcher/performance
+crew Rashid       200  /crew
+admin Anwar       200  /admin/tickets  /admin/audit  /admin/cities
+```
+
+All **14** role-scoped API surfaces return **200** with these
+password-minted sessions, and none of the pages bounce to `/login`.
+
+**Still open (unchanged by this work).** `GET /admin` remains a
+404 — `app/admin/` holds only `audit/`, `cities/`, `tickets/` and
+`layout.tsx`, with no index route. An admin who types `/admin`
+gets a 404 rather than their home. That is a pre-existing gap, not
+a regression from this change, and it deserves its own fix.
+
+
+---
+
+## 2026-10-31 — Fixed the `/admin` 404: the admin console now has an index route
+
+The last open item from the previous entry is closed. `GET /admin`
+was a **404** while its three children (`/admin/tickets`,
+`/admin/audit`, `/admin/cities`) all returned 200 — `app/admin/`
+held only `layout.tsx` plus those three subdirectories, with no
+index route. An admin who typed `/admin`, or whose role→home
+redirect landed there, got a 404 instead of their home.
+
+### What changed
+
+| File | Change |
+|---|---|
+| `app/admin/page.tsx` | **New.** The admin console — a card grid over every admin surface, plus a strip of live-city drill-downs. |
+| `lib/i18n/keys.ts` | New `admin.home.*` key block (18 keys, `bn` + `en` both authored — Bangla-first, per the project convention). |
+| `lib/role-home.ts` | `ROLE_HOME.admin` `/admin/tickets` → **`/admin`**. Docblock rewritten (it previously asserted `/admin` was a 404 — that claim is now false). |
+| `tests/unit/role-home.test.ts` | Replaced the `ROLE_HOME.admin !== '/admin'` assertion with `ROLE_HOME.admin === '/admin'`. The old test *pinned the bug in place*. |
+| `_progress/operations/route-map.md` | `/admin` added as the admin's home route; the `/admin/cities` entry no longer claims to be "the admin landing". |
+
+### Why `/admin` and not `/admin/tickets`
+
+The previous mapping was a workaround, not a design: with no index
+route, the admin's home had to be one of its children. Now that
+`app/admin/page.tsx` exists, pointing the admin at `/admin/tickets`
+would mean the console page is unreachable by the one path a
+user is guaranteed to take (sign in → land on your home).
+
+### The console page
+
+Three cards, each a whole-card link (the full card is the hit
+target, which matters on a 390px phone where the grid collapses
+to one column):
+
+| Card | Links to |
+|---|---|
+| Reports | `/admin/tickets` |
+| Audit log | `/admin/audit` |
+| Cities | `/admin/cities` |
+
+Below them, a strip of the **live** cities, each linking to its
+own `/admin/cities/[id]/setup` surface — the per-city drill-down
+where wards, categories, departments and users live.
+
+### The auth gate is UX, not security
+
+Same client-side pattern as the sibling admin pages: unauthenticated
+→ `/login?next=/admin`; authenticated but not an admin → `/` (the
+splash / role-aware router). The APIs under `/api/v1/admin/*`
+independently enforce `requireRole('admin')`, so a non-admin who
+bypassed the client gate would get 403s from the APIs, not data.
+
+The city list is fetched for the header and the city strip. A
+failure to load it degrades to a warning banner — the cards
+themselves are the point of the page, and the links are static.
+
+### Verification (live local Postgres, dev store off)
+
+```text
+GET /admin (anon)              -> 200
+GET /admin/tickets (anon)      -> 200
+GET /admin/audit (anon)        -> 200
+GET /admin/cities (anon)       -> 200
+
+login +8801711000003 (Anwar)   -> 200 role=admin
+GET /admin (admin)             -> 200
+```
+
+Browser (Playwright, real hydration, Bangla default):
+
+```text
+after login, URL            = http://localhost:3000/admin
+title text                  = "প্রশাসক প্যানেল"
+card reports: count=1 href=/admin/tickets
+card audit:   count=1 href=/admin/audit
+card cities:  count=1 href=/admin/cities
+city drill-down links: 1    first href=/admin/cities/cmvtghhgr00002f9obd47hak8/setup
+click reports card -> http://localhost:3000/admin/tickets
+console errors: 0
+```
+
+Non-admin guard:
+
+```text
+citizen after login          -> http://localhost:3000/home
+citizen visiting /admin      -> http://localhost:3000/home
+admin console visible to citizen: 0
+```
+
+The citizen is bounced off `/admin` and sees **zero** admin cards.
+
+### Suite
+
+```text
+npx tsc --noEmit            clean
+npm run check:i18n          ok — 734 keys registered
+npm run test:unit           74 files / 1078 tests passed
+npm run test:mockups        15 baselines passed
+```
+
+### Note on the old test
+
+The previous `tests/unit/role-home.test.ts` contained:
+
+```ts
+expect(ROLE_HOME.admin).not.toBe('/admin');
+for (const path of Object.values(ROLE_HOME)) {
+  expect(path).not.toBe('/admin');
+}
+```
+
+That test asserted the 404 was *correct*. It passed because the
+route genuinely did not exist — a green suite that pinned a broken
+behaviour in place. It is now replaced by the inverse assertion.
+The lesson generalises: **a test that pins the absence of a route
+is a claim about the product, not about the test.** Worth
+re-checking any other suite that asserts a 404.
+
+---
+
+## 2026-10-31 — Role experience audit: four personas, real browser, real Postgres
+
+The user's question was *"using Playwright and real users, check if everyone
+can do their job perfectly — and create a document showing each user's
+experience flow from start to finish."*
+
+The answer is now a **fact with evidence**, not an opinion: the suite drives
+all four roles end to end in one Chromium browser against the real local
+Postgres, using the **seeded personas and their password login** (not the
+dev-only `/api/dev/login` shortcut), threading one real ticket id through
+the whole chain.
+
+**Result: 53 / 53 observations pass.** Citizen 14/14 · Dispatcher 11/11 ·
+Crew 6/6 · Admin 17/17 · Cross-role guards 5/5. 45 screenshots +
+`walkthrough-report.json` in `tests-mockups/audit/28-role-walkthrough.spec.ts/`.
+
+### The deliverable
+
+`docs/role-experience-report.md` — the per-role start-to-finish flow, the
+evidence behind each step, what the flow gets right, the honest verdict per
+role, and the remaining-gap table.
+
+### Seven defects the audit found and fixed
+
+Every one of these broke a **real user's job** and was invisible from the
+UI. Each was only findable by driving the app as an actual person with an
+actual browser.
+
+| # | Defect | Fix |
+|---|---|---|
+| **A** | `POST /api/v1/auth/login` nulled the citizen's `wardId`. `/api/report/bootstrap` fell back to Ward 1, so **every password-logged-in citizen's report was filed in the wrong ward** — invisible to the dispatcher and crew scoped to that ward. | Bind the citizen's ward at login (`app/api/v1/auth/login/route.ts`). |
+| **B** | The `DedupFlag` took its **ward** from the new ticket but its **department** from the original ticket's category. `requireScope` then matched nobody — the flag could be actioned by **no one**. | Take both ward and department from the flagged ticket (`app/api/tickets/route.ts`). |
+| **C** | `lib/dispatcher/assign-crew.ts` validated the crew member's **ward** but not their **department**, and the picker offered every crew in the ward. A streetlight ticket assigned to Karim (roads) **silently vanished** from Karim's own list. This broke the entire crew leg (K2–K6 all failed). | Server-side `cross_department_access_denied` guard + a department filter in the picker. |
+| **D** | The admin WebAuthn registration flow was **entirely unreachable**. `WebAuthnCeremony.tsx` was imported by nothing; `issueChallenge(..., 'registration')` was called by no route; no registration-challenge endpoint existed. Every admin write answered `401 webauthn_required` — **the admin could read everything and change nothing.** | New `POST /api/auth/webauthn/register/challenge`; new `components/AdminSecurityKey.tsx` mounted on `/admin`; mode-specific button copy (the registration button used to read "sign in"). |
+| **E** | `User.webAuthnChallenge` is a `String?` column but the code wrote a plain object → Prisma rejected it (`Unknown argument 'challenge'`) and every flow answered `500 unhandled`. The dev store accepted the object, so this was invisible outside real Postgres. | Serialise to a JSON string on write, parse it back on read with a tolerant three-shape parser (`lib/db-switch.ts`). |
+| **F** | The ledger row and the browser-signed nonce were **different values**. `@simplewebauthn/server` base64url-encodes a `Uint8Array` but passes a `string` through unchanged, so the base64url string was double-encoded → `Unexpected registration response challenge`. Plus the RP ID was pinned to `cityfix.vercel.app` while the app ran on `localhost:3000`, and the origin helper wrongly stripped the port. | Decode the challenge to raw bytes before handing it to the library; request-scoped `rpIdForHost` / `rpOriginForHost` — **the RP ID strips the port, the origin keeps it** (`lib/auth/webauthn.ts`). |
+
+Defect **C** is the one that turned the whole crew leg green. Defects
+**D/E/F** are the ones that turned the admin write green — and each was
+hidden behind the previous one, which is why the audit had to run the
+*real* ceremony rather than call the API.
+
+### The admin write is now genuinely proven
+
+The A7 leg installs a **CDP virtual authenticator** over the DevTools
+protocol (`WebAuthn.addVirtualAuthenticator`, ctap2/internal, resident key,
+user verification, automatic presence simulation), clicks the real ceremony
+button, lets the browser run a real `navigator.credentials.create(...)`,
+and then performs a real `POST /api/v1/admin/cities` → **201**.
+
+The ceremony itself is **not** mocked. Only the authenticator is virtual —
+which is what a headless browser needs to exist at all. The admin write path
+runs against real Postgres with **no dev seam**: `requireWebAuthn`
+short-circuits only when `CITYFIX_DEV_STORE=1` **and**
+`DEV_SKIP_WEBAUTHN=1` are both set, and production never reads
+`DEV_SKIP_WEBAUTHN`.
+
+### One test-infrastructure fix
+
+`readSettledReportText(page)` was added because `/reports/[id]` renders a
+"লোড হচ্ছে…" placeholder while the ticket fetch is in flight, and the old
+fixed 600ms sleep sampled the placeholder instead of the report — a **false
+negative** on the "citizen sees their report resolved" check, even though the
+screenshot (taken later) showed the resolved report. The helper waits for the
+loading copy to disappear *and* for a known status pill to appear.
+
+### The remaining gap that contradicts a DECIDED constraint
+
+`app/admin/tickets/[id]/page.tsx` posts its "Reassign crew" action to
+`/api/tickets/[id]/transition` — a shared route that calls `requireRole` but
+**not** `requireWebAuthn`. ADR-007 says *every* admin write must be
+WebAuthn-gated, and 16 routes under `/api/v1/admin/*` are — but this one,
+which the admin surface actually calls, is not. Logged as gap **#1** in the
+report. It is the only open item that contradicts a DECIDED project
+constraint; the rest are deferred-scope items (the OTP stub, the empty ward
+polygons, the unused `SlaPolicy`, the `supervisor` role name).
+
+### Suite
+
+```text
+npx playwright test tests/28-role-walkthrough.spec.ts
+  → 1 passed (2.1m) — 53/53 observations, 45 screenshots
+    ticket cmvwbic7r00nac926viyf8cnh, zero non-pass observations
+
+npx tsc --noEmit            clean
+npm run test:unit           76 files / 1108 tests passed
+npm run test:mockups        15 baselines passed
+npm run check:i18n          ok — 740 keys registered
+```
+
+### Regression tests for the three WebAuthn defects
+
+New `tests/unit/webauthn-regressions.test.ts` — 15 checks covering the three
+defects that were invisible in the dev store and only appeared against real
+Postgres:
+
+- **E** — the `webAuthnChallenge` column round-trip. The parser tolerates
+  all three shapes (null / JSON string / object), returns null for
+  malformed JSON rather than throwing, and treats a JSON `"null"` string as
+  null.
+- **F** — the shared nonce. The invariant is
+  `base64url(challengeBytes(x)) === x`, checked across every base64 padding
+  length (1–16 bytes) plus an explicit regression witness that the
+  double-encoding path produces a *different* value.
+- **G** — the request-scoped RP ID and origin. The RP ID strips the port
+  (`localhost:3000` → `localhost`); the origin KEEPS it
+  (`http://localhost:3000`); the origin protocol comes from
+  `WEBAUTHN_ORIGIN_PROTOCOL`; a bare IP address keeps the configured RP ID.
+
+One test assertion was corrected during the write-up: the helper deliberately
+keeps the *configured* RP ID for bare IP addresses (an IP is a valid RP ID in
+the spec but only for insecure origins in some browsers), so the test
+asserts the configured value rather than the stripped host.
+
+---
+
+### 2026-10-31 — The deep link was overriding the role: every persona landed on the citizen's surface
+
+The previous entry fixed the site root (`app/page.tsx`), which redirected every
+authenticated user to a literal `/home`. The user came back with the same
+symptom: *"after login it's not redirecting to the right page."* The site root
+was not the whole story.
+
+#### What the earlier fix had actually left in place
+
+`app/login/page.tsx` read a `?next=` deep link and navigated to it
+**unconditionally**:
+
+```ts
+router.replace(nextPath);
+```
+
+There was no role check at all in the committed tree. The role-aware version
+(`roleHome(data?.role)`) existed only in the uncommitted working copy — which
+is why a bare `/login` appeared to work while a deep link did not.
+
+#### How it reproduced
+
+Measured with a Playwright probe that drove the real login form against real
+Postgres and recorded the full `framenavigated` history for each persona:
+
+```
+entry: bare /login
+  citizen     final=/home          dispatcher  final=/dispatcher
+  crew        final=/crew          admin       final=/admin          ← correct
+
+entry: /login?next=/report/location
+  citizen     final=/report/location
+  dispatcher  final=/report/location   ← wrong
+  crew        final=/report/location   ← wrong
+  admin       final=/report/location   ← wrong
+
+entry: from / (anonymous landing → "Log in" CTA)
+  citizen     final=/report/location
+  dispatcher  final=/report/location   ← wrong
+  crew        final=/report/location   ← wrong
+  admin       final=/report/location   ← wrong
+```
+
+The public landing's "Log in" button links to `/login?next=/report/location` (the
+citizen report flow). **Every** persona who signed in from there landed on the
+citizen's report form — the admin on a citizen form, the dispatcher on a
+citizen form. That is the symptom the user reported.
+
+A second shape: `/login?next=/home` sent every staff role to `/home`. That one
+is *correct* — `/home` is a shared surface every role may read — but it looked
+identical to the bug from the outside.
+
+#### The rule
+
+A deep link is a request to resume somewhere specific. It is **not** a request to
+bypass the role model.
+
+- A path under a **staff** surface (`/admin`, `/dispatcher`, `/crew`) is only
+  reachable by that surface's own role.
+- A path under a **citizen-only** surface (`/report`, `/register`,
+  `/verify-otp`, `/login`) is only reachable by a citizen.
+- Everything else — `/home`, `/feed`, `/reports`, `/splash` — is a **shared**
+  surface every role may read, so a deep link there is honoured for all roles.
+
+#### What changed
+
+- **`lib/role-home.ts`** — added `roleCanVisit(role, path)` and
+  `resolvePostAuthTarget(role, nextPath)`. The resolver honours the deep link
+  only when the role may land on it; otherwise the user lands on their own
+  role's home. The surface table lives here, so every auth entry point shares
+  one rule.
+- **`app/login/page.tsx`** — the post-auth target now goes through
+  `resolvePostAuthTarget(data?.role, …)` instead of using the raw `?next=`
+  value.
+- **`app/verify-otp/page.tsx`** — same treatment. The OTP path is citizen-only
+  by construction (the API lookup pins `role: 'citizen'`), but the client must
+  not have to hard-code that assumption.
+- **`app/api/v1/auth/verify-otp/route.ts`** — the success response now carries
+  `role` alongside `userId`, so the client can route by role the same way the
+  password path does.
+
+One detail worth recording: `app/login/page.tsx` used the **raw** `?next=`
+param as a boolean while navigating to the **sanitised** `nextPath`. That was
+incoherent — `safeNextPath` falls back to `/home` for an unsafe value, so an
+unsafe `?next=//evil.com` silently sent the user to `/home` instead of being
+rejected. The resolver now takes the sanitised path only.
+
+#### After the fix
+
+```
+entry: /login?next=/report/location
+  citizen     final=/report/location
+  dispatcher  final=/dispatcher
+  crew        final=/crew
+  admin       final=/admin
+
+entry: from / (anonymous landing → "Log in" CTA)
+  citizen     final=/report/location
+  dispatcher  final=/dispatcher
+  crew        final=/crew
+  admin       final=/admin
+```
+
+The citizen still resumes the report flow they asked for. Staff land on their
+own console instead of a citizen form.
+
+#### The tests
+
+- **`tests/unit/post-auth-target.test.ts`** (new) — 19 checks over the
+  resolver: the role mapping, the staff/citizen/shared surface table, the
+  prefix-vs-word boundary (`/administrators` is not `/admin`), and every
+  role×deep-link combination that must be honoured or refused.
+- **`tests/31-post-auth-target.spec.ts`** (new) — 17 Playwright checks driving
+  the real login form against real Postgres: bare `/login`, a citizen-only deep
+  link, a shared-surface deep link, a role's own staff surface, and the
+  public landing's own CTA.
+- **`tests/unit/role-redirect-call-sites.test.ts`** (updated) — the source scan
+  now recognises `resolvePostAuthTarget(` as a role-routing call, and gained a
+  check that the login page does **not** use the role-blind
+  `router.replace(explicitNext ? …)` shape.
+
+#### Verification
+
+```
+npx tsc --noEmit                                     clean
+npm run test:unit                                    79 files / 1142 tests passed
+npm run test:mockups                                 15/15 baselines passed
+npx playwright test tests/31-post-auth-target.spec.ts tests/30-role-redirect.spec.ts
+                                                       33 passed (1 pre-existing networkidle flake,
+                                                       passes in isolation)
+```
+
+#### A note on the committed tree
+
+`git show HEAD:app/login/page.tsx` returned `router.replace(nextPath)` — the
+role-blind version. The role-aware edit existed only in the working tree and
+had never been committed, so the previous entry's claim ("the login page
+routed by role correctly") was true of the working copy but not of the
+committed tree. That gap is now closed: the resolver is committed, and the
+source-scan test fails loudly if the call site regresses.

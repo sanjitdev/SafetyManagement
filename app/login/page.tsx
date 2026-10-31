@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
+import { resolvePostAuthTarget } from '@/lib/role-home';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const LAST_PHONE_KEY = 'cityfix.last_phone.v1';
@@ -113,8 +114,29 @@ function LoginInner() {
         } catch {
           // ignore
         }
-        // Honor the `?next=` deep link (safeNextPath sanitized it).
-        router.replace(nextPath);
+        // Honor the `?next=` deep link (safeNextPath sanitized it) —
+        // but ONLY when the caller explicitly asked for one AND the
+        // signed-in role is allowed to land on that surface. Otherwise
+        // route to the surface that matches the signed-in role: a
+        // dispatcher lands on the triage queue, crew on their
+        // assignments, admin on the admin console, citizen on the
+        // feed.
+        //
+        // The role check matters. Honouring `?next=` unconditionally
+        // dumped every role that arrived via a deep link onto the
+        // citizen's surface — the public landing's "Log in" CTA
+        // carries `?next=/report/location`, so an admin who signed in
+        // from there landed on a citizen report form.
+        const data = (await res.json().catch(() => null)) as {
+          role?: string;
+        } | null;
+        const explicitNext = params.get('next');
+        router.replace(
+          resolvePostAuthTarget(
+            data?.role,
+            explicitNext ? nextPath : null,
+          ),
+        );
         return;
       }
       if (res.status === 401) {
