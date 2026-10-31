@@ -1657,6 +1657,36 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Security key verified',
   },
 
+  // Registration ceremony (Bolt 005-001 shipped the ASSERTION
+  // copy above; the REGISTRATION copy is its own key set because
+  // the two flows say different things to the admin — one asks
+  // for a key to sign in, the other asks them to ENROL one so
+  // every future admin write can be attested).
+  'admin.webauthn.register.title': {
+    bn: 'নিরাপত্তা কী নিবন্ধন করুন',
+    en: 'Register a security key',
+  },
+  'admin.webauthn.register.instruction': {
+    bn: 'আপনার ডিভাইসের নিরাপত্তা কী ব্যবহার করুন, তারপর বোতাম চাপুন',
+    en: 'Use your device’s security key, then tap the button',
+  },
+  'admin.webauthn.register.heading': {
+    bn: 'নিরাপত্তা কী',
+    en: 'Security key',
+  },
+  'admin.webauthn.register.body': {
+    bn: 'প্রতিটি প্রশাসকীয় পরিবর্তনের আগে নিরাপত্তা কী দিয়ে যাচাই করতে হয়। একটি নিবন্ধন করলে আপনি এই শহরের সব পরিবর্তন করতে পারবেন।',
+    en: 'Every admin change must be verified with a security key. Register one to manage this city.',
+  },
+  'admin.webauthn.register.done': {
+    bn: 'নিরাপত্তা কী নিবন্ধিত হয়েছে',
+    en: 'Security key registered',
+  },
+  'admin.webauthn.register.error': {
+    bn: 'নিরাপত্তা কী নিবন্ধন করা যায়নি। আবার চেষ্টা করুন।',
+    en: 'Could not register the security key. Try again.',
+  },
+
   // Intent 005 (Unit 002) — Admin city-config surfaces
   'admin.cities.title': { bn: 'শহরসমূহ', en: 'Cities' },
   'admin.cities.subtitle': {
@@ -2145,6 +2175,49 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'নাগরিকের নোট',
     en: 'Citizen note',
   },
+
+  // Admin landing page (/admin) — the admin's home.
+  //
+  // `app/admin/` originally had NO index route, so `GET /admin` was
+  // a 404 while its three children (/admin/tickets, /admin/audit,
+  // /admin/cities) all resolved. This block backs the index page
+  // that closes that gap: a card grid linking every admin surface,
+  // so an admin who types `/admin` lands on their home instead of a
+  // 404.
+  'admin.home.title': { bn: 'প্রশাসক প্যানেল', en: 'Admin console' },
+  'admin.home.subtitle': {
+    bn: 'শহরের সব প্রশাসনিক কাজ এক জায়গায়',
+    en: 'Everything you administer, in one place',
+  },
+  'admin.home.card.reports.title': { bn: 'রিপোর্টসমূহ', en: 'Reports' },
+  'admin.home.card.reports.body': {
+    bn: 'সব রিপোর্ট দেখুন, অবস্থা পরিবর্তন করুন, ক্রু নিয়োগ করুন।',
+    en: 'Read every report, change its status, reassign crew.',
+  },
+  'admin.home.card.audit.title': { bn: 'অডিট লগ', en: 'Audit log' },
+  'admin.home.card.audit.body': {
+    bn: 'প্ল্যাটফর্মের প্রতিটি স্টেট-পরিবর্তনের ট্রেইল দেখুন।',
+    en: 'The trail of every state change on the platform.',
+  },
+  'admin.home.card.cities.title': { bn: 'শহরসমূহ', en: 'Cities' },
+  'admin.home.card.cities.body': {
+    bn: 'শহর যোগ করুন, ওয়ার্ড-বিভাগ ক্যাটাগরি ঠিক করুন, ব্যবহারকারী নিয়োগ করুন।',
+    en: 'Add cities, tune wards, departments and categories, provision users.',
+  },
+  'admin.home.card.setup.title': { bn: 'সেটআপ', en: 'Setup' },
+  'admin.home.card.setup.body': {
+    bn: 'শহর চালু করার ধাপে ধাপে নির্দেশনা।',
+    en: 'Step-by-step guidance to take a city live.',
+  },
+  'admin.home.open': { bn: 'খুলুন', en: 'Open' },
+  'admin.home.cta.cities': { bn: 'শহরসমূহ', en: 'Cities' },
+  'admin.home.cta.audit': { bn: 'অডিট লগ', en: 'Audit log' },
+  'admin.home.cta.reports': { bn: 'রিপোর্টসমূহ', en: 'Reports' },
+  'admin.home.error': {
+    bn: 'প্রশাসক তথ্য লোড করা যায়নি',
+    en: 'Could not load admin data',
+  },
+  'admin.home.loading': { bn: 'লোড হচ্ছে…', en: 'Loading…' },
 
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
   'crew.list.title': {

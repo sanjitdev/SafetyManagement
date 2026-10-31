@@ -361,9 +361,13 @@ describe('assignCrew — audit row shape', () => {
     const ticket = seedTicketInScope();
     const dispatcher = mkDispatcher();
 
+    // DEV_CREW_ID (Rashid) is bound to `dept_streetlight`, the same
+    // department as the ticket's category. Assigning a crew member
+    // from a DIFFERENT department is refused — see the
+    // "department scope" block below.
     await assignCrew(
       ticket.id,
-      { assignedCrewId: 'user_crew_karim' },
+      { assignedCrewId: DEV_CREW_ID },
       dispatcher,
     );
 
@@ -376,7 +380,7 @@ describe('assignCrew — audit row shape', () => {
     expect(row.entityType).toBe('ticket');
     expect(row.entityId).toBe(ticket.id);
     expect(row.beforeValue).toEqual({ assignedCrewId: null });
-    expect(row.afterValue).toEqual({ assignedCrewId: 'user_crew_karim' });
+    expect(row.afterValue).toEqual({ assignedCrewId: DEV_CREW_ID });
   });
 
   it('reassign from one crew to another writes two audit rows with prev/next', async () => {
@@ -388,9 +392,28 @@ describe('assignCrew — audit row shape', () => {
       { assignedCrewId: DEV_CREW_ID },
       dispatcher,
     );
+    // Reassign to a different crew member in the SAME department.
+    // `user_crew_karim` is bound to `dept_roads`, so he cannot be
+    // given a streetlight ticket; the seeded second streetlight
+    // crew member stands in for the "different crew" case.
+    const sameDeptCrew = 'user_crew_jamal_alt';
+    const rashid = devDb.user.findUnique({ where: { id: DEV_CREW_ID } })!;
+    devDb.user.create({
+      data: {
+        id: sameDeptCrew,
+        cityId: rashid.cityId,
+        role: 'crew',
+        phone: '+8801711000099',
+        nid: '9234567890',
+        name: 'Jamal Alt',
+        passwordHash: rashid.passwordHash!,
+        wardId: 'ward_14',
+        departmentId: 'dept_streetlight',
+      },
+    });
     await assignCrew(
       ticket.id,
-      { assignedCrewId: 'user_crew_karim' },
+      { assignedCrewId: sameDeptCrew },
       dispatcher,
     );
 
@@ -414,10 +437,53 @@ describe('assignCrew — audit row shape', () => {
     const reassign = rows.find(
       (r) =>
         r.beforeValue?.assignedCrewId === DEV_CREW_ID &&
-        r.afterValue?.assignedCrewId === 'user_crew_karim',
+        r.afterValue?.assignedCrewId === sameDeptCrew,
     );
     expect(reassign).toBeDefined();
     expect(reassign!.actorId).toBe(dispatcher.userId);
+  });
+});
+
+describe('assignCrew — department scope', () => {
+  // A crew member's department decides which tickets they can SEE:
+  // `GET /api/v1/crew/tickets` filters on the ticket's category
+  // department matching the CREW MEMBER's department. Assigning a
+  // streetlight ticket to a roads-drainage crew member therefore
+  // produced an assignment that vanished from that member's list —
+  // the dispatcher believed the work was assigned and nobody could
+  // see it. The picker used to offer every crew in the ward, so this
+  // was reachable through the UI.
+  it('refuses a crew member from a different department', async () => {
+    const ticket = seedTicketInScope(); // cat_streetlight → dept_streetlight
+    const dispatcher = mkDispatcher();
+
+    let caught: unknown;
+    try {
+      await assignCrew(
+        ticket.id,
+        { assignedCrewId: 'user_crew_karim' }, // dept_roads
+        dispatcher,
+      );
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(403);
+    expect((caught as ApiError).code).toBe('cross_department_access_denied');
+  });
+
+  it('leaves the ticket unassigned after a refused cross-department assignment', async () => {
+    const ticket = seedTicketInScope();
+    const dispatcher = mkDispatcher();
+
+    await assignCrew(
+      ticket.id,
+      { assignedCrewId: 'user_crew_karim' },
+      dispatcher,
+    ).catch(() => undefined);
+
+    const refreshed = await getTicketWithTrail(ticket.id);
+    expect(refreshed?.assignedCrewId).toBeNull();
   });
 });
 

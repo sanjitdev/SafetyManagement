@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { roleHome } from '@/lib/role-home';
 
 const LANG: Language = 'bn';
 const SLOW_LOAD_THRESHOLD_MS = 2000;
@@ -64,8 +65,15 @@ export default function SplashPage() {
           router.replace('/');
           return;
         }
-        const data = (await res.json()) as { authenticated: boolean };
-        router.replace(data.authenticated ? '/home' : '/');
+        const data = (await res.json()) as {
+          authenticated: boolean;
+          session?: { role?: string } | null;
+        };
+        // Route each role to its own surface — a dispatcher opening the
+        // app should land on the triage queue, not the citizen feed.
+        router.replace(
+          data.authenticated ? roleHome(data.session?.role) : '/',
+        );
       } catch {
         if (!cancelled) setBundleFailed(true);
       } finally {

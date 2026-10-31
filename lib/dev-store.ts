@@ -1141,6 +1141,16 @@ export const devDb = {
         name: string;
         passwordHash: string;
         wardId: string;
+        /**
+         * Optional. A department-scoped role (dispatcher / crew) is
+         * bound to exactly one department roster; a citizen or admin
+         * is not. The seeded personas all carry their department, so
+         * `create` accepts it too — without it, a test could not
+         * build a second crew member inside a given department and
+         * would have to fall back to the warehouse fixture.
+         */
+        departmentId?: string | null;
+        email?: string | null;
       };
     }): DevUser {
       const u: DevUser = {
@@ -1150,10 +1160,10 @@ export const devDb = {
         phone: args.data.phone,
         nid: args.data.nid,
         name: args.data.name,
-        email: null,
+        email: args.data.email ?? null,
         passwordHash: args.data.passwordHash,
         wardId: args.data.wardId,
-        departmentId: null,
+        departmentId: args.data.departmentId ?? null,
         languageOverride: null,
         webAuthnCredentials: null,
         webAuthnChallenge: null,

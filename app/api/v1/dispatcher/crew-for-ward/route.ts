@@ -23,12 +23,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getActiveSession } from '@/lib/db-switch';
+import { db, getActiveSession } from '@/lib/db-switch';
 import { ApiError, requireRole, requireSameCity } from '@/lib/auth/guards';
 import { listCrewForWard } from '@/lib/dispatcher/list-crew-for-ward';
 
 const QuerySchema = z.object({
   wardId: z.string().min(1),
+  // Optional. The category of the ticket the picker is populating;
+  // the ticket's category determines its department, and only crew
+  // in that department can actually work the ticket. Omitted when
+  // the caller only wants the ward roster.
+  categoryId: z.string().min(1).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -44,6 +49,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = QuerySchema.safeParse({
     wardId: req.nextUrl.searchParams.get('wardId') ?? '',
+    categoryId: req.nextUrl.searchParams.get('categoryId') ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -66,9 +72,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
   }
 
+  // Resolve the ticket's category → department, so the picker only
+  // offers crew who can actually work the ticket. A category with no
+  // department (e.g. "Other") is not department-scoped, so the whole
+  // ward roster stays eligible.
+  let departmentId: string | null = null;
+  if (parsed.data.categoryId) {
+    const category = await db.category.findUnique({
+      where: { id: parsed.data.categoryId },
+    });
+    if (!category || category.cityId !== session!.cityId) {
+      return NextResponse.json({ error: 'category_not_in_city' }, { status: 400 });
+    }
+    departmentId = category.departmentId ?? null;
+  }
+
   const crew = await listCrewForWard({
     cityId: session!.cityId,
     wardId: parsed.data.wardId,
+    departmentId,
   });
   return NextResponse.json({ crew });
 }

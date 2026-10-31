@@ -143,6 +143,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'cross_city_forbidden' }, { status: 403 });
   }
 
+  // The ward and the category are client-supplied. A ticket filed
+  // against a ward from another city (or a category from another city)
+  // would land outside every dispatcher's scope filter — invisible to
+  // the city that owns it — so validate both against the session's city
+  // before creating anything.
+  const [ward, category] = await Promise.all([
+    db.ward.findUnique({ where: { id: input.wardId } }),
+    db.category.findUnique({ where: { id: input.categoryId } }),
+  ]);
+  if (!ward || ward.cityId !== session!.cityId) {
+    return NextResponse.json({ error: 'ward_not_in_city' }, { status: 400 });
+  }
+  if (!category || category.cityId !== session!.cityId) {
+    return NextResponse.json({ error: 'category_not_in_city' }, { status: 400 });
+  }
+
   // PLAT-REQ-004 dedup check. If the citizen has already seen a dedup
   // match in /report/summary and explicitly declined it, skip the dedup
   // engine for this attempt — the decline is logged below as its own
@@ -299,20 +315,32 @@ export async function POST(req: NextRequest) {
         declinedMatchTicketId: input.dedupDeclineTicketId,
       },
     });
-    // Look up the original ticket so we can denormalise its
-    // ward / department for the dispatcher's scope filter.
+    // Look up the original ticket so we can link the flag to it.
     const original = await db.ticket.findUnique({
       where: { id: input.dedupDeclineTicketId },
     });
     if (original) {
-      const originalCategory = await db.category.findUnique({
-        where: { id: original.categoryId },
+      // The flag's scope fields MUST come from the SAME ticket — the
+      // newly-created one. `requireScope` (lib/auth/guards.ts) demands
+      // an exact match on BOTH wardId and departmentId, and the
+      // dispatcher's dedup queue filters on the same pair. Taking the
+      // ward from the new ticket but the department from the ORIGINAL
+      // ticket's category produced a flag whose scope matched no real
+      // dispatcher: the flagged ticket lives in one ward while the
+      // department came from another ticket's category, so the flag
+      // was listed for nobody and could not be confirmed or dismissed
+      // by anyone who could see it.
+      //
+      // The flagged ticket is the one the dispatcher has to act on, so
+      // its ward and its category's department are the flag's scope.
+      const flaggedCategory = await db.category.findUnique({
+        where: { id: created.categoryId },
       });
       await db.dedupFlag.create({
         data: {
           cityId: created.cityId,
           wardId: created.wardId,
-          departmentId: originalCategory?.departmentId ?? null,
+          departmentId: flaggedCategory?.departmentId ?? null,
           ticketId: created.id,
           originalTicketId: original.id,
           citizenReason: null,

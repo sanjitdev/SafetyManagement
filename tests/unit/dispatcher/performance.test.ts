@@ -36,6 +36,7 @@ import {
   type PerfTicket,
 } from '@/lib/dispatcher/performance';
 import type { SessionContext } from '@/lib/auth/session';
+import { rangeContaining } from '../../helpers/perf-range';
 
 beforeEach(() => {
   resetStore();
@@ -603,7 +604,8 @@ describe('getPerformanceSnapshot', () => {
   it('aggregates the persisted feedback into the crew table', async () => {
     // Give the seeded resolved ticket a positive rating from its
     // assigned crew. The seeded resolved ticket is assigned to the
-    // ward's crew (user_crew_rashid).
+    // ward's crew (user_crew_karim — drainage is `dept_roads`,
+    // so it goes to the roads crew, not the streetlight crew).
     const store = getStore();
     const resolved = store.tickets.get('ticket_seed_resolved_1');
     expect(resolved?.assignedCrewId).toBeTruthy();
@@ -612,10 +614,14 @@ describe('getPerformanceSnapshot', () => {
       feedback: '{"rating":"positive"}',
     });
 
-    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
-      from: '2026-10-01T00:00:00.000Z',
-      to: '2026-10-20T00:00:00.000Z',
-    });
+    // The range is derived from the ticket's OWN createdAt. A
+    // hard-coded October window would silently fall behind the
+    // wall-clock-seeded dev store and drop the ticket out of
+    // the current period, reading the tally as 0.
+    const snapshot = await getPerformanceSnapshot(
+      DISPATCHER_SESSION,
+      rangeContaining(resolved!.createdAt),
+    );
 
     const row = snapshot.crewTable.find(
       (c) => c.crewId === resolved!.assignedCrewId,
@@ -635,7 +641,8 @@ describe('getPerformanceSnapshot', () => {
     // Plant FEEDBACK_MIN_SAMPLES positive tickets for the same crew,
     // created INSIDE the requested range so they land in the current
     // period (the aggregate reads the current period only).
-    const created = '2026-10-15T08:00:00.000Z';
+    const range = rangeContaining(base.createdAt);
+    const created = base.createdAt;
     for (let i = 0; i < FEEDBACK_MIN_SAMPLES; i += 1) {
       const id = `ticket_fb_${i}`;
       store.tickets.set(id, {
@@ -648,10 +655,7 @@ describe('getPerformanceSnapshot', () => {
       });
     }
 
-    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
-      from: '2026-10-01T00:00:00.000Z',
-      to: '2026-10-20T00:00:00.000Z',
-    });
+    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, range);
 
     const row = snapshot.crewTable.find((c) => c.crewId === crewId);
     expect(row).toBeDefined();
@@ -667,10 +671,10 @@ describe('getPerformanceSnapshot', () => {
       feedback: '{"rating":"neutral"}',
     });
 
-    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
-      from: '2026-10-01T00:00:00.000Z',
-      to: '2026-10-20T00:00:00.000Z',
-    });
+    const snapshot = await getPerformanceSnapshot(
+      DISPATCHER_SESSION,
+      rangeContaining(base.createdAt),
+    );
 
     const row = snapshot.crewTable.find(
       (c) => c.crewId === base.assignedCrewId,

@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const payload = await issueChallenge(admin.id, 'assertion');
+    const payload = await issueChallenge(
+      admin.id,
+      'assertion',
+      req.headers.get('host'),
+    );
     // The assertion payload is exactly the `AssertionChallengePayload`
     // shape documented in lib/auth/webauthn.ts.
     return NextResponse.json(payload, { status: 200 });

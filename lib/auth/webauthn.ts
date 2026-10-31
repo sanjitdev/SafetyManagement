@@ -104,6 +104,60 @@ function rpOrigin(): string {
   return rpOriginCache;
 }
 
+/**
+ * The Relying Party ID for a SPECIFIC request.
+ *
+ * A WebAuthn ceremony only succeeds when the RP ID matches the
+ * origin the browser is actually on: the browser refuses an
+ * assertion whose `rpId` is not a registrable suffix of the page
+ * origin. So a local server reached at `http://localhost:3000`
+ * MUST use `localhost` as its RP ID — even when `.env.local`
+ * carries the production values (`WEBAUTHN_RP_ID=cityfix.vercel.app`)
+ * for the deployed instance. Using the prod RP ID locally makes
+ * every ceremony fail with a browser-level `SecurityError` that
+ * the server never sees.
+ *
+ * Production is unaffected: it keeps the configured
+ * `WEBAUTHN_RP_ID` / `WEBAUTHN_RP_ORIGIN` exactly, and
+ * `assertWebAuthnProdConfig()` still fails loudly if they are
+ * missing or unsafe.
+ *
+ * @param requestHost The request's `Host` header (e.g.
+ *   `localhost:3000`).
+ */
+export function rpIdForHost(requestHost?: string | null): string {
+  if (process.env.NODE_ENV === 'production') return rpId();
+  if (!requestHost) return rpId();
+  // Strip the port: the RP ID is a DOMAIN, not an origin.
+  const host = requestHost.split(':')[0];
+  if (!host) return rpId();
+  // An IP address is a valid RP ID in the WebAuthn spec, but only
+  // for insecure origins in some browsers — keep the configured
+  // value for those rather than guessing.
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return rpId();
+  return host;
+}
+
+/**
+ * The Relying Party origin for a SPECIFIC request. See
+ * `rpIdForHost` for why this is request-scoped outside
+ * production.
+ *
+ * Unlike the RP ID, the origin KEEPS the port: WebAuthn compares
+ * the origin as a full scheme+host+port tuple, and a local server
+ * on port 3000 presents `http://localhost:3000`, not
+ * `http://localhost`.
+ */
+export function rpOriginForHost(requestHost?: string | null): string {
+  if (process.env.NODE_ENV === 'production') return rpOrigin();
+  if (!requestHost) return rpOrigin();
+  const host = requestHost.trim();
+  if (!host) return rpOrigin();
+  const protocol = process.env.WEBAUTHN_ORIGIN_PROTOCOL ?? 'http';
+  return `${protocol}://${host}`;
+}
+
+
 /** A registered WebAuthn credential (stored in `User.webAuthnCredentials`). */
 export interface WebAuthnCredential {
   credentialID: string; // base64url
@@ -154,6 +208,28 @@ function randomChallenge(): string {
 }
 
 /**
+ * Decode a base64url challenge string back to its raw bytes.
+ *
+ * `@simplewebauthn/server` treats a `string` challenge as ALREADY
+ * base64url-encoded and passes it through, but treats a
+ * `Uint8Array` challenge as raw bytes and base64url-encodes it
+ * itself. The ledger stores the base64url STRING, so the options
+ * generator must be handed the RAW BYTES — otherwise it
+ * base64url-encodes the already-encoded string a second time and
+ * the browser signs a different nonce than the ledger row holds.
+ * That mismatch surfaced as
+ * `Unexpected registration response challenge "…", expected "…"`.
+ */
+function challengeBytes(challenge: string): Uint8Array {
+  const normalised = challenge.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalised.padEnd(
+    normalised.length + ((4 - (normalised.length % 4)) % 4),
+    '=',
+  );
+  return new Uint8Array(Buffer.from(padded, 'base64'));
+}
+
+/**
  * Normalise the `webAuthnCredentials` JSON column into an array.
  * The dev store stores a parsed array (or null); the Prisma path
  * returns the JSON value as-is. Empty array treated as null.
@@ -188,6 +264,7 @@ function readCredentialsFromUser(user: {
 export async function issueChallenge(
   userId: string,
   kind: 'assertion' | 'registration',
+  requestHost?: string | null,
 ): Promise<AssertionChallengePayload | RegisterChallengePayload> {
   assertWebAuthnProdConfig();
   const user = await db.user.findUnique({ where: { id: userId } });
@@ -212,7 +289,7 @@ export async function issueChallenge(
   if (kind === 'registration') {
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
-      rpID: rpId(),
+      rpID: rpIdForHost(requestHost),
       userID: new TextEncoder().encode(user.id),
       userName: user.name ?? user.id,
       userDisplayName: user.name ?? user.id,
@@ -225,6 +302,23 @@ export async function issueChallenge(
       // The COSE algorithm identifiers the RP accepts.
       // Defaults to [-8, -7, -257] (EdDSA, ES256, RS256).
       supportedAlgorithmIDs: [-7, -257],
+      // Use the SAME challenge the ledger row holds.
+      //
+      // `generateRegistrationOptions` generates its own random
+      // challenge when this is omitted, so the ledger row (written
+      // above with `randomChallenge()`) and the value the browser
+      // actually signs were DIFFERENT strings. `verifyAttestation`
+      // compares the attestation against the ledger row, so every
+      // registration failed with `webauthn_attestation_failed` —
+      // the ceremony could never complete, against either backend.
+      // Passing the challenge in makes the ledger the single
+      // source of truth for the nonce.
+      //
+      // The RAW BYTES go in, not the base64url string: the library
+      // base64url-encodes a Uint8Array but passes a string through
+      // unchanged, so handing it the encoded string would make it
+      // sign a different nonce than the ledger row holds.
+      challenge: challengeBytes(challenge),
     });
     return { challengeId: row.id, options };
   }
@@ -234,15 +328,18 @@ export async function issueChallenge(
     transports: c.transports,
   }));
   const options = await generateAuthenticationOptions({
-    rpID: rpId(),
+    rpID: rpIdForHost(requestHost),
     timeout: WEBAUTHN_CEREMONY_TIMEOUT_MS,
     userVerification: 'preferred',
     allowCredentials,
+    // Same reason as the registration branch above: the ledger row
+    // must hold the exact nonce the browser signed.
+    challenge: challengeBytes(challenge),
   });
   return {
     challengeId: row.id,
     challenge,
-    rpId: rpId(),
+    rpId: rpIdForHost(requestHost),
     allowCredentials,
     userVerification: 'preferred',
     timeout: WEBAUTHN_CEREMONY_TIMEOUT_MS,
@@ -263,6 +360,7 @@ export async function verifyAttestation(
   userId: string,
   attestationResponse: unknown,
   credentialName: string,
+  requestHost?: string | null,
 ): Promise<WebAuthnCredential> {
   assertWebAuthnProdConfig();
   if (
@@ -294,11 +392,13 @@ export async function verifyAttestation(
     verification = await verifyRegistrationResponse({
       response: reg,
       expectedChallenge,
-      expectedOrigin: rpOrigin(),
-      expectedRPID: rpId(),
+      expectedOrigin: rpOriginForHost(requestHost),
+      expectedRPID: rpIdForHost(requestHost),
       requireUserVerification: false,
     });
   } catch {
+    // The underlying reason (challenge / origin / RP-ID mismatch) is
+    // an implementation detail; the caller gets one stable code.
     throw new ApiError(401, 'webauthn_attestation_failed');
   }
   if (!verification.verified || !verification.registrationInfo) {
@@ -352,6 +452,7 @@ export async function verifyAttestation(
 export async function verifyAssertion(
   challengeId: string,
   assertionResponse: unknown,
+  requestHost?: string | null,
 ): Promise<AssertionSessionResult> {
   assertWebAuthnProdConfig();
   if (
@@ -403,8 +504,8 @@ export async function verifyAssertion(
     verification = await verifyAuthenticationResponse({
       response: assertion,
       expectedChallenge: challenge.challenge,
-      expectedOrigin: rpOrigin(),
-      expectedRPID: rpId(),
+      expectedOrigin: rpOriginForHost(requestHost),
+      expectedRPID: rpIdForHost(requestHost),
       authenticator: {
         credentialID: stored.credentialID,
         credentialPublicKey: stored.credentialPublicKey,

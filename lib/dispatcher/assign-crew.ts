@@ -104,8 +104,8 @@ export async function assignCrew(
     return { ticket, changed: false, auditAction: null };
   }
 
-  // Cross-ward / non-crew checks. Only when assigning; clearing
-  // (next === null) is always allowed.
+  // Cross-ward / cross-department / non-crew checks. Only when
+  // assigning; clearing (next === null) is always allowed.
   if (next !== null) {
     const crew = await db.user.findUnique({ where: { id: next } });
     if (!crew) {
@@ -119,6 +119,32 @@ export async function assignCrew(
       // assign a crew member from a different ward via this
       // endpoint, even with a valid session.
       throw new ApiError(403, 'cross_ward_access_denied');
+    }
+    // The load-bearing department-scope check.
+    //
+    // A crew member's department decides which tickets they can
+    // see: `GET /api/v1/crew/tickets` filters on the TICKET's
+    // category department matching the CREW MEMBER's department. So
+    // assigning a streetlight ticket to a roads-drainage crew member
+    // produces a ticket that vanishes from that member's list — the
+    // dispatcher believes the work is assigned, and nobody can see
+    // it. The picker used to offer every crew in the ward regardless
+    // of department, so this was reachable through the UI.
+    //
+    // The ticket's department is derived from its CATEGORY
+    // (`Category.departmentId`). A category with no department (e.g.
+    // "Other") is not department-scoped, so any crew in the ward may
+    // take it — mirror that rule here.
+    const ticketCategory = await db.category.findUnique({
+      where: { id: ticket.categoryId },
+    });
+    const ticketDepartment = ticketCategory?.departmentId ?? null;
+    if (
+      ticketDepartment &&
+      crew.departmentId &&
+      crew.departmentId !== ticketDepartment
+    ) {
+      throw new ApiError(403, 'cross_department_access_denied');
     }
   }
 

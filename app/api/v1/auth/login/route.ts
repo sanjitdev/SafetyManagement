@@ -1,9 +1,40 @@
 /**
- * POST /api/v1/auth/login — authenticate a returning citizen.
+ * POST /api/v1/auth/login — authenticate a returning user (any role).
  *
  * Per UX spec 1.5-login: phone + password. On success, mints a session
  * and sets the signed `cityfix_session` cookie. Returns 200 with
- * `{ ok, userId }`.
+ * `{ ok, userId, role }`.
+ *
+ * ALL FOUR ROLES CAN LOG IN HERE
+ * ------------------------------
+ * This route originally looked the user up with `role: 'citizen'` hard-
+ * coded, which meant only citizens could sign in — dispatcher, crew and
+ * admin had no password path at all and had to be issued a session by
+ * the dev-only `/api/dev/issue-session` route. That made the seeded
+ * staff passwords unusable and left the three staff surfaces
+ * unreachable without a dev tool.
+ *
+ * The lookup now omits the role filter, so `(cityId, phone)` resolves
+ * the account whatever role it holds. The response carries the role so
+ * the client can route to the right home surface:
+ *
+ *   - citizen    → /home
+ *   - dispatcher → /dispatcher
+ *   - crew       → /crew
+ *   - admin      → /admin/tickets
+ *
+ * SECURITY NOTES
+ * --------------
+ * - The admin's WebAuthn requirement is unchanged and still load-bearing
+ *   for WRITES: `requireWebAuthn` (ADR-007) still gates every mutating
+ *   route under `/api/v1/admin/*`. A password login lets an admin *see*
+ *   the admin surfaces; it does not let them change anything. The
+ *   WebAuthn assertion ceremony is still required at the point of write.
+ * - The session is bound to the user's own (wardId, departmentId) scope,
+ *   so a dispatcher/crew session is scoped exactly like a
+ *   dev-issued one. `requireScope` enforces it downstream.
+ * - Errors stay deliberately vague so a wrong phone and a wrong
+ *   password are indistinguishable.
  *
  * Errors (deliberately vague to avoid leaking which field is wrong):
  *   - 400 invalid_input (malformed phone / missing password)
@@ -16,7 +47,7 @@
  * on User or a dedicated FailedLogin model.
  *
  * Dev-mode note: works the same way — the dev store users table is
- * scanned for the (cityId, phone, role='citizen') triple.
+ * scanned for the (cityId, phone) pair across all roles.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,24 +58,17 @@ import { verifyPassword } from '@/lib/auth/password';
 import { createSession, SESSION_COOKIE } from '@/lib/auth/session';
 import { writeAudit } from '@/lib/platform/audit';
 import { rateLimit } from '@/lib/platform/rate-limit';
+import {
+  lockedForMs,
+  noteFailure,
+  noteSuccess,
+} from '@/lib/auth/login-lockout';
 
 const LoginInput = z.object({
   phone: z.string().min(11).max(20),
   password: z.string().min(1).max(200),
   citySlug: z.string().min(1).default('dhaka-north'),
 });
-
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const LOCKOUT_MS = 10 * 60 * 1000;
-
-interface AttemptRecord {
-  failures: number;
-  firstFailure: number;
-  lockedUntil: number;
-}
-
-const attempts = new Map<string, AttemptRecord>();
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/[^0-9]/g, '');
@@ -58,26 +82,6 @@ function clientIp(req: NextRequest): string {
   return (fwd?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? 'unknown');
 }
 
-function noteFailure(key: string): AttemptRecord {
-  const now = Date.now();
-  const cur = attempts.get(key);
-  if (!cur || now - cur.firstFailure > WINDOW_MS) {
-    const next: AttemptRecord = { failures: 1, firstFailure: now, lockedUntil: 0 };
-    attempts.set(key, next);
-    return next;
-  }
-  cur.failures += 1;
-  if (cur.failures >= MAX_ATTEMPTS) {
-    cur.lockedUntil = now + LOCKOUT_MS;
-  }
-  attempts.set(key, cur);
-  return cur;
-}
-
-function noteSuccess(key: string): void {
-  attempts.delete(key);
-}
-
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const rl = rateLimit(`login:${ip}`);
@@ -89,11 +93,10 @@ export async function POST(req: NextRequest) {
   }
 
   const attemptKey = `login:${ip}`;
-  const now = Date.now();
-  const prior = attempts.get(attemptKey);
-  if (prior && prior.lockedUntil > now) {
+  const lockedRemaining = lockedForMs(attemptKey);
+  if (lockedRemaining > 0) {
     return NextResponse.json(
-      { error: 'locked', retryAfterMs: prior.lockedUntil - now },
+      { error: 'locked', retryAfterMs: lockedRemaining },
       { status: 423 },
     );
   }
@@ -132,7 +135,7 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await db.user.findFirst({
-    where: { cityId: city.id, phone, role: 'citizen' },
+    where: { cityId: city.id, phone },
   });
   if (!user || !user.passwordHash) {
     // Don't reveal which side is wrong. Count the failure for lockout.
@@ -142,10 +145,11 @@ export async function POST(req: NextRequest) {
 
   const ok = await verifyPassword(user.passwordHash, parsed.data.password);
   if (!ok) {
-    const rec = noteFailure(attemptKey);
-    if (rec.lockedUntil > 0) {
+    noteFailure(attemptKey);
+    const lockedRemaining = lockedForMs(attemptKey);
+    if (lockedRemaining > 0) {
       return NextResponse.json(
-        { error: 'locked', retryAfterMs: rec.lockedUntil - Date.now() },
+        { error: 'locked', retryAfterMs: lockedRemaining },
         { status: 423 },
       );
     }
@@ -156,11 +160,33 @@ export async function POST(req: NextRequest) {
   noteSuccess(attemptKey);
 
   // Mint a session and set the cookie.
+  //
+  // The session binds to the user's OWN scope. A dispatcher/crew
+  // session carries their wardId + departmentId so `requireScope`
+  // (lib/auth/guards.ts) can deny cross-ward / cross-department
+  // access downstream. The admin is city-wide — no ward, no
+  // department — which is why both are null for that role.
+  //
+  // A CITIZEN also carries their own ward. The citizen's `wardId` is
+  // their registered home ward (prisma/seed.ts gives Rahim Ward 14,
+  // the ward the persona spec says he lives in), and the report flow
+  // reads it from `/api/report/bootstrap` to file the ticket under
+  // the right ward. Dropping it here — as this route used to — made
+  // bootstrap fall through to "the first ward by number" (Ward 1),
+  // so every password-logged-in citizen's report landed in Ward 1
+  // and never reached the dispatcher/crew scoped to their actual
+  // ward. The OTP path (`verify-otp`), the register path, and the
+  // dev-session paths all bind `user.wardId`; this route is now
+  // consistent with them.
+  //
+  // The citizen's `departmentId` stays null: a citizen is not part
+  // of any department's roster.
   const { cookieValue, expiresAt } = await createSession({
     userId: user.id,
     cityId: city.id,
-    wardId: user.wardId,
-    departmentId: null,
+    wardId: user.role === 'admin' ? null : user.wardId,
+    departmentId:
+      user.role === 'citizen' || user.role === 'admin' ? null : user.departmentId,
   });
   const jar = await cookies();
   jar.set(SESSION_COOKIE, cookieValue, {
@@ -176,8 +202,11 @@ export async function POST(req: NextRequest) {
     entityId: user.id,
     action: 'user.login',
     actorId: user.id,
-    afterValue: { cityId: city.id },
+    afterValue: { cityId: city.id, role: user.role },
   });
 
-  return NextResponse.json({ ok: true, userId: user.id }, { status: 200 });
+  return NextResponse.json(
+    { ok: true, userId: user.id, role: user.role },
+    { status: 200 },
+  );
 }

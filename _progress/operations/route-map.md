@@ -67,13 +67,14 @@ Dedup-flag resolve is server-only (not a page):
 
 | URL | File | How to get there |
 |---|---|---|
-| `/admin/cities` | `app/admin/cities/page.tsx` | The admin landing. The list of cities the admin can manage. |
-| `/admin/cities/[id]/setup` | `app/admin/cities/[id]/setup/page.tsx` | From `/admin/cities` → click a city → "Setup" tab. |
+| `/admin` | `app/admin/page.tsx` | The admin console — the admin's home surface (`ROLE_HOME.admin`). A card grid over every admin surface plus the live-city drill-downs. |
+| `/admin/cities` | `app/admin/cities/page.tsx` | From `/admin` → "Cities" card. The list of cities the admin can manage. |
+| `/admin/cities/[id]/setup` | `app/admin/cities/[id]/setup/page.tsx` | From `/admin/cities` → click a city → "Setup" tab. Also reachable from the `/admin` city strip. |
 | `/admin/cities/[id]/wards` | `app/admin/cities/[id]/wards/page.tsx` | Same city page → "Wards" tab. |
 | `/admin/cities/[id]/taxonomy` | `app/admin/cities/[id]/taxonomy/page.tsx` | Same city page → "Taxonomy" tab. |
-| `/admin/tickets` | `app/admin/tickets/page.tsx` | The "All tickets" link from `/admin/cities`. Cross-city ticket list. |
+| `/admin/tickets` | `app/admin/tickets/page.tsx` | From `/admin` → "Reports" card. Cross-city ticket list. |
 | `/admin/tickets/[id]` | `app/admin/tickets/[id]/page.tsx` | Click any row in `/admin/tickets`. The admin read-only ticket view. |
-| `/admin/audit` | `app/admin/audit/page.tsx` | The "Audit log" link from `/admin/cities`. Read-only stream of every `AuditEntry`. |
+| `/admin/audit` | `app/admin/audit/page.tsx` | From `/admin` → "Audit log" card. Read-only stream of every `AuditEntry`. |
 
 ---
 
@@ -98,6 +99,7 @@ Dedup-flag resolve is server-only (not a page):
 | `/api/auth/status` | GET | — | Current session state (`authenticated`, role, name). |
 | `/api/auth/logout` | POST | session | Clear `cityfix_session` cookie. |
 | `/api/auth/webauthn/{register,assertion,login,revoke}` | POST | varies | WebAuthn flow (admin-only writes). |
+| `/api/auth/webauthn/register/challenge` | POST | admin | **New 2026-10-31.** Issues the *registration* challenge (`{ challengeId, options }`) for the admin security-key enrolment. Before this route existed there was no way to reach `issueChallenge(userId, 'registration')`, so the admin's WebAuthn ceremony was unreachable dead code and every admin write answered `401 webauthn_required`. |
 | `/api/v1/auth/{register,send-otp,verify-otp,login}` | POST | — | The real citizen auth path (WO-004 surface; OTP provider may be stubbed in dev). |
 | `/api/report/bootstrap` | GET | citizen | Returns `{ city, categories, ward }` for the citizen's own city. |
 | `/api/tickets` | POST | citizen | Create a ticket. |
@@ -129,5 +131,5 @@ Dedup-flag resolve is server-only (not a page):
 - **New citizen, full flow**: `/splash` → `/home` → `/report/category` → `/report/location` → `/report/photo` → `/report/note` → `/report/summary` → `/report/[id]/submitted` → back to `/home` → click the new row → `/reports/[id]`
 - **Dispatcher workflow**: `/dispatcher` → click a row → `/dispatcher/tickets/[id]` → pick a crew → click **Route** → ticket status becomes `routed`
 - **Crew workflow**: `/crew` → click a row → `/crew/tickets/[id]` → click **In progress** → upload after-photo → type a resolution note → click **Resolved**
-- **Admin on Vercel**: `/dev/login?secret=…&next=/admin/cities` → click a city → tabs for `setup` / `wards` / `taxonomy` → `/admin/tickets` for the read-only cross-city feed → `/admin/audit` for the audit log
+- **Admin on Vercel**: `/dev/login?secret=…&next=/admin` → the console cards → click a city → tabs for `setup` / `wards` / `taxonomy` → `/admin/tickets` for the read-only cross-city feed → `/admin/audit` for the audit log
 - **Production citizen on Vercel, the team needs to look at the data without sending the citizen an OTP**: `/dev/login?secret=…&next=/reports` (one click, redirects to a citizen session for whoever you pick from the dropdown)

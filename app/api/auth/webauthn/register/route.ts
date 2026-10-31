@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       session!.userId,
       parsed.data.attestationResponse,
       parsed.data.credentialName,
+      req.headers.get('host'),
     );
     return NextResponse.json(
       {

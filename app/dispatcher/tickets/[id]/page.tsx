@@ -217,17 +217,22 @@ export default function DispatcherTicketDetailPage() {
   }, [id]);
 
   // Bolt 007-002: fetch the crew list for the ticket's ward.
-  // The picker is ward-scoped; the route returns the same set
-  // the dropdown renders. We re-fetch when the ticket's
-  // `wardId` changes (e.g. a reassign to another ward).
-  const fetchCrew = useCallback(async (wardId: string) => {
+  // The picker is ward-scoped AND department-scoped: the ticket's
+  // category decides its department, and only crew in that
+  // department can actually work the ticket. Offering a
+  // roads-drainage crew member on a streetlight ticket produced an
+  // assignment that vanished from that member's list. We re-fetch
+  // when the ticket's ward or category changes.
+  const fetchCrew = useCallback(async (wardId: string, categoryId?: string) => {
     if (!wardId) {
       setCrewOptions([]);
       return;
     }
     try {
+      const params = new URLSearchParams({ wardId });
+      if (categoryId) params.set('categoryId', categoryId);
       const res = await fetch(
-        `/api/v1/dispatcher/crew-for-ward?wardId=${encodeURIComponent(wardId)}`,
+        `/api/v1/dispatcher/crew-for-ward?${params.toString()}`,
         { credentials: 'include' },
       );
       if (!res.ok) {
@@ -246,8 +251,8 @@ export default function DispatcherTicketDetailPage() {
   }, [fetchTicket]);
 
   useEffect(() => {
-    if (ticket?.wardId) void fetchCrew(ticket.wardId);
-  }, [ticket?.wardId, fetchCrew]);
+    if (ticket?.wardId) void fetchCrew(ticket.wardId, ticket.categoryId);
+  }, [ticket?.wardId, ticket?.categoryId, fetchCrew]);
 
   const validTransitions = useMemo(() => {
     if (!ticket) return [];

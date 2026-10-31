@@ -102,3 +102,51 @@ describe('listCrewForWard', () => {
     }
   });
 });
+
+describe('listCrewForWard — department filter', () => {
+  // Rashid is bound to `dept_streetlight`, Karim to `dept_roads`
+  // (lib/dev-store.ts). A crew member's department decides which
+  // tickets they can SEE — `GET /api/v1/crew/tickets` filters on the
+  // ticket's category department matching the crew member's
+  // department. So offering Karim on a streetlight ticket produced an
+  // assignment that vanished from his list.
+  it('returns only crew in the requested department', async () => {
+    const rows = await listCrewForWard({
+      cityId: 'city_dhaka_north',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    expect(rows).toEqual([{ id: 'user_crew_rashid', name: 'Rashid' }]);
+  });
+
+  it('excludes crew from a different department', async () => {
+    const rows = await listCrewForWard({
+      cityId: 'city_dhaka_north',
+      wardId: 'ward_14',
+      departmentId: 'dept_roads',
+    });
+    expect(rows).toEqual([{ id: 'user_crew_karim', name: 'Karim' }]);
+    const ids = rows.map((r) => r.id);
+    expect(ids).not.toContain('user_crew_rashid');
+  });
+
+  it('returns the whole ward roster when no department is supplied', async () => {
+    const rows = await listCrewForWard({
+      cityId: 'city_dhaka_north',
+      wardId: 'ward_14',
+    });
+    expect(rows.map((r) => r.id)).toEqual([
+      'user_crew_karim',
+      'user_crew_rashid',
+    ]);
+  });
+
+  it('returns [] when no crew in the ward match the department', async () => {
+    const rows = await listCrewForWard({
+      cityId: 'city_dhaka_north',
+      wardId: 'ward_14',
+      departmentId: 'dept_waste',
+    });
+    expect(rows).toEqual([]);
+  });
+});

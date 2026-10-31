@@ -43,6 +43,7 @@ import {
 import { listCityTickets } from '@/lib/admin/users-db';
 import { getPerformanceSnapshot } from '@/lib/dispatcher/performance';
 import type { SessionContext } from '@/lib/auth/session';
+import { rangeContaining } from '../../helpers/perf-range';
 
 beforeEach(() => {
   resetStore();
@@ -432,11 +433,19 @@ describe('the citizen feedback loop', () => {
 
     // 3. The dispatcher crew table derives its positive / negative
     //    tally from the SAME column, so the two surfaces agree.
-    const crewId = getStore().tickets.get(RESOLVED_TICKET_ID)!.assignedCrewId!;
-    const snapshot = await getPerformanceSnapshot(DISPATCHER_SESSION, {
-      from: '2026-10-01T00:00:00.000Z',
-      to: '2026-10-20T00:00:00.000Z',
-    });
+    //
+    //    The range is derived from the ticket's OWN createdAt. The
+    //    dev store seeds it relative to wall-clock now, so a
+    //    hard-coded October window would eventually fall behind the
+    //    seed and drop the ticket out of the current period —
+    //    reading the tally as 0 and making a healthy write path look
+    //    broken.
+    const resolved = getStore().tickets.get(RESOLVED_TICKET_ID)!;
+    const crewId = resolved.assignedCrewId!;
+    const snapshot = await getPerformanceSnapshot(
+      DISPATCHER_SESSION,
+      rangeContaining(resolved.createdAt),
+    );
     const crewRow = snapshot.crewTable.find((c) => c.crewId === crewId);
     expect(crewRow).toBeDefined();
     expect(crewRow!.positiveFeedback).toBe(1);

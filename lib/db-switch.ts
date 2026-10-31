@@ -21,6 +21,36 @@ import type { Role, TicketStatus } from '@prisma/client';
 
 export const useDevStore = (): boolean => isDevStore();
 
+/**
+ * Parse the `User.webAuthnChallenge` column back into its payload
+ * object.
+ *
+ * The column is a `String?` in the Prisma schema, so the
+ * `{ challenge, expiresAt }` payload is stored as a JSON string.
+ * The dev store keeps the object in memory. This helper bridges
+ * the two so `db.userWebAuthn.readCredentials(...)` returns the
+ * same shape on both backends.
+ *
+ * Tolerates three shapes because the column has been written by
+ * more than one code path over the project's life:
+ *   - null / undefined → null
+ *   - a JSON string    → parsed
+ *   - an object        → returned as-is (defensive; Prisma's
+ *     `String?` type would not produce this, but a hand-edited
+ *     row could)
+ */
+function parseChallengeColumn(raw: unknown): unknown {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'object') return raw;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const db = {
   city: {
     findUnique: async (args: { where: { id: string } }) =>
@@ -449,6 +479,23 @@ export const db = {
      * Bolt 005-004 — audit dashboard read surface. The dev store's
      * findMany is a thin filter+sort+slice; the Prisma path uses
      * the real `auditEntry.findMany(...)`.
+     *
+     * COLUMN-NAME ADAPTATION
+     * -----------------------
+     * The dev store names the audit row's time column `createdAt`
+     * (see `DevAuditEntry` in lib/dev-store.ts) and its
+     * `findMany` filters/sorts on that key. The Prisma
+     * `AuditEntry` model has no `createdAt` column — the column is
+     * named `timestamp` (prisma/schema.prisma → `model AuditEntry`).
+     *
+     * Callers (lib/admin/audit-query.ts) speak the dev-store
+     * dialect — `where.createdAt` and `orderBy.createdAt` — so
+     * this adapter translates them to the Prisma column names
+     * before hitting the database. Without the translation,
+     * Prisma rejects the query with
+     * `Unknown argument 'createdAt'` and the admin audit
+     * dashboard 500s on Postgres (it only ever worked against
+     * the in-memory dev store).
      */
     findMany: async (args: {
       where?: {
@@ -463,8 +510,20 @@ export const db = {
       if (isDevStore()) {
         return devDb.audit.findMany(args as never);
       }
+      const { createdAt, ...restWhere } = args.where ?? {};
+      const prismaWhere = {
+        ...restWhere,
+        ...(createdAt ? { timestamp: createdAt } : {}),
+      };
+      const prismaArgs = {
+        where: prismaWhere,
+        ...(args.orderBy
+          ? { orderBy: { timestamp: args.orderBy.createdAt } }
+          : {}),
+        ...(args.take !== undefined ? { take: args.take } : {}),
+      };
       return ((await prismaClient.auditEntry.findMany(
-        args as never,
+        prismaArgs as never,
       )) as unknown) as Awaited<
         ReturnType<typeof devDb.audit.findMany>
       >;
@@ -701,7 +760,12 @@ export const db = {
       }
       return {
         webAuthnCredentials: row.webAuthnCredentials as never,
-        webAuthnChallenge: row.webAuthnChallenge as never,
+        // `User.webAuthnChallenge` is a `String?` column in the
+        // Prisma schema (not a `Json?`), so the payload is stored
+        // as a JSON STRING. Parse it back into the object shape
+        // the dev store keeps in memory, so the two backends
+        // present the same value to callers.
+        webAuthnChallenge: parseChallengeColumn(row.webAuthnChallenge),
       };
     },
     writeCredentials: async (
@@ -731,9 +795,23 @@ export const db = {
         );
         return;
       }
+      // `User.webAuthnChallenge` is a `String?` column, so the
+      // payload must be serialised to a JSON string. Passing the
+      // object straight through makes Prisma reject the update
+      // with `Unknown argument 'challenge'` — a 500 that broke
+      // EVERY WebAuthn flow against the real database while the
+      // in-memory dev store (which stores the object as-is) kept
+      // working. That divergence is why the bug survived the
+      // dev-store-only test runs.
+      const payload =
+        challenge === null || challenge === undefined
+          ? null
+          : JSON.stringify(challenge, (_key, value) =>
+              value instanceof Date ? value.toISOString() : value,
+            );
       await prismaClient.user.update({
         where: { id: userId },
-        data: { webAuthnChallenge: challenge as never },
+        data: { webAuthnChallenge: payload },
       });
     },
     bumpCounter: async (

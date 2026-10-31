@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     const result = await verifyAssertion(
       parsed.data.challengeId,
       parsed.data.assertionResponse,
+      req.headers.get('host'),
     );
 
     // Set the session cookie. Same flags as the citizen
