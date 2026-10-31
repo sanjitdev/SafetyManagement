@@ -4230,3 +4230,184 @@ Vercel's ceiling, and the downscale is what makes that worst case
 unreachable in practice.
 
 **Artifact**: `.specsmd/aidlc/memory-bank/bolts/002-004-my-reports/ddd-06-photo-size-hotfix.md`.
+## Phase: Construction — fix/admin-theme-tokens (2026-10-31)
+
+### The bug
+
+**"admin and other users dark theme is not working."**
+
+The admin console did not respond to the theme toggle. The user saw a
+correctly-dark global `AppHeader` sitting on top of a stubbornly light admin
+body — hardcoded white cards, slate text, amber banners — with no way to read
+the page in dark mode.
+
+### The root cause — and it was NOT the theme system
+
+The theme machinery is correct, shared by every role, and was never the
+problem:
+
+| Piece | Location | Status |
+|---|---|---|
+| Appearance helpers (`light` / `dark` / `system`) | `lib/theme/appearance.ts` | correct |
+| `ThemeProvider` — owns `document.documentElement.classList` | `lib/theme/ThemeProvider.tsx` | correct |
+| Pre-paint boot script (no FOUC) | `app/appearance-boot.tsx` | correct |
+| Full dark token block | `design-artifacts/D-Design-System/01-Visual-Design/tokens.css` | correct |
+| Shared header + toggle | `components/AppHeader.tsx`, `components/ThemeToggle.tsx` | correct |
+
+The project is **100% CSS-custom-property driven**, not Tailwind `dark:`-variant
+driven. `tailwind.config.js` has no `darkMode` key and the repo contains zero
+`dark:` variant usages. Every surface except admin follows the convention:
+
+```tsx
+style={{ background: 'var(--color-surface-card)', borderBottom: '1px solid var(--color-border)' }}
+```
+
+`app/admin/**` was the **only** part of the codebase written with hardcoded
+Tailwind palette utilities (`bg-slate-50`, `text-slate-900`, `bg-emerald-600`,
+…). Those utilities are static CSS classes — they cannot respond to the
+`.theme-dark` class, so they render identically in both themes. The token
+mechanism was fine; the admin surface had opted out of it.
+
+**Measured scope** (source scan, not estimated): 260 occurrences across
+exactly 10 files — every one of them in `app/admin/**`. A second scan across
+all of `app/` returned the *same* 10 files, proving the dispatcher / crew /
+citizen / home / reports / report surfaces were already clean.
+
+### Three genuine token-name bugs (in the half-migrated ticket detail page)
+
+| Wrong | Correct | Symptom |
+|---|---|---|
+| `var(--color-error)` | `var(--color-danger)` | text renders with the fallback colour |
+| `var(--text-small)` (x2) | `var(--text-body-sm)` | font-size declaration is dropped |
+| `var(--color-bg)` (x2) | `var(--color-surface-card)` | transparent in light mode — `--color-bg` is defined **only** inside `.theme-dark` |
+
+### What changed
+
+**Commit 1 — `fix/admin-theme-tokens`** (the migration):
+
+- Every hardcoded palette utility across the 10 admin pages + the two
+  admin-only components converted to inline `style={{ ... 'var(--color-*)' ... }}`
+  objects, matching the established dispatcher/crew convention.
+- Admin primary buttons moved from `bg-emerald-600` to `--color-primary`
+  (navy in light, teal in dark) with `--color-on-primary` for the label.
+- The page-level `<header>` on each admin page kept (element + `data-testid`
+  preserved) but restyled as a token-driven **title strip** — `--color-surface-page`
+  plus a bottom border — so it reads as a page title, not a second app bar.
+- The adoption dashboard's four hardcoded chart hexes (`#047857`, `#2563eb`,
+  `#9333ea`, `#f59e0b`) converted to design tokens, using `color-mix(in srgb, ...)`
+  where an alpha ramp was needed.
+- The page-local `@media print { body { background: #fff } }` block moved to a
+  single **global** token override in `app/globals.css`, so every page prints
+  on a white sheet with token-derived ink whatever the screen theme is.
+- Two missing soft tokens added to all three token blocks (`:root`,
+  `.theme-dark`, and the `prefers-color-scheme` fallback): `--color-success-soft`
+  and `--color-danger-soft`.
+- `app/globals.css` gained the pseudo-class helpers the inline-style approach
+  cannot express — `.admin-btn-primary`, `.admin-btn-secondary`, `.admin-pill`,
+  `.admin-card-hover` — all referencing the *same* tokens, so they are not a
+  second theming mechanism. Plus a `[data-app-shell] :focus-visible` focus
+  ring, which also closes a pre-existing accessibility gap (the admin surfaces
+  had **no** visible keyboard focus indicator).
+
+**Commit 2 — `test/admin-dark-theme-gate`** (the regression gates):
+
+- `tests/unit/admin-theme-tokens.test.ts` — a **source-level** scan (Vitest).
+  A DOM-based detector *cannot* work here: `getComputedStyle` resolves
+  `var(--x)` to a literal `rgb()`, so it cannot distinguish token-sourced
+  colour from hardcoded colour. The scan reports the file, the line and the
+  offending class. It also asserts that every token the admin surface depends
+  on is defined in **both** the light and the dark block — which is how the
+  `--color-bg` bug presented.
+- `tests/29-admin-dark-theme.spec.ts` — a Playwright **computed-style**
+  assertion. It visits `/admin`, `/dispatcher`, `/crew` and the eight admin
+  sub-pages, forces the dark theme, and asserts the page background is
+  actually dark (relative luminance below a threshold), the text is actually
+  light, and **no near-white opaque rectangle survives**. It also clicks the
+  real `ThemeToggle` and asserts the whole admin body follows — the exact
+  symptom the user reported.
+- The broken "Hard-coded color audit" in `tests/02-live-audit.spec.ts` was
+  repaired. It could never fail (it wrote a JSON file and pushed an
+  annotation, with no assertion), it surveyed only `ROUTES.slice(0, 4)` so it
+  never reached `/admin`, and it had an operator-precedence bug that made
+  `&&` bind tighter than `||` and reported every transparent element as an
+  offender. It is now explicitly documented as a human-review aid, not a gate.
+
+**Commit 3 — `fix/admin-scroll-containment`** (deferred, kept separate so the
+theming diff stays attributable):
+
+`components/AppShell.tsx` set `overflow: 'hidden'` with only
+`minHeight: '100dvh'` on the shell. The shell therefore **grew** to fit its
+content (1175px on `/admin/tickets` against a 900px viewport) while being
+unable to scroll, and `<main>` had `scrollHeight === clientHeight` — so the
+content below the fold was clipped and unreachable. Measured before the fix:
+
+```text
+/admin/tickets   shellH 1175  mainScrollable false  docScrollable true
+/admin/users     shellH  988  mainScrollable false  docScrollable true
+/admin/adoption  shellH  964  mainScrollable false  docScrollable true
+```
+
+The fix caps the shell at `height: '100dvh'` and makes `<main>` the scroll
+region (`overflowY: 'auto'` + `overscrollBehavior: 'contain'`), which is the
+containment model the AppShell's own header comment always described.
+Measured after:
+
+```text
+/admin/tickets   shellH 900  mainScrollable true  docScrollable false  headerTop 0
+```
+
+### Why a source scan rather than a Tailwind `darkMode: 'class'` switch
+
+Adding `darkMode: 'class'` would have created a **second** theming mechanism
+that can drift from `tokens.css` — and `dark:` variants are inert in this
+repo today, so it would have been a large, untested rewrite. The inline-token
+approach matches the established app-wide pattern, needs zero Tailwind config
+change, and is auditable by eye: every colour is literally a token name.
+
+### The coverage gap that let this ship
+
+Every existing theme test visited only `/home` or `/` — **none** navigated to
+`/admin`, `/dispatcher` or `/crew`. That is precisely why the admin
+regression went unnoticed. The new Playwright gate closes it.
+
+### Visual baselines — deliberately deferred
+
+New dark-mode baselines for the admin pages are **deferred**. A baseline
+captured mid-migration is a liability, not a guard; the dark-mode gate
+asserts computed styles rather than pixels, which is the check that actually
+catches this class of bug.
+
+### Verification
+
+```text
+npx tsc --noEmit            clean
+npm run test:unit           77 files / 1114 tests passed  (was 76 / 1108)
+npm run test:mockups        15 baselines passed
+npx playwright test tests/29-admin-dark-theme.spec.ts   12 passed
+npx playwright test tests/28-role-walkthrough.spec.ts    1 passed (53/53 obs)
+```
+
+**Full-suite delta vs. the pre-change baseline.** The suite was run before and
+after the change and the failure sets diffed:
+
+```text
+baseline   211 failed   7 skipped   80 passed
+after      212 failed   7 skipped   91 passed
+```
+
+The four extra failures are **pre-existing environment/state issues**, each
+confirmed by re-running them with the theme changes stashed:
+
+- `auth-verify-otp` — a **stale committed baseline**. The baseline PNG is
+  1440x964; the page now renders 1440x900. The page was changed at `f0bddb2`
+  ("fix: render human-readable names across staff surfaces and repair the
+  mobile layout"), which shrank it by 64px, and the baseline was not
+  re-captured. The baseline also embeds a live countdown value, which makes
+  it inherently flaky.
+- `24-feed-photo-thumbnail` (x3) — a **dedup collision** against the
+  persistent local Postgres. The test seeds a ticket at a fixed coordinate and
+  the API answers `200 {"dedup_match": true}` instead of `201`, because a
+  ticket from an earlier run is already within the 50m dedup radius.
+
+Neither is a theming regression. Both reproduce identically with the theme
+changes stashed.
