@@ -148,7 +148,7 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   const sl = s();
   sl.bg = T.surfaceInverse;
   rect(sl, 0, 0, 0.32, H, T.primary);
-  text(sl, 'CITYFIX', 1.15, 1.55, 10, 0.42, {
+  text(sl, 'CITYFIX', 1.15, 0.85, 10, 0.42, {
     size: 15,
     bold: true,
     color: T.primarySoft,
@@ -158,40 +158,234 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
     sl,
     'Citizen-powered city issue<br>reporting &amp; tracking',
     1.1,
-    2.05,
+    1.45,
     11,
     1.9,
     { size: 44, bold: true, color: T.inkOnDark, lh: 50 },
   );
-  rect(sl, 1.15, 4.15, 1.5, 0.045, T.primary);
+  rect(sl, 1.15, 3.62, 1.5, 0.045, T.primary);
   text(
     sl,
     'One platform where a citizen photographs a pothole, the authority routes it, the crew fixes it, and the citizen can see that it was actually resolved.',
     1.15,
-    4.5,
+    3.95,
     8.6,
     0.9,
     { size: 16, color: '#A0AEC0', lh: 23 },
+  );
+  rect(sl, 1.15, 5.05, 11, 0.62, T.primary);
+  text(
+    sl,
+    'Planned, specified and executed end-to-end by AI agents — BMAD &nbsp;·&nbsp; WDS &nbsp;·&nbsp; AIDLC &nbsp;·&nbsp; Specsmd',
+    1.35,
+    5.2,
+    10.6,
+    0.32,
+    { size: 13.5, bold: true, color: T.onPrimary, align: 'center' },
   );
   text(
     sl,
     '<b>Next.js 14</b> &nbsp;·&nbsp; <b>TypeScript strict</b> &nbsp;·&nbsp; <b>PostgreSQL 16 + Prisma</b> &nbsp;·&nbsp; <b>MapLibre + OSM</b> &nbsp;·&nbsp; <b>Playwright + Vitest</b>',
     1.15,
-    6.15,
+    6.1,
     11,
     0.35,
     { size: 12, color: '#718096' },
   );
 }
 
-// --- 2 problem
+// --- 2 how this was built
+{
+  const sl = contentSlide({
+    eyebrow: 'How this was built',
+    title: 'The project was planned, specified and executed by AI agents',
+    subtitle:
+      'Four agentic methodologies were chained — each one owning a different layer — and every artefact they produced is still in the repository.',
+    n: 2,
+  });
+  const chain = [
+    ['BMAD', 'Agent library &amp; method', 'Mary · John · Sally · Winston · Amelia', 'Supplied the specialist agent roles and the method modules the other lanes compose.', '15 agent personas, 7 method modules', T.catStreetlight],
+    ['WDS', 'Design &amp; spec lane', 'Saga · Freya · Mimir', 'Turned the idea into a product brief, personas, 33 page specs, a design system and 5 work orders.', '69 design artefacts · 8,294 lines', T.catDrain],
+    ['AIDLC', 'Delivery lifecycle', 'Product · Architect · Dev · QA agents', 'Ran the intent through ideation, inception and construction as guarded, gated stages.', '23 staged pipeline · 4 phases', T.catGarbage],
+    ['Specsmd', 'AI-DLC orchestration', 'Master · Inception · Construction · Ops', 'Orchestrated the intent, dispatched the stages, and enforced the human checkpoints.', '14 agents · 4 phase agents', T.catSanitation],
+  ];
+  chain.forEach(([tag, role, who, did, out, color], i) => {
+    const x = 0.72 + i * 3.03;
+    const y = 1.95;
+    rect(sl, x, y, 2.78, 3.35, T.surfaceCard, { radius: 0.08, border: T.border });
+    rect(sl, x, y, 2.78, 0.09, color);
+    text(sl, tag, x + 0.22, y + 0.26, 2.4, 0.34, { size: 18, bold: true, color });
+    text(sl, role, x + 0.22, y + 0.62, 2.4, 0.26, { size: 10, bold: true, color: T.inkTertiary, spacing: 0.5 });
+    text(sl, who, x + 0.22, y + 0.92, 2.4, 0.44, { size: 10, color: T.inkSecondary, lh: 13 });
+    rect(sl, x + 0.22, y + 1.42, 2.34, 0.012, T.border);
+    text(sl, did, x + 0.22, y + 1.56, 2.36, 1.05, { size: 11, color: T.inkSecondary, lh: 15 });
+    text(sl, out, x + 0.22, y + 2.78, 2.36, 0.44, { size: 10, bold: true, lh: 13 });
+    if (i < 3)
+      text(sl, '→', x + 2.78, y + 1.45, 0.26, 0.36, {
+        size: 17, bold: true, color: T.inkTertiary, align: 'center',
+      });
+  });
+  rect(sl, 0.72, 5.55, 11.9, 0.78, T.primarySoft, { radius: 0.08, border: T.primary });
+  text(
+    sl,
+    'The output of one lane is the input of the next. BMAD supplies the roles, WDS writes the specification, AIDLC runs the lifecycle against it, and Specsmd orchestrates the agents that do the work.',
+    1.02,
+    5.72,
+    11.3,
+    0.5,
+    { size: 12, bold: true, color: T.primary, align: 'center', lh: 16 },
+  );
+}
+
+// --- 3 BMAD
+{
+  const sl = contentSlide({
+    eyebrow: 'BMAD · the agent library',
+    title: 'Specialist agents, each with a narrow job and a point of view',
+    subtitle:
+      'BMAD supplied the role roster that every other lane draws on. They are not chat personas — each carries a method, a checklist and a definition of done.',
+    n: 3,
+  });
+  const roster = [
+    ['Mary', 'BUSINESS ANALYST', 'Channels Porter and Minto. Grounds every finding in verifiable evidence and represents every stakeholder voice.'],
+    ['John', 'PRODUCT MANAGER', 'Drives Jobs-to-be-Done over template filling. User value first; technical feasibility is a constraint, not the driver.'],
+    ['Sally', 'UX DESIGNER', 'Balances empathy with edge-case rigor. Starts simple, evolves through feedback, and serves a genuine user need.'],
+    ['Winston', 'SYSTEM ARCHITECT', 'Favours boring technology for stability. Ties every architectural decision back to business value.'],
+    ['Amelia', 'SENIOR ENGINEER', 'Test-first discipline. 100% pass before review. Every statement citable, every path exact.'],
+    ['Murat', 'TEST ARCHITECT', 'Risk-based strategy, ATDD, contract and performance testing. Strong opinions, weakly held.'],
+  ];
+  roster.forEach(([name, title, body], i) => {
+    const x = 0.72 + (i % 3) * 4.03;
+    const y = 1.95 + Math.floor(i / 3) * 1.72;
+    rect(sl, x, y, 3.73, 1.52, T.surfaceCard, { radius: 0.08, border: T.border });
+    text(sl, name, x + 0.24, y + 0.16, 3.3, 0.3, { size: 15, bold: true, color: T.primary });
+    text(sl, title, x + 0.24, y + 0.46, 3.3, 0.24, { size: 9, bold: true, color: T.inkTertiary, spacing: 1 });
+    text(sl, body, x + 0.24, y + 0.76, 3.28, 0.66, { size: 11, color: T.inkSecondary, lh: 15 });
+  });
+  text(
+    sl,
+    'Alongside the software crew, BMAD also ships a creative module — Sophia the storyteller, Maya the design-thinking coach, Carson the brainstorming specialist, Dr. Quinn the problem solver, Victor the innovation strategist — and Caravaggio, the presentation expert.',
+    0.72,
+    5.5,
+    11.9,
+    0.5,
+    { size: 11.5, italic: true, color: T.inkSecondary, lh: 16 },
+  );
+  text(sl, '15 agent personas across 7 modules — installed in-repo at _bmad/.', 0.72, 6.1, 11.9, 0.3, {
+    size: 12, bold: true, color: T.primary,
+  });
+}
+
+// --- 4 WDS
+{
+  const sl = contentSlide({
+    eyebrow: 'WDS · the design lane',
+    title: 'The idea became a specification before a line of code was written',
+    subtitle:
+      'WDS ran the project through five design phases. Each phase left an artefact on disk that the next phase consumed — and that the build later consumed too.',
+    n: 4,
+  });
+  const phases = [
+    ['A', 'Product Brief', '4 files', 'The civic problem, the make-or-break constraint, and the headline finding: authority onboarding gates success, not citizen acquisition.', T.catDrain],
+    ['B', 'Trigger Map', '7 files', 'Four personas scored on 16 driving forces. Result: process-integrity forces dominate — success is gated by operational clarity, not emotional design.', T.catStreetlight],
+    ['C', 'UX Scenarios', '38 files', '33 screens specified as spec-as-contract. Every screen carries its own route, states, data and acceptance criteria.', T.catGarbage],
+    ['D', 'Design System', '12 files', 'Tokens, components and hero mockups. These tokens are the literal source of the palette this very deck is built from.', T.catSanitation],
+    ['E', 'Development', '8 files', 'Tech audit, master PRD and 5 work orders with an explicit dependency graph — WO-000 first, then the four personas.', T.catPothole],
+  ];
+  phases.forEach(([code, name, files, body, color], i) => {
+    const x = 0.72 + i * 2.42;
+    const y = 1.95;
+    rect(sl, x, y, 2.22, 3.3, T.surfaceCard, { radius: 0.08, border: T.border });
+    rect(sl, x, y, 2.22, 0.09, color);
+    rect(sl, x + 0.2, y + 0.28, 0.42, 0.42, color, { radius: 0.21 });
+    text(sl, code, x + 0.2, y + 0.36, 0.42, 0.28, { size: 14, bold: true, color: T.onPrimary, align: 'center' });
+    text(sl, name, x + 0.2, y + 0.82, 1.9, 0.5, { size: 13, bold: true, lh: 16 });
+    text(sl, files, x + 0.2, y + 1.36, 1.9, 0.24, { size: 10, bold: true, color: T.inkTertiary });
+    rect(sl, x + 0.2, y + 1.66, 1.82, 0.012, T.border);
+    text(sl, body, x + 0.2, y + 1.8, 1.86, 1.36, { size: 10, color: T.inkSecondary, lh: 14 });
+  });
+  rect(sl, 0.72, 5.5, 11.9, 0.82, T.surfaceSunken, { radius: 0.08, border: T.border });
+  text(
+    sl,
+    '<b>69 artefacts &nbsp;·&nbsp; 8,294 lines of specification &nbsp;·&nbsp; 33 screens &nbsp;·&nbsp; 4 personas &nbsp;·&nbsp; 5 work orders</b>',
+    1.02,
+    5.64,
+    11.3,
+    0.3,
+    { size: 13, align: 'center' },
+  );
+  text(
+    sl,
+    'Every number here is a file count in design-artifacts/ — the specification is not a claim, it is a directory.',
+    1.02,
+    5.98,
+    11.3,
+    0.26,
+    { size: 11, italic: true, color: T.inkSecondary, align: 'center' },
+  );
+}
+
+// --- 5 AIDLC + Specsmd
+{
+  const sl = contentSlide({
+    eyebrow: 'AIDLC · Specsmd · the engine room',
+    title: 'The plan was executed as guarded stages, not improvised',
+    subtitle:
+      'AIDLC defined the lifecycle and its gates. Specsmd supplied the orchestrator that dispatches the agents, holds the context and enforces the human checkpoints.',
+    n: 5,
+  });
+  text(sl, 'THE PIPELINE', 0.72, 1.9, 6, 0.26, {
+    size: 10, bold: true, color: T.inkTertiary, spacing: 1.5,
+  });
+  const stages = [
+    ['Ideation', 'Intent, feasibility, market research, scope, rough mockups', T.catDrain],
+    ['Inception', 'Requirements, stories, architecture, units, bolts', T.catGarbage],
+    ['Construction', 'Code generation, build and test, delivery planning', T.catStreetlight],
+    ['Operation', 'Deploy, observe, validate performance', T.catSanitation],
+  ];
+  stages.forEach(([name, body, color], i) => {
+    const y = 2.24 + i * 1.02;
+    rect(sl, 0.72, y, 6.1, 0.9, T.surfaceCard, { radius: 0.08, border: T.border });
+    rect(sl, 0.72, y, 0.09, 0.9, color);
+    text(sl, name, 0.98, y + 0.13, 1.5, 0.28, { size: 13, bold: true });
+    text(sl, body, 0.98, y + 0.45, 5.7, 0.3, { size: 10.5, color: T.inkSecondary });
+    if (i < 3)
+      text(sl, '▼', 3.5, y + 0.87, 0.4, 0.18, { size: 7, color: T.inkTertiary, align: 'center' });
+  });
+  text(sl, 'WHAT THE ENGINE ENFORCES', 7.2, 1.9, 5.4, 0.26, {
+    size: 10, bold: true, color: T.inkTertiary, spacing: 1.5,
+  });
+  const guarantees = [
+    ['Guard policy', 'Strict. The engine refuses a step that would skip a required gate — refusals are recorded, not argued with.'],
+    ['Human checkpoints', 'Plan approval, assumption confirmation and verification-command selection are human stops. Auto mode never touches them.'],
+    ['Persistent context', 'Org, team, project and phase rules are re-resolved every session, so the agents never drift from the contract.'],
+    ['Full trace', 'Every stage writes an artefact, a review and an audit shard. The build log is reconstructible after the fact.'],
+  ];
+  guarantees.forEach(([h, b], i) => {
+    const y = 2.24 + i * 1.02;
+    rect(sl, 7.2, y, 5.42, 0.9, T.surfaceCard, { radius: 0.08, border: T.border });
+    text(sl, h, 7.44, y + 0.1, 5.0, 0.26, { size: 12.5, bold: true, color: T.primary });
+    text(sl, b, 7.44, y + 0.38, 5.0, 0.46, { size: 10.5, color: T.inkSecondary, lh: 14 });
+  });
+  text(
+    sl,
+    '23 stages configured for this intent · 14 specialised agents · 4 phase orchestrators · guard refusals logged, not hidden.',
+    0.72,
+    6.22,
+    11.9,
+    0.3,
+    { size: 11.5, bold: true, color: T.primary },
+  );
+}
+
+// --- 6 problem
 {
   const sl = contentSlide({
     eyebrow: 'The problem',
     title: 'A broken streetlight is reported to nobody',
     subtitle:
       'There is no single place to report a city problem, no way to know who owns it, and no way to know if it was ever fixed.',
-    n: 2,
+    n: 6,
   });
   const problems = [
     ['No single front door', 'Reports scatter across phone calls, Facebook, Messenger and different government channels. Citizens do not know where to file.'],
@@ -222,14 +416,14 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 3 solution
+// --- 7 solution
 {
   const sl = contentSlide({
     eyebrow: 'The solution',
     title: 'Four roles, one ticket, one trail',
     subtitle:
       'A single report is threaded through the chain: filed by a citizen, triaged by a dispatcher, resolved by a crew, governed by an admin.',
-    n: 3,
+    n: 7,
   });
   const roles = [
     ['Citizen', 'Rahim', '/home', 'Photograph a problem, drop a pin, follow the status trail, confirm the fix.', T.catDrain],
@@ -285,53 +479,53 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 4 citizen journey A
+// --- 8 citizen journey A
 {
   const sl = contentSlide({
     eyebrow: 'Citizen journey',
     title: 'One tap from the street to a tracked report',
     subtitle:
       'The public landing explains the civic promise; the citizen home is a live map of real reports around Dhaka.',
-    n: 4,
+    n: 8,
   });
   shotCap(sl, '01-public-landing', { x: 0.72, y: 1.8, w: 6.0, h: 4.7 }, 'Public landing — the citizen promise');
   shotCap(sl, '04-citizen-home', { x: 6.95, y: 1.8, w: 5.65, h: 4.7 }, 'Citizen home — live MapLibre map with real seeded reports');
 }
 
-// --- 5 citizen journey B
+// --- 9 citizen journey B
 {
   const sl = contentSlide({
     eyebrow: 'Citizen journey',
     title: 'Report it with a photo and a pin — then watch it move',
     subtitle:
       'Category and location are captured with the report; "My reports" is the citizen’s own view of the trail.',
-    n: 5,
+    n: 9,
   });
   shotCap(sl, '06-citizen-report-location', { x: 0.72, y: 1.8, w: 6.0, h: 4.7 }, 'Report flow — category, photo, map pin');
   shotCap(sl, '05-citizen-my-reports', { x: 6.95, y: 1.8, w: 5.65, h: 4.7 }, 'My reports — the citizen’s own trail');
 }
 
-// --- 6 dispatcher
+// --- 10 dispatcher
 {
   const sl = contentSlide({
     eyebrow: 'Dispatcher',
     title: 'The triage queue: priority, dedup and assignment in one view',
     subtitle:
       'Habib sees every open ticket with its ward, priority badge and assignment state — then routes it.',
-    n: 6,
+    n: 10,
   });
   shotCap(sl, '08-dispatcher-triage-queue', { x: 0.72, y: 1.8, w: 7.6, h: 4.7 }, 'Triage queue — Ward 14, 30 open tickets');
   shotCap(sl, '09-dispatcher-monitor', { x: 8.55, y: 1.8, w: 4.05, h: 4.7 }, 'Monitor — live status view');
 }
 
-// --- 7 crew
+// --- 11 crew
 {
   const sl = contentSlide({
     eyebrow: 'Crew',
     title: 'The field surface: only my ward, only my work',
     subtitle:
       'A crew member is not a dispatcher with fewer buttons — the surface is scoped to the assignments they can actually act on.',
-    n: 7,
+    n: 11,
   });
   const crewList = img(sl, '10-crew-assignments', { x: 0.72, y: 1.8, w: 5.6, h: 2.3 });
   text(sl, 'Crew assignments — one open job in Ward 14', 0.72, crewList.y + crewList.h + 0.08, 5.6, 0.3, {
@@ -374,14 +568,14 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 8 admin
+// --- 12 admin
 {
   const sl = contentSlide({
     eyebrow: 'Admin',
     title: 'The console that governs the platform',
     subtitle:
       'Anwar configures the city, watches the ticket estate and reads the audit trail — and every write is WebAuthn-gated.',
-    n: 8,
+    n: 12,
   });
   // (shots added below)
   const consoleImg = img(sl, '11-admin-console', { x: 0.72, y: 1.8, w: 5.6, h: 3.3 });
@@ -411,27 +605,27 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   });
 }
 
-// --- 9 audit + dark
+// --- 13 audit + dark
 {
   const sl = contentSlide({
     eyebrow: 'Admin',
     title: 'One design system — light, dark, and public by default',
     subtitle:
       "The admin console honours the shared theme system rather than hardcoding a palette, and the public feed shows the city's progress without an account.",
-    n: 9,
+    n: 13,
   });
   shotCap(sl, '15-admin-dark-theme', { x: 0.72, y: 1.8, w: 5.9, h: 4.7 }, 'Admin console in dark theme — same design tokens, inverted');
   shotCap(sl, '07-city-activity-feed', { x: 6.85, y: 1.8, w: 5.75, h: 4.7 }, "Public activity feed — the city's progress, visible to anyone");
 }
 
-// --- 10 architecture
+// --- 14 architecture
 {
   const sl = contentSlide({
     eyebrow: 'Under the hood',
     title: 'Architecture',
     subtitle:
       'A conventional, deliberately boring stack — chosen for the audit trail it produces, not for novelty.',
-    n: 10,
+    n: 14,
   });
   const layers = [
     ['Client', ['Next.js 14 App Router', 'React 18 + TypeScript strict', 'Tailwind v3 + CSS custom properties', 'MapLibre GL JS + OSM raster'], T.catDrain],
@@ -470,14 +664,14 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 11 evidence
+// --- 15 evidence
 {
   const sl = contentSlide({
     eyebrow: 'Evidence',
     title: 'The claims are measured, not asserted',
     subtitle:
       'Every number below comes from a command in this repository that runs against the real database.',
-    n: 11,
+    n: 15,
   });
   const stats = [
     ['1142', 'unit tests', 'Vitest — domain, services, auth, serializers'],
@@ -519,14 +713,14 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 12 next
+// --- 16 next
 {
   const sl = contentSlide({
     eyebrow: "What's next",
     title: 'The pipeline is proven; the city is next',
     subtitle:
       'The platform layer, the four-role chain and the audit trail are complete. What remains is deployment and real-world scale.',
-    n: 12,
+    n: 16,
   });
   const next = [
     ['Deployment', 'Ship the pilot', 'Hosting target is still open — Vercel vs Cloudflare vs Railway is the one decision left to ratify.'],
@@ -567,14 +761,14 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
   );
 }
 
-// --- 13 appendix
+// --- 17 appendix
 {
   const sl = contentSlide({
     eyebrow: 'Appendix',
     title: 'Entry points and the public activity feed',
     subtitle:
       'Every entry point routes by role: the site root, the splash and a `?next=` deep link all resolve the same way.',
-    n: 13,
+    n: 17,
   });
   shotCap(sl, '02-login', { x: 0.72, y: 1.8, w: 4.55, h: 4.7 }, 'Login');
   shotCap(sl, '03-splash', { x: 5.5, y: 1.8, w: 3.6, h: 4.7 }, 'Splash');
