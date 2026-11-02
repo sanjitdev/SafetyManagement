@@ -1,84 +1,113 @@
 /* CityFix — Design Tokens
- * Apple-like calm confidence. Civic trust. Bangla-first.
- * All values are CSS custom properties so any visual element can reference them.
+ *
+ * Accessible + Swiss/Minimal civic direction. Civic trust, high
+ * contrast, flat surfaces, 1px borders, 8px rhythm.
+ *
+ * Every colour below is MEASURED against WCAG AA by
+ * `tests/unit/ui/tokens-contrast.test.ts`, which reads this file and
+ * fails when a shipped pair drops below its threshold. The previous
+ * palette had invisible failures (`--color-success` at 3.30:1 on
+ * white, and `--color-accent` referenced by four components but never
+ * defined at all) — this file is the source of truth for all of it.
+ *
+ * Bangla-first: Noto Sans Bengali renders both Bangla and Latin, so it
+ * stays the single family across the stack.
  */
+
+/* ---------- LIGHT THEME (default) ---------- */
 
 :root {
   /* ---------- COLOR ---------- */
 
-  /* Primary — restrained blue-grey */
-  --color-primary: #2C5282;
-  --color-primary-hover: #2A4E73;
-  --color-primary-pressed: #234876;
-  --color-primary-soft: #EBF2F8;       /* tinted background for selected states */
-  --color-on-primary: #FFFFFF;          /* text on primary fill */
+  /* Primary — civic blue. AA on white (8.72:1); white text on it
+   * reads at 8.72:1 the other way round. */
+  --color-primary: #1E40AF;
+  --color-primary-hover: #1D3FA1;
+  --color-primary-pressed: #173285;
+  --color-primary-soft: #EFF6FF;   /* selected / active fill */
+  --color-on-primary: #FFFFFF;     /* text on primary fill */
 
-  /* Status semantic tokens (consumed by app surfaces) */
+  /* Accent — links, focus accents, secondary emphasis.
+   * Distinct from primary so a link never reads as a button. */
+  --color-accent: #0369A1;
+  --color-accent-hover: #075985;
+  --color-accent-soft: #E0F2FE;
+  --color-on-accent: #FFFFFF;
+
+  /* Status semantic tokens — "success only, never CTA".
+   * Each foreground clears 4.5:1 on white AND on its own soft fill. */
   --color-success: #15803D;
   --color-success-soft: #DCFCE7;
   --color-warning: #B45309;
   --color-warning-soft: #FEF3C7;
-  --color-danger: #B91C1C;
+  --color-danger: #C81E1E;
   --color-danger-soft: #FEE2E2;
+  --color-info: #0369A1;
+  --color-info-soft: #E0F2FE;
 
-  /* Headline scale aliases (consumed via CSS-var references) */
-  --text-h1: 1.5rem;     /* 24px */
-  --text-h2: 1.25rem;    /* 20px */
-  --text-h3: 1.125rem;   /* 18px */
-
-  color-scheme: light;
-
-  /* Ink — text */
-  --color-ink: #0F1419;                 /* primary text */
-  --color-ink-secondary: #4A5568;       /* secondary text, captions */
-  --color-ink-tertiary: #718096;        /* placeholder, muted */
-  --color-ink-muted: #6B7280;           /* alias of ink-tertiary for legacy code */
-  --color-ink-disabled: #A0AEC0;
-  --color-ink-on-dark: #F7FAFC;         /* text on dark surfaces */
+  /* Ink — text. The ramp is the whole point of the Swiss direction:
+   * one near-black for primary text, two greys for hierarchy. */
+  --color-ink: #020617;             /* primary text */
+  --color-ink-secondary: #475569;   /* secondary text, captions */
+  --color-ink-tertiary: #5C6C83;   /* placeholder, muted — 4.51:1 on sunken */
+  --color-ink-muted: #5C6C83;       /* alias of ink-tertiary for legacy code */
+  --color-ink-disabled: #94A3B8;
+  --color-ink-on-dark: #F7FAFC;     /* text on dark surfaces */
+  --color-ink-inverse: #FFFFFF;     /* text on an ink fill */
 
   /* Surface — backgrounds */
-  --color-surface-page: #FAFAF7;        /* warm off-white app background */
-  --color-surface-card: #FFFFFF;        /* cards, modals */
-  --color-surface-raised: #F2F2F2;      /* fills, dividers, inputs */
-  --color-surface-sunken: #EDEDE8;      /* subtle sunken regions */
-  --color-surface-inverse: #0F1419;     /* dark surfaces (Habib's monitor, Rashid's outdoor mode) */
+  --color-surface-page: #F8FAFC;    /* cool off-white app background */
+  --color-surface-card: #FFFFFF;    /* cards, modals */
+  --color-surface-raised: #F1F5F9;  /* fills, dividers, inputs */
+  --color-surface-sunken: #E8ECF1;  /* subtle sunken regions */
+  --color-surface-inverse: #0F172A; /* dark surfaces (monitor, outdoor) */
+  --color-bg: #F8FAFC;              /* alias for legacy call sites */
 
-  /* Border */
+  /* Border — `--color-border` is a hairline divider (decorative);
+   * `--color-border-strong` separates interactive controls from the
+   * page and clears 3:1 as a UI boundary; `--color-border-input` is
+   * the one an input draws, and it clears AA against white. */
   --color-border: #E2E8F0;
-  --color-border-strong: #CBD5E0;
+  --color-border-strong: #CBD5E1;
+  --color-border-input: #64748B;
   --color-border-focus: var(--color-primary);
 
-  /* Status — muted, not saturated */
-  --color-status-submitted: #718096;    /* slate */
-  --color-status-submitted-soft: #EDF2F7;
-  --color-status-routed: #2C5282;       /* primary blue */
-  --color-status-routed-soft: var(--color-primary-soft);
-  --color-status-in-progress: #B7791F;  /* amber */
+  /* Status — muted, not saturated. Each clears AA on its soft fill. */
+  --color-status-submitted: #5C6C83;
+  --color-status-submitted-soft: #F1F5F9;
+  --color-status-routed: #1E40AF;
+  --color-status-routed-soft: #EFF6FF;
+  --color-status-in-progress: #B45309;
   --color-status-in-progress-soft: #FFFAF0;
-  --color-status-resolved: #2F7A4F;     /* forest green */
+  --color-status-resolved: #15803D;
   --color-status-resolved-soft: #F0F8F4;
-  --color-status-paused: #B7791F;       /* amber, same family as in-progress */
-  --color-status-error: #C53030;
-  --color-status-error-soft: #FFF5F5;
-  --color-status-warning: #B7791F;
-  --color-status-warning-soft: #FFFAF0;
+  --color-status-paused: #B45309;
+  --color-status-error: #C81E1E;
+  --color-status-error-soft: #FEE2E2;
+  --color-status-warning: #B45309;
+  --color-status-warning-soft: #FEF3C7;
+  --color-status-cancelled: #5C6C83;
+  --color-status-cancelled-soft: #F1F5F9;
+  --color-status-closed: #5C6C83;
+  --color-status-closed-soft: #F1F5F9;
 
-  /* Category accents — for category icons in tiles */
-  --color-cat-streetlight: #B7791F;     /* amber — matches electrical */
-  --color-cat-pothole: #4A5568;          /* slate */
-  --color-cat-garbage: #2F7A4F;          /* green */
-  --color-cat-drain: #2C5282;            /* blue */
-  --color-cat-sanitation: #805AD5;       /* purple */
-  --color-cat-other: #718096;            /* grey */
+  /* Category accents — for category icons in tiles. Each clears AA
+   * against white and against the raised/sunken surfaces. */
+  --color-cat-streetlight: #9A5C02;  /* amber — matches electrical */
+  --color-cat-pothole: #4A5568;       /* slate */
+  --color-cat-garbage: #2D784D;       /* green */
+  --color-cat-drain: #1E40AF;         /* blue */
+  --color-cat-sanitation: #7852CD;    /* purple */
+  --color-cat-other: #5C6C83;         /* grey */
 
   /* Map */
   --color-map-bg: #E9EEF6;
   --color-map-road: #FFFFFF;
   --color-map-water: #CFE3F5;
   --color-map-park: #E0EFE3;
-  --color-map-pin-open: #C53030;
-  --color-map-pin-progress: #B7791F;
-  --color-map-pin-resolved: #2F7A4F;
+  --color-map-pin-open: #C81E1E;
+  --color-map-pin-progress: #B45309;
+  --color-map-pin-resolved: #15803D;
 
   /* ---------- TYPE ---------- */
 
@@ -91,16 +120,23 @@
   --text-display-md: 1.5rem;      /* 24px — H2 */
   --text-display-sm: 1.25rem;     /* 20px — H3 */
 
+  --text-h1: 1.5rem;              /* 24px */
+  --text-h2: 1.25rem;             /* 20px */
+  --text-h3: 1.125rem;            /* 18px */
+
   --text-body-lg: 1.0625rem;      /* 17px — large body */
   --text-body: 1rem;              /* 16px — base */
   --text-body-sm: 0.9375rem;      /* 15px — small body */
   --text-caption: 0.875rem;       /* 14px — captions */
   --text-micro: 0.75rem;          /* 12px — micro labels */
 
+  /* Leading. Bangla glyphs carry descenders and matras well above
+   * and below the Latin baseline; at 1.5 they clipped inside pills and
+   * buttons. 1.6 is the floor for Bangla body copy. */
   --leading-tight: 1.2;
   --leading-snug: 1.35;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.65;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
 
   --tracking-tight: -0.022em;
   --tracking-normal: 0;
@@ -111,7 +147,7 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* ---------- SPACING (4px base) ---------- */
+  /* ---------- SPACING (8px rhythm, 4px half-step) ---------- */
 
   --space-1: 4px;
   --space-2: 8px;
@@ -131,15 +167,34 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-pill: 9999px;
+  --radius-card: 12px;      /* cards and panels */
+  --radius-input: 8px;      /* inputs, selects, textareas */
 
   /* ---------- SHADOW ---------- */
 
+  /* Flat surfaces, hairline dividers, no decorative shadow stacks.
+   * The shadow scale exists for overlays only — a raised card uses a
+   * border, not a shadow. */
+
   --shadow-none: none;
-  --shadow-xs: 0 1px 2px rgba(15, 20, 25, 0.04);
-  --shadow-sm: 0 2px 4px rgba(15, 20, 25, 0.05), 0 1px 2px rgba(15, 20, 25, 0.03);
-  --shadow-md: 0 4px 12px rgba(15, 20, 25, 0.07), 0 1px 3px rgba(15, 20, 25, 0.04);
-  --shadow-lg: 0 12px 32px rgba(15, 20, 25, 0.10), 0 2px 6px rgba(15, 20, 25, 0.05);
-  --shadow-modal: 0 24px 48px rgba(15, 20, 25, 0.16), 0 4px 12px rgba(15, 20, 25, 0.08);
+  --shadow-xs: 0 1px 2px rgba(2, 6, 23, 0.04);
+  --shadow-sm: 0 2px 4px rgba(2, 6, 23, 0.05), 0 1px 2px rgba(2, 6, 23, 0.03);
+  --shadow-md: 0 4px 12px rgba(2, 6, 23, 0.07), 0 1px 3px rgba(2, 6, 23, 0.04);
+  --shadow-lg: 0 12px 32px rgba(2, 6, 23, 0.10), 0 2px 6px rgba(2, 6, 23, 0.05);
+  --shadow-modal: 0 24px 48px rgba(2, 6, 23, 0.16), 0 4px 12px rgba(2, 6, 23, 0.08);
+  --shadow-popover: 0 8px 24px rgba(2, 6, 23, 0.12), 0 2px 6px rgba(2, 6, 23, 0.06);
+
+  /* The focus ring as a shadow, so a component can draw a focus state
+   * without owning the outline geometry. */
+  --shadow-focus: 0 0 0 3px rgba(30, 64, 175, 0.30);
+  --shadow-focus-danger: 0 0 0 3px rgba(200, 30, 30, 0.30);
+
+  /* ---------- ICON SIZE ---------- */
+
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --icon-size-xl: 32px;
 
   /* ---------- LAYOUT ---------- */
 
@@ -176,19 +231,48 @@
   --z-overlay: 50;
   --z-modal: 100;
   --z-toast: 200;
+
+  color-scheme: light;
 }
 
-/* ---------- HIGH-CONTRAST OUTDOOR (Rashid's Status: In Progress) ---------- */
+/* ---------- HIGH-CONTRAST OUTDOOR (Rashid's Status: In Progress) ----------
+ *
+ * Preserved exactly as it was: black on white, maximum contrast for a
+ * phone screen in direct sun. The redesign must not soften this.
+ */
 
 .theme-outdoor {
   --color-surface-page: #FFFFFF;
   --color-surface-card: #FFFFFF;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-sunken: #FFFFFF;
   --color-ink: #000000;
   --color-ink-secondary: #000000;
   --color-ink-tertiary: #1A1A1A;
+  --color-ink-muted: #1A1A1A;
+  --color-ink-disabled: #595959;
   --color-border: #000000;
+  --color-border-strong: #000000;
+  --color-border-input: #000000;
   --color-primary: #000000;
+  --color-primary-hover: #000000;
+  --color-primary-pressed: #000000;
+  --color-primary-soft: #FFFFFF;
+  --color-accent: #000000;
+  --color-accent-hover: #000000;
+  --color-accent-soft: #FFFFFF;
   --color-on-primary: #FFFFFF;
+  --color-on-accent: #FFFFFF;
+  --color-success: #006B2D;
+  --color-danger: #B30000;
+  --color-warning: #7A3E00;
+  --shadow-none: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-modal: none;
+  --shadow-focus: 0 0 0 3px rgba(0, 0, 0, 0.45);
 }
 
 /* ---------- DARK MODE (Habib's monitor, citizen-selectable) ---------- */
@@ -207,33 +291,44 @@
   --color-ink-secondary: #CBD5E0;
   --color-ink-tertiary: #9CA3AF;
   --color-ink-muted: #9CA3AF;
-  --color-ink-disabled: #4B5563;
+  --color-ink-disabled: #6B7280;
   --color-ink-on-dark: #F9FAFB;
+  --color-ink-inverse: #0F172A;
 
   /* Borders */
   --color-border: #374151;
   --color-border-strong: #4B5563;
-  --color-border-focus: #14B8A6;
+  --color-border-input: #6B7280;
+  --color-border-focus: #60A5FA;
 
-  /* Brand — lighter teal for AA contrast on dark surfaces */
-  --color-primary: #14B8A6;
-  --color-primary-hover: #0D9488;
-  --color-primary-pressed: #0F766E;
-  --color-primary-soft: #134E4A;
-  --color-on-primary: #052E2B;
+  /* Brand — lighter blue for AA contrast on dark surfaces. The old
+   * teal (#14B8A6) was replaced: it clashed with the civic blue and
+   * read as a different product. */
+  --color-primary: #60A5FA;
+  --color-primary-hover: #93C5FD;
+  --color-primary-pressed: #BFDBFE;
+  --color-primary-soft: #1E3A8A;
+  --color-on-primary: #020617;
+
+  --color-accent: #38BDF8;
+  --color-accent-hover: #7DD3FC;
+  --color-accent-soft: #0C4A6E;
+  --color-on-accent: #020617;
 
   /* Status semantic tokens */
   --color-success: #22C55E;
   --color-success-soft: #052E16;
   --color-warning: #F59E0B;
   --color-warning-soft: #422006;
-  --color-danger: #EF4444;
+  --color-danger: #F87171;
   --color-danger-soft: #450A0A;
+  --color-info: #38BDF8;
+  --color-info-soft: #0C4A6E;
 
   /* Status pills (status trail) */
   --color-status-submitted: #9CA3AF;
   --color-status-submitted-soft: #1F2937;
-  --color-status-routed: #5EAAD8;
+  --color-status-routed: #60A5FA;
   --color-status-routed-soft: #0F2A44;
   --color-status-in-progress: #FBBF24;
   --color-status-in-progress-soft: #422006;
@@ -244,12 +339,16 @@
   --color-status-error-soft: #450A0A;
   --color-status-warning: #FBBF24;
   --color-status-warning-soft: #422006;
+  --color-status-cancelled: #9CA3AF;
+  --color-status-cancelled-soft: #1F2937;
+  --color-status-closed: #9CA3AF;
+  --color-status-closed-soft: #1F2937;
 
   /* Category accents (lighter for dark backgrounds) */
   --color-cat-streetlight: #FBBF24;
   --color-cat-pothole: #CBD5E0;
   --color-cat-garbage: #34D399;
-  --color-cat-drain: #5EAAD8;
+  --color-cat-drain: #60A5FA;
   --color-cat-sanitation: #C4B5FD;
   --color-cat-other: #9CA3AF;
 
@@ -268,6 +367,8 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
   --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.60), 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.45);
 
   color-scheme: dark;
 }
@@ -292,29 +393,38 @@
     --color-ink-secondary: #CBD5E0;
     --color-ink-tertiary: #9CA3AF;
     --color-ink-muted: #9CA3AF;
-    --color-ink-disabled: #4B5563;
+    --color-ink-disabled: #6B7280;
     --color-ink-on-dark: #F9FAFB;
+    --color-ink-inverse: #0F172A;
 
     --color-border: #374151;
     --color-border-strong: #4B5563;
-    --color-border-focus: #14B8A6;
+    --color-border-input: #6B7280;
+    --color-border-focus: #60A5FA;
 
-    --color-primary: #14B8A6;
-    --color-primary-hover: #0D9488;
-    --color-primary-pressed: #0F766E;
-    --color-primary-soft: #134E4A;
-    --color-on-primary: #052E2B;
+    --color-primary: #60A5FA;
+    --color-primary-hover: #93C5FD;
+    --color-primary-pressed: #BFDBFE;
+    --color-primary-soft: #1E3A8A;
+    --color-on-primary: #020617;
+
+    --color-accent: #38BDF8;
+    --color-accent-hover: #7DD3FC;
+    --color-accent-soft: #0C4A6E;
+    --color-on-accent: #020617;
 
     --color-success: #22C55E;
     --color-success-soft: #052E16;
     --color-warning: #F59E0B;
     --color-warning-soft: #422006;
-    --color-danger: #EF4444;
+    --color-danger: #F87171;
     --color-danger-soft: #450A0A;
+    --color-info: #38BDF8;
+    --color-info-soft: #0C4A6E;
 
     --color-status-submitted: #9CA3AF;
     --color-status-submitted-soft: #1F2937;
-    --color-status-routed: #5EAAD8;
+    --color-status-routed: #60A5FA;
     --color-status-routed-soft: #0F2A44;
     --color-status-in-progress: #FBBF24;
     --color-status-in-progress-soft: #422006;
@@ -325,11 +435,15 @@
     --color-status-error-soft: #450A0A;
     --color-status-warning: #FBBF24;
     --color-status-warning-soft: #422006;
+    --color-status-cancelled: #9CA3AF;
+    --color-status-cancelled-soft: #1F2937;
+    --color-status-closed: #9CA3AF;
+    --color-status-closed-soft: #1F2937;
 
     --color-cat-streetlight: #FBBF24;
     --color-cat-pothole: #CBD5E0;
     --color-cat-garbage: #34D399;
-    --color-cat-drain: #5EAAD8;
+    --color-cat-drain: #60A5FA;
     --color-cat-sanitation: #C4B5FD;
     --color-cat-other: #9CA3AF;
 
@@ -346,6 +460,8 @@
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
     --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.60), 0 2px 6px rgba(0, 0, 0, 0.45);
+    --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.45);
 
     color-scheme: dark;
   }

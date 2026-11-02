@@ -37,6 +37,83 @@ h1, h2, h3, h4 {
 [lang="bn"] {
   font-family: var(--font-body);
 }
+  /*
+   * Bangla glyphs carry ascenders (the ি-কার) and deep descenders (the
+   * য-ফলা) that clip at the Latin 1.5 leading inside pills and
+   * buttons. 1.6 is the floor for Bangla body copy.
+   */
+  line-height: var(--leading-normal);
+}
+
+/*
+ * Tabular numerals.
+ *
+ * Data surfaces — KPI rows, tables, countdowns, SLA chips — must align
+ * digits vertically or the numbers jitter as they tick. Applied via a
+ * utility class rather than globally, because prose digits should keep
+ * their proportional widths.
+ */
+.tabular-nums,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/*
+ * Screen-reader-only text.
+ *
+ * The visually-hidden pattern: the content stays in the accessibility
+ * tree but takes no space on screen. `clip-path` is used instead of the
+ * older `clip: rect()` because it works in every current browser and
+ * does not need a `position: absolute` escape hatch.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * 8px rhythm utilities.
+ *
+ * The spacing scale in tokens.css is the source of truth; these are
+ * thin aliases for the cases where a class reads better than an inline
+ * style object. They exist so a page can opt into the rhythm without
+ * hard-coding pixels.
+ */
+.stack-1 > * + * { margin-top: var(--space-1); }
+.stack-2 > * + * { margin-top: var(--space-2); }
+.stack-3 > * + * { margin-top: var(--space-3); }
+.stack-4 > * + * { margin-top: var(--space-4); }
+.stack-5 > * + * { margin-top: var(--space-5); }
+.stack-6 > * + * { margin-top: var(--space-6); }
+
+.cluster-2 { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.cluster-3 { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.cluster-4 { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+
+/*
+ * Focus ring — the whole app.
+ *
+ * The admin surfaces previously had no visible focus indicator at all,
+ * because every focusable element there was styled with a hardcoded
+ * palette utility rather than a token. This restores a token-driven
+ * ring for every surface.
+ *
+ * `:focus-visible` (not `:focus`) so a mouse click does not leave a
+ * ring on a button, but keyboard navigation always does.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
 
 /*
  * Home / City Activity grid (app/home/page.tsx).
@@ -165,6 +242,24 @@ h1, h2, h3, h4 {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
+/*
+ * Reduced motion.
+ *
+ * When the OS asks for reduced motion, every animation and transition
+ * in the app is neutralised. This is a blanket rule rather than a
+ * per-component opt-out, because a single missed transition on a
+ * modal or a spinner is enough to cause a vestibular episode.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /*
  * Print mode.
@@ -173,6 +268,10 @@ h1, h2, h3, h4 {
  * theme the screen is in. The token override is global (rather than a
  * page-local `body { background: #fff }`) so every admin page prints
  * correctly without each one carrying its own print block.
+ *
+ * The audit trail and the adoption dashboard are printed by admins as
+ * evidence, so the navigation chrome is dropped and the content is
+ * allowed to use the full sheet width.
  */
 @media print {
   :root,
@@ -187,16 +286,47 @@ h1, h2, h3, h4 {
     --color-surface-inverse: #1e293b;
     --color-ink: #0f172a;
     --color-ink-secondary: #334155;
-    --color-ink-tertiary: #64748b;
-    --color-ink-muted: #94a3b8;
-    --color-ink-disabled: #cbd5e1;
+    --color-ink-tertiary: #475569;
+    --color-ink-muted: #64748b;
+    --color-ink-disabled: #94a3b8;
     --color-ink-on-dark: #f8fafc;
-    --color-border: #e2e8f0;
-    --color-border-strong: #cbd5e1;
-    --color-primary: #2c5282;
+    --color-border: #cbd5e1;
+    --color-border-strong: #94a3b8;
+    --color-border-input: #64748b;
+    --color-primary: #1e40af;
     --color-on-primary: #ffffff;
-    --color-primary-hover: #1f3f68;
-    --color-primary-pressed: #16304f;
-    --color-primary-soft: #e8eef7;
+    --color-primary-hover: #1d3fa1;
+    --color-primary-pressed: #173285;
+    --color-primary-soft: #eff6ff;
+    --color-accent: #0369a1;
+    --color-accent-hover: #075985;
+    --color-accent-soft: #e0f2fe;
+    --color-on-accent: #ffffff;
+    --color-success: #15803d;
+    --color-success-soft: #dcfce7;
+    --color-warning: #b45309;
+    --color-warning-soft: #fef3c7;
+    --color-danger: #c81e1e;
+    --color-danger-soft: #fee2e2;
+    --shadow-none: none;
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-modal: none;
+    --shadow-popover: none;
+  }
+
+  /* Drop the app chrome — only the content is evidence. */
+  header[data-app-shell],
+  nav[data-app-shell],
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Never let a row split across a page in a printed table. */
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
