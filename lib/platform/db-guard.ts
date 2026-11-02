@@ -96,11 +96,15 @@ let asserted = false;
  * Returns silently in development (local dev is the point) and when the
  * guard has already run in this process. Idempotent by design — it is
  * called from the DB entry points, which run on every request.
+ *
+ * The latch records a SUCCESSFUL validation, never a failure. A failed
+ * check must keep throwing on every subsequent call: latching the
+ * failure would let the second call through, and the guard would stop
+ * protecting production after a single misconfigured request.
  */
 export function assertProductionDatabaseConfig(): void {
   if (process.env.NODE_ENV !== 'production') return;
   if (asserted) return;
-  asserted = true;
 
   const url = process.env.DATABASE_URL;
   const host = extractDatabaseHost(url);
@@ -113,6 +117,8 @@ export function assertProductionDatabaseConfig(): void {
         'Set DATABASE_URL in the Vercel project environment.',
     );
   }
+
+  asserted = true;
 }
 
 /**

@@ -239,7 +239,6 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
     // Shared ticket id, threaded through the chain.
     let ticketId = '';
     let cityId = '';
-    let streetlightCategoryId = '';
     // The crew member the dispatcher assigned the ticket to (a `User`
     // id). Read back while the dispatcher's session is still alive.
     let assignedCrewUserId = '';

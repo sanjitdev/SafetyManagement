@@ -192,14 +192,26 @@ describe('assertProductionDatabaseConfig', () => {
     expect(() => assertProductionDatabaseConfig()).not.toThrow();
   });
 
-  it('only throws once per process (the latch)', () => {
+  it('keeps throwing on a failed check (the latch records success, not failure)', () => {
     setEnv({
       NODE_ENV: 'production',
       DATABASE_URL:
         'postgresql://postgres:secret@localhost:5432/cityfix?schema=public',
     });
     expect(() => assertProductionDatabaseConfig()).toThrow();
-    // Second call is latched — it does not throw again.
+    // A failed validation must NOT be latched. If it were, the second
+    // call would sail through and the guard would stop protecting
+    // production after a single misconfigured request.
+    expect(() => assertProductionDatabaseConfig()).toThrow(/loopback/i);
+  });
+
+  it('latches a successful validation (the second call is silent)', () => {
+    setEnv({
+      NODE_ENV: 'production',
+      DATABASE_URL:
+        'postgresql://u:p@ep-empty-water-b41dwd0x-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require',
+    });
+    expect(() => assertProductionDatabaseConfig()).not.toThrow();
     expect(() => assertProductionDatabaseConfig()).not.toThrow();
   });
 });
