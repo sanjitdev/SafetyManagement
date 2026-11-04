@@ -10,10 +10,11 @@ Started: 2026-09-18
 - Trigger Map: complete (2026-09-18, updated 2026-09-18 with admin persona)
 - UX Scenarios: complete (2026-09-18)
 - UX Design: complete (2026-09-18) — 33 of 33 pages spec'd (spec-as-contract)
-- Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin) — tokens + components + 7 hero mockups (4 Rahim + 1 Habib + 2 Rashid)
-- Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 15/15 Playwright baselines passing; 255/255 unit tests)
+- Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin, **updated 2026-11-02 redesign Wave 1+2**) — tokens + components + **12 hero mockups** (4 Rahim + 1 Habib + 2 Rashid + 5 auth/public); AA-verified token system, Phosphor icon registry, 27 UI primitives, 7 chart primitives, CityFix brand assets
+- Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 25/25 Playwright baselines passing; 1430/1430 unit tests) — **plus UI redesign Waves 0–2 in flight** (Intent 009 `009-ui-redesign`): Wave 0 CI unblock shipped (`45062d1`), Wave 1 design foundation shipped (`b279228`), Wave 2 mockups shipped (awaiting human mockup approval before the page implementation)
 - Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
 - v2 Roadmap: **deck drafted 2026-10-12** (4 buckets: v1.1 follow-ups, multi-city, citizen engagement, internal tooling; see `_progress/v2-roadmap.md`; awaiting human pick of the first intent)
+- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups authored and baselined; Waves 3–6 (citizen, dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
 
 ## Log
 
@@ -5288,3 +5289,109 @@ failed for exactly that reason.
 With both fixes, the four role/theme suites (46 tests) now pass twice
 consecutively in sequence, in 4.5 min — down from 5.8 min, because the suite
 no longer spends its time waiting on timeouts.
+
+
+2026-11-02 — UI redesign: Wave 1 foundation shipped
+
+The v1 surface worked but the visual language had been assembled ad hoc: inline-styled screens, an emoji category glyph duplicated across three pages, a 7-mockup gallery and no brand mark. A redesign of the whole surface set — login through every citizen, dispatcher, crew and admin page — was planned and opened as AIDLC **Intent 009 `009-ui-redesign`** (`.specsmd/aidlc/memory-bank/intents/009-ui-redesign/`).
+
+The direction is locked: **Accessible + Swiss/Minimal** — civic trust, high-contrast navy/blue, flat surfaces, hairline borders, 8px rhythm, dense-but-calm, Bangla-first.
+
+The `ui-ux-pro-max` skill was invoked twice. Its product-wide run proposed *Glassmorphism* with Poppins and an orange CTA — **rejected**, because it contradicts the locked flat/Swiss decision and because Poppins does not render Bangla, which is the one thing this product cannot compromise on. Its auth-domain run proposed *Accessible & Ethical* with a single-column pattern, navy `#0F172A`, 44×44 touch targets and a no-emoji-icon rule — **accepted**, and it is what shaped the Wave 2 auth mockups. The skill's `--persist` output was deliberately not written, so `design-artifacts/D-Design-System/` stays the single design system rather than one of two.
+
+Wave 0 (CI unblock) shipped first as `45062d1`. CI had failed **18/18 runs** since it landed, so every later wave would have shipped against a gate that reported nothing. Two root causes, both confirmed by reproduction:
+
+- **`lib/db.ts` — module-load DB guard.** `assertProductionDatabaseConfig()` ran at import time. CI sets `DATABASE_URL` to a loopback URL, so the unit step failed (5 failures reproduced locally — `tests/unit/webauthn-prod-guard.test.ts` flips `NODE_ENV=production` and re-imports `lib/auth/webauthn → lib/db-switch → lib/db`) and the build failed collecting page data for `/api/dev/list-users`. This contradicted the guard's own docstring, and it had **never been exercised on the real production path** — Vercel escaped it only because its `DATABASE_URL` is the Neon host. The fix asserts on first real DB use, behind a lazy proxy over the Prisma client: loud-fail on the first request, never on the build. The policy is unchanged.
+- **`tests/28-role-walkthrough.spec.ts:242`** — `let streetlightCategoryId` is never reassigned → `prefer-const`.
+
+Wave 1 shipped as `b279228`. What landed:
+
+- **Tokens** — `tokens.css` rewritten to the locked palette (`--color-primary #1E40AF`, `--color-accent #0369A1`, `--color-ink #020617`, `--color-surface-page #F8FAFC`, `--color-success #15803D`, `--color-danger #C81E1E`), plus `--shadow-focus`, `--icon-size-{sm,md,lg}`, `--border-input`, `--border-focus`. A full `.theme-dark` block **and** a `prefers-color-scheme: dark` block. `.theme-outdoor` preserved as pure black on pure white — sunlight legibility beats visual harmony, and that was not negotiable. Bangla body leading floor 1.6.
+- **Global CSS** — focus-visible ring, reduced-motion block, 8px rhythm, `.sr-only`, Bangla line-height correction, print styles.
+- **Icons** — `lib/ui/icon-map.ts`, a per-icon Phosphor SSR registry with `categoryIcon()` / `categoryIconColor()`. It replaced the ad-hoc emoji helpers in `app/crew/page.tsx`, `app/crew/tickets/[id]/page.tsx` and `app/dispatcher/page.tsx` with `<CategoryIcon slug={ticket.categorySlug} />`.
+- **Primitives** — 27 new components under `components/ui/`: actions (`Button`, `IconButton`), metadata (`Badge`, `Avatar`, `StatusPill`), forms (`Field`, `Input`, `Select`, `Textarea`), layout (`Card`, `Panel`, `Toolbar`, `FilterBar`, `DataTable`), states (`EmptyState`, `ErrorState`, `LoadingState`), navigation (`Breadcrumb`, `SideNav`, `Tabs`), overlays (`Modal`, `Toast`), data display (`KpiRow`, `Timeline`), plus `CategoryIcon` — and 7 chart primitives under `components/ui/charts/` (`ChartFrame`, `TrendLine`, `CategoryBar`, `SlaBullet`, `StatCard` and their canvas variants).
+- **Brand** — `design-artifacts/D-Design-System/02-Assets/logo/`: `cityfix-mark.svg` (a map pin whose negative space forms a check — "reported → resolved"), `cityfix-wordmark.svg`, `favicon.svg`, `og-image.svg`, plus `NOTICE.md` and `README.md`. Runtime copies in `public/`.
+- **Chrome** — `components/AppHeader.tsx` swapped to the brand mark + Phosphor nav icons; `app/layout.tsx` `themeColor` → `#2C5282`.
+- **Reference** — `components.html` and `gallery.html` rewritten; `README.md` brought up to date.
+
+Two design rules are now contracts rather than conventions, and each has a unit test:
+
+1. **Never colour alone.** A status carries a shape (a Phosphor icon), a word *and* a colour — so it survives a greyscale printout and a colour-blind reader. `StatusPill` enforces it.
+2. **Never a chart without its data.** Every chart ships a visible, sortable data table.
+
+A defect worth recording: the Wave 1.1 token rewrite renamed `--color-primary-on` to `--color-on-primary`, and **seven mockups kept the old name**. An undefined `var()` resolves to nothing, so the declaration it belongs to was silently dropped — the element inherited whatever it would have inherited, and the page rendered a button with the wrong text colour. No console error, no build error, no failing test. The mockups still looked fine in a casual glance, so the drift survived until an audit script compared the two token sets. The fix was to make it a test: `tests/unit/ui/mockup-tokens.test.ts` now asserts that every `var(--token)` in every mockup, in the component library and in the gallery names a token `tokens.css` declares. That is why the Wave 2 mockups are token-pure by construction rather than by discipline.
+
+Verification at the close of Wave 1:
+
+```
+npx tsc --noEmit        clean
+npm run test:unit       98 files / 1430 passed
+npm run test:mockups    15/15 baselines passed
+npm run lint            0 errors / 56 warnings (all pre-existing)
+npm run check:i18n      ok
+npm run build           green
+```
+
+The unit run initially failed 2 of 1430 — not a regression but a **source-scan assertion that had outlived its subject**. `tests/unit/report-card-thumbnail-render.test.ts` asserted the old emoji helper string `categoryIcon(ticket.categorySlug)`, which the Phosphor refactor intentionally removed. The two assertions were rewritten to the new contract (`CategoryIcon` + `slug={ticket.categorySlug}`). Worth noting because the failure mode is the dangerous one: the test was green about the *old* implementation and would have gone red about a *correct* new one.
+
+### 2026-11-02 — UI redesign: Wave 2 mockups shipped (auth + public surfaces)
+
+Wave 2 authors the five entry-surface mockups. They are the first screens every user sees and the screens with the most failure modes, so they set the tone for the whole redesign.
+
+| Mockup | The pattern it defines |
+|--------|----------------------|
+| `08-login` | Two-region auth shell — form left, dark civic-story right, collapsing below 1024px. A focusable `role="alert"` error summary linked to `#login-password`. Labelled phone + password fields with `aria-describedby`. Show/hide password. A "সরকারি প্রতিষ্ঠানের নিরাপদ লগইন" secondary CTA and a legal line. |
+| `09-register` | Three-stage funnel rail (অ্যাকাউন্ট → ফোন যাচাই → শুরু). Live password-requirement rows — icon + word + colour, never colour alone. Consent checkbox. "পরবর্তী ধাপ — ফোন যাচাই" CTA. |
+| `10-verify-otp` | Top bar with back / brand / language. Masked phone `+880 1712-***-678`. A delivery-state card naming **SMS** as the channel. Six single-digit OTP boxes with filled + error states. An inline `role="alert"` wrong-code error. Resend countdown `0:42`. A recovery card for when the code does not arrive. An anti-phishing footnote. |
+| `11-public-landing` | Sticky top bar. Hero with eyebrow + XL headline + sub + a Report / How-it-works CTA pair. A live-stats strip (৪৮২ reports, ৩৯৭ resolved, ৩.৪ দিন avg) with tabular numerals. A map card with status-coloured pins + a legend. A 3-item trust strip. A 6-card activity feed whose status pills carry icon + word + colour. A footer with OSM / MapLibre attribution. |
+| `12-feed` | The signed-in citizen app header — Phosphor nav icons, Report CTA, language / theme toggle, avatar. A sticky filter chip row with live counts. A 6-row feed where the newest row carries a "new" badge (shape + word, not tint alone). Status pills and ward pills. A load-more button. |
+
+All five use only `var(--color-*)` tokens declared in `tokens.css`, inline SVG icons (no emoji) and Bangla-first copy. `gallery.html` now lists **12 mockups** with an updated coverage matrix; the visual-design `README.md` file table, folder tree and coverage rationale were brought back in line.
+
+Wiring and baselines: `tests/01-mockups.spec.ts` gained the five entries at `['LARGE', 'MEDIUM']` — 1440×900 and 1024×768 — and **10 new committed baselines** were captured under `tests-mockups/baselines/01-mockups.spec.ts/`.
+
+Two implementation details worth recording.
+
+**The icon-markup problem.** The mockups must render offline and statically, so they cannot import a React icon component — but they needed real icon geometry, not emoji. A temporary helper (`scripts/.tmp-dump-icons.mjs`) rendered the Phosphor SSR output to static SVG markup, which was then inlined into the mockups. The helper and its dump (`.tmp-icons.json`) were temporary build aids and were deleted after the mockups were written; they are not part of the deliverable.
+
+**A baseline drift that was not a layout change.** `11-public-landing` failed its baseline twice — the page height moved from 1484px to 1566px at 1024px wide. The cause is the Google Fonts web font loading at different metrics on a different run. Recapturing with `npm run test:update-baselines` fixed it, but the durable fix is to self-host Noto Sans Bengali before the Wave 7 baseline regeneration, so the baseline is deterministic rather than occasionally flaky. Tracked as an open decision in the intent's inception log.
+
+Verification at the close of Wave 2:
+
+```
+npx tsc --noEmit        clean
+npm run test:unit       98 files / 1430 passed
+npm run test:mockups    25/25 baselines passed
+npm run lint            0 errors / 56 warnings (all pre-existing)
+npm run check:i18n      ok — 770 keys
+npm run build           green
+```
+
+**Next gate.** The Wave 2 page implementation — `/login`, `/register`, `/verify-otp`, `/` (public landing), `/feed`, `/splash`, re-composed from the new primitives with a focusable error summary + inline `role="alert"` on every invalid-input path — waits on **human mockup approval**. Waves 3–6 (citizen, dispatcher, crew, admin) follow the same pattern: mockups first, approval gate, then implementation.
+
+### 2026-11-02 — A 5-second timeout that was really a load problem
+
+The full unit suite went red three times in a row while the Wave 2 work was closing out: `tests/unit/webauthn-prod-guard.test.ts` → *does not throw in development with localhost defaults* → **"Test timed out in 5000ms"**.
+
+The test passes in isolation (4.2 s). The failure only appeared in the full suite. The cause is not the test — it is what the suite grew into. Wave 1 added 13 jsdom component test files; the suite went from 85 files to 98, and the jsdom environment is expensive to set up. `webauthn-prod-guard.test.ts` re-imports `@/lib/auth/webauthn` from a cold module cache on every test, and that import pulls in `@simplewebauthn/server`, `lib/db-switch` → `lib/db` → `@prisma/client`, and `lib/platform/audit`. Under load, a 1–5 s module import crossed Vitest's 5 s default.
+
+The fix is a **per-test timeout**, not a global raise: the work in that file is a module import, not a race, so a 30 s budget is honest — and a global `testTimeout` raise would mask real hangs in the other 97 files. Six tests now carry `MODULE_IMPORT_TIMEOUT_MS = 30_000`.
+
+Worth recording because the symptom was misleading. A timeout reports as a *test failure* in the summary, which invites the reflex "this test is flaky, retry it" or "this assertion is wrong". Neither was true. The assertion was correct and the test was deterministic; what changed was the machine's load. The distinction matters for CI, where the same 5 s wall applies and the load profile differs again.
+
+### 2026-11-02 — The gallery still had glass in it
+
+The gallery's sticky nav still carried `backdrop-filter: blur(20px)` over a translucent white — a holdover from before the redesign. It contradicts the locked decision (flat, hairline borders, **no decorative glass**) and it was the one thing in the design artifacts that Safari flagged as an error.
+
+Replaced with an opaque `--color-surface-card` background and a hairline bottom border, matching every other surface in the system. While in the file, every one of the 12 preview iframes got a `title` — a frame with no accessible name is invisible to a screen reader, which is the same "never colour alone" spirit applied to structure: a status must carry a word, and a frame must carry a name.
+
+Verification at the close of the redesign Wave 2 documentation pass:
+
+```
+npx tsc --noEmit        clean
+npm run test:unit       98 files / 1430 passed (twice, consecutively)
+npm run test:mockups    25/25 baselines passed
+npm run lint            0 errors / 56 warnings (all pre-existing)
+npm run check:i18n      ok — 770 keys
+npm run build           green
+```

@@ -59,6 +59,15 @@ Four more deferred surfaces shipped in a
 2026-10-27 batch build, adding two units to
 Intent 003 and two to Intent 005:
 
+Intent 009 (**UI Redesign**) opened 2026-11-02 as a brown-field
+frontend feature: a full-surface redesign of all 31 routes in the
+locked Accessible + Swiss/Minimal civic direction. The 8-unit
+decomposition is one unit per wave — CI unblock, design foundation,
+auth + public, citizen, dispatcher, crew, admin, verification. Waves
+0 and 1 have shipped (commits `45062d1` and `b279228`); the Wave 2
+mockups (`08`–`12`) are authored and baselined, and the Wave 2 page
+implementation awaits human mockup approval.
+
 - **Bolt 008-013** — dispatcher live monitor
   (Intent 003 Unit 006, story DISP-008).
 - **Bolt 008-014** — dispatcher performance
@@ -109,3 +118,11 @@ and is currently in active build as of 2026-10-12.
 - **Standards**: `../standards/index.md`.
 - **Story index**: `../story-index.md`.
 - **Bolt plan**: `../bolts/` (Construction-Agent-managed).
+
+## Design system
+
+One design system lives in `design-artifacts/D-Design-System/`.
+Intent 009's `ui-ux-pro-max` runs deliberately did **not** use the
+skill's `--persist` output, so there is exactly one source of truth
+rather than two competing systems. The `design-system/<slug>/MASTER.md`
+file was not written.

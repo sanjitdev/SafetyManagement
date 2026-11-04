@@ -448,3 +448,55 @@ The design intent was recorded but never implemented — `design-artifacts/E-Dev
 
 - **HEIC/HEIF** (the iPhone default) is not decodable outside Safari and is not in the allow-list → the MIME gate rejects it and the helper falls back to the original bytes. A dedicated `report.photo.unsupported_type` key is a **v1.1** item (the repo already documents HEIC as deferred to v1.1). Not in scope here.
 - A **total-body guard** (`request_too_large`) is a v1.1 hardening item — 5 photos × 7 M chars is far above Vercel's ~4.5 MB ceiling; the downscale is what makes the worst case unreachable in practice.
+
+---
+
+2026-11-02T19:10:00Z - Intent 009 Opened: UI Redesign
+
+**Triggered by**: user request to redesign the UI from the login page through all user pages, in a modern + professional direction, using professional logos, colors, labels and indicators.
+
+**Reason**: The v1 surface was shipped and functional but the visual language was assembled ad hoc — inline-styled screens, an emoji category glyph duplicated across three pages, a 7-mockup gallery, and no brand mark. The redesign needed a spine: a plan, an AIDLC intent, and a wave-by-wave delivery with a human mockup-approval gate.
+
+**Artifacts created** (all under `.specsmd/aidlc/memory-bank/`):
+
+| Artifact | Path |
+|----------|------|
+| Requirements (FR-1..FR-8, one per wave) | `intents/009-ui-redesign/requirements.md` |
+| System context (route coverage + trust boundary) | `intents/009-ui-redesign/system-context.md` |
+| Units (8 units, dependency graph, bolt plan) | `intents/009-ui-redesign/units.md` |
+| Unit briefs (8) | `intents/009-ui-redesign/units/001..008/unit-brief.md` |
+| Stories (18) | `intents/009-ui-redesign/units/*/stories/*.md` |
+| Inception log + intent index | `intents/009-ui-redesign/inception-log.md`, `intents/009-ui-redesign/index.md` |
+| Bolt records (3) | `bolts/009-001-ci-unblock/`, `bolts/009-002-design-foundation/`, `bolts/009-003-auth-and-public-surfaces/` |
+| Story index row set | `story-index.md` |
+| Intents index row | `intents/index.md` |
+
+**Locked decisions recorded**:
+
+- Visual direction: **Accessible + Swiss/Minimal** (civic trust, high-contrast navy/blue, flat, dense-but-calm, Bangla-first).
+- Only two new runtime dependencies: `@phosphor-icons/react` + `recharts`.
+- Sequencing: waves — foundation + auth, then citizen, dispatcher, crew, admin — with a mockup-approval gate per wave.
+- Brand: a new CityFix logo mark + wordmark as in-repo SVG.
+- The `ui-ux-pro-max` skill's **product-wide** run (Glassmorphism, Poppins, orange CTA) was **rejected** — it contradicts the locked direction and Poppins does not render Bangla. The skill's **auth-domain** run (Accessible & Ethical, single column, navy, 44px targets, no-emoji icons) was **accepted** and shaped the auth mockups.
+- The skill's `--persist` output was deliberately **not** written: `design-artifacts/D-Design-System/` remains the single design system.
+
+**Shipped so far**:
+
+| Wave | Bolt | Commit | Contents |
+|------|------|--------|----------|
+| 0 | 009-001 | `45062d1` | CI unblock — lazy production DB guard + `prefer-const` fix |
+| 1 | 009-002 | `b279228` | Design foundation — AA-verified tokens, global CSS, Phosphor icon registry, 27 UI primitives, 7 chart primitives, CityFix brand assets |
+| 2 | 009-003 | (working tree) | 5 Wave 2 mockups (`08-login`, `09-register`, `10-verify-otp`, `11-public-landing`, `12-feed`), gallery wiring, 10 new baselines, README coverage refresh |
+
+**Verification at the time of this entry**:
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Lint | `npm run lint` | 0 errors (56 pre-existing warnings) |
+| Unit | `npm run test:unit` | 98 files / **1430 passed** |
+| Visual | `npm run test:mockups` | **25/25** |
+| i18n | `npm run check:i18n` | ok (770 keys) |
+| Build | `npm run build` | green |
+
+**Recorded defect worth keeping**: the `11-public-landing` baseline drifted by 82–156px of page height between runs. The cause is the Google Fonts web font loading at different metrics, not a layout change. Recapturing fixed it, but the durable fix is to self-host Noto Sans Bengali before the Wave 7 baseline regeneration. Tracked as an open decision in the intent's inception log.

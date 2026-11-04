@@ -9,7 +9,7 @@ phases:
   ux-scenarios: complete
   ux-design: complete
   visual-design: complete
-  development: in-progress  # 2026-10-04 — nextjs-14 scaffold live; tech-audit; master PRD + WO-000 PRD drafted; WO-000 platform layer implemented; ready for WO-001 build
+  development: complete  # 2026-11-02 — v1 shipped (5 Work Orders); UI redesign Waves 0-2 in flight (Intent 009); 25/25 Playwright baselines; 1430/1430 unit tests
 
 work-orders:
   folder: design-artifacts/E-Development
@@ -81,7 +81,7 @@ ux-design:
 
 visual-design:
   format: html + tailwind-cdn + tokens.css
-  mockups: 7
+  mockups: 12
   components-library: 1
   tokens-file: tokens.css
   mockup-folder: design-artifacts/D-Design-System/01-Visual-Design/mockups
@@ -90,14 +90,39 @@ visual-design:
   language: bangla-first
   brief-supplement: design-artifacts/A-Product-Brief/03-visual-direction.md
   # Web re-skin (2026-10-04): platform is web-first; Rashid's pages remain responsive.
+  # UI redesign (2026-11-02, Intent 009): Accessible + Swiss/Minimal direction locked.
   viewports:
     large: 1440x900        # primary design target; per --layout-desktop
     medium: 1024x768       # collapse threshold; per --layout-tablet-max
     responsive-phone: 390x844  # Rashid-only (Feature #4); verified at this width
-  # Coverage: 4 Rahim (01-04) at large+medium, 1 Habib (05) at large, 2 Rashid (06-07) at large+medium+phone.
-  # Committed baselines = 4*2 + 1 + 2*3 = 15.
-  baseline-count: 15
+  # Coverage: 4 Rahim (01-04) at large+medium, 1 Habib (05) at large,
+  # 2 Rashid (06-07) at large+medium+phone,
+  # 5 auth/public (08-12) at large+medium.
+  # Committed baselines = 4*2 + 1 + 2*3 + 5*2 = 25.
+  baseline-count: 25
   baseline-folder: tests-mockups/baselines/01-mockups.spec.ts
+  # Waves 3-6 add mockups 13-28 (citizen, dispatcher, crew, admin); final count 43.
+  target-mockups: 28
+  target-baselines: 43
+  brand-assets: design-artifacts/D-Design-System/02-Assets/logo
+  primitives-folder: components/ui
+  charts-folder: components/ui/charts
+  icon-registry: lib/ui/icon-map.ts
+
+ui-redesign:
+  intent: 009-ui-redesign
+  opened: 2026-11-02
+  direction: accessible-swiss-minimal
+  waves:
+    - 001-ci-unblock              # shipped 45062d1
+    - 002-design-foundation       # shipped b279228
+    - 003-auth-and-public-surfaces # mockups shipped; page impl pending approval
+    - 004-citizen-surfaces        # not started
+    - 005-dispatcher-console      # not started
+    - 006-crew-field-app          # not started
+    - 007-admin-console           # not started
+    - 008-verification-and-signoff # not started
+  gate: mockup-approval-before-each-implementation-wave
 
 admin-coverage:
   source-persona: design-artifacts/B-Trigger-Map/05-persona-aamir-the-administrator.md

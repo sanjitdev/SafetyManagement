@@ -255,6 +255,37 @@ copy fixup), `008-002` (visible chrome), and
 | 003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel | 002-visible-chrome | done | Chrome polish — status pill, assigned crew, icon, button label, photo card | `intents/008-ux-polish-from-demo/units/002-visible-chrome/stories/003-chrome-polish-status-pill-assignedcrew-icon-buttonlabel.md` |
 | 001-crew-after-photo-accepts-multipart | 003-crew-after-photo-upload | done | Crew after-photo accepts multipart | `intents/008-ux-polish-from-demo/units/003-crew-after-photo-upload/stories/001-crew-after-photo-accepts-multipart.md` |
 
+## Intent 009 — UI Redesign (in-progress)
+
+Inception opened 2026-11-02. The 8-unit decomposition is **one unit
+per wave** — CI unblock, design foundation, auth + public, citizen,
+dispatcher, crew, admin, verification — because a wave is the
+smallest unit that can be visually approved as a unit. Waves 0 and 1
+have shipped (`45062d1`, `b279228`); the Wave 2 mockups (`08`–`12`)
+are authored and baselined, and the Wave 2 page implementation waits
+on the human mockup-approval gate.
+
+| Slug | Unit | Status | Title | Path |
+|------|------|--------|-------|------|
+| 001-lazy-production-db-guard | 001-ci-unblock | done | Lazy production DB guard | `intents/009-ui-redesign/units/001-ci-unblock/stories/001-lazy-production-db-guard.md` |
+| 002-token-and-global-css-system | 002-design-foundation | done | Token + global CSS system | `intents/009-ui-redesign/units/002-design-foundation/stories/002-token-and-global-css-system.md` |
+| 003-phosphor-icon-registry | 002-design-foundation | done | Phosphor icon registry | `intents/009-ui-redesign/units/002-design-foundation/stories/003-phosphor-icon-registry.md` |
+| 004-ui-primitive-library | 002-design-foundation | done | UI primitive library | `intents/009-ui-redesign/units/002-design-foundation/stories/004-ui-primitive-library.md` |
+| 005-chart-primitives-with-data-tables | 002-design-foundation | done | Chart primitives with data tables | `intents/009-ui-redesign/units/002-design-foundation/stories/005-chart-primitives-with-data-tables.md` |
+| 006-cityfix-brand-assets | 002-design-foundation | done | CityFix brand assets | `intents/009-ui-redesign/units/002-design-foundation/stories/006-cityfix-brand-assets.md` |
+| 007-auth-and-public-mockups | 003-auth-and-public-surfaces | done | Auth + public mockups | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/007-auth-and-public-mockups.md` |
+| 008-auth-and-public-page-implementation | 003-auth-and-public-surfaces | ready | Auth + public page implementation | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/008-auth-and-public-page-implementation.md` |
+| 009-citizen-mockups | 004-citizen-surfaces | draft | Citizen mockups | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/009-citizen-mockups.md` |
+| 010-citizen-page-implementation | 004-citizen-surfaces | draft | Citizen page implementation | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/010-citizen-page-implementation.md` |
+| 011-dispatcher-mockups | 005-dispatcher-console | draft | Dispatcher mockups | `intents/009-ui-redesign/units/005-dispatcher-console/stories/011-dispatcher-mockups.md` |
+| 012-dispatcher-page-implementation | 005-dispatcher-console | draft | Dispatcher page implementation | `intents/009-ui-redesign/units/005-dispatcher-console/stories/012-dispatcher-page-implementation.md` |
+| 013-crew-mockups | 006-crew-field-app | draft | Crew mockups | `intents/009-ui-redesign/units/006-crew-field-app/stories/013-crew-mockups.md` |
+| 014-crew-page-implementation | 006-crew-field-app | draft | Crew page implementation | `intents/009-ui-redesign/units/006-crew-field-app/stories/014-crew-page-implementation.md` |
+| 015-admin-mockups | 007-admin-console | draft | Admin mockups | `intents/009-ui-redesign/units/007-admin-console/stories/015-admin-mockups.md` |
+| 016-admin-page-implementation | 007-admin-console | draft | Admin page implementation | `intents/009-ui-redesign/units/007-admin-console/stories/016-admin-page-implementation.md` |
+| 017-full-gate-and-accessibility-pass | 008-verification-and-signoff | draft | Full gate + accessibility pass | `intents/009-ui-redesign/units/008-verification-and-signoff/stories/017-full-gate-and-accessibility-pass.md` |
+| 018-project-documentation-refresh | 008-verification-and-signoff | draft | Project documentation refresh | `intents/009-ui-redesign/units/008-verification-and-signoff/stories/018-project-documentation-refresh.md` |
+
 ## Status legend
 
 | Status | Meaning |
