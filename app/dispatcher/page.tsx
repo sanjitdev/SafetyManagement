@@ -29,12 +29,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
+import { ICONS } from '@/lib/ui/icon-map';
+import type { PerfSnapshot } from '@/lib/dispatcher/performance';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
+const DHAKA_CENTER = { lat: 23.789, lng: 90.4075 };
+const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), { ssr: false, loading: () => <div className="dispatcher-map-loading" /> });
 
 type TicketStatus = 'submitted' | 'routed' | 'in_progress' | 'resolved' | 'closed' | 'cancelled';
 
@@ -83,24 +90,6 @@ function formatAge(iso: string, lang: Language): string {
     : `${days} day ago`;
 }
 
-function categoryIcon(slug: string | null | undefined): string {
-  // Tiny inline glyphs; no SVG sprite dependency. The argument is the
-  // category SLUG (e.g. "streetlight"), not the id — the id
-  // (`cat_streetlight`) never matched a case below and every card
-  // rendered the "unknown" glyph.
-  switch (slug) {
-    case 'streetlight':
-      return '💡';
-    case 'pothole':
-      return '🕳️';
-    case 'drainage':
-      return '🌊';
-    case 'garbage':
-      return '🗑️';
-    default:
-      return '❓';
-  }
-}
 
 /**
  * Human label for the ticket's ward. Falls back to the raw id when
@@ -166,6 +155,9 @@ export default function DispatcherPage() {
     departmentNameBn?: string | null;
   } | null>(null);
   const [tickets, setTickets] = useState<QueueTicket[]>([]);
+  const [activityTickets, setActivityTickets] = useState<QueueTicket[]>([]);
+  const [performance, setPerformance] = useState<PerfSnapshot | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +189,10 @@ export default function DispatcherPage() {
     };
   }, []);
 
+  useEffect(() => {
+    setSearchQuery(new URLSearchParams(window.location.search).get('q') ?? '');
+  }, []);
+
   const fetchQueue = useCallback(async () => {
     try {
       const status =
@@ -206,7 +202,11 @@ export default function DispatcherPage() {
       qs.set('limit', '50');
       const url =
         '/api/v1/dispatcher/queue' + (qs.toString() ? `?${qs.toString()}` : '');
-      const res = await fetch(url, { credentials: 'include' });
+      const [res, activityRes, performanceRes] = await Promise.all([
+        fetch(url, { credentials: 'include' }),
+        fetch('/api/v1/activity?limit=50', { credentials: 'include' }),
+        fetch('/api/v1/dispatcher/performance?days=7', { credentials: 'include' }),
+      ]);
       if (!res.ok) {
         setError('dispatcher.queue.error');
         setLoading(false);
@@ -261,6 +261,16 @@ export default function DispatcherPage() {
         createdAt: t.createdAt,
       }));
       setTickets(items);
+      if (activityRes.ok) {
+        const activityData = await activityRes.json() as { tickets: Array<{
+          id: string; status: TicketStatus; cityId: string; wardId: string; wardName?: string | null; wardNameBn?: string | null;
+          categoryId: string; categorySlug?: string | null; categoryName?: string | null; categoryNameBn?: string | null;
+          locationLat: number; locationLng: number; note: string | null; photoUrls: string[]; reporterId: string;
+          reporterName?: string | null; createdAt: string;
+        }> };
+        setActivityTickets(activityData.tickets.map((ticket) => ({ ...ticket, categorySlug: ticket.categorySlug ?? null, categoryName: ticket.categoryName ?? null, categoryNameBn: ticket.categoryNameBn ?? null, wardName: ticket.wardName ?? null, wardNameBn: ticket.wardNameBn ?? null, reporterName: ticket.reporterName ?? null })));
+      }
+      if (performanceRes.ok) setPerformance(await performanceRes.json() as PerfSnapshot);
       setLastPollAt(new Date().toISOString());
       setError(null);
       setLoading(false);
@@ -346,9 +356,14 @@ export default function DispatcherPage() {
   }, [signedIn]);
 
   const filteredTickets = useMemo(() => {
-    if (filter === 'all') return tickets;
-    return tickets.filter((t) => t.status === filter);
-  }, [tickets, filter]);
+    const needle = searchQuery.trim().toLocaleLowerCase();
+    return tickets.filter((ticket) => {
+      const matchesStatus = filter === 'all' || ticket.status === filter;
+      const matchesSearch = !needle || [ticket.id, ticket.note, ticket.categoryName, ticket.categoryNameBn, ticket.wardName, ticket.wardNameBn, ticket.reporterName]
+        .some((value) => value?.toLocaleLowerCase().includes(needle));
+      return matchesStatus && matchesSearch;
+    });
+  }, [tickets, filter, searchQuery]);
 
   if (signedIn === false) {
     return (
@@ -392,244 +407,104 @@ export default function DispatcherPage() {
     );
   }
 
+  const statusCount = (statuses: TicketStatus[]) => performance?.statusBreakdown
+    .filter((row) => statuses.includes(row.status as TicketStatus))
+    .reduce((sum, row) => sum + row.count, 0) ?? 0;
+  const statusTrend = (statuses: TicketStatus[]) => {
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      return date.toDateString();
+    });
+    return days.map((day) => activityTickets.filter((ticket) => statuses.includes(ticket.status) && new Date(ticket.createdAt).toDateString() === day).length);
+  };
+  const dashboardPins: CityActivityPin[] = activityTickets.slice(0, 500).map((ticket) => ({ id: ticket.id, lat: ticket.locationLat, lng: ticket.locationLng, status: ticket.status as CityActivityStatus }));
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'var(--color-surface-page)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-      data-testid="dispatcher-queue-page"
-    >
-      {/* Sub-header: scope tag + role-specific nav. Brand, lang,
-          theme, and user menu are rendered by the global AppHeader
-          (AppShell) so we don't duplicate them here. */}
-      <div
-        style={{
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-2) var(--space-5)',
-          background: 'var(--color-surface-card)',
-          borderBottom: '1px solid var(--color-border)',
-          gap: 'var(--space-3)',
-        }}
-      >
-        <span
-          className="dispatcher-brand-scope"
-          lang={lang}
-          style={{
-            fontSize: 'var(--text-body-sm)',
-            color: 'var(--color-ink-secondary)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {scopeLabel(lang, scope)}
-        </span>
+    <div className="dispatcher-portal" data-testid="dispatcher-queue-page">
+      <header className="dispatcher-dashboard-heading">
+        <div><h1 lang={lang}>{t('dispatcher.dashboard.title', null, lang)}</h1><p lang={lang}>{t('dispatcher.dashboard.subtitle', null, lang)}</p></div>
+        <span className="dispatcher-scope-badge">{scopeLabel(lang, scope)}</span>
+      </header>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flexShrink: 0,
-          }}
-        >
-          <Link
-            href="/dispatcher/dedup"
-            lang={lang}
-            data-testid="dispatcher-dedup-link"
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-              padding: 'var(--space-1) var(--space-3)',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--color-border)',
-              background:
-                dedupPendingCount > 0
-                  ? 'var(--color-warning-soft, #fdf2cf)'
-                  : 'transparent',
-            }}
-          >
-            {t(
-              'dispatcher.dedup.link',
-              { n: dedupPendingCount },
-              lang,
-            )}
-          </Link>
-          <Link
-            href="/dispatcher/map"
-            lang={lang}
-            data-testid="dispatcher-map-link"
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-              padding: 'var(--space-1) var(--space-3)',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            {t('dispatcher.map.cta', null, lang)}
-          </Link>
-        </div>
-      </div>
+      <section className="dispatcher-kpi-grid" aria-label={t('dispatcher.dashboard.title', null, lang)}>
+        <DashboardMetric icon="newReport" tone="blue" label={t('dispatcher.dashboard.new', null, lang)} value={statusCount(['submitted'])} values={statusTrend(['submitted'])} />
+        <DashboardMetric icon="statusSubmitted" tone="amber" label={t('dispatcher.dashboard.review', null, lang)} value={statusCount(['routed'])} values={statusTrend(['routed'])} />
+        <DashboardMetric icon="statusInProgress" tone="green" label={t('dispatcher.dashboard.progress', null, lang)} value={statusCount(['in_progress'])} values={statusTrend(['in_progress'])} />
+        <DashboardMetric icon="statusResolved" tone="purple" label={t('dispatcher.dashboard.resolved', null, lang)} value={statusCount(['resolved', 'closed'])} values={statusTrend(['resolved', 'closed'])} />
+      </section>
 
-      {/* Two-region content: filter rail + queue list */}
-      <div
-        className="dispatcher-grid"
-        style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '240px 1fr',
-          minHeight: 0,
-        }}
-      >
-        {/* Filter rail */}
-        <aside
-          style={{
-            background: 'var(--color-surface-card)',
-            borderRight: '1px solid var(--color-border)',
-            padding: 'var(--space-5)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-4)',
-          }}
-        >
-          <div>
-            <h2
-              lang={lang}
-              style={{
-                fontSize: 'var(--text-body-sm)',
-                fontWeight: 'var(--weight-bold)',
-                color: 'var(--color-ink-secondary)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                margin: '0 0 var(--space-3)',
-              }}
-            >
-              {t('dispatcher.queue.filter.heading', null, lang)}
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-              {(
-                [
-                  ['all', 'dispatcher.queue.filter.all'],
-                  ['submitted', 'dispatcher.queue.filter.submitted'],
-                  ['routed', 'dispatcher.queue.filter.routed'],
-                ] as Array<[QueueFilter, string]>
-              ).map(([f, key]) => (
-                <FilterRow
-                  key={f}
-                  active={filter === f}
-                  onClick={() => setFilter(f)}
-                  lang={lang}
-                  testId={`dispatcher-filter-${f}`}
-                >
-                  {t(key, null, lang)}
-                </FilterRow>
-              ))}
-            </div>
+      <section className="dispatcher-overview-grid">
+        <article className="dispatcher-panel dispatcher-map-panel">
+          <header className="dispatcher-panel-heading">
+            <h2><ICONS.map.icon size={20} aria-hidden />{t('dispatcher.dashboard.map', null, lang)}</h2>
+            <div className="dispatcher-map-legend"><span><i className="is-new" />{t('dispatcher.dashboard.new', null, lang)}</span><span><i className="is-assigned" />{t('dispatcher.dashboard.review', null, lang)}</span><span><i className="is-progress" />{t('dispatcher.dashboard.progress', null, lang)}</span><span><i className="is-resolved" />{t('dispatcher.dashboard.resolved', null, lang)}</span></div>
+            <Link href="/dispatcher/map">{t('dispatcher.dashboard.full_map', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
+          </header>
+          <div className="dispatcher-dashboard-map"><CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} pinColors={{ submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#8b5cf6', closed: '#8b5cf6', cancelled: '#ef4444' }} /></div>
+        </article>
+
+        <article className="dispatcher-panel dispatcher-recent-panel">
+          <header className="dispatcher-panel-heading">
+            <h2><ICONS.queue.icon size={20} aria-hidden />{t('dispatcher.dashboard.recent', null, lang)}</h2>
+            <Link href="/dispatcher/monitor">{t('dispatcher.dashboard.view_all', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
+          </header>
+          <div className="dispatcher-filter-row">
+            {([['all', 'dispatcher.queue.filter.all'], ['submitted', 'dispatcher.queue.filter.submitted'], ['routed', 'dispatcher.queue.filter.routed']] as Array<[QueueFilter, string]>).map(([value, key]) => (
+              <FilterRow key={value} active={filter === value} onClick={() => setFilter(value)} lang={lang} testId={`dispatcher-filter-${value}`}>{t(key, null, lang)}</FilterRow>
+            ))}
+            {lastPollAt ? <small>{t('dispatcher.dashboard.updated', null, lang)} {formatAge(lastPollAt, lang)}</small> : null}
           </div>
-
-          <div
-            style={{
-              marginTop: 'auto',
-              paddingTop: 'var(--space-5)',
-              borderTop: '1px solid var(--color-border)',
-              fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink-tertiary)',
-            }}
-          >
-            {lastPollAt && (
-              <span lang={lang}>
-                {lang === 'bn' ? 'সর্বশেষ:' : 'Last:'} {formatAge(lastPollAt, lang)}
-              </span>
-            )}
+          <div className="dispatcher-recent-list">
+            {loading ? <QueueSkeleton /> : error ? <p className="dispatcher-dashboard-error" role="alert">{t('dispatcher.queue.error', null, lang)}</p> : filteredTickets.length ? filteredTickets.slice(0, 5).map((ticket) => <QueueRow key={ticket.id} ticket={ticket} lang={lang} />) : <EmptyState lang={lang} />}
           </div>
-        </aside>
+        </article>
+      </section>
 
-        {/* Queue list */}
-        <main
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}
-        >
-          <div
-            style={{
-              padding: 'var(--space-4) var(--space-5)',
-              borderBottom: '1px solid var(--color-border)',
-              flexShrink: 0,
-            }}
-          >
-            <h1
-              lang={lang}
-              style={{
-                fontSize: 'var(--text-h1)',
-                fontWeight: 'var(--weight-bold)',
-                color: 'var(--color-ink)',
-                margin: '0 0 var(--space-1)',
-              }}
-            >
-              {t('dispatcher.queue.title', null, lang)}
-            </h1>
-            <p
-              lang={lang}
-              style={{
-                fontSize: 'var(--text-body-sm)',
-                color: 'var(--color-ink-secondary)',
-                margin: 0,
-              }}
-            >
-              {t('dispatcher.queue.subtitle', null, lang)}
-            </p>
+      <section className="dispatcher-lower-grid">
+        <article className="dispatcher-panel dispatcher-crew-panel">
+          <header className="dispatcher-panel-heading"><h2><ICONS.crew.icon size={20} aria-hidden />{t('dispatcher.dashboard.crew_activity', null, lang)}</h2><Link href="/dispatcher/performance">{t('dispatcher.dashboard.view_crews', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link></header>
+          <div className="dispatcher-crew-list">
+            {performance?.crewTable.slice(0, 4).map((crew) => <div className="dispatcher-crew-row" key={crew.crewId}><span className="dispatcher-crew-avatar">{crew.crewName.slice(0, 1).toLocaleUpperCase()}</span><span><strong>{crew.crewName}</strong><small>{crew.specialty || t('dispatcher.dashboard.field_crew', null, lang)}</small></span><b>{crew.jobsCompleted}<small>{t('dispatcher.dashboard.jobs', null, lang)}</small></b></div>)}
+            {!performance?.crewTable.length ? <p className="dispatcher-panel-empty">{t('dispatcher.dashboard.no_crew_activity', null, lang)}</p> : null}
           </div>
-
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: 'var(--space-4) var(--space-5)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-2)',
-            }}
-          >
-            {loading ? (
-              <QueueSkeleton />
-            ) : error ? (
-              <p
-                lang={lang}
-                role="alert"
-                style={{
-                  fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
-                  padding: 'var(--space-4)',
-                  textAlign: 'center',
-                }}
-              >
-                {t('dispatcher.queue.error', null, lang)}
-              </p>
-            ) : filteredTickets.length === 0 ? (
-              <EmptyState lang={lang} />
-            ) : (
-              filteredTickets.map((t) => (
-                <QueueRow key={t.id} ticket={t} lang={lang} />
-              ))
-            )}
+        </article>
+        <article className="dispatcher-panel dispatcher-actions-panel">
+          <header className="dispatcher-panel-heading"><h2><ICONS.newReport.icon size={20} aria-hidden />{t('dispatcher.dashboard.quick_actions', null, lang)}</h2></header>
+          <div className="dispatcher-quick-actions">
+            <Link href="/dispatcher/map"><ICONS.crew.icon size={19} aria-hidden /><span>{t('dispatcher.dashboard.assign', null, lang)}</span></Link>
+            <Link href="/dispatcher/monitor"><ICONS.reports.icon size={19} aria-hidden /><span>{t('dispatcher.dashboard.view_reports', null, lang)}</span></Link>
+            <Link href="/dispatcher/dedup"><ICONS.dedup.icon size={19} aria-hidden /><span>{t('dispatcher.dashboard.duplicates', null, lang)}{dedupPendingCount ? <b>{dedupPendingCount}</b> : null}</span></Link>
+            <Link href="/dispatcher/performance"><ICONS.performance.icon size={19} aria-hidden /><span>{t('dispatcher.dashboard.performance', null, lang)}</span></Link>
           </div>
-        </main>
-      </div>
+        </article>
+        <article className="dispatcher-panel dispatcher-trend-panel">
+          <header className="dispatcher-panel-heading"><h2><ICONS.performance.icon size={20} aria-hidden />{t('dispatcher.dashboard.trends', null, lang)}</h2><span>{t('dispatcher.dashboard.week', null, lang)}</span></header>
+          <DispatcherTrend points={performance?.submittedVsResolved ?? []} lang={lang} />
+        </article>
+      </section>
     </div>
   );
+}
+
+function DashboardMetric({ icon, tone, label, value, values }: { icon: keyof typeof ICONS; tone: 'blue' | 'amber' | 'green' | 'purple'; label: string; value: number; values: number[] }) {
+  const Icon = ICONS[icon].icon;
+  return <article className={`dispatcher-kpi-card tone-${tone}`}><span><Icon size={22} weight="bold" aria-hidden /></span><div><small>{label}</small><strong>{value.toLocaleString()}</strong></div><MiniTrend tone={tone} values={values} /></article>;
+}
+
+function MiniTrend({ tone, values }: { tone: string; values: number[] }) {
+  const max = Math.max(1, ...values);
+  const line = values.map((value, index) => `${index ? 'L' : 'M'}${2 + (index / Math.max(1, values.length - 1)) * 84} ${34 - (value / max) * 28}`).join(' ');
+  return values.some((value) => value > 0) ? <svg className={`dispatcher-mini-trend tone-${tone}`} viewBox="0 0 88 38" aria-hidden="true"><path d={`${line} L86 38 L2 38 Z`} className="trend-fill" /><path d={line} className="trend-line" /></svg> : null;
+}
+
+function DispatcherTrend({ points, lang }: { points: PerfSnapshot['submittedVsResolved']; lang: Language }) {
+  const max = Math.max(1, ...points.flatMap((point) => [point.submitted, point.resolved]));
+  const coord = (value: number, index: number) => `${points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))},${136 - (value / max) * 110}`;
+  const submitted = points.map((point, index) => `${index ? 'L' : 'M'}${coord(point.submitted, index)}`).join(' ');
+  const resolved = points.map((point, index) => `${index ? 'L' : 'M'}${coord(point.resolved, index)}`).join(' ');
+  return <div className="dispatcher-trend-content"><div className="dispatcher-trend-legend"><span className="is-created">{t('dispatcher.dashboard.new', null, lang)}</span><span className="is-done">{t('dispatcher.dashboard.resolved', null, lang)}</span></div><svg viewBox="0 0 540 174" role="img" aria-label={t('dispatcher.dashboard.trends', null, lang)}>{[26,53,80,107,136].map((y) => <line key={y} x1="24" x2="526" y1={y} y2={y} />)}<path d={submitted} className="trend-created" /><path d={resolved} className="trend-resolved" />{points.map((point, index) => <text key={point.date} x={points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))} y="164" textAnchor="middle">{new Date(point.date).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { weekday: 'short' })}</text>)}</svg></div>;
 }
 
 function FilterRow({
@@ -651,11 +526,12 @@ function FilterRow({
       onClick={onClick}
       lang={lang}
       data-testid={testId}
+      aria-pressed={active}
       style={{
         padding: 'var(--space-2) var(--space-3)',
-        background: active ? 'var(--color-primary)' : 'transparent',
-        color: active ? 'var(--color-on-primary)' : 'var(--color-ink)',
-        border: 'none',
+        background: active ? 'var(--color-primary-soft)' : 'transparent',
+        color: active ? 'var(--color-primary)' : 'var(--color-ink)',
+        border: `1px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
         borderRadius: 'var(--radius-sm)',
         fontSize: 'var(--text-body-sm)',
         fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-regular)',
@@ -684,15 +560,16 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
     <Link
       href={`/dispatcher/tickets/${ticket.id}`}
       data-testid="dispatcher-queue-row"
+      className="dispatcher-queue-row"
       style={{
         display: 'grid',
         gridTemplateColumns: 'auto 1fr auto',
         gap: 'var(--space-4)',
         alignItems: 'center',
-        padding: 'var(--space-3) var(--space-4)',
+        padding: 'var(--space-4) var(--space-5)',
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-card)',
         textDecoration: 'none',
         color: 'var(--color-ink)',
       }}
@@ -705,8 +582,8 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           aria-hidden
           loading="lazy"
           style={{
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             borderRadius: 'var(--radius-sm)',
             objectFit: 'cover',
             background: 'var(--color-surface-raised)',
@@ -716,17 +593,16 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
         <span
           aria-hidden
           style={{
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             borderRadius: 'var(--radius-sm)',
             background: 'var(--color-surface-raised)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 18,
           }}
         >
-          {categoryIcon(ticket.categorySlug)}
+          <CategoryIcon slug={ticket.categorySlug} size={20} />
         </span>
       )}
       <div style={{ minWidth: 0 }}>

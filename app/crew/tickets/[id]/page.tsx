@@ -57,6 +57,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import {
   displayNameFor,
   categoryLabel,
@@ -159,21 +160,6 @@ const TRANSITIONS_BY_FROM: Record<TicketStatus, TicketStatus[]> = {
 // in-the-field work; the dispatcher owns the start
 // of the chain and cancellation.
 const CREW_ALLOWED = ['in_progress', 'resolved'] as const;
-
-function categoryIcon(slug: string | null | undefined): string {
-  switch (slug) {
-    case 'streetlight':
-      return '💡';
-    case 'pothole':
-      return '🕳️';
-    case 'drainage':
-      return '🌊';
-    case 'garbage':
-      return '🗑️';
-    default:
-      return '❓';
-  }
-}
 
 /**
  * Queue an after-photo for later replay (WO-003 offline
@@ -869,6 +855,7 @@ export default function CrewTicketPage() {
       )}
 
       <div
+        className="crew-ticket-content"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -896,10 +883,9 @@ export default function CrewTicketPage() {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 22,
             }}
           >
-            {categoryIcon(ticket.categorySlug)}
+            <CategoryIcon slug={ticket.categorySlug} size={24} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1
@@ -938,6 +924,7 @@ export default function CrewTicketPage() {
 
         {/* Record card */}
         <SectionCard
+          className="crew-ticket-record"
           heading={t('crew.detail.record', null, lang)}
           lang={lang}
         >
@@ -1528,16 +1515,19 @@ export default function CrewTicketPage() {
 }
 
 function SectionCard({
+  className,
   heading,
   lang,
   children,
 }: {
+  className?: string;
   heading: string;
   lang: Language;
   children: React.ReactNode;
 }) {
   return (
     <section
+      className={className}
       style={{
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',

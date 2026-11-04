@@ -419,10 +419,10 @@ export default function DispatcherDedupReviewPage() {
                     background: 'var(--color-surface-card)',
                     border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-md)',
-                    padding: 'var(--space-5)',
+                    padding: 'var(--space-4)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 'var(--space-4)',
+                    gap: 'var(--space-3)',
                   }}
                 >
                   <div
@@ -565,10 +565,10 @@ function TicketPanel({
   return (
     <div
       style={{
-        background: 'var(--color-surface-page)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-sm)',
-        padding: 'var(--space-4)',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: 0,
+        padding: 'var(--space-2)',
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-2)',

@@ -3,8 +3,8 @@
  */
 
 import type { ReactNode } from 'react';
-import { AppShell } from '@/components/AppShell';
+import { AdminRouteChrome } from '@/components/AdminRouteChrome';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return <AppShell role="staff">{children}</AppShell>;
+  return <AdminRouteChrome>{children}</AdminRouteChrome>;
 }

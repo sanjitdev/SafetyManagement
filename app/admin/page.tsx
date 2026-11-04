@@ -1,339 +1,557 @@
-/**
- * /admin — the admin's landing page.
- *
- * WHY THIS PAGE EXISTS
- * --------------------
- * `app/admin/` used to hold only `layout.tsx` plus the three
- * sub-routes `audit/`, `cities/` and `tickets/`. With no
- * `app/admin/page.tsx`, `GET /admin` was a 404 — but its three
- * children all resolved fine. So an admin who typed `/admin`, or
- * whose session redirect landed there, got a 404 rather than their
- * home. This page closes that gap.
- *
- * It also makes `ROLE_HOME.admin` = `/admin` honest: the role→home
- * mapping in `lib/role-home.ts` used to point the admin at
- * `/admin/tickets` purely because no index route existed. Now there
- * is an index, so the admin lands here — a card grid linking every
- * admin surface.
- *
- * AUTH GATE
- * ---------
- * Same client-side pattern as `/admin/cities` and `/admin/tickets`:
- * unauthenticated → `/login?next=/admin`; authenticated but not an
- * admin → `/` (the splash / role-aware router). The APIs under
- * `/api/v1/admin/*` independently enforce `requireRole('admin')`,
- * so this gate is UX, not security — a non-admin who bypassed it
- * would get 403s from the APIs, not data.
- *
- * The page fetches `/api/v1/admin/cities` so the header can name
- * the city the admin is operating in; a failure to load it degrades
- * to a blank city line rather than blocking the navigation cards,
- * because the links themselves are the point of this page.
- */
-
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { t, type Language } from '@/lib/i18n/keys';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminSecurityKey } from '@/components/AdminSecurityKey';
+import { UserMenu } from '@/components/UserMenu';
+import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
+import { CityFixMark } from '@/components/CityFixMark';
+import { Button } from '@/components/ui/Button';
+import { ICONS } from '@/lib/ui/icon-map';
+import { DHAKA_CENTER } from '@/lib/geo/constants';
+import { t, type Language } from '@/lib/i18n/keys';
+import type { SerializedTicket } from '@/lib/serializers/ticket';
+
+const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), {
+  ssr: false,
+  loading: () => <div className="admin-map-loading" aria-hidden="true" />,
+});
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
+const ADMIN_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = {
+  submitted: '#2563eb',
+  routed: '#f59e0b',
+  in_progress: '#f59e0b',
+  resolved: '#16a765',
+  closed: '#16a765',
+  cancelled: '#ef4444',
+};
+const RANGE_OPTIONS = [7, 30, 90] as const;
+const DAY_MS = 86_400_000;
+
+interface AdminIdentity {
+  cityId: string;
+  name: string | null;
+}
 
 interface AdminCity {
   id: string;
-  slug: string;
   name: string;
   nameBn: string | null;
-  status: 'live' | 'setup' | 'paused';
 }
 
-/**
- * The admin surfaces this page links to.
- *
- * `href` is the surface root; `count` is the number of cities (or
- * city-scoped drill-downs) behind it, used only for the card's
- * supporting line.
- */
-interface AdminSurface {
-  key: string;
-  href: string;
-  titleKey:
-    | 'admin.home.card.reports.title'
-    | 'admin.home.card.audit.title'
-    | 'admin.home.card.cities.title'
-    | 'admin.home.card.setup.title';
-  bodyKey:
-    | 'admin.home.card.reports.body'
-    | 'admin.home.card.audit.body'
-    | 'admin.home.card.cities.body'
-    | 'admin.home.card.setup.body';
+interface AdminCrewUser {
+  id: string;
+  role: string;
+  status: string;
 }
 
-const SURFACES: AdminSurface[] = [
-  {
-    key: 'reports',
-    href: '/admin/tickets',
-    titleKey: 'admin.home.card.reports.title',
-    bodyKey: 'admin.home.card.reports.body',
-  },
-  {
-    key: 'audit',
-    href: '/admin/audit',
-    titleKey: 'admin.home.card.audit.title',
-    bodyKey: 'admin.home.card.audit.body',
-  },
-  {
-    key: 'cities',
-    href: '/admin/cities',
-    titleKey: 'admin.home.card.cities.title',
-    bodyKey: 'admin.home.card.cities.body',
-  },
-];
+interface AdminDashboardPayload {
+  tickets: SerializedTicket[];
+  previousTickets: SerializedTicket[];
+  crewUsers: AdminCrewUser[];
+  cityName: string;
+}
+
+interface MetricDefinition {
+  key: 'total' | 'progress' | 'resolved' | 'pending';
+  color: string;
+  soft: string;
+  icon: keyof typeof ICONS;
+  current: number;
+  previous: number;
+  spark: number[];
+}
+
+function countStatus(tickets: SerializedTicket[], key: MetricDefinition['key']) {
+  if (key === 'total') return tickets.length;
+  if (key === 'progress') return tickets.filter((ticket) => ticket.status === 'routed' || ticket.status === 'in_progress').length;
+  if (key === 'resolved') return tickets.filter((ticket) => ticket.status === 'resolved' || ticket.status === 'closed').length;
+  return tickets.filter((ticket) => ticket.status === 'submitted').length;
+}
+
+function trendFor(tickets: SerializedTicket[], key: MetricDefinition['key'], days: number) {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() - Math.min(days, 7) + 1);
+  const daily = Array.from({ length: Math.min(days, 7) }, (_, index) => {
+    const date = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + index);
+    return { date, value: 0 };
+  });
+  for (const ticket of tickets) {
+    const created = new Date(ticket.createdAt);
+    const dayIndex = daily.findIndex((day) => day.date.toDateString() === created.toDateString());
+    if (dayIndex < 0) continue;
+    const counts = key === 'total'
+      || (key === 'progress' && (ticket.status === 'routed' || ticket.status === 'in_progress'))
+      || (key === 'resolved' && (ticket.status === 'resolved' || ticket.status === 'closed'))
+      || (key === 'pending' && ticket.status === 'submitted');
+    if (counts) daily[dayIndex].value += 1;
+  }
+  return daily.map((entry) => entry.value);
+}
+
+async function fetchTicketWindow(cityId: string, from: Date, to: Date) {
+  const tickets: SerializedTicket[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 8; page += 1) {
+    const params = new URLSearchParams({
+      cityId,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      limit: '100',
+    });
+    if (cursor) params.set('cursor', cursor);
+    const response = await fetch(`/api/v1/admin/tickets?${params.toString()}`, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`tickets_${response.status}`);
+    const payload = (await response.json()) as { tickets: SerializedTicket[]; nextCursor: string | null };
+    tickets.push(...payload.tickets);
+    if (!payload.nextCursor || payload.nextCursor === cursor) break;
+    cursor = payload.nextCursor;
+  }
+  return tickets;
+}
+
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  const path = useMemo(() => {
+    if (!values.length) return 'M0 30 L100 30';
+    const max = Math.max(1, ...values);
+    const points = values.map((value, index) => {
+      const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+      const y = 34 - (value / max) * 28;
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    });
+    return points.join(' ');
+  }, [values]);
+  return (
+    <svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-hidden="true" className="admin-sparkline">
+      <path d={`${path} L100 38 L0 38 Z`} fill={color} opacity=".08" />
+      <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MetricCard({ metric, lang, days }: { metric: MetricDefinition; lang: Language; days: number }) {
+  const Icon = ICONS[metric.icon].icon;
+  const titleKey = `admin.dashboard.metric.${metric.key}` as const;
+  const delta = metric.previous === 0
+    ? null
+    : Math.round(((metric.current - metric.previous) / metric.previous) * 100);
+  const rising = (delta ?? 0) >= 0;
+  const trend = metric.spark;
+  return (
+    <article className="admin-kpi-card" data-testid={`admin-dashboard-kpi-${metric.key}`}>
+      <span className="admin-kpi-icon" style={{ color: metric.color, background: metric.soft }}>
+        <Icon size={21} weight="bold" aria-hidden />
+      </span>
+      <div className="admin-kpi-copy">
+        <strong>{metric.current.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</strong>
+        <span lang={lang}>{t(titleKey, null, lang)}</span>
+      </div>
+      <div className="admin-kpi-foot">
+        <span className={delta === null ? 'admin-kpi-neutral' : rising ? 'admin-kpi-up' : 'admin-kpi-down'}>
+          {delta === null ? '—' : `${rising ? '↑' : '↓'} ${Math.abs(delta)}%`}
+        </span>
+        <span className="admin-kpi-compare">{t('admin.dashboard.metric.compare', null, lang)}</span>
+        <Sparkline values={trend.length ? trend : [0, 0, 0, 0, 0, 0, 0]} color={metric.color} />
+      </div>
+      <span className="sr-only">{t('admin.dashboard.range', null, lang)}: {days}</span>
+    </article>
+  );
+}
+
+function TrendChart({ tickets, lang, days }: { tickets: SerializedTicket[]; lang: Language; days: number }) {
+  const labels = useMemo(() => {
+    const count = Math.min(days, 7);
+    const today = new Date();
+    return Array.from({ length: count }, (_, index) => {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - count + index + 1);
+      return date.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', day: 'numeric' });
+    });
+  }, [days, lang]);
+  const series = [
+    { key: 'total' as const, label: t('admin.dashboard.trend.total', null, lang), color: '#2563eb' },
+    { key: 'resolved' as const, label: t('admin.dashboard.trend.resolved', null, lang), color: '#16a765' },
+    { key: 'pending' as const, label: t('admin.dashboard.trend.pending', null, lang), color: '#ef4444' },
+  ];
+  const values = series.map((entry) => trendFor(tickets, entry.key, days));
+  const max = Math.max(1, ...values.flat());
+  const pointPath = (line: number[]) => line.map((value, index) => {
+    const x = line.length <= 1 ? 280 : 34 + (index / (line.length - 1)) * 480;
+    const y = 140 - (value / max) * 112;
+    return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+
+  return (
+    <div className="admin-trend-content">
+      <div className="admin-chart-legend">
+        {series.map((entry) => <span key={entry.key}><i style={{ background: entry.color }} />{entry.label}</span>)}
+      </div>
+      <svg className="admin-trend-svg" viewBox="0 0 560 180" role="img" aria-label={t('admin.dashboard.trend', null, lang)}>
+        {[28, 56, 84, 112, 140].map((y) => <line key={y} x1="34" x2="540" y1={y} y2={y} stroke="#e9edf4" strokeWidth="1" />)}
+        {series.map((entry, index) => <path key={entry.key} d={pointPath(values[index])} fill="none" stroke={entry.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />)}
+        {labels.map((label, index) => {
+          const x = labels.length <= 1 ? 280 : 34 + (index / (labels.length - 1)) * 480;
+          return <text key={label} x={x} y="165" textAnchor="middle" fill="#51617e" fontSize="11">{label}</text>;
+        })}
+      </svg>
+      <span className="sr-only">{t('admin.dashboard.range', null, lang)}: {days}</span>
+    </div>
+  );
+}
+
+function CrewActivity({ crewUsers, lang }: { crewUsers: AdminCrewUser[]; lang: Language }) {
+  const crew = crewUsers.filter((user) => user.role === 'crew');
+  const active = crew.filter((user) => user.status === 'active').length;
+  const invited = crew.filter((user) => user.status === 'invited').length;
+  const unavailable = crew.filter((user) => user.status === 'disabled').length;
+  const percentage = crew.length ? Math.round((active / crew.length) * 100) : 0;
+  return (
+    <div className="admin-crew-content">
+      <div className="admin-donut" style={{ background: `conic-gradient(#16b765 0 ${percentage}%, #e7edf5 ${percentage}% 100%)` }} role="img" aria-label={`${percentage}% ${t('admin.dashboard.crew.active', null, lang)}`}>
+        <span><strong>{percentage}%</strong><small>{t('admin.dashboard.crew.active', null, lang)}</small></span>
+      </div>
+      <ul className="admin-crew-stats">
+        <li><i className="is-active" /><strong>{active}</strong><span lang={lang}>{t('admin.dashboard.crew.active', null, lang)}</span></li>
+        <li><i className="is-invited" /><strong>{invited}</strong><span lang={lang}>{t('admin.dashboard.crew.invited', null, lang)}</span></li>
+        <li><i className="is-unavailable" /><strong>{unavailable}</strong><span lang={lang}>{t('admin.dashboard.crew.unavailable', null, lang)}</span></li>
+      </ul>
+    </div>
+  );
+}
+
+function ReportRow({ ticket, lang }: { ticket: SerializedTicket; lang: Language }) {
+  const title = ticket.note?.trim().split('\n')[0] || ticket.categoryName || ticket.categoryId;
+  const location = (lang === 'bn' ? ticket.locationLabelBn : ticket.locationLabel) || ticket.wardName || ticket.cityName || '—';
+  const photo = ticket.photoUrls[0];
+  const statusKey = `status.${ticket.status}`;
+  const age = formatAge(ticket.createdAt, lang);
+  return (
+    <Link href={`/admin/tickets/${ticket.id}`} className="admin-report-row">
+      <span className="admin-report-thumb">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt="" loading="lazy" />
+        ) : <ICONS.reports.icon size={21} weight="regular" aria-hidden />}
+      </span>
+      <span className="admin-report-description">
+        <strong lang={lang}>{title}</strong>
+        <small lang={lang}><ICONS.mapPin.icon size={12} aria-hidden />{location}</small>
+      </span>
+      <span className={`admin-status-chip status-${ticket.status}`} lang={lang}>{t(statusKey, null, lang)}</span>
+      <time className="admin-report-age">{age}</time>
+    </Link>
+  );
+}
+
+function formatAge(value: string, lang: Language) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  const relative = new Intl.RelativeTimeFormat(lang === 'bn' ? 'bn-BD' : 'en', { numeric: 'auto', style: 'narrow' });
+  if (minutes < 60) return relative.format(-minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return relative.format(-hours, 'hour');
+  return relative.format(-Math.floor(hours / 24), 'day');
+}
 
 export default function AdminHomePage() {
-  const pathname = usePathname();
-  const [lang, setLang] = useState<Language>('bn');
+  const [lang, setLang] = useState<Language>('en');
+  const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [cities, setCities] = useState<AdminCity[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(30);
+  const [dashboard, setDashboard] = useState<AdminDashboardPayload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [query, setQuery] = useState('');
+  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
+    try {
+      const savedLanguage = window.localStorage.getItem(LANG_KEY);
+      if (savedLanguage === 'bn' || savedLanguage === 'en') setLang(savedLanguage);
+    } catch {
+      // Use the design's English presentation by default.
+    }
+    const onLanguageUpdated = (event: Event) => {
+      const next = (event as CustomEvent<Language>).detail;
+      if (next === 'bn' || next === 'en') setLang(next);
+    };
+    window.addEventListener('cityfix:language-updated', onLanguageUpdated);
+    return () => window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
-
-  // Auth + role gate. Same shape as the sibling admin pages: the
-  // API enforces the real authorisation; this keeps a stray
-  // bookmark from showing a bare `http_403` page.
-  useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
+    void fetch('/api/auth/status', { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('auth_status');
+        return (await response.json()) as { authenticated: boolean; session: { role: string; cityId: string; name: string | null } | null };
+      })
+      .then((status) => {
         if (cancelled) return;
         if (!status.authenticated) {
-          window.location.href =
-            '/login?next=' + encodeURIComponent(pathname || '/admin');
+          window.location.href = '/login?next=%2Fadmin';
           return;
         }
         if (status.session?.role !== 'admin') {
           window.location.href = '/';
           return;
         }
+        setIdentity({ cityId: status.session.cityId, name: status.session.name });
         setSignedIn(true);
-      } catch {
-        if (cancelled) return;
-        setSignedIn(false);
-        window.location.href =
-          '/login?next=' + encodeURIComponent(pathname || '/admin');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      })
+      .catch(() => {
+        if (!cancelled) window.location.href = '/login?next=%2Fadmin';
+      });
+    return () => { cancelled = true; };
   }, []);
 
-  // The city list is decoration on this page — it names the city
-  // the admin is operating in. If it fails we still show every card.
-  const loadCities = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
+    if (!identity) return;
+    setLoading(true);
+    setError(false);
+    const to = new Date();
+    const from = new Date(to.getTime() - rangeDays * DAY_MS);
+    const previousFrom = new Date(from.getTime() - rangeDays * DAY_MS);
     try {
-      const res = await fetch('/api/v1/admin/cities', {
-        credentials: 'include',
+      const [tickets, previousTickets, cityResponse, usersResponse] = await Promise.all([
+        fetchTicketWindow(identity.cityId, from, to),
+        fetchTicketWindow(identity.cityId, previousFrom, from),
+        fetch('/api/v1/admin/cities', { credentials: 'same-origin' }),
+        fetch(`/api/v1/admin/cities/${encodeURIComponent(identity.cityId)}/users`, { credentials: 'same-origin' }),
+      ]);
+      const [cityPayload, usersPayload] = await Promise.all([
+        cityResponse.ok ? cityResponse.json() as Promise<{ cities: AdminCity[] }> : Promise.resolve({ cities: [] }),
+        usersResponse.ok ? usersResponse.json() as Promise<{ users: AdminCrewUser[] }> : Promise.resolve({ users: [] }),
+      ]);
+      const city = cityPayload.cities.find((candidate) => candidate.id === identity.cityId);
+      setDashboard({
+        tickets,
+        previousTickets,
+        crewUsers: usersPayload.users ?? [],
+        cityName: city ? (lang === 'bn' ? city.nameBn || city.name : city.name) : '',
       });
-      if (!res.ok) {
-        setError(`http_${res.status}`);
-        return;
-      }
-      const data = (await res.json()) as { cities: AdminCity[] };
-      setCities(data.cities);
     } catch {
-      setError('network');
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [identity, rangeDays, lang]);
 
   useEffect(() => {
-    if (signedIn !== true) return;
-    loadCities();
-  }, [signedIn, loadCities]);
+    if (signedIn === true) void loadDashboard();
+  }, [signedIn, loadDashboard]);
 
-  if (signedIn === null) {
-    return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.home.loading', null, lang)}
-      </div>
-    );
-  }
-
-  const liveCities = (cities ?? []).filter((c) => c.status === 'live');
+  const tickets = dashboard?.tickets ?? [];
+  const previousTickets = dashboard?.previousTickets ?? [];
+  const metrics: MetricDefinition[] = [
+    { key: 'total', color: '#2563eb', soft: '#e7efff', icon: 'reports', current: countStatus(tickets, 'total'), previous: countStatus(previousTickets, 'total'), spark: trendFor(tickets, 'total', rangeDays) },
+    { key: 'progress', color: '#f59e0b', soft: '#fff2df', icon: 'statusInProgress', current: countStatus(tickets, 'progress'), previous: countStatus(previousTickets, 'progress'), spark: trendFor(tickets, 'progress', rangeDays) },
+    { key: 'resolved', color: '#16a765', soft: '#e2f6ed', icon: 'statusResolved', current: countStatus(tickets, 'resolved'), previous: countStatus(previousTickets, 'resolved'), spark: trendFor(tickets, 'resolved', rangeDays) },
+    { key: 'pending', color: '#ef4444', soft: '#ffebeb', icon: 'statusSubmitted', current: countStatus(tickets, 'pending'), previous: countStatus(previousTickets, 'pending'), spark: trendFor(tickets, 'pending', rangeDays) },
+  ];
+  const filteredReports = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    const recent = [...tickets].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
+    if (!needle) return recent;
+    return recent.filter((ticket) => [ticket.id, ticket.note, ticket.locationLabel, ticket.locationLabelBn, ticket.categoryName].some((value) => value?.toLocaleLowerCase().includes(needle)));
+  }, [query, tickets]);
+  const pins: CityActivityPin[] = useMemo(() => tickets.slice(0, 500).map((ticket) => ({
+    id: ticket.id,
+    lat: ticket.locationLat,
+    lng: ticket.locationLng,
+    status: ticket.status as CityActivityStatus,
+  })), [tickets]);
+  const activeCity = identity?.cityId;
+  const userHref = activeCity ? `/admin/cities/${activeCity}/users` : '/admin/cities';
+  const settingsHref = activeCity ? `/admin/cities/${activeCity}/setup` : '/admin/cities';
+  const pendingCount = metrics.find((metric) => metric.key === 'pending')?.current ?? 0;
 
   return (
-    <div className="min-h-full" style={{ background: 'var(--color-surface-page)' }}>
-      <div
-        className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
-        style={{
-          borderBottom: '1px solid var(--color-border)',
-          background: 'var(--color-surface-page)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold" style={{ color: 'var(--color-ink)' }}>
-            {t('admin.home.title', null, lang)}
-          </h1>
-          <span className="text-xs" style={{ color: 'var(--color-ink-tertiary)' }}>
-            {t('admin.home.subtitle', null, lang)}
-          </span>
+    <div className={`admin-dashboard${navOpen ? ' admin-dashboard--nav-open' : ''}`}>
+      <button type="button" className="admin-dashboard-scrim" aria-label={t('ui.action.close', null, lang)} onClick={() => setNavOpen(false)} />
+      <aside className="admin-dashboard-sidebar">
+        <Link href="/admin" className="admin-brand" aria-label="CityFix dashboard">
+          <CityFixMark size={48} />
+          <span><strong>CityFix</strong><small>A Cleaner, Safer City</small></span>
+        </Link>
+        <nav className="admin-side-nav" aria-label={t('admin.dashboard.nav.dashboard', null, lang)}>
+          <Link href="/admin" className="admin-side-link is-active" aria-current="page" onClick={() => setNavOpen(false)}>
+            <ICONS.home.icon size={21} weight="bold" aria-hidden /><span>{t('admin.dashboard.nav.dashboard', null, lang)}</span>
+          </Link>
+          <Link href="/admin/tickets" className="admin-side-link" onClick={() => setNavOpen(false)}>
+            <ICONS.reports.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.reports', null, lang)}</span>
+          </Link>
+          <Link href={userHref} className="admin-side-link" onClick={() => setNavOpen(false)}>
+            <ICONS.users.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.crews', null, lang)}</span>
+          </Link>
+          <button type="button" className={`admin-side-link admin-side-toggle${operationsOpen ? ' is-open' : ''}`} onClick={() => setOperationsOpen((open) => !open)} aria-expanded={operationsOpen}>
+            <ICONS.queue.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.operations', null, lang)}</span><ICONS.chevronDown.icon className="admin-side-chevron" size={16} aria-hidden />
+          </button>
+          {operationsOpen ? (
+            <div className="admin-side-subnav">
+              <Link href="/admin/tickets" onClick={() => setNavOpen(false)}>{t('admin.dashboard.nav.reports', null, lang)}</Link>
+              <Link href="/admin/audit" onClick={() => setNavOpen(false)}>{t('admin.dashboard.action.status', null, lang)}</Link>
+            </div>
+          ) : null}
+          <Link href={userHref} className="admin-side-link" onClick={() => setNavOpen(false)}>
+            <ICONS.users.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.users', null, lang)}</span>
+          </Link>
+          <Link href={settingsHref} className="admin-side-link" onClick={() => setNavOpen(false)}>
+            <ICONS.city.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.settings', null, lang)}</span>
+          </Link>
+        </nav>
+        <div className="admin-sidebar-account">
+          <UserMenu lang={lang} variant="sidebar" />
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/cities"
-            className="admin-pill rounded-full px-3 py-1 text-xs font-medium"
-          >
-            {t('admin.home.cta.cities', null, lang)}
-          </Link>
-          <Link
-            href="/admin/audit"
-            className="admin-pill rounded-full px-3 py-1 text-xs font-medium"
-          >
-            {t('admin.home.cta.audit', null, lang)}
-          </Link>
-          <Link
-            href="/admin/tickets"
-            className="admin-pill rounded-full px-3 py-1 text-xs font-medium"
-          >
-            {t('admin.home.cta.reports', null, lang)}
-          </Link>
-        </div>
-      </div>
+      </aside>
 
-      <main className="px-6 py-8 max-w-6xl mx-auto">
-        {error ? (
-          <div
-            className="rounded border p-3 text-sm mb-4"
-            data-testid="admin-home-error"
-            style={{
-              borderColor: 'var(--color-warning)',
-              background: 'var(--color-surface-card)',
-              color: 'var(--color-warning)',
-            }}
-          >
-            {t('admin.home.error', null, lang)}
+      <div className="admin-dashboard-main">
+        <header className="admin-dashboard-topbar">
+          <button type="button" className="admin-mobile-menu" aria-label={t('admin.dashboard.nav.dashboard', null, lang)} onClick={() => setNavOpen(true)}>
+            <ICONS.menu.icon size={21} aria-hidden />
+          </button>
+          <label className="admin-searchbox">
+            <ICONS.search.icon size={20} aria-hidden />
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('admin.dashboard.search', null, lang)} aria-label={t('admin.dashboard.search', null, lang)} />
+          </label>
+          <div className="admin-topbar-actions">
+            <div className="admin-notification-wrap">
+              <button type="button" className={`admin-notification-button${notificationsOpen ? ' is-open' : ''}`} aria-label={t('admin.dashboard.notifications', null, lang)} aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((open) => !open)}>
+                <ICONS.notifications.icon size={21} aria-hidden />
+                {pendingCount > 0 ? <span>{pendingCount > 9 ? '9+' : pendingCount}</span> : null}
+              </button>
+              {notificationsOpen ? (
+                <div className="admin-notification-popover">
+                  <strong>{t('admin.dashboard.notifications', null, lang)}</strong>
+                  <p>{pendingCount ? `${pendingCount} ${t('admin.dashboard.metric.pending', null, lang).toLowerCase()}` : t('admin.dashboard.empty_reports', null, lang)}</p>
+                  <Link href="/admin/tickets?status=submitted" onClick={() => setNotificationsOpen(false)}>{t('admin.dashboard.view_all', null, lang)} <ICONS.forward.icon size={14} aria-hidden /></Link>
+                </div>
+              ) : null}
+            </div>
+            <label className="admin-range-select">
+              <ICONS.city.icon size={18} aria-hidden />
+              <span className="sr-only">{t('admin.dashboard.range', null, lang)}</span>
+              <select value={rangeDays} onChange={(event) => setRangeDays(Number(event.target.value) as (typeof RANGE_OPTIONS)[number])}>
+                {RANGE_OPTIONS.map((days) => <option key={days} value={days}>{t(`admin.dashboard.range.${days}` as const, null, lang)}</option>)}
+              </select>
+              <ICONS.chevronDown.icon size={14} aria-hidden />
+            </label>
           </div>
-        ) : null}
+        </header>
 
-        {/*
-          A 3-card grid does not fit a 390px phone, so the grid
-          collapses to one column below the `md` breakpoint. The
-          cards themselves are links — the whole card is the
-          hit target, which matters on a phone.
-        */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {SURFACES.map((s) => (
-            <Link
-              key={s.key}
-              href={s.href}
-              data-testid={`admin-home-card-${s.key}`}
-              className="admin-card-hover rounded-lg border p-5 hover:shadow-sm transition-colors flex flex-col"
-              style={{
-                borderColor: 'var(--color-border)',
-                background: 'var(--color-surface-card)',
-              }}
-            >
-              <h2
-                className="text-base font-semibold"
-                style={{ color: 'var(--color-ink)' }}
-              >
-                {t(s.titleKey, null, lang)}
-              </h2>
-              <p
-                className="mt-2 text-sm flex-1"
-                style={{ color: 'var(--color-ink-secondary)' }}
-              >
-                {t(s.bodyKey, null, lang)}
-              </p>
-              <span
-                className="mt-4 text-xs font-medium"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                {t('admin.home.open', null, lang)} →
-              </span>
-            </Link>
-          ))}
-        </div>
+        <main className="admin-dashboard-content">
+          <div className="admin-dashboard-heading">
+            <div>
+              <h1 lang={lang}>{t('admin.dashboard.title', null, lang)}</h1>
+              <p lang={lang}>{dashboard?.cityName ? `${t('admin.dashboard.subtitle', null, lang)} · ${dashboard.cityName}` : t('admin.dashboard.subtitle', null, lang)}</p>
+            </div>
+            {loading ? <span className="admin-refresh-indicator" role="status">{t('admin.dashboard.loading', null, lang)}</span> : null}
+          </div>
 
-        {/*
-          The security-key registration. ADR-007 requires a
-          WebAuthn assertion for EVERY admin write, so without a
-          registered key this admin can read everything and
-          change nothing. This panel is where the key gets
-          enrolled — the ceremony component and the challenge
-          endpoint both existed, but neither was reachable from
-          any page until this mount point.
-        */}
-        <div className="mt-8">
-          <AdminSecurityKey lang={lang} />
-        </div>
+          {error ? (
+            <div className="admin-dashboard-error" role="alert">
+              <span>{t('admin.dashboard.error', null, lang)}</span>
+              <Button variant="secondary" size="sm" onClick={() => void loadDashboard()}>{t('ui.action.retry', null, lang)}</Button>
+            </div>
+          ) : null}
 
-        {/*
-          The city strip is the per-city drill-down entry point:
-          each live city links to its own setup surface, where
-          wards / categories / departments / users live.
-        */}
-        {liveCities.length > 0 ? (
-          <section className="mt-8">
-            <h2
-              className="text-sm font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--color-ink-tertiary)' }}
-            >
-              {t('admin.home.card.setup.title', null, lang)}
-            </h2>
-            <ul className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {liveCities.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/admin/cities/${c.id}/setup`}
-                    data-testid={`admin-home-city-${c.id}`}
-                    className="admin-card-hover block rounded-lg border px-4 py-3 transition-colors"
-                    style={{
-                      borderColor: 'var(--color-border)',
-                      background: 'var(--color-surface-card)',
-                    }}
-                  >
-                    <span
-                      className="block text-sm font-medium"
-                      style={{ color: 'var(--color-ink)' }}
-                    >
-                      {lang === 'bn' ? c.nameBn ?? c.name : c.name}
-                    </span>
-                    <span
-                      className="block mt-1 text-xs"
-                      style={{ color: 'var(--color-ink-tertiary)' }}
-                    >
-                      {t('admin.home.card.setup.body', null, lang)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          <section className="admin-kpi-grid" aria-label={t('admin.home.title', null, lang)}>
+            {metrics.map((metric) => <MetricCard key={metric.key} metric={metric} lang={lang} days={rangeDays} />)}
           </section>
-        ) : null}
-      </main>
+
+          <section className="admin-dashboard-middle">
+            <article className="admin-dashboard-panel admin-map-panel">
+              <header className="admin-panel-heading">
+                <h2><ICONS.map.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.map', null, lang)}</h2>
+                <div className="admin-map-legend">
+                  <span><i className="legend-new" />{t('admin.dashboard.map.new', null, lang)}</span>
+                  <span><i className="legend-progress" />{t('admin.dashboard.map.progress', null, lang)}</span>
+                  <span><i className="legend-resolved" />{t('admin.dashboard.map.resolved', null, lang)}</span>
+                </div>
+              </header>
+              <div className="admin-map-view">
+                <CityActivityMap pins={pins} center={DHAKA_CENTER} pinColors={ADMIN_MAP_COLORS} />
+              </div>
+            </article>
+
+            <article className="admin-dashboard-panel admin-recent-panel">
+              <header className="admin-panel-heading">
+                <h2><ICONS.queue.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.recent', null, lang)}</h2>
+                <Link href="/admin/tickets" className="admin-view-all">{t('admin.dashboard.view_all', null, lang)} <ICONS.forward.icon size={16} aria-hidden /></Link>
+              </header>
+              <div className="admin-reports-list">
+                {filteredReports.length ? filteredReports.map((ticket) => <ReportRow key={ticket.id} ticket={ticket} lang={lang} />) : (
+                  <p className="admin-reports-empty">{t('admin.dashboard.empty_reports', null, lang)}</p>
+                )}
+              </div>
+            </article>
+          </section>
+
+          <section className="admin-dashboard-bottom">
+            <article className="admin-dashboard-panel admin-trend-panel">
+              <header className="admin-panel-heading"><h2><ICONS.performance.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.trend', null, lang)}</h2></header>
+              <TrendChart tickets={tickets} lang={lang} days={rangeDays} />
+            </article>
+            <article className="admin-dashboard-panel admin-crew-panel">
+              <header className="admin-panel-heading"><h2><ICONS.users.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.crew_activity', null, lang)}</h2></header>
+              <CrewActivity crewUsers={dashboard?.crewUsers ?? []} lang={lang} />
+            </article>
+            <article className="admin-dashboard-panel admin-actions-panel">
+              <header className="admin-panel-heading"><h2><ICONS.newReport.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.quick_actions', null, lang)}</h2></header>
+              <div className="admin-quick-actions">
+                <QuickAction href="/admin/tickets" icon={ICONS.reports.icon} tone="blue" title={t('admin.dashboard.action.reports', null, lang)} hint={t('admin.dashboard.action.reports_hint', null, lang)} />
+                <QuickAction href={userHref} icon={ICONS.users.icon} tone="purple" title={t('admin.dashboard.action.crews', null, lang)} hint={t('admin.dashboard.action.crews_hint', null, lang)} />
+                <QuickAction href="/admin/audit" icon={ICONS.audit.icon} tone="green" title={t('admin.dashboard.action.status', null, lang)} hint={t('admin.dashboard.action.status_hint', null, lang)} />
+                <QuickAction href={settingsHref} icon={ICONS.city.icon} tone="neutral" title={t('admin.dashboard.action.settings', null, lang)} hint={t('admin.dashboard.action.settings_hint', null, lang)} />
+              </div>
+            </article>
+          </section>
+
+          <details className="admin-security-details">
+            <summary>{t('admin.dashboard.security', null, lang)}</summary>
+            <AdminSecurityKey lang={lang} />
+          </details>
+        </main>
+      </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 1024px) {
+          .admin-dashboard-middle { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+          .admin-dashboard-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .admin-actions-panel { grid-column: 1 / -1; }
+        }
+        @media (max-width: 760px) {
+          .admin-dashboard { grid-template-columns: minmax(0, 1fr); }
+          .admin-dashboard-sidebar { position: fixed; z-index: 110; inset: 0 auto 0 0; width: 250px; transform: translateX(-100%); transition: transform 180ms ease; }
+          .admin-dashboard--nav-open .admin-dashboard-sidebar { transform: translateX(0); }
+          .admin-dashboard--nav-open .admin-dashboard-scrim { display: block; }
+          .admin-mobile-menu { display: inline-flex !important; }
+          .admin-dashboard-middle, .admin-dashboard-bottom { grid-template-columns: minmax(0, 1fr); }
+          .admin-actions-panel { grid-column: auto; }
+        }
+        @media (max-width: 540px) {
+          .admin-dashboard-content { padding: 18px 14px 28px !important; }
+          .admin-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .admin-dashboard-topbar { padding-inline: 14px !important; }
+          .admin-searchbox { min-width: 0 !important; flex: 1; }
+          .admin-searchbox input { width: 100%; }
+          .admin-range-select select { max-width: 92px; }
+          .admin-kpi-card { min-height: 130px; }
+          .admin-report-age { display: none; }
+          .admin-status-chip { display: none; }
+          .admin-crew-content { justify-content: center; gap: 22px !important; }
+        }
+      ` }} />
     </div>
+  );
+}
+
+function QuickAction({ href, icon: Icon, tone, title, hint }: { href: string; icon: typeof ICONS.reports.icon; tone: 'blue' | 'purple' | 'green' | 'neutral'; title: string; hint: string }) {
+  return (
+    <Link href={href} className={`admin-quick-action tone-${tone}`}>
+      <Icon size={20} weight="bold" aria-hidden />
+      <span><strong>{title}</strong><small>{hint}</small></span>
+    </Link>
   );
 }

@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import {
   formatCachedAge,
   readAssignmentsCache,
@@ -140,21 +141,6 @@ function formatDistance(meters: number, lang: Language): string {
   return lang === 'bn'
     ? `${km.toFixed(1)}কিমি দূরে`
     : `${km.toFixed(1)}km away`;
-}
-
-function categoryIcon(slug: string | null | undefined): string {
-  switch (slug) {
-    case 'streetlight':
-      return '💡';
-    case 'pothole':
-      return '🕳️';
-    case 'drainage':
-      return '🌊';
-    case 'garbage':
-      return '🗑️';
-    default:
-      return '❓';
-  }
 }
 
 /**
@@ -725,6 +711,7 @@ export default function CrewPage() {
 
       {/* List */}
       <div
+        className="crew-list-items"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -868,10 +855,9 @@ function CrewRow({
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 18,
           }}
         >
-          {categoryIcon(ticket.categorySlug)}
+          <CategoryIcon slug={ticket.categorySlug} size={20} />
         </span>
       )}
       <div style={{ minWidth: 0 }}>
