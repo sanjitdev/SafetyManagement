@@ -779,7 +779,7 @@ export default function MyReportDetailPage() {
             <div
               style={{
                 background: 'var(--color-primary-soft, #e6f2ee)',
-                borderLeft: '3px solid var(--color-primary)',
+                border: '1px solid var(--color-border)',
                 padding: 'var(--space-4)',
                 borderRadius: 'var(--radius-sm)',
               }}
@@ -882,7 +882,7 @@ export default function MyReportDetailPage() {
                   padding: '0 var(--space-4)',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--color-border)',
-                  background: '#fff',
+                  background: 'var(--color-surface-card)',
                   color: 'var(--color-ink-secondary)',
                   fontWeight: 'var(--weight-medium)',
                   cursor: 'pointer',

@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
 import { resolvePostAuthTarget } from '@/lib/role-home';
+import { CityFixMark } from '@/components/CityFixMark';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const CODE_LEN = 6;
@@ -352,15 +353,7 @@ function VerifyOtpInner() {
             color: 'var(--color-ink)',
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 10,
-              height: 10,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-            }}
-          />
+          <CityFixMark size={34} />
           <span
             style={{
               fontSize: 'var(--text-body)',

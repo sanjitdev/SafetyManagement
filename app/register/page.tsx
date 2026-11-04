@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
+import { CityFixMark } from '@/components/CityFixMark';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -220,15 +221,7 @@ function RegisterInner() {
                 marginBottom: 'var(--space-5)',
               }}
             >
-              <span
-                aria-hidden
-                style={{
-                  width: 12,
-                  height: 12,
-                  background: 'var(--color-primary)',
-                  borderRadius: '50%',
-                }}
-              />
+              <CityFixMark size={34} />
               <span
                 style={{
                   fontSize: 'var(--text-body-lg)',

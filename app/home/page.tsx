@@ -35,8 +35,10 @@ import {
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
   type CityActivityPin,
+  type CityActivityStatus,
 } from '@/components/CityActivityMap';
 
 // DHAKA_CENTER — the home map's default focal point. Mirrors the
@@ -44,6 +46,7 @@ import CityActivityMap, {
 // page) and `components/DispatcherMap.tsx` (the 3.5 dispatcher
 // page), so all city-facing map surfaces share one anchor.
 const DHAKA_CENTER = { lat: 23.8069, lng: 90.3687 };
+const HOME_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = { submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#16a765', closed: '#16a765', cancelled: '#ef4444' };
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const NOTIF_PROMPT_KEY = 'cityfix.notification_prompt_seen.v1';
@@ -110,6 +113,7 @@ export default function HomePage() {
   const [showOffline, setShowOffline] = useState(false);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const previousIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -131,7 +135,7 @@ export default function HomePage() {
     (async () => {
       try {
         const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as { authenticated: boolean; session?: { userId: string } };
+        const status = (await statusRes.json()) as { authenticated: boolean; session?: { userId: string; name?: string | null } };
         if (cancelled) return;
         if (!status.authenticated) {
           setSignedIn(false);
@@ -139,6 +143,7 @@ export default function HomePage() {
         }
         setSignedIn(true);
         setUserId(status.session?.userId ?? null);
+        setUserName(status.session?.name ?? null);
 
         const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
         if (!bootRes.ok) {
@@ -266,8 +271,9 @@ export default function HomePage() {
   if (signedIn === false) {
     return (
       <div
+        className="home-page"
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -329,10 +335,30 @@ export default function HomePage() {
           here would create duplicate landmarks and a stacked chrome
           bar (this is the regression the previous Bolt left behind). */}
 
-      {/* Two-region content area */}
+      <section className="home-dashboard-heading">
+        <div>
+          <h1 lang={lang}>{userName ? `${t('home.dashboard.greeting', null, lang)} ${userName}!` : t('home.dashboard.title', null, lang)}</h1>
+          <p lang={lang}>{t('home.dashboard.subtitle', null, lang)}</p>
+        </div>
+        {wardDisplay ? <span className="home-dashboard-ward"><ICONS.mapPin.icon size={15} aria-hidden />{wardDisplay}</span> : null}
+      </section>
+
+      <section className="home-overview-grid" aria-label={t('home.dashboard.title', null, lang)}>
+        <Link href="/report/location" className="home-report-action">
+          <span className="home-report-action-icon"><ICONS.newReport.icon size={27} weight="bold" aria-hidden /></span>
+          <span><strong>{t('home.dashboard.report', null, lang)}</strong><small>{t('home.dashboard.report_hint', null, lang)}</small></span>
+          <ICONS.forward.icon className="home-report-action-arrow" size={21} aria-hidden />
+        </Link>
+        <OverviewMetric icon="reports" value={tickets.filter((ticket) => ticket.isOwnReport).length} label={t('home.dashboard.metric.reports', null, lang)} tone="blue" />
+        <OverviewMetric icon="statusResolved" value={tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'resolved' || ticket.status === 'closed')).length} label={t('home.dashboard.metric.resolved', null, lang)} tone="green" />
+        <OverviewMetric icon="statusInProgress" value={tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'routed' || ticket.status === 'in_progress')).length} label={t('home.dashboard.metric.progress', null, lang)} tone="amber" />
+      </section>
+
+      {/* Recent reports and live city map */}
       <div className="home-grid">
         {/* Map region */}
         <div
+          className="home-map-panel"
           style={{
             position: 'relative',
             background: 'var(--color-surface-raised)',
@@ -348,6 +374,7 @@ export default function HomePage() {
               status: t.status,
             }))}
             center={DHAKA_CENTER}
+            pinColors={HOME_MAP_COLORS}
           />
 
           {/* Location pill */}
@@ -404,6 +431,7 @@ export default function HomePage() {
 
         {/* Side panel — activity feed */}
         <aside
+          className="home-recent-panel"
           style={{
             background: 'var(--color-surface-card)',
             borderLeft: '1px solid var(--color-border)',
@@ -560,6 +588,25 @@ export default function HomePage() {
           </div>
         </aside>
       </div>
+
+      <section className="home-dashboard-bottom">
+        <article className="home-dashboard-panel home-dashboard-chart">
+          <header><h2><ICONS.performance.icon size={19} aria-hidden />{t('home.dashboard.trend', null, lang)}</h2><span>{t('home.dashboard.recent_window', null, lang)}</span></header>
+          <HomeReportTrend tickets={tickets.filter((ticket) => ticket.isOwnReport)} lang={lang} />
+        </article>
+        <article className="home-dashboard-panel home-help-panel">
+          <span className="home-help-icon"><ICONS.info.icon size={21} aria-hidden /></span>
+          <h2>{t('home.dashboard.help_title', null, lang)}</h2>
+          <p>{t('home.dashboard.help_body', null, lang)}</p>
+          <Link href="/reports">{t('home.dashboard.help_action', null, lang)} <ICONS.forward.icon size={16} aria-hidden /></Link>
+        </article>
+        <article className="home-dashboard-panel home-community-panel">
+          <span className="home-community-icon"><ICONS.city.icon size={21} aria-hidden /></span>
+          <h2>{t('home.dashboard.community_title', null, lang)}</h2>
+          <p>{t('home.dashboard.community_body', null, lang)}</p>
+          <Link href="/report/location">{t('home.dashboard.report', null, lang)} <ICONS.forward.icon size={16} aria-hidden /></Link>
+        </article>
+      </section>
     </div>
   );
 }
@@ -570,6 +617,48 @@ function PlusIcon() {
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
+  );
+}
+
+function OverviewMetric({ icon, value, label, tone }: { icon: keyof typeof ICONS; value: number; label: string; tone: 'blue' | 'green' | 'amber' }) {
+  const Icon = ICONS[icon].icon;
+  return (
+    <article className={`home-overview-metric tone-${tone}`}>
+      <span><Icon size={23} weight="bold" aria-hidden /></span>
+      <strong>{value.toLocaleString()}</strong>
+      <small>{label}</small>
+    </article>
+  );
+}
+
+function HomeReportTrend({ tickets, lang }: { tickets: ActivityItem[]; lang: Language }) {
+  const count = 7;
+  const today = new Date();
+  const days = Array.from({ length: count }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (count - index - 1));
+    return { date, total: 0, resolved: 0 };
+  });
+  for (const ticket of tickets) {
+    const day = days.find((entry) => entry.date.toDateString() === new Date(ticket.createdAt).toDateString());
+    if (day) {
+      day.total += 1;
+      if (ticket.status === 'resolved' || ticket.status === 'closed') day.resolved += 1;
+    }
+  }
+  const max = Math.max(1, ...days.map((day) => day.total));
+  const points = days.map((day, index) => `${index ? 'L' : 'M'}${30 + index * 80},${126 - (day.total / max) * 100}`).join(' ');
+  const resolvedPoints = days.map((day, index) => `${index ? 'L' : 'M'}${30 + index * 80},${126 - (day.resolved / max) * 100}`).join(' ');
+  return (
+    <div className="home-trend-chart">
+      <div className="home-trend-legend"><span><i />{t('home.dashboard.metric.reports', null, lang)}</span><span><i />{t('home.dashboard.metric.resolved', null, lang)}</span></div>
+      <svg viewBox="0 0 560 160" role="img" aria-label={t('home.dashboard.trend', null, lang)}>
+        {[26, 51, 76, 101, 126].map((y) => <line key={y} x1="24" x2="536" y1={y} y2={y} />)}
+        <path d={points} className="home-trend-line" />
+        <path d={resolvedPoints} className="home-trend-line is-resolved" />
+        {days.map((day, index) => <circle key={day.date.toISOString()} cx={30 + index * 80} cy={126 - (day.total / max) * 100} r="3.5" />)}
+        {days.map((day, index) => <text key={`label-${index}`} x={30 + index * 80} y="151" textAnchor="middle">{day.date.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', day: 'numeric' })}</text>)}
+      </svg>
+    </div>
   );
 }
 

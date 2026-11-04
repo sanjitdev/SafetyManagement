@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { roleHome } from '@/lib/role-home';
+import { CityFixMark } from '@/components/CityFixMark';
 
 const LANG: Language = 'bn';
 const SLOW_LOAD_THRESHOLD_MS = 2000;
@@ -111,15 +112,7 @@ export default function SplashPage() {
           gap: 'var(--space-4)',
         }}
       >
-        <div
-          aria-hidden
-          style={{
-            width: 16,
-            height: 16,
-            background: 'var(--color-primary)',
-            borderRadius: '50%',
-          }}
-        />
+        <CityFixMark size={48} />
         <h1
           style={{
             fontSize: 'var(--text-display-lg)',

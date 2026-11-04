@@ -35,6 +35,7 @@ import CityActivityMap, {
   type CityActivityPin,
 } from '@/components/CityActivityMap';
 import { t, type Language } from '@/lib/i18n/keys';
+import { CityFixMark } from '@/components/CityFixMark';
 import { firstRenderablePhotoUrl } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
@@ -225,16 +226,7 @@ export default function PublicLandingExperience() {
             color: 'var(--color-ink)',
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
-          />
+          <CityFixMark size={34} />
           <span
             style={{
               fontSize: 'var(--text-body-lg)',

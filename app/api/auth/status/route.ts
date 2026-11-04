@@ -56,6 +56,7 @@ export async function GET() {
       departmentName: department?.name ?? null,
       departmentNameBn: department?.nameBn ?? null,
       name: user?.name ?? null,
+      nameBn: user?.nameBn ?? null,
     },
   });
 }

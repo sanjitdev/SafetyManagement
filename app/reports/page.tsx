@@ -128,6 +128,7 @@ export default function ReportsListPage() {
   );
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,6 +139,10 @@ export default function ReportsListPage() {
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    setSearchQuery(new URLSearchParams(window.location.search).get('q') ?? '');
   }, []);
 
   // Auth + bootstrap + ticket fetch
@@ -242,6 +247,12 @@ export default function ReportsListPage() {
     () => (isStaff ? tickets : userId ? tickets.filter((t) => t.reporterId === userId) : []),
     [tickets, userId, isStaff],
   );
+  const visibleReports = useMemo(() => {
+    const needle = searchQuery.trim().toLocaleLowerCase();
+    if (!needle) return mine;
+    return mine.filter((ticket) => [ticket.id, ticket.note, ticket.categoryName, ticket.categoryNameBn, ticket.wardName, ticket.wardNameBn]
+      .some((value) => value?.toLocaleLowerCase().includes(needle)));
+  }, [mine, searchQuery]);
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -421,7 +432,7 @@ export default function ReportsListPage() {
             </p>
           )}
 
-          {!loading && !error && mine.length === 0 && (
+          {!loading && !error && visibleReports.length === 0 && (
             <div
               style={{
                 textAlign: 'center',
@@ -473,7 +484,7 @@ export default function ReportsListPage() {
             </div>
           )}
 
-          {!loading && !error && mine.length > 0 && (
+          {!loading && !error && visibleReports.length > 0 && (
             <ul
               style={{
                 listStyle: 'none',
@@ -484,7 +495,7 @@ export default function ReportsListPage() {
                 gap: 'var(--space-3)',
               }}
             >
-              {mine.map((tkt) => {
+              {visibleReports.map((tkt) => {
                 const pill = pillStyle(tkt.status);
                 const catName =
                   lang === 'bn'

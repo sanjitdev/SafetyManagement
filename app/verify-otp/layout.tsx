@@ -3,8 +3,21 @@
  */
 
 import type { ReactNode } from 'react';
-import { AppShell } from '@/components/AppShell';
 
 export default function VerifyOtpLayout({ children }: { children: ReactNode }) {
-  return <AppShell role="public">{children}</AppShell>;
+  return (
+    <div
+      data-app-shell
+      data-shell-role="public"
+      style={{
+        minHeight: '100dvh',
+        background: 'var(--color-surface-page)',
+        color: 'var(--color-ink)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {children}
+    </div>
+  );
 }

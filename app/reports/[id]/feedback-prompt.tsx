@@ -152,7 +152,7 @@ export default function FeedbackPrompt({
                       ? 'var(--color-primary)'
                       : 'var(--color-border-strong, #aaa)'
                   }`,
-                  background: '#fff',
+                  background: 'var(--color-surface-card)',
                   color: rating === r ? 'var(--color-primary)' : 'var(--color-ink)',
                   fontWeight: 'var(--weight-medium)',
                   fontSize: 'var(--text-caption)',
@@ -190,7 +190,7 @@ export default function FeedbackPrompt({
                   padding: '0 var(--space-4)',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--color-primary)',
-                  background: '#fff',
+                  background: 'var(--color-surface-card)',
                   color: 'var(--color-primary)',
                   fontWeight: 'var(--weight-semibold)',
                   cursor: pending ? 'wait' : 'pointer',
@@ -209,7 +209,7 @@ export default function FeedbackPrompt({
                   padding: '0 var(--space-4)',
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--color-border-strong, #aaa)',
-                  background: '#fff',
+                  background: 'var(--color-surface-card)',
                   color: 'var(--color-ink)',
                   fontWeight: 'var(--weight-medium)',
                   cursor: pending ? 'wait' : 'pointer',

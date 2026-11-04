@@ -79,7 +79,7 @@ export function AdminAuditFilters({
     padding: '6px 8px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    background: 'var(--color-bg)',
+    background: 'var(--color-surface-page)',
     color: 'var(--color-ink)',
     fontSize: 'var(--text-caption)',
     fontFamily: 'inherit',

@@ -66,6 +66,7 @@ export interface CityActivityPin {
 interface CityActivityMapProps {
   pins: CityActivityPin[];
   center: { lat: number; lng: number };
+  pinColors?: Partial<Record<CityActivityStatus, string>>;
 }
 
 const DHAKA_DISTRICT_SOURCE_ID = 'dhaka-district';
@@ -134,6 +135,7 @@ function pinsToFeatureCollection(
 export default function CityActivityMap({
   pins,
   center,
+  pinColors,
 }: CityActivityMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -142,6 +144,8 @@ export default function CityActivityMap({
   // to re-create (which would tear down the canvas).
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
+  const pinColorsRef = useRef({ ...PIN_COLORS, ...pinColors });
+  pinColorsRef.current = { ...PIN_COLORS, ...pinColors };
 
   const clusterEnabled = pins.length > CLUSTER_THRESHOLD;
 
@@ -276,17 +280,17 @@ export default function CityActivityMap({
               'match',
               ['get', 'status'],
               'submitted',
-              PIN_COLORS.submitted,
+              pinColorsRef.current.submitted,
               'routed',
-              PIN_COLORS.routed,
+              pinColorsRef.current.routed,
               'in_progress',
-              PIN_COLORS.in_progress,
+              pinColorsRef.current.in_progress,
               'resolved',
-              PIN_COLORS.resolved,
+              pinColorsRef.current.resolved,
               'closed',
-              PIN_COLORS.closed,
+              pinColorsRef.current.closed,
               'cancelled',
-              PIN_COLORS.cancelled,
+              pinColorsRef.current.cancelled,
               /* default */ '#999',
             ],
             'circle-radius': 7,

@@ -16,9 +16,12 @@
  * regardless of the page route.
  */
 
-import type { ReactNode } from 'react';
+ 'use client';
+
+import { useState, type ReactNode } from 'react';
 import { AppHeader } from './AppHeader';
 import type { Language } from '@/lib/i18n/keys';
+import { RoleSidebar } from './RoleSidebar';
 
 interface AppShellProps {
   children: ReactNode;
@@ -45,6 +48,22 @@ export function AppShell({
   signedIn,
   subHeader,
 }: AppShellProps) {
+  const [navOpen, setNavOpen] = useState(false);
+
+  if (role !== 'public') {
+    return (
+      <div className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`} data-app-shell data-shell-role={role}>
+        <RoleSidebar role={role} onNavigate={() => setNavOpen(false)} />
+        <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
+        <div className="role-app-main">
+          <AppHeader lang={lang} role={role} signedIn={signedIn} compact onOpenNav={() => setNavOpen(true)} />
+          {subHeader}
+          <main className="role-app-content">{children}</main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-app-shell

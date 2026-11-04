@@ -1,78 +1,61 @@
 'use client';
 
-/**
- * UserMenu — top-right avatar dropdown with logout.
- *
- * Renders in every authenticated surface (citizen /home, dispatcher
- * /dispatcher, crew /crew, admin pages). A 32px circular button
- * shows the user's initials; clicking opens a small panel anchored
- * below the button that lists the user's name + role + (for non-
- * citizens) the city/ward scope, then a Logout action.
- *
- * Behaviour:
- *   - Click the button to open; click again or click outside to close.
- *   - Escape closes the menu when open.
- *   - The menu itself is keyboard navigable (Tab/Shift+Tab through
- *     the buttons; the panel uses role="menu" so screen readers
- *     announce it).
- *   - Logout POSTs to /api/auth/logout and reloads the window at
- *     `/` so any client caches (route prefetch, splash visual) are
- *     cleared. The welcome page then renders the public landing
- *     for an anonymous visitor.
- *
- * The component never blocks the page render: while the auth/status
- * call is in flight the avatar shows a fallback (a grey circle
- * labelled with "—"). Once the response arrives the real initials
- * replace it.
- *
- * i18n: copy comes from `lib/i18n/keys.ts`. The `lang` prop is
- * forwarded to every t() call.
- */
-
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 
 type Role = 'citizen' | 'dispatcher' | 'crew' | 'admin';
 
 interface UserMenuProps {
-  /** Active UI language. Bangla-first default. */
   lang?: Language;
+  variant?: 'header' | 'sidebar';
 }
 
 interface StatusPayload {
   authenticated: boolean;
   session: {
-    sessionId: string;
     userId: string;
     role: Role;
-    cityId: string;
-    wardId: string | null;
     name: string | null;
+    nameBn?: string | null;
   } | null;
 }
 
-const ROLE_KEY: Record<Role, keyof typeof import('@/lib/i18n/keys').TRANSLATIONS> =
-  {
-    citizen: 'user.menu.role.citizen',
-    dispatcher: 'user.menu.role.dispatcher',
-    crew: 'user.menu.role.crew',
-    admin: 'user.menu.role.admin',
-  };
+const ROLE_KEY: Record<Role, keyof typeof import('@/lib/i18n/keys').TRANSLATIONS> = {
+  citizen: 'user.menu.role.citizen',
+  dispatcher: 'user.menu.role.dispatcher',
+  crew: 'user.menu.role.crew',
+  admin: 'user.menu.role.admin',
+};
 
 function initialsOf(name: string | null | undefined): string {
-  if (!name) return '—';
-  const trimmed = name.trim();
-  if (!trimmed) return '—';
-  // For Bangla names we just take the first character; for Latin
-  // names we take the first letter of up to two whitespace-separated
-  // words. The visual goal is "looks like initials" — anything
-  // further is out of scope for v1.
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 1);
-  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (!words.length) return '•';
+  return words.length === 1
+    ? words[0].slice(0, 1)
+    : `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
-export function UserMenu({ lang = 'bn' }: UserMenuProps) {
+function ProfileIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden focusable="false">
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5.5 20c.4-3.4 2.8-5.3 6.5-5.3s6.1 1.9 6.5 5.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden focusable="false">
+      <path d="M10 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H10" strokeLinecap="round" />
+      <path d="M13 8l4 4-4 4M17 12H8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
+  const sidebar = variant === 'sidebar';
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -80,226 +63,201 @@ export function UserMenu({ lang = 'bn' }: UserMenuProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuId = useId();
 
-  // Fetch auth/status once on mount. The endpoint is cheap (single
-  // session + user lookup) and is the canonical source for both
-  // "am I signed in?" and "what's my role/name?".
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
-        if (!res.ok || cancelled) return;
-        const payload = (await res.json()) as StatusPayload;
-        if (!cancelled) setStatus(payload);
-      } catch {
-        // Network error / offline. Leave status null; the avatar
-        // will show the fallback glyph.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const refreshStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+      if (res.ok) setStatus((await res.json()) as StatusPayload);
+    } catch {
+      // Keep the last known account identity while offline.
+    }
   }, []);
 
-  // Close on Escape + click outside.
+  useEffect(() => {
+    void refreshStatus();
+    const onProfileUpdated = () => void refreshStatus();
+    window.addEventListener('cityfix:profile-updated', onProfileUpdated);
+    return () => window.removeEventListener('cityfix:profile-updated', onProfileUpdated);
+  }, [refreshStatus]);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setOpen(false);
         buttonRef.current?.focus();
       }
     };
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const root = containerRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) {
-        setOpen(false);
-      }
+      if (root && event.target instanceof Node && !root.contains(event.target)) setOpen(false);
     };
     document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onClick);
+    document.addEventListener('pointerdown', onPointerDown);
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('pointerdown', onPointerDown);
     };
   }, [open]);
-
-  const onToggle = useCallback(() => {
-    setOpen((v) => !v);
-  }, []);
 
   const onLogout = useCallback(async () => {
     if (signingOut) return;
     setSigningOut(true);
     setOpen(false);
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } catch {
-      // The endpoint is idempotent; even on failure the cookie
-      // gets cleared the next time the user lands. We still
-      // redirect — leaving the user stuck on a page that thinks
-      // they are signed in is worse than a hard reload.
+      // Still leave the protected surface; the server will reject an expired session.
     }
-    // Hard reload to `/` so the splash/landing visual re-bootstraps
-    // and any client caches (router prefetch, theme localStorage)
-    // are cleared.
     window.location.href = '/';
   }, [signingOut]);
 
-  const name = status?.session?.name ?? null;
-  const role = status?.session?.role ?? null;
-  const initials = initialsOf(name);
+  const user = status?.session;
+  const name = lang === 'bn' ? user?.nameBn || user?.name : user?.name || user?.nameBn;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', display: 'inline-block' }}
-    >
+    <div ref={containerRef} className={`usermenu-root${sidebar ? ' usermenu-sidebar' : ''}`} style={{ position: 'relative', display: 'inline-flex', width: sidebar ? '100%' : undefined }}>
       <button
         ref={buttonRef}
         type="button"
-        aria-label={
-          name
-            ? t('user.menu.aria.avatar', { name }, lang)
-            : t('user.menu.open_menu', null, lang)
-        }
-        aria-haspopup="menu"
+        className="usermenu-trigger"
+        aria-label={name ? t('user.menu.aria.avatar', { name }, lang) : t('user.menu.open_menu', null, lang)}
         aria-expanded={open}
         aria-controls={menuId}
-        onClick={onToggle}
+        aria-haspopup="true"
+        onClick={() => {
+          setOpen((wasOpen) => !wasOpen);
+          if (!open) void refreshStatus();
+        }}
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: 'var(--color-primary-soft, #e6f2ee)',
-          color: 'var(--color-primary)',
+          minWidth: sidebar ? 0 : 40,
+          width: sidebar ? '100%' : undefined,
+          height: sidebar ? 58 : 40,
+          padding: sidebar ? 'var(--space-2)' : '0 var(--space-2)',
+          border: sidebar ? '1px solid transparent' : (open ? '1px solid var(--color-border-strong)' : '1px solid var(--color-border)'),
+          borderRadius: sidebar ? 'var(--radius-md)' : 'var(--radius-pill)',
+          background: sidebar ? 'transparent' : (open ? 'var(--color-surface-raised)' : 'var(--color-surface-card)'),
+          color: sidebar ? '#f7f9ff' : 'var(--color-ink)',
           display: 'inline-flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 'var(--text-caption)',
-          fontWeight: 'var(--weight-bold)',
-          border: '1px solid var(--color-border)',
+          justifyContent: sidebar ? 'flex-start' : 'center',
+          gap: 'var(--space-2)',
           cursor: 'pointer',
-          padding: 0,
           fontFamily: 'inherit',
+          transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)',
         }}
       >
-        {initials}
+        <span
+          aria-hidden
+          style={{
+            width: sidebar ? 38 : 28,
+            height: sidebar ? 38 : 28,
+            flexShrink: 0,
+            borderRadius: '50%',
+            background: 'var(--color-primary-soft)',
+            color: 'var(--color-primary)',
+            display: 'inline-grid',
+            placeItems: 'center',
+            fontSize: 'var(--text-caption)',
+            fontWeight: 'var(--weight-bold)',
+          }}
+        >
+          {initialsOf(name)}
+        </span>
+        <span className="usermenu-label" style={{ minWidth: 0, maxWidth: sidebar ? 150 : 112, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: sidebar ? 'normal' : 'nowrap', display: sidebar ? 'flex' : undefined, flexDirection: sidebar ? 'column' : undefined, alignItems: sidebar ? 'flex-start' : undefined, gap: sidebar ? 3 : undefined, marginInlineStart: sidebar ? 'var(--space-2)' : undefined, flex: sidebar ? 1 : undefined, fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{name ?? t('user.menu.open_menu', null, lang)}</span>
+          {sidebar && user?.role ? <span style={{ color: '#b9c5db', fontSize: 11, fontWeight: 'var(--weight-regular)' }}>{t(ROLE_KEY[user.role], null, lang)}</span> : null}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: sidebar ? 'auto' : undefined }}>
+          <path d={open ? 'm5 12 5-5 5 5' : 'm5 8 5 5 5-5'} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       {open && (
         <div
           id={menuId}
-          role="menu"
+          role="group"
           aria-label={t('user.menu.open_menu', null, lang)}
+          className="usermenu-panel"
           style={{
             position: 'absolute',
-            top: 'calc(100% + var(--space-2))',
+            top: sidebar ? undefined : 'calc(100% + var(--space-2))',
+            bottom: sidebar ? 'calc(100% + var(--space-2))' : undefined,
             right: 0,
-            minWidth: 220,
+            width: 'min(304px, calc(100vw - 24px))',
+            boxSizing: 'border-box',
             background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-card)',
-            boxShadow: 'var(--shadow-popover, 0 4px 12px rgba(0,0,0,0.08))',
-            padding: 'var(--space-3)',
-            zIndex: 50,
+            boxShadow: 'var(--shadow-popover, 0 8px 24px rgba(15, 23, 42, 0.14))',
+            padding: 'var(--space-2)',
+            zIndex: 80,
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--space-2)',
+            gap: 'var(--space-1)',
           }}
         >
-          <div
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 'var(--text-body)',
-                fontWeight: 'var(--weight-semibold)',
-                color: 'var(--color-ink)',
-                lineHeight: 1.3,
-              }}
-            >
-              {name ?? '—'}
+          <div style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            <span aria-hidden style={{ width: 42, height: 42, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: 'var(--text-body)', fontWeight: 'var(--weight-bold)' }}>
+              {initialsOf(name)}
             </span>
-            {role && (
-              <span
-                style={{
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-ink-secondary)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-1)',
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    display: 'inline-block',
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: 'var(--color-primary)',
-                  }}
-                />
-                {t(ROLE_KEY[role], null, lang)}
-              </span>
-            )}
+            <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <strong style={{ color: 'var(--color-ink)', fontSize: 'var(--text-body-sm)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{name ?? '—'}</strong>
+              {user?.role && <span style={{ color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)' }}>{t(ROLE_KEY[user.role], null, lang)}</span>}
+            </span>
           </div>
 
-          <div
+          <Link
+            href="/profile"
+            className="usermenu-profile-link"
+            onClick={() => setOpen(false)}
             style={{
-              height: 1,
-              background: 'var(--color-border)',
-              margin: 'var(--space-1) 0',
+              minHeight: 48,
+              padding: '0 var(--space-3)',
+              borderRadius: 'var(--radius-input)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              color: 'var(--color-ink)',
+              textDecoration: 'none',
+              background: 'var(--color-surface-raised)',
             }}
-          />
+          >
+            <span style={{ color: 'var(--color-primary)', display: 'inline-flex' }}><ProfileIcon /></span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <strong style={{ fontSize: 'var(--text-body-sm)', fontWeight: 'var(--weight-semibold)' }}>{t('user.menu.profile', null, lang)}</strong>
+              <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-ink-secondary)' }}>{t('user.menu.profile_hint', null, lang)}</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: 'auto' }}>
+              <path d="m7 4 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+
+          <div style={{ height: 1, background: 'var(--color-border)', margin: 'var(--space-1) var(--space-2)' }} />
 
           <button
             type="button"
-            role="menuitem"
+            className="usermenu-logout"
             onClick={onLogout}
             disabled={signingOut}
             style={{
-              padding: 'var(--space-2) var(--space-3)',
+              minHeight: 44,
+              padding: '0 var(--space-3)',
               background: 'transparent',
-              border: 'none',
+              border: 0,
               borderRadius: 'var(--radius-input)',
-              color: 'var(--color-danger, #c0392b)',
+              color: 'var(--color-danger)',
               fontWeight: 'var(--weight-semibold)',
-              fontSize: 'var(--text-body)',
+              fontSize: 'var(--text-body-sm)',
               textAlign: 'left',
               cursor: signingOut ? 'wait' : 'pointer',
               fontFamily: 'inherit',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 'var(--space-2)',
+              gap: 'var(--space-3)',
             }}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-              focusable="false"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            {signingOut
-              ? t('user.menu.signing_out', null, lang)
-              : t('user.menu.logout', null, lang)}
+            <LogoutIcon />
+            {signingOut ? t('user.menu.signing_out', null, lang) : t('user.menu.logout', null, lang)}
           </button>
         </div>
       )}

@@ -36,7 +36,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
+import { CityFixMark } from './CityFixMark';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ICONS } from '@/lib/ui/icon-map';
 
 interface AppHeaderProps {
   /** Active UI language. Bangla-first default. */
@@ -53,16 +55,20 @@ interface AppHeaderProps {
    * When omitted, the header probes /api/auth/status itself.
    */
   signedIn?: boolean | null;
+  /** Compact operational top bar used beside the role sidebar. */
+  compact?: boolean;
+  onOpenNav?: () => void;
 }
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
-export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp }: AppHeaderProps) {
+export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, onOpenNav }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname() ?? '/';
   const [lang, setLang] = useState<Language>(langProp ?? 'bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(signedInProp ?? null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const menuId = useId();
 
@@ -131,12 +137,33 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
     } catch {
       // ignore
     }
+    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
   }
 
+  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    const target = pathname.startsWith('/admin')
+      ? '/admin/tickets'
+      : pathname.startsWith('/dispatcher')
+        ? '/dispatcher'
+        : '/reports';
+    router.push(`${target}?q=${encodeURIComponent(query)}`);
+  }
+
+  const notificationHref = pathname.startsWith('/admin')
+    ? '/admin/audit'
+    : pathname.startsWith('/dispatcher')
+      ? '/dispatcher/monitor'
+      : pathname.startsWith('/crew')
+        ? '/crew'
+        : '/feed';
+
   const navItems = [
-    { href: '/home', label: t('header.nav.home', null, lang) },
-    { href: '/feed', label: t('header.nav.feed', null, lang) },
-    { href: '/reports', label: t('header.nav.reports', null, lang) },
+    { href: '/home', label: t('header.nav.home', null, lang), icon: ICONS.home },
+    { href: '/feed', label: t('header.nav.feed', null, lang), icon: ICONS.feed },
+    { href: '/reports', label: t('header.nav.reports', null, lang), icon: ICONS.reports },
   ];
 
   const showNav = signedIn === true && role !== 'staff';
@@ -145,7 +172,9 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
   return (
     <header
       ref={containerRef}
+      className="appheader-root"
       data-role={role}
+      data-compact={compact ? 'true' : undefined}
       style={{
         height: 'var(--header-height-desktop)',
         background: 'var(--color-surface-card)',
@@ -182,23 +211,14 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
             flexShrink: 0,
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              flexShrink: 0,
-            }}
-          />
+          <CityFixMark />
           <span
             style={{
               fontSize: 'var(--text-body-lg)',
               fontWeight: 'var(--weight-bold)',
               whiteSpace: 'nowrap',
               fontFamily: 'var(--font-display)',
-              letterSpacing: 'var(--tracking-tight)',
+              letterSpacing: '-0.035em',
             }}
           >
             CityFix
@@ -237,6 +257,9 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
                   lang={lang}
                   aria-current={active ? 'page' : undefined}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
                     padding: 'var(--space-1) var(--space-3)',
                     fontSize: 'var(--text-body-sm)',
                     fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
@@ -247,6 +270,12 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
                     whiteSpace: 'nowrap',
                   }}
                 >
+                  <item.icon.icon
+                    size={16}
+                    weight={item.icon.weight}
+                    aria-hidden
+                    focusable="false"
+                  />
                   {item.label}
                 </Link>
               );
@@ -254,6 +283,19 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           </nav>
         )}
       </div>
+
+      {compact ? (
+        <div className="appheader-compact-tools">
+          <button type="button" className="appheader-open-nav" aria-label={t('shell.nav.open', null, lang)} onClick={onOpenNav}>
+            <ICONS.menu.icon size={20} aria-hidden />
+          </button>
+          <form className="appheader-search" role="search" onSubmit={submitSearch}>
+            <ICONS.search.icon size={19} aria-hidden />
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t('shell.search', null, lang)} aria-label={t('shell.search', null, lang)} />
+            <button type="submit" aria-label={t('shell.search.submit', null, lang)}><ICONS.forward.icon size={17} aria-hidden /></button>
+          </form>
+        </div>
+      ) : null}
 
       {/* CENTER: primary Report CTA — citizen only */}
       {showReportCta && (
@@ -285,7 +327,7 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
             fontFamily: 'inherit',
           }}
         >
-          <PlusIcon />
+          <ICONS.newReport.icon size={18} weight={ICONS.newReport.weight} aria-hidden focusable="false" />
           <span className="appheader-cta-label">
             {t('header.nav.report', null, lang)}
           </span>
@@ -294,6 +336,7 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
 
       {/* RIGHT: lang + theme + user menu (or sign-in / register) */}
       <div
+        className="appheader-actions"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -301,6 +344,11 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           flexShrink: 0,
         }}
       >
+        {compact ? (
+          <Link href={notificationHref} className="appheader-notifications" aria-label={t('shell.nav.notifications', null, lang)} title={t('shell.nav.notifications', null, lang)}>
+            <ICONS.notifications.icon size={20} aria-hidden />
+          </Link>
+        ) : null}
         <button
           type="button"
           onClick={toggleLang}
@@ -476,20 +524,21 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
              real span element so this rule can hit it. */
           .appheader-cta-label { display: none; }
           .appheader-cta { padding: 0 var(--space-3); }
+          .appheader-root { padding-inline: var(--space-2) !important; gap: var(--space-1) !important; }
+          .appheader-root > div:first-of-type { gap: var(--space-2) !important; }
+          .appheader-actions { gap: var(--space-1) !important; }
+          .appheader-root > div:first-of-type > a > span:first-child { width: 32px !important; height: 32px !important; }
+          .appheader-cta { min-width: 40px; padding-inline: var(--space-2); }
+          .usermenu-label { display: none; }
         }
+        .appheader-root .usermenu-trigger:hover { background: var(--color-surface-raised) !important; }
+        .usermenu-profile-link { transition: background var(--duration-fast) var(--ease-out); }
+        .usermenu-profile-link:hover { background: var(--color-primary-soft) !important; }
+        .usermenu-logout:hover { background: var(--color-danger-soft) !important; }
       `,
         }}
       />
     </header>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden focusable="false">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
   );
 }
 

@@ -25,6 +25,10 @@ export const metadata: Metadata = {
   applicationName: 'CityFix',
   authors: [{ name: 'CityFix' }],
   generator: 'Next.js',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+  },
   // Per Phase 1: Bangla-first, English-secondary. The lang attribute below
   // declares the default; pages with explicit Bangla content set lang="bn".
 };
@@ -32,7 +36,7 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#2C5282', // matches --color-primary in tokens.css
+  themeColor: '#0B1220', // matches the default CityFix dark canvas
   colorScheme: 'light dark',
 };
 

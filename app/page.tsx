@@ -41,6 +41,7 @@ import { getActiveSession } from '@/lib/db-switch';
 import { isDevStore } from '@/lib/dev-store';
 import { roleHome } from '@/lib/role-home';
 import PublicLandingExperience from '@/components/PublicLandingExperience';
+import { CityFixMark } from '@/components/CityFixMark';
 
 export default async function HomePage() {
   const session = await getActiveSession();
@@ -65,17 +66,7 @@ export default async function HomePage() {
         }}
       >
         <div style={{ maxWidth: 720, width: '100%' }}>
-          <div
-            style={{
-              display: 'inline-block',
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-              marginBottom: 'var(--space-3)',
-            }}
-            aria-hidden
-          />
+          <CityFixMark size={38} />
           <h1
             style={{
               fontSize: 'var(--text-display-lg)',

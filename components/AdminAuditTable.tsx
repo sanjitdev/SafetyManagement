@@ -216,7 +216,7 @@ export function AdminAuditTable({
                             style={{
                               margin: 0,
                               padding: 8,
-                              background: 'var(--color-bg)',
+                              background: 'var(--color-surface-page)',
                               border: '1px solid var(--color-border)',
                               borderRadius: 'var(--radius-sm)',
                               fontSize: 'var(--text-small)',
@@ -243,7 +243,7 @@ export function AdminAuditTable({
                             style={{
                               margin: 0,
                               padding: 8,
-                              background: 'var(--color-bg)',
+                              background: 'var(--color-surface-page)',
                               border: '1px solid var(--color-border)',
                               borderRadius: 'var(--radius-sm)',
                               fontSize: 'var(--text-small)',
