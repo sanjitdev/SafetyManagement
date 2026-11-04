@@ -70,7 +70,10 @@ describe('Dispatcher queue — the queue row renders a thumbnail', () => {
   });
 
   it('falls back to the category glyph when there is no photo', () => {
-    expect(DISPATCHER_PAGE).toContain('categoryIcon(ticket.categorySlug)');
+    // The glyph is the shared `CategoryIcon` primitive (Phosphor), not
+    // a page-local emoji helper.
+    expect(DISPATCHER_PAGE).toContain('CategoryIcon');
+    expect(DISPATCHER_PAGE).toContain('slug={ticket.categorySlug}');
   });
 });
 
@@ -86,7 +89,8 @@ describe('Crew assignments — the assignment row renders a thumbnail', () => {
   });
 
   it('falls back to the category glyph when there is no photo', () => {
-    expect(CREW_PAGE).toContain('categoryIcon(ticket.categorySlug)');
+    expect(CREW_PAGE).toContain('CategoryIcon');
+    expect(CREW_PAGE).toContain('slug={ticket.categorySlug}');
   });
 });
 

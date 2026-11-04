@@ -20,8 +20,29 @@ export default defineConfig({
       '@': path.resolve(__dirname, './'),
     },
   },
+
+  /**
+   * The automatic JSX runtime.
+   *
+   * `tsconfig.json` sets `"jsx": "preserve"` because Next.js compiles
+   * the app itself. Vitest has no Next compiler in front of it, so
+   * esbuild falls back to the CLASSIC runtime — which requires
+   * `React` to be in scope in every `.tsx` file. Without this, every
+   * component test dies with `ReferenceError: React is not defined`.
+   *
+   * `automatic` matches what Next.js does, so a test file renders
+   * exactly what the app renders.
+   */
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
-    include: ['tests/unit/**/*.test.ts'],
+    // `.tsx` is included so component primitives can be rendered and
+    // asserted in jsdom. Pure-logic tests stay in `.test.ts`.
+    include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'],
+    // `node` by default — the vast majority of the suite is pure logic
+    // and must not pay for a DOM. The component tests opt in with a
+    // `@vitest-environment jsdom` docblock at the top of the file.
     environment: 'node',
     globals: false,
     env: {

@@ -75,8 +75,8 @@ describe('appearance helper', () => {
     expect(isAppearance({})).toBe(false);
   });
 
-  it('defaults to system when storage is empty', () => {
-    expect(APPEARANCE_DEFAULT).toBe('system');
+  it('defaults to dark when storage is empty', () => {
+    expect(APPEARANCE_DEFAULT).toBe('dark');
   });
 
   it('resolves dark/light to itself', () => {

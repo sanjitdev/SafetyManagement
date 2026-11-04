@@ -266,10 +266,25 @@ describe('the theme tokens the admin surface depends on are defined', () => {
     // `--color-bg` was defined ONLY inside `.theme-dark`, so the two
     // panels that used it were transparent in light mode. This
     // pins the shape of that class of bug.
+    //
+    // The check is GENERALISED: it compares the whole token set of
+    // the two blocks rather than hard-coding the one token that
+    // happened to break. A token that exists only in the dark block
+    // is a latent transparent-panel bug waiting for the next caller,
+    // so the whole class is rejected.
     const css = readFileSync(TOKENS_CSS, 'utf8');
     const light = tokenBlock(css, ':root');
     const dark = tokenBlock(css, '.theme-dark');
-    expect(light).not.toContain('--color-bg:');
-    expect(dark).toContain('--color-bg:');
+
+    const tokenNames = (block: string): string[] =>
+      Array.from(new Set(Array.from(block.matchAll(/(--[a-z0-9-]+)\s*:/g)).map((m) => m[1])));
+
+    const lightTokens = new Set(tokenNames(light));
+    const darkOnly = tokenNames(dark).filter((token) => !lightTokens.has(token));
+
+    expect(
+      darkOnly,
+      `defined only in .theme-dark, so a light-mode call site renders with no value: ${darkOnly.join(', ')}`,
+    ).toEqual([]);
   });
 });
