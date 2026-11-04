@@ -82,6 +82,7 @@ export interface DevUser {
   phone: string | null;
   nid: string | null;
   name: string;
+  nameBn?: string | null;
   email: string | null;
   passwordHash: string | null;
   wardId: string | null;
@@ -1103,6 +1104,17 @@ export const devDb = {
   user: {
     findUnique(args: { where: { id: string } }): DevUser | null {
       return getStore().users.get(args.where.id) ?? null;
+    },
+    updateProfile(args: {
+      where: { id: string };
+      data: { name: string; nameBn: string | null };
+    }): DevUser {
+      const users = getStore().users;
+      const current = users.get(args.where.id);
+      if (!current) throw new Error('User not found');
+      const updated = { ...current, ...args.data };
+      users.set(updated.id, updated);
+      return updated;
     },
     findFirst(args: {
       where: { cityId: string; phone: string; role?: string };

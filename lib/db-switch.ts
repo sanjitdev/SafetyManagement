@@ -259,6 +259,13 @@ export const db = {
       isDevStore()
         ? devDb.user.findUnique(args)
         : prismaClient.user.findUnique(args),
+    updateProfile: (args: {
+      where: { id: string };
+      data: { name: string; nameBn: string | null };
+    }) =>
+      isDevStore()
+        ? devDb.user.updateProfile(args)
+        : prismaClient.user.update({ where: args.where, data: args.data }),
     // Bolt 005-002-launch (2026-10-13) — the citizen register route
     // looks up `(cityId, phone)` across ALL roles so a non-citizen row
     // sharing the same phone is also caught (the per-city unique

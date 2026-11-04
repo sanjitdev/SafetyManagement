@@ -4,7 +4,7 @@
  * Three-state citizen-selectable appearance:
  *   - 'light'  → force light theme
  *   - 'dark'   → force dark theme
- *   - 'system' → follow `prefers-color-scheme` (default)
+ *   - 'system' → follow `prefers-color-scheme`
  *
  * The preference is stored in localStorage so it survives reloads and
  * is honored on first paint by a synchronous inline boot script
@@ -23,7 +23,7 @@ export type ResolvedAppearance = 'light' | 'dark';
 
 export const APPEARANCE_STORAGE_KEY = 'cityfix.preferred_appearance.v1';
 
-export const APPEARANCE_DEFAULT: Appearance = 'system';
+export const APPEARANCE_DEFAULT: Appearance = 'dark';
 
 export const APPEARANCES: readonly Appearance[] = ['light', 'dark', 'system'] as const;
 
