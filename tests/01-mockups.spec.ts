@@ -5,7 +5,7 @@ import { compareMockupVsBuild } from './helpers/compare';
 /**
  * Mockup baseline capture for CityFix.
  *
- * Loads the 5 hero mockups in design-artifacts/D-Design-System/01-Visual-Design/mockups/
+ * Loads the 12 hero mockups in design-artifacts/D-Design-System/01-Visual-Design/mockups/
  * at the design-canvas viewports and asserts full-page screenshots against committed
  * baselines under tests-mockups/baselines/.
  *
@@ -61,6 +61,12 @@ test.describe('CityFix mockup baselines', () => {
     { id: '06-field-app-home', file: '06-field-app-home.html', viewports: ['LARGE', 'MEDIUM', 'PHONE'] as const },
     // Mockup 07 — Rashid's status: in-progress (hands-busy, .theme-outdoor). Full-bleed at all viewports.
     { id: '07-status-in-progress', file: '07-status-in-progress.html', viewports: ['LARGE', 'MEDIUM', 'PHONE'] as const },
+    // Mockups 08–12 — Wave 2 (auth + public surfaces). Captured at large + medium.
+    { id: '08-login', file: '08-login.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '09-register', file: '09-register.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '10-verify-otp', file: '10-verify-otp.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '11-public-landing', file: '11-public-landing.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '12-feed', file: '12-feed.html', viewports: ['LARGE', 'MEDIUM'] as const },
   ]) {
     for (const vp of viewports) {
       const viewport = vp === 'LARGE' ? WEB_LARGE : vp === 'MEDIUM' ? WEB_MEDIUM : PHONE_WIDTH;

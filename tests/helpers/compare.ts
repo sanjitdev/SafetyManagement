@@ -3,7 +3,7 @@ import { test, expect, Page } from '@playwright/test';
 /**
  * Reusable helper for visual regression: mockup vs. build.
  *
- * Today: captures the 5 design mockups as committed PNG baselines.
+ * Today: captures the 12 design mockups as committed PNG baselines.
  * Tomorrow: once the build phase exists, also captures the built route
  * and pixel-diffs the two. The build phase just fills in `buildUrl`.
  *

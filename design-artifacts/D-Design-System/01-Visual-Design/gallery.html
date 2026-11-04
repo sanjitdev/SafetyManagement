@@ -22,8 +22,7 @@
 
     .nav {
       position: sticky; top: 0; z-index: var(--z-sticky);
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(20px);
+      background: var(--color-surface-card);
       border-bottom: 1px solid var(--color-border);
       padding: var(--space-4) var(--space-5);
     }
@@ -33,14 +32,12 @@
     .mockup-card {
       background: var(--color-surface-card);
       border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-card);
       overflow: hidden;
-      box-shadow: var(--shadow-sm);
-      transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+      transition: border-color var(--duration-base) var(--ease-out);
     }
     .mockup-card:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateY(-2px);
+      border-color: var(--color-border-strong);
     }
     .mockup-preview {
       background: var(--color-surface-page);
@@ -102,10 +99,10 @@
 
 <!-- Hero -->
 <div style="padding: var(--space-8) var(--space-5) var(--space-6); text-align: center;">
-  <div class="section-eyebrow">Visual design · 2026-10-04 (web re-skin)</div>
+  <div class="section-eyebrow">Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public</div>
   <h1 style="font-size: var(--text-display-xl); margin: 0 0 var(--space-3);">CityFix — Mockups</h1>
   <p style="font-size: var(--text-body-lg); color: var(--color-ink-secondary); max-width: 680px; margin: 0 auto; line-height: 1.55;">
-    Apple-like calm confidence. Bangla-first. Civic trust. 7 hero mockups re-skinned for the web — large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+    Apple-like calm confidence. Bangla-first. Civic trust. 12 mockups re-skinned for the web — large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
   </p>
   <div style="margin-top: var(--space-4);">
     <span class="viewport-tag">1440 × 900 · large</span>
@@ -120,10 +117,11 @@
     <div>
       <h2 style="margin: 0 0 var(--space-2); font-size: var(--text-display-md);">Component library</h2>
       <p style="margin: 0; color: var(--color-ink-secondary); font-size: var(--text-body);">
-        Every pattern, every state, applied to a single token set. Buttons, inputs, cards, status pills, status trail, photo blocks, banners, modals, filter pills.
+        Every pattern, every state, applied to a single token set — buttons, inputs, cards,
+        status pills, the status trail, the chart kit, the data table, navigation, states and toasts.
       </p>
     </div>
-    <a href="components.html" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-5); background: var(--color-primary); color: white; border-radius: var(--radius-sm); text-decoration: none; font-weight: var(--weight-semibold);">
+    <a href="components.html" style="display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--touch-min); padding: 0 var(--space-5); background: var(--color-primary); color: var(--color-on-primary); border-radius: var(--radius-input); text-decoration: none; font-weight: var(--weight-semibold);">
       Open library
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </a>
@@ -132,14 +130,14 @@
 
 <!-- Mockups grid — each mockup shown at large viewport -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-8);">
-  <div class="section-eyebrow" style="margin-bottom: var(--space-5);">7 hero mockups</div>
+  <div class="section-eyebrow" style="margin-bottom: var(--space-5);">12 mockups — Wave 1 foundations + Wave 2 auth &amp; public</div>
 
   <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-5);">
 
     <!-- 01 Welcome -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/01-welcome.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/01-welcome.html" class="iframe-large" scrolling="auto" title="Mockup 01 — Welcome"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">01 — Welcome</div>
@@ -154,7 +152,7 @@
     <!-- 02 Home / City Activity -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/02-home-city-activity.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/02-home-city-activity.html" class="iframe-large" scrolling="auto" title="Mockup 02 — Home / City Activity"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">02 — Home / City Activity (Rahim · web)</div>
@@ -169,7 +167,7 @@
     <!-- 03 Report Submitted -->
     <div class="mockup-card">
       <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5);">
-        <iframe src="mockups/03-report-submitted.html" style="width: 700px; height: 800px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto"></iframe>
+        <iframe src="mockups/03-report-submitted.html" style="width: 700px; height: 800px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 03 — Report Submitted"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">03 — Report Submitted</div>
@@ -184,7 +182,7 @@
     <!-- 04 My Reports Detail -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/04-my-reports-detail.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/04-my-reports-detail.html" class="iframe-large" scrolling="auto" title="Mockup 04 — My Reports Detail"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">04 — My Reports Detail</div>
@@ -199,7 +197,7 @@
     <!-- 05 Daily Queue Dashboard — desktop, full width -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 05 — Daily Queue Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">05 — Daily Queue Dashboard (Habib · desktop)</div>
@@ -213,7 +211,7 @@
     <!-- 06 Field App Home — Rashid, web-first with phone fallback -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/06-field-app-home.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/06-field-app-home.html" class="iframe-large" scrolling="auto" title="Mockup 06 — Field App Home"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">06 — Field App Home (Rashid · web + phone)</div>
@@ -229,7 +227,7 @@
     <!-- 07 Status: In Progress — Rashid, full-bleed, .theme-outdoor -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/07-status-in-progress.html" class="iframe-large" scrolling="auto"></iframe>
+        <iframe src="mockups/07-status-in-progress.html" class="iframe-large" scrolling="auto" title="Mockup 07 — Status: In Progress"></iframe>
       </div>
       <div class="mockup-meta">
         <div class="mockup-title">07 — Status: In Progress (Rashid · hands-busy)</div>
@@ -239,6 +237,81 @@
         <span class="viewport-tag">390 × 844 · phone fallback</span>
         <br/>
         <a href="mockups/07-status-in-progress.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 08 Login — Wave 2 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/08-login.html" class="iframe-large" scrolling="auto" title="Mockup 08 — Log in"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">08 — Log in (Wave 2)</div>
+        <div class="mockup-desc">Two-region auth shell: the form on the left, the civic story on the right. A focusable error summary links to the offending field; the show/hide toggle and the recovery path are both present. At medium the story column collapses.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/08-login.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 09 Register — Wave 2 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/09-register.html" class="iframe-large" scrolling="auto" title="Mockup 09 — Create account"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">09 — Create account (Wave 2)</div>
+        <div class="mockup-desc">Three-stage signup rail (account → phone verification → start), live password requirements with a per-rule icon, and a consent checkbox that states what stays private.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/09-register.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 10 Verify OTP — Wave 2 -->
+    <div class="mockup-card">
+      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5); background: var(--color-surface-sunken);">
+        <iframe src="mockups/10-verify-otp.html" style="width: 560px; height: 860px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 10 — Verify your phone"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">10 — Verify your phone (Wave 2)</div>
+        <div class="mockup-desc">Six single-digit boxes with the wrong-code state, a named delivery channel (SMS), a live resend countdown, and a recovery card for when the code does not arrive. Anti-fraud footnote included.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/10-verify-otp.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 11 Public landing — Wave 2 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/11-public-landing.html" class="iframe-large" scrolling="auto" title="Mockup 11 — Public landing"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">11 — Public landing (Wave 2)</div>
+        <div class="mockup-desc">Anonymous entry. Hero + live stats strip + status-coloured map card + trust row + PII-stripped activity feed. Numbers use tabular figures so the stats column aligns.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/11-public-landing.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 12 Feed — Wave 2 -->
+    <div class="mockup-card">
+      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5);">
+        <iframe src="mockups/12-feed.html" style="width: 800px; height: 900px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 12 — City activity feed"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">12 — City activity feed (Wave 2)</div>
+        <div class="mockup-desc">Signed-in citizen view. Global app header with the active nav item, sticky filter chips with live counts, and a "new item" state that carries a badge as well as a tint.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/12-feed.html" class="mockup-link">Open full →</a>
       </div>
     </div>
 
@@ -280,6 +353,10 @@
           <li>Filter pills</li>
           <li>Modal</li>
           <li>Map placeholder</li>
+          <li>Error summary + field error</li>
+          <li>OTP input boxes</li>
+          <li>Password requirement checklist</li>
+          <li>Live stats strip</li>
         </ul>
       </div>
       <div>
@@ -290,6 +367,10 @@
           <li>Centered confirmation card</li>
           <li>Gallery + metadata (detail)</li>
           <li>3-region desktop (dashboard)</li>
+          <li>Two-region auth shell (login, register)</li>
+          <li>Centered OTP card (verify)</li>
+          <li>Hero + stats + map card (landing)</li>
+          <li>Sticky filter chips + list (feed)</li>
         </ul>
       </div>
     </div>
@@ -298,7 +379,7 @@
 
 <!-- Footer -->
 <footer style="padding: var(--space-7) var(--space-5); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption); border-top: 1px solid var(--color-border);">
-  CityFix visual design · Tokens + 7 hero mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
+  CityFix visual design · Tokens + 12 mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
 </footer>
 
 </body>

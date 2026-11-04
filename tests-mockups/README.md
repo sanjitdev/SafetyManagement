@@ -92,4 +92,5 @@ The helper (`tests/helpers/compare.ts`) takes a screenshot of both the mockup an
 - **Tolerance defaults to 1%** (`maxDiffPixelRatio: 0.01`). Lower it as the design system stabilizes.
 - **Updating baselines is a deliberate act.** Run `npm run test:update-baselines`, eyeball the diff in `artifacts/`, commit only after review.
 - **Animations and caret blink are disabled** in `playwright.config.ts` — they cause flaky pixel diffs. Don't enable them in spec files.
-- **New mockups added to the 5** → add a corresponding baseline with the same `name` + viewport suffix convention.
+- **New mockups added** → add a corresponding baseline with the same `name` + viewport suffix convention.
+- **A mockup that uses a web font may drift between runs.** The Noto Sans Bengali web font loads at different metrics on different runs, which moves the page height. Before assuming a layout regression, re-run the suite; if it is a font-metric drift, `npm run test:update-baselines` settles it. The durable fix is to self-host the font (tracked in the Intent 009 inception log).

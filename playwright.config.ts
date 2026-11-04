@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Purpose:
  *   1. Visual regression on the design mockups (file:// loads of static HTML
  *      under design-artifacts/D-Design-System/01-Visual-Design/mockups/).
- *      15 committed baselines; see tests-mockups/README.md.
+ *      25 committed baselines; see tests-mockups/README.md.
  *   2. Future: per-WO route tests (`tests/02-*.spec.ts`) that hit the live
  *      Next.js dev server and diff the built page against the same mockup
  *      baseline via `compareMockupVsBuild({ buildUrl, ... })` in

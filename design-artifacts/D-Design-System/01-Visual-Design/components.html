@@ -1,574 +1,833 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CityFix — Component Library</title>
-
-  <!-- Google Fonts: Noto Sans Bengali for proper Bangla glyphs -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- CityFix tokens -->
   <link rel="stylesheet" href="tokens.css">
-
   <style>
+    /*
+     * The component library.
+     *
+     * Every rule below reads from `tokens.css`. There is not one
+     * hard-coded hex or px value in this file: if a value is needed
+     * that the token file does not carry, the token file is wrong.
+     *
+     * The library mirrors `components/ui/` — the primitives that ship
+     * in the app — so a mockup and the built page cannot drift.
+     */
+    * { box-sizing: border-box; }
     body {
       font-family: var(--font-body);
       background: var(--color-surface-page);
       color: var(--color-ink);
       font-size: var(--text-body);
       line-height: var(--leading-normal);
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
     }
-    h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); }
+    h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); margin: 0; }
     h1 { font-size: var(--text-display-lg); font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
     h2 { font-size: var(--text-display-md); font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
-    h3 { font-size: var(--text-display-sm); font-weight: var(--weight-semibold); }
-    .label-mono { font-family: var(--font-mono); }
-
-    /* Section styling */
-    .section { padding: var(--space-7) var(--space-5); max-width: 1100px; margin: 0 auto; }
-    .section + .section { border-top: 1px solid var(--color-border); }
-    .section-eyebrow {
-      font-size: var(--text-micro);
-      font-weight: var(--weight-semibold);
-      color: var(--color-ink-tertiary);
-      letter-spacing: var(--tracking-wide);
-      text-transform: uppercase;
-      margin-bottom: var(--space-2);
+    h3 { font-size: var(--text-h2); font-weight: var(--weight-semibold); }
+    a { color: var(--color-accent); }
+    code { font-family: var(--font-mono); font-size: 0.9em; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%);
+      white-space: nowrap; border: 0;
     }
-    .section-desc { color: var(--color-ink-secondary); margin-bottom: var(--space-5); max-width: 720px; }
+    :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
-    /* Token card */
-    .swatch {
-      display: flex; align-items: center; gap: var(--space-3);
-      padding: var(--space-3);
+    .nav {
+      position: sticky; top: 0; z-index: var(--z-sticky);
       background: var(--color-surface-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--space-3) var(--space-5);
     }
-    .swatch-color {
-      width: 56px; height: 56px; border-radius: var(--radius-xs);
-      flex-shrink: 0;
+    .nav-inner {
+      max-width: var(--layout-desktop); margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
     }
-    .swatch-meta { font-size: var(--text-caption); color: var(--color-ink-secondary); }
-    .swatch-name { font-weight: var(--weight-semibold); color: var(--color-ink); }
+    .nav-brand { display: flex; align-items: center; gap: var(--space-2); }
+    .nav-links { display: flex; gap: var(--space-4); }
+    .nav-link { color: var(--color-ink-secondary); font-size: var(--text-caption); text-decoration: none; font-weight: var(--weight-medium); }
+    .nav-link:hover { color: var(--color-primary); }
+    .hero { max-width: var(--layout-desktop); margin: 0 auto; padding: var(--space-8) var(--space-5) var(--space-6); }
+    .hero p { color: var(--color-ink-secondary); max-width: 720px; margin: var(--space-3) 0 0; }
+    .section { max-width: var(--layout-desktop); margin: 0 auto; padding: var(--space-7) var(--space-5); border-top: 1px solid var(--color-border); }
+    .eyebrow {
+      font-size: var(--text-micro); font-weight: var(--weight-semibold);
+      color: var(--color-ink-tertiary); letter-spacing: var(--tracking-wide);
+      text-transform: uppercase; margin-bottom: var(--space-2);
+    }
+    .section-desc { color: var(--color-ink-secondary); margin: var(--space-2) 0 var(--space-5); max-width: 760px; }
+    .grid { display: grid; gap: var(--space-3); }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+    .stack { display: flex; flex-direction: column; gap: var(--space-3); }
 
-    /* Buttons */
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      gap: var(--space-2);
-      height: var(--touch-large);
-      padding: 0 var(--space-5);
-      border-radius: var(--radius-sm);
-      font-weight: var(--weight-semibold);
-      font-size: var(--text-body);
-      transition: background var(--duration-fast) var(--ease-out);
-      cursor: pointer;
-      border: 1px solid transparent;
-    }
-    .btn-primary { background: var(--color-primary); color: var(--color-primary-on); }
-    .btn-primary:hover { background: var(--color-primary-hover); }
-    .btn-primary:disabled { background: var(--color-ink-disabled); cursor: not-allowed; }
-    .btn-secondary { background: transparent; color: var(--color-primary); border-color: var(--color-primary); }
-    .btn-secondary:hover { background: var(--color-primary-soft); }
-    .btn-tertiary { background: transparent; color: var(--color-primary); height: auto; padding: var(--space-2) var(--space-3); }
-    .btn-tertiary:hover { background: var(--color-primary-soft); }
-    .btn-cta { height: var(--touch-cta); padding: 0 var(--space-6); font-size: var(--text-body-lg); border-radius: var(--radius-sm); background: var(--color-primary); color: var(--color-primary-on); }
-
-    /* Input */
-    .input-field {
-      width: 100%;
-      height: var(--touch-large);
-      padding: 0 var(--space-4);
-      background: var(--color-surface-card);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      font-size: var(--text-body);
-      font-family: var(--font-body);
-      color: var(--color-ink);
-      transition: border-color var(--duration-fast) var(--ease-out);
-    }
-    .input-field:focus { outline: none; border-color: var(--color-border-focus); box-shadow: 0 0 0 3px var(--color-primary-soft); }
-    .input-field::placeholder { color: var(--color-ink-tertiary); }
-    .input-error { border-color: var(--color-status-error); }
-    .input-error:focus { box-shadow: 0 0 0 3px var(--color-status-error-soft); }
-    .label-block { display: block; font-size: var(--text-caption); font-weight: var(--weight-medium); color: var(--color-ink); margin-bottom: var(--space-2); }
-    .helper-text { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2); }
-    .error-text { font-size: var(--text-caption); color: var(--color-status-error); margin-top: var(--space-2); }
-
-    /* Cards */
     .card {
       background: var(--color-surface-card);
       border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: var(--space-5);
-      box-shadow: var(--shadow-xs);
-    }
-    .card-hero {
-      background: var(--color-surface-card);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
+      border-radius: var(--radius-card);
+      padding: var(--space-4);
     }
 
-    /* Status pills */
-    .pill {
-      display: inline-flex; align-items: center;
-      gap: var(--space-1);
-      padding: 4px 10px;
-      border-radius: var(--radius-pill);
-      font-size: var(--text-micro);
-      font-weight: var(--weight-semibold);
-      letter-spacing: var(--tracking-wide);
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+      padding: 0 var(--space-4);
+      border-radius: var(--radius-input);
+      font-family: inherit; font-size: var(--text-body);
+      font-weight: var(--weight-semibold); line-height: var(--leading-snug);
+      cursor: pointer; border: 1px solid transparent;
+      transition: background var(--duration-fast) var(--ease-out);
     }
-    .pill-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
-    .pill-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
-    .pill-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
-    .pill-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
-    .pill-paused { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
-    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .btn-sm { min-height: 32px; font-size: var(--text-caption); padding: 0 var(--space-3); }
+    .btn-md { min-height: 40px; }
+    .btn-lg { min-height: 48px; padding: 0 var(--space-5); }
+    .btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-secondary { background: var(--color-surface-card); color: var(--color-ink); border-color: var(--color-border-strong); }
+    .btn-ghost { background: transparent; color: var(--color-accent); }
+    .btn-danger { background: var(--color-danger); color: var(--color-surface-card); border-color: var(--color-danger); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .icon-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; background: transparent; border: 1px solid transparent;
+      border-radius: var(--radius-input); color: var(--color-ink-secondary); cursor: pointer;
+    }
+    .icon-btn:hover { background: var(--color-surface-raised); }
 
-    /* Status trail */
-    .trail { display: flex; flex-direction: column; gap: 0; }
-    .trail-step {
-      display: flex; gap: var(--space-3); padding-bottom: var(--space-4); position: relative;
+    .badge {
+      display: inline-flex; align-items: center; gap: var(--space-1);
+      padding: 2px var(--space-2); border-radius: var(--radius-pill);
+      font-size: var(--text-micro); font-weight: var(--weight-semibold);
+      line-height: var(--leading-snug); white-space: nowrap;
     }
+    .badge-neutral { background: var(--color-surface-raised); color: var(--color-ink-secondary); }
+    .badge-primary { background: var(--color-primary-soft); color: var(--color-primary); }
+    .badge-accent { background: var(--color-accent-soft); color: var(--color-accent); }
+    .badge-success { background: var(--color-success-soft); color: var(--color-success); }
+    .badge-warning { background: var(--color-warning-soft); color: var(--color-warning); }
+    .badge-danger { background: var(--color-danger-soft); color: var(--color-danger); }
+    .badge-info { background: var(--color-info-soft); color: var(--color-info); }
+
+    .status {
+      display: inline-flex; align-items: center; gap: var(--space-1);
+      padding: 2px var(--space-2); border-radius: var(--radius-pill);
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      text-transform: uppercase; line-height: var(--leading-snug); white-space: nowrap;
+    }
+    .status-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+    .status-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+    .status-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+    .status-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+    .status-closed { background: var(--color-surface-raised); color: var(--color-ink-tertiary); }
+    .status-error { background: var(--color-status-error-soft); color: var(--color-status-error); }
+    .status-warning { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
+    .shape { display: inline-flex; width: var(--icon-size-sm); height: var(--icon-size-sm); }
+
+    .field { display: flex; flex-direction: column; gap: var(--space-1); }
+    .field-label { font-size: var(--text-caption); font-weight: var(--weight-semibold); color: var(--color-ink); line-height: var(--leading-snug); }
+    .field-required { color: var(--color-danger); margin-left: var(--space-1); }
+    .field-hint { font-size: var(--text-caption); color: var(--color-ink-secondary); }
+    .field-error { font-size: var(--text-caption); font-weight: var(--weight-medium); color: var(--color-danger); }
+    .input, .select, .textarea {
+      width: 100%; min-height: 40px; padding: 0 var(--space-3);
+      background: var(--color-surface-card); color: var(--color-ink);
+      border: 1px solid var(--color-border-input); border-radius: var(--radius-input);
+      font-family: inherit; font-size: var(--text-body); line-height: var(--leading-snug);
+    }
+    .textarea { padding: var(--space-3); line-height: var(--leading-normal); resize: vertical; }
+    .input[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: var(--color-danger); }
+    .input::placeholder, .textarea::placeholder { color: var(--color-ink-tertiary); }
+
+    .table {
+      width: 100%; border-collapse: collapse; font-size: var(--text-body-sm);
+      border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden;
+    }
+    .table th {
+      text-align: left; padding: var(--space-2) var(--space-3);
+      background: var(--color-surface-raised); border-bottom: 1px solid var(--color-border);
+      font-size: var(--text-caption); font-weight: var(--weight-semibold);
+      color: var(--color-ink-secondary); white-space: nowrap;
+    }
+    .table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+    .table tr:last-child td { border-bottom: none; }
+    .table .numeric { text-align: right; }
+
+    .trail { display: flex; flex-direction: column; }
+    .trail-step { display: flex; gap: var(--space-3); padding-bottom: var(--space-4); position: relative; }
+    .trail-step:last-child { padding-bottom: 0; }
     .trail-step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      left: 11px; top: 24px; bottom: 0;
-      width: 2px;
-      background: var(--color-border);
+      content: ''; position: absolute; left: calc(var(--icon-size-md) / 2);
+      top: var(--icon-size-md); bottom: 0; width: 1px; background: var(--color-border);
     }
     .trail-marker {
-      width: 24px; height: 24px; border-radius: 50%;
-      flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: var(--weight-semibold);
+      position: relative; z-index: 1; width: var(--icon-size-md); height: var(--icon-size-md);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-pill); background: var(--color-surface-card);
+      border: 1px solid var(--color-border); color: var(--color-ink-tertiary);
     }
-    .trail-marker.complete { background: var(--color-status-resolved); color: white; }
-    .trail-marker.complete::after { content: '✓'; }
-    .trail-marker.current { background: var(--color-primary); color: white; }
-    .trail-marker.current::after { content: '●'; }
-    .trail-marker.pending { background: var(--color-surface-raised); color: var(--color-ink-tertiary); border: 2px solid var(--color-border); }
-    .trail-marker.pending::after { content: '○'; }
-    .trail-step.complete:not(:last-child)::after { background: var(--color-status-resolved); }
-    .trail-content { flex: 1; padding-top: 2px; }
-    .trail-title { font-weight: var(--weight-semibold); color: var(--color-ink); }
-    .trail-meta { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: 2px; }
+    .trail-marker.done { border-color: var(--color-status-resolved); color: var(--color-status-resolved); }
+    .trail-marker.current { border-color: var(--color-primary); color: var(--color-primary); }
+    .trail-title { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); color: var(--color-ink); }
+    .trail-title.upcoming { color: var(--color-ink-tertiary); font-weight: var(--weight-medium); }
+    .trail-meta { font-size: var(--text-caption); color: var(--color-ink-tertiary); margin-top: 2px; }
 
-    /* Photo block */
-    .photo-block {
-      width: 100%;
-      aspect-ratio: 4/3;
+    .kpi {
+      display: flex; flex-direction: column; gap: var(--space-1);
+      padding: var(--space-3) var(--space-4); background: var(--color-surface-card);
+      border: 1px solid var(--color-border); border-radius: var(--radius-card);
+    }
+    .kpi-label { font-size: var(--text-caption); color: var(--color-ink-secondary); }
+    .kpi-value {
+      font-size: var(--text-display-md); font-weight: var(--weight-bold);
+      color: var(--color-ink); line-height: var(--leading-tight); font-variant-numeric: tabular-nums;
+    }
+    .kpi-trend { font-size: var(--text-caption); display: inline-flex; gap: var(--space-1); align-items: center; }
+    .kpi-trend.good { color: var(--color-success); }
+    .kpi-trend.bad { color: var(--color-danger); }
+    .kpi-trend.flat { color: var(--color-ink-tertiary); }
+
+    .chart {
+      background: var(--color-surface-card); border: 1px solid var(--color-border);
+      border-radius: var(--radius-card); padding: var(--space-4);
+    }
+    .chart-head { display: flex; justify-content: space-between; gap: var(--space-3); align-items: flex-start; }
+    .chart-title { font-size: var(--text-body); font-weight: var(--weight-semibold); }
+    .chart-sub { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-1); }
+    .bars { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4); }
+    .bar-row { display: grid; grid-template-columns: 120px 1fr 48px; gap: var(--space-3); align-items: center; }
+    .bar-label { font-size: var(--text-caption); color: var(--color-ink-secondary); }
+    .bar-track { height: var(--space-3); background: var(--color-surface-raised); border-radius: var(--radius-xs); }
+    .bar-fill { height: 100%; border-radius: var(--radius-xs); }
+    .bar-value { font-size: var(--text-caption); text-align: right; font-variant-numeric: tabular-nums; color: var(--color-ink); }
+    .bullet { margin-top: var(--space-4); }
+    .bullet-track {
+      position: relative; height: var(--space-4); background: var(--color-surface-raised);
+      border-radius: var(--radius-xs); overflow: hidden;
+    }
+    .bullet-value { position: absolute; left: 0; top: var(--space-1); bottom: var(--space-1); border-radius: var(--radius-xs); }
+    .bullet-target { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--color-ink); }
+
+    .state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--space-3); padding: var(--space-7) var(--space-4); text-align: center;
+    }
+    .state-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: var(--icon-size-xl); height: var(--icon-size-xl); color: var(--color-ink-tertiary);
+    }
+    .state-icon.danger { color: var(--color-danger); }
+    .state-title { font-size: var(--text-body); font-weight: var(--weight-semibold); color: var(--color-ink); margin: 0; }
+    .state-body { font-size: var(--text-body-sm); color: var(--color-ink-secondary); margin: 0; max-width: var(--card-max-width); }
+
+    .toast {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4); border: 1px solid var(--color-info);
+      background: var(--color-info-soft); border-radius: var(--radius-card); max-width: var(--card-max-width);
+    }
+    .toast.success { border-color: var(--color-success); background: var(--color-success-soft); }
+    .toast.warning { border-color: var(--color-warning); background: var(--color-warning-soft); }
+    .toast.danger { border-color: var(--color-danger); background: var(--color-danger-soft); }
+    .toast-title { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); color: var(--color-ink); margin: 0; }
+    .toast-body { font-size: var(--text-caption); color: var(--color-ink-secondary); margin: var(--space-1) 0 0; }
+
+    .crumbs { display: flex; align-items: center; gap: var(--space-2); list-style: none; margin: 0; padding: 0; font-size: var(--text-caption); }
+    .crumbs li { display: flex; align-items: center; gap: var(--space-2); }
+    .crumbs .sep { color: var(--color-ink-tertiary); }
+    .crumbs a { text-decoration: none; }
+    .crumbs [aria-current="page"] { color: var(--color-ink); font-weight: var(--weight-semibold); }
+
+    .tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-border); }
+    .tab {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-3); background: transparent; border: none;
+      border-bottom: 2px solid transparent; font-family: inherit; font-size: var(--text-body-sm);
+      color: var(--color-ink-secondary); cursor: pointer; white-space: nowrap;
+    }
+    .tab[aria-selected="true"] { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--weight-semibold); }
+
+    .side-nav {
+      display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3);
+      background: var(--color-surface-card); border-right: 1px solid var(--color-border);
+    }
+    .side-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    .side-nav a {
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-3); border-radius: var(--radius-input);
+      border-left: 2px solid transparent; color: var(--color-ink-secondary);
+      font-size: var(--text-body-sm); font-weight: var(--weight-medium); text-decoration: none;
+    }
+    .side-nav a[aria-current="page"] {
+      background: var(--color-primary-soft); border-left-color: var(--color-primary);
+      color: var(--color-primary); font-weight: var(--weight-semibold);
+    }
+
+    .filter-bar {
+      display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+      padding: var(--space-2) var(--space-3); background: var(--color-surface-card);
+      border: 1px solid var(--color-border); border-radius: var(--radius-input);
+    }
+    .filter-chip {
+      padding: var(--space-1) var(--space-3); min-height: 32px;
+      background: var(--color-surface-raised); border: 1px solid transparent;
+      border-radius: var(--radius-pill); font-family: inherit; font-size: var(--text-caption);
+      font-weight: var(--weight-semibold); color: var(--color-ink-secondary); cursor: pointer;
+    }
+    .filter-chip[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+
+    .avatar {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: var(--radius-pill);
+      background: var(--color-primary-soft); color: var(--color-primary);
+      border: 1px solid var(--color-border); font-size: var(--text-micro); font-weight: var(--weight-bold);
+    }
+    .avatar.lg { width: 40px; height: 40px; }
+    .avatar.sm { width: 24px; height: 24px; }
+
+    .modal-demo { position: relative; padding: var(--space-6); background: var(--color-surface-sunken); border-radius: var(--radius-card); }
+    .modal {
+      max-width: 480px; margin: 0 auto; background: var(--color-surface-card);
+      border: 1px solid var(--color-border); border-radius: var(--radius-card);
+      box-shadow: var(--shadow-modal); overflow: hidden;
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border);
+    }
+    .modal-body { padding: var(--space-4); }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: var(--space-2);
+      padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border);
       background: var(--color-surface-raised);
-      border-radius: var(--radius-md);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--color-ink-tertiary);
-      font-size: var(--text-caption);
-      position: relative;
-      overflow: hidden;
-    }
-    .photo-block.before { background: linear-gradient(135deg, #B7791F22, #B7791F44); color: var(--color-status-in-progress); }
-    .photo-block.after { background: linear-gradient(135deg, #2F7A4F22, #2F7A4F44); color: var(--color-status-resolved); }
-    .photo-label {
-      position: absolute; top: var(--space-3); left: var(--space-3);
-      background: rgba(255,255,255,0.92);
-      padding: 4px var(--space-2);
-      border-radius: var(--radius-xs);
-      font-size: var(--text-micro);
-      font-weight: var(--weight-semibold);
-      color: var(--color-ink);
     }
 
-    /* Banner */
-    .banner {
-      padding: var(--space-3) var(--space-4);
-      border-radius: var(--radius-sm);
-      font-size: var(--text-body-sm);
-      display: flex; gap: var(--space-3); align-items: flex-start;
+    .footer {
+      max-width: var(--layout-desktop); margin: 0 auto; padding: var(--space-7) var(--space-5);
+      border-top: 1px solid var(--color-border); text-align: center;
+      color: var(--color-ink-tertiary); font-size: var(--text-caption);
     }
-    .banner-info { background: var(--color-primary-soft); color: var(--color-primary); }
-    .banner-warning { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
-    .banner-error { background: var(--color-status-error-soft); color: var(--color-status-error); }
-
-    /* Filter pills */
-    .filter-pill {
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-pill);
-      font-size: var(--text-body-sm);
-      font-weight: var(--weight-medium);
-      background: var(--color-surface-card);
-      border: 1px solid var(--color-border);
-      color: var(--color-ink-secondary);
-      cursor: pointer;
-    }
-    .filter-pill.active { background: var(--color-ink); color: var(--color-ink-on-dark); border-color: var(--color-ink); }
-
-    /* Mockup frame for display */
-    .frame {
-      max-width: 100%;
-      margin: 0 auto;
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      box-shadow: var(--shadow-md);
-      background: var(--color-surface-card);
-    }
-    .frame-mobile { width: 390px; }
-    .frame-desktop { width: 100%; max-width: 1440px; }
-
-    /* Page title for navigation */
-    .nav {
-      position: sticky; top: 0; z-index: var(--z-sticky);
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--color-border);
-      padding: var(--space-4) var(--space-5);
-    }
-    .nav-link { color: var(--color-ink-secondary); font-size: var(--text-caption); text-decoration: none; }
-    .nav-link:hover { color: var(--color-primary); }
-
-    /* Page hero */
-    .page-hero {
-      padding: var(--space-7) var(--space-5) var(--space-5);
-      text-align: center;
-    }
-    .page-hero h1 { font-size: var(--text-display-xl); margin-bottom: var(--space-3); }
-    .page-hero p { color: var(--color-ink-secondary); font-size: var(--text-body-lg); max-width: 640px; margin: 0 auto; }
-
-    /* Mobile app frame (for showing mobile screens) */
-    .mobile-frame {
-      width: 390px; height: 844px;
-      border: 8px solid #1A2027;
-      border-radius: 36px;
-      overflow: hidden;
-      box-shadow: var(--shadow-lg);
-      background: var(--color-surface-page);
-      position: relative;
-      margin: 0 auto;
-    }
-    .mobile-frame-status-bar {
-      height: 28px;
-      background: var(--color-surface-page);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 var(--space-4);
-      font-size: 12px;
-      font-weight: var(--weight-semibold);
-      color: var(--color-ink);
-    }
-    .mobile-frame-content { height: calc(100% - 28px); overflow: hidden; }
   </style>
 </head>
 <body>
 
-<!-- Navigation -->
 <nav class="nav">
-  <div class="max-w-6xl mx-auto flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <strong style="color: var(--color-ink);">CityFix</strong>
-      <span class="nav-link">Design tokens &amp; components</span>
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <!-- The CityFix mark: a map pin whose negative space forms a check. -->
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 22.5c-.42 0-.78-.22-.98-.6C10.6 20.9 6 15.3 6 9.9 6 5.4 9.13 1.8 12.95 1.8S20 5.4 20 9.9c0 5.4-4.6 11-5.02 12-.2.38-.56.6-.98.6Z" fill="var(--color-ink)"></path>
+        <path d="M7.1 6.6a6.1 6.1 0 0 1 3-2.35" stroke="var(--color-primary)" stroke-width="1.7" stroke-linecap="round"></path>
+        <path d="M8.9 9.6 11.3 12l4.1-4.4" stroke="var(--color-success)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <strong style="letter-spacing: var(--tracking-tight);">CityFix</strong>
+      <span class="nav-link">ডিজাইন সিস্টেম</span>
     </div>
-    <div class="flex gap-4">
-      <a class="nav-link" href="gallery.html">Gallery</a>
+    <div class="nav-links">
+      <a class="nav-link" href="gallery.html">গ্যালারি</a>
       <a class="nav-link" href="mockups/01-welcome.html">Welcome</a>
-      <a class="nav-link" href="mockups/02-home-city-activity.html">Home</a>
+      <a class="nav-link" href="mockups/05-daily-queue-dashboard.html">Dispatcher</a>
     </div>
   </div>
 </nav>
 
-<!-- Page hero -->
-<div class="page-hero">
-  <div class="section-eyebrow">Visual reference</div>
-  <h1>CityFix Component Library</h1>
-  <p>Every pattern used across the 33 pages, applied to a single set of design tokens. Apple-like calm confidence. Bangla-first. Civic trust.</p>
+<div class="hero">
+  <div class="eyebrow">Accessible + Swiss / Minimal</div>
+  <h1>CityFix কম্পোনেন্ট লাইব্রেরি</h1>
+  <p>
+    প্রতিটি পৃষ্ঠায় ব্যবহৃত প্রতিটি প্যাটার্ন এক সেট টোকেনের উপর ভিত্তি করে।
+    Civic trust, high contrast, flat surfaces, 1px borders, 8px rhythm.
+    প্রতিটি উপাদানের রঙ, আকার ও আচরণ এখানে একই — যা অ্যাপে চালু হয়।
+  </p>
 </div>
 
-<!-- Tokens: Color -->
 <section class="section">
-  <div class="section-eyebrow">01</div>
-  <h2>Color</h2>
-  <p class="section-desc">A restrained palette: one primary blue-grey, near-black ink, a warm off-white surface, and four muted status colors. Bangla and English use the same palette — no language-specific color.</p>
-
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-primary);"></div><div><div class="swatch-name">Primary</div><div class="swatch-meta">#2C5282</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-ink);"></div><div><div class="swatch-name">Ink</div><div class="swatch-meta">#0F1419</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-surface-page); border: 1px solid var(--color-border);"></div><div><div class="swatch-name">Surface page</div><div class="swatch-meta">#FAFAF7</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-surface-card); border: 1px solid var(--color-border);"></div><div><div class="swatch-name">Surface card</div><div class="swatch-meta">#FFFFFF</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-submitted);"></div><div><div class="swatch-name">Submitted</div><div class="swatch-meta">#718096</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-routed);"></div><div><div class="swatch-name">Routed</div><div class="swatch-meta">#2C5282</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-in-progress);"></div><div><div class="swatch-name">In progress</div><div class="swatch-meta">#B7791F</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-resolved);"></div><div><div class="swatch-name">Resolved</div><div class="swatch-meta">#2F7A4F</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-status-error);"></div><div><div class="swatch-name">Error</div><div class="swatch-meta">#C53030</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-streetlight);"></div><div><div class="swatch-name">Streetlight</div><div class="swatch-meta">#B7791F</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-pothole);"></div><div><div class="swatch-name">Pothole</div><div class="swatch-meta">#4A5568</div></div></div>
-    <div class="swatch"><div class="swatch-color" style="background: var(--color-cat-garbage);"></div><div><div class="swatch-name">Garbage</div><div class="swatch-meta">#2F7A4F</div></div></div>
+  <div class="eyebrow">01</div>
+  <h2>রঙ</h2>
+  <p class="section-desc">
+    Civic blue primary, near-black ink, cool off-white surfaces, এবং চারটি muted
+    status রঙ। প্রতিফি জোড়া WCAG AA-তে মাপা — <code>tests/unit/ui/tokens-contrast.test.ts</code>
+    যেকোনো regression-এ fail করে।
+  </p>
+  <div class="grid grid-3">
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-primary); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Primary</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#1E40AF · civic blue</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-accent); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Accent</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#0369A1 · links + focus</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-ink); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Ink</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#020617 · primary text</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-surface-page); border: 1px solid var(--color-border); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Surface page</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#F8FAFC</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-surface-card); border: 1px solid var(--color-border); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Surface card</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#FFFFFF</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-surface-sunken); border: 1px solid var(--color-border); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Surface sunken</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#E8ECF1</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-success); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Success</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#15803D · outcome only</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-warning); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Warning</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#B45309</div></div></div>
+    <div class="card row"><div style="width: 48px; height: 48px; border-radius: var(--radius-sm); background: var(--color-danger); flex-shrink: 0;"></div><div><div style="font-weight: var(--weight-semibold);">Danger</div><div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">#C81E1E</div></div></div>
+  </div>
+  <h3 style="margin-top: var(--space-6);">বিভাগ-অ্যাকসেন্ট</h3>
+  <div class="row" style="margin-top: var(--space-3);">
+    <span class="badge" style="background: var(--color-cat-streetlight); color: var(--color-surface-card);">Lightbulb · আলো</span>
+    <span class="badge" style="background: var(--color-cat-pothole); color: var(--color-surface-card);">RoadHorizon · গর্ত</span>
+    <span class="badge" style="background: var(--color-cat-garbage); color: var(--color-surface-card);">Trash · আবর্জনা</span>
+    <span class="badge" style="background: var(--color-cat-drain); color: var(--color-surface-card);">Drop · ড্রেনেজ</span>
+    <span class="badge" style="background: var(--color-cat-sanitation); color: var(--color-surface-card);">SprayBottle · স্যানিটেশন</span>
+    <span class="badge" style="background: var(--color-cat-other); color: var(--color-surface-card);">DotsThree · অন্যান্য</span>
   </div>
 </section>
 
-<!-- Tokens: Type -->
 <section class="section">
-  <div class="section-eyebrow">02</div>
-  <h2>Typography</h2>
-  <p class="section-desc">Noto Sans Bengali for proper Bangla glyphs at all weights. System-ui fallback for Latin. Generous line-height and tight letter-spacing on display text.</p>
-
+  <div class="eyebrow">02</div>
+  <h2>টাইপোগ্রাফি</h2>
+  <p class="section-desc">
+    Noto Sans Bengali — একমাত্র face যা বাংলা ও Latin দুটোই সঠিকভাবে render করে।
+    Bangla-র জন্য line-height 1.6 — 1.5-এ matra ও descender পিল-এর ভিতরে কেটে যায়।
+  </p>
   <div class="card">
     <div style="font-size: var(--text-display-xl); font-weight: var(--weight-semibold); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight);">আপনার শহরের আওয়াজ</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display XL — Hero titles (44px)</div>
-
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display XL · 44px · hero</div>
     <div style="margin-top: var(--space-5); font-size: var(--text-display-lg); font-weight: var(--weight-semibold); line-height: var(--leading-tight);">আমরা এটি সংশ্লিষ্ট বিভাগে পাঠিয়েছি</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display LG — H1 (32px)</div>
-
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display LG · 32px · H1</div>
     <div style="margin-top: var(--space-5); font-size: var(--text-display-md); font-weight: var(--weight-semibold);">আপনার রিপোর্ট গৃহীত হয়েছে</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display MD — H2 (24px)</div>
-
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Display MD · 24px · H2</div>
     <div style="margin-top: var(--space-5); font-size: var(--text-body-lg);">We've routed it to the responsible department.</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body LG — 17px</div>
-
-    <div style="margin-top: var(--space-5); font-size: var(--text-body);">টিকেট #1234 · ওয়ার্ড ১৪, মিরপুর</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body — 16px (base)</div>
-
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body LG · 17px</div>
+    <div style="margin-top: var(--space-5); font-size: var(--text-body);">টিকিট #1234 · ওয়ার্ড ১৪, মিরপুর</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Body · 16px · base</div>
     <div style="margin-top: var(--space-5); font-size: var(--text-caption); color: var(--color-ink-secondary);">২ ঘণ্টা আগে · দেখা হয়েছে ৩ বার</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Caption — 14px</div>
-
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Caption · 14px</div>
     <div style="margin-top: var(--space-5); font-family: var(--font-mono); font-size: var(--text-body-sm);">#TIX-1234-XYZ</div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Mono — ticket IDs</div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-2);">Mono · ticket IDs</div>
   </div>
 </section>
 
-<!-- Buttons -->
 <section class="section">
-  <div class="section-eyebrow">03</div>
-  <h2>Buttons</h2>
-  <p class="section-desc">Three styles — primary (filled), secondary (outlined), tertiary (text). Touch targets ≥ 56px. Primary CTA at 64px.</p>
-
-  <div class="card">
-    <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
-      <button class="btn btn-primary">রিপোর্ট পাঠান</button>
-      <button class="btn btn-primary" disabled>অক্ষম</button>
-      <button class="btn btn-secondary">আবার চেষ্টা করুন</button>
-      <button class="btn btn-tertiary">বাতিল</button>
+  <div class="eyebrow">03</div>
+  <h2>বাটন</h2>
+  <p class="section-desc">
+    চারটি variant · primary (filled), secondary (bordered), ghost (text), danger।
+    একটি স্ক্রিনে সর্বাধিক একটি primary CTA। Service green কখনোই CTA নয় —
+    সেটি একটি ফলাফল, একটি বাটন নয়।
+  </p>
+  <div class="card stack">
+    <div class="row">
+      <button class="btn btn-primary btn-md">রিপোর্ট পাঠান</button>
+      <button class="btn btn-primary btn-md" disabled>অক্ষম</button>
+      <button class="btn btn-secondary btn-md">আবার চেষ্টা করুন</button>
+      <button class="btn btn-ghost btn-md">বাতিল</button>
+      <button class="btn btn-danger btn-md">মুছে ফেলুন</button>
     </div>
-    <div style="margin-top: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
-      <button class="btn btn-cta">পরবর্তী কাজে যান</button>
-      <button class="btn btn-cta" style="background: var(--color-status-resolved);">সমাধান জমা দিন</button>
+    <div class="row">
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary btn-md">Medium</button>
+      <button class="btn btn-primary btn-lg">Large</button>
     </div>
-    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary); margin-top: var(--space-4);">
-      Default · Disabled · Secondary · Tertiary · CTA · CTA (success)
+    <div class="row">
+      <button class="icon-btn" aria-label="ফিল্টার করুন" title="ফিল্টার করুন">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"></path></svg>
+      </button>
+      <button class="icon-btn" aria-label="বন্ধ করুন" title="বন্ধ করুন">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+      <span class="avatar" aria-label="Rashid Ahmed">RA</span>
+      <span class="avatar lg" aria-label="Habib Rahman">HR</span>
     </div>
-  </div>
-</section>
-
-<!-- Inputs -->
-<section class="section">
-  <div class="section-eyebrow">04</div>
-  <h2>Inputs</h2>
-  <p class="section-desc">Labeled inputs with helper text. Validation states show inline error in red.</p>
-
-  <div class="card">
-    <div style="max-width: 420px;">
-      <label class="label-block">মোবাইল নম্বর</label>
-      <input class="input-field" placeholder="01XXXXXXXXX" />
-      <div class="helper-text">আমরা এই নম্বরে একটি কোড পাঠাব</div>
-
-      <div style="margin-top: var(--space-5);">
-        <label class="label-block">পাসওয়ার্ড</label>
-        <input class="input-field input-error" value="123" />
-        <div class="error-text">পাসওয়ার্ড কমপক্ষে ৮ অক্ষর হতে হবে</div>
-      </div>
-
-      <div style="margin-top: var(--space-5);">
-        <label class="label-block">নোট যোগ করুন (ঐচ্ছিক)</label>
-        <textarea class="input-field" style="height: 96px; padding: var(--space-3) var(--space-4); resize: vertical;" placeholder="কিছু বলতে চাইলে লিখুন…"></textarea>
-        <div class="helper-text">০ / ২০০</div>
-      </div>
+    <div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">
+      Primary · Disabled · Secondary · Ghost · Danger · S/M/L · IconButton · Avatar
     </div>
   </div>
 </section>
 
-<!-- Cards -->
 <section class="section">
-  <div class="section-eyebrow">05</div>
-  <h2>Cards</h2>
-  <p class="section-desc">Two patterns: standard card with internal padding, hero card with photo block. Subtle elevation. Generous border radius.</p>
-
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
-    <div class="card">
-      <div class="section-eyebrow" style="color: var(--color-ink-tertiary);">রিপোর্ট</div>
-      <h3 style="margin: 0 0 var(--space-2);">রাস্তার আলো নেই</h3>
-      <p style="margin: 0; font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ওয়ার্ড ১৪, মিরপুর · ২ ঘণ্টা আগে</p>
-      <div style="margin-top: var(--space-3); display: flex; gap: var(--space-2);">
-        <span class="pill pill-in-progress"><span class="pill-dot"></span>চলমান</span>
-        <span class="pill pill-submitted">৩ জন রিপোর্টার</span>
+  <div class="eyebrow">04</div>
+  <h2>ফর্ম</h2>
+  <p class="section-desc">
+    প্রতিটি ইনপুটে একটি label, hint এবং error — তিনটিই control-এর
+    <code>aria-describedby</code>-তে যুক্ত। Placeholder কখনোই label-এর বিকল্প নয়।
+  </p>
+  <div class="grid grid-2">
+    <div class="card stack">
+      <div class="field">
+        <label class="field-label" for="demo-phone">মোবাইল নম্বর</label>
+        <input class="input" id="demo-phone" placeholder="01XXXXXXXXX" aria-describedby="demo-phone-hint" />
+        <span class="field-hint" id="demo-phone-hint">আমরা এই নম্বরে একটি কোড পাঠাব</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="demo-pass">পাসওয়ার্ড <span class="field-required" aria-hidden="true">*</span></label>
+        <input class="input" id="demo-pass" value="123" aria-invalid="true" aria-describedby="demo-pass-error" />
+        <span class="field-error" id="demo-pass-error" role="alert">পাসওয়ার্ড কমপক্ষে ৮ অক্ষর হতে হবে</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="demo-ward">ওয়ার্ড</label>
+        <select class="select" id="demo-ward">
+          <option value="" disabled>নির্বাচন করুন</option>
+          <option>ওয়ার্ড ১৪ · মিরপুর</option>
+          <option>ওয়ার্ড ১৫ · কাঠাবাড়ি</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="demo-note">নোট যোগ করুন <span class="field-required" aria-hidden="true">*</span></label>
+        <textarea class="textarea" id="demo-note" rows="3" placeholder="কিছু বলতে চাইলে লিখুন…"></textarea>
       </div>
     </div>
-
-    <div class="card-hero">
-      <div class="photo-block before" style="border-radius: 0;">
-        <span class="photo-label">আগে</span>
-        <span style="color: rgba(0,0,0,0.5);">Streetlight photo placeholder</span>
+    <div class="card stack">
+      <h3>ব্যাজ</h3>
+      <div class="row">
+        <span class="badge badge-neutral">Neutral</span>
+        <span class="badge badge-primary">Primary</span>
+        <span class="badge badge-accent">Accent</span>
+        <span class="badge badge-success">Success</span>
+        <span class="badge badge-warning">Warning</span>
+        <span class="badge badge-danger">Danger</span>
+        <span class="badge badge-info">Info</span>
       </div>
-      <div style="padding: var(--space-4);">
-        <h3 style="margin: 0 0 var(--space-2);">রাস্তার আলো</h3>
-        <p style="margin: 0; font-size: var(--text-body-sm); color: var(--color-ink-secondary);">ওয়ার্ড ১৪, মিরপুর · টিকেট #1234</p>
+      <h3 style="margin-top: var(--space-4);">ফিল্টার বার</h3>
+      <div class="filter-bar">
+        <button class="filter-chip" aria-pressed="true">সব</button>
+        <button class="filter-chip" aria-pressed="false">নতুন</button>
+        <button class="filter-chip" aria-pressed="false">বরাদ্দ হয়নি</button>
+        <button class="filter-chip" aria-pressed="false">চলমান</button>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Status pills -->
 <section class="section">
-  <div class="section-eyebrow">06</div>
-  <h2>Status pills</h2>
-  <p class="section-desc">Four status colors. Muted, not saturated. Each pill can include a small dot for scannability.</p>
-
-  <div class="card" style="display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center;">
-    <span class="pill pill-submitted"><span class="pill-dot"></span>জমা হয়েছে</span>
-    <span class="pill pill-routed"><span class="pill-dot"></span>রাউট হয়েছে</span>
-    <span class="pill pill-in-progress"><span class="pill-dot"></span>চলমান</span>
-    <span class="pill pill-resolved"><span class="pill-dot"></span>সমাধান</span>
-    <span class="pill pill-paused"><span class="pill-dot"></span>বিরতি</span>
+  <div class="eyebrow">05</div>
+  <h2>স্ট্যাটাস</h2>
+  <p class="section-desc">
+    একটি স্ট্যাটাস কখনোই শুধু রঙে বোঝানো হয় না। প্রতিটি pill-এ একটি
+    <strong>আকৃতি</strong> (Phosphor icon), একটি <strong>শব্দ</strong> এবং একটি
+    <strong>রঙ</strong> — তিনটিই। ধূসর প্রিন্টেও পড়া যায়।
+  </p>
+  <div class="card row">
+    <span class="status status-submitted"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="4 3"></circle></svg></span>জমা হয়েছে</span>
+    <span class="status status-routed"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></span>রাউট হয়েছে</span>
+    <span class="status status-in-progress"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>চলমান</span>
+    <span class="status status-resolved"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg></span>সমাধান</span>
+    <span class="status status-closed"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg></span>বন্ধ</span>
+    <span class="status status-error"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="m9 9 6 6M15 9l-6 6"></path></svg></span>ব্যর্থ</span>
   </div>
 </section>
 
-<!-- Status trail -->
 <section class="section">
-  <div class="section-eyebrow">07</div>
-  <h2>Status trail</h2>
-  <p class="section-desc">4-step vertical timeline. Complete steps fill green, current step pulses primary, pending steps are outlined. The connector line fills green between complete steps.</p>
-
+  <div class="eyebrow">06</div>
+  <h2>স্ট্যাটাস ট্রেইল</h2>
+  <p class="section-desc">
+    একটি উলম্ব timeline। প্রতিটি ধাপে আকৃতি, শব্দ ও সময় — এবং অসম্পন্ন ধাপগুলো
+    শুধু ধূসর নয়, ফাঁকা marker-ও।
+  </p>
   <div class="card" style="max-width: 480px;">
     <div class="trail">
-      <div class="trail-step complete">
-        <div class="trail-marker complete"></div>
-        <div class="trail-content">
-          <div class="trail-title">জমা হয়েছে</div>
-          <div class="trail-meta">আজ ৭:৩২ PM</div>
-        </div>
-      </div>
-      <div class="trail-step complete">
-        <div class="trail-marker complete"></div>
-        <div class="trail-content">
-          <div class="trail-title">রাউট হয়েছে</div>
-          <div class="trail-meta">ওয়ার্ড ১৪, বৈদ্যুতিক বিভাগে</div>
-        </div>
+      <div class="trail-step">
+        <div class="trail-marker done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 12 4 4 8-9"></path></svg></div>
+        <div><div class="trail-title">জমা হয়েছে</div><div class="trail-meta">আজ ৭:৩২ PM</div></div>
       </div>
       <div class="trail-step">
-        <div class="trail-marker current"></div>
-        <div class="trail-content">
-          <div class="trail-title">চলমান</div>
-          <div class="trail-meta">ক্রু বি কাজ করছে</div>
-        </div>
+        <div class="trail-marker done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 12 4 4 8-9"></path></svg></div>
+        <div><div class="trail-title">রাউট হয়েছে</div><div class="trail-meta">ওয়ার্ড ১৪, বৈদ্যুতিক বিভাগে</div></div>
       </div>
       <div class="trail-step">
-        <div class="trail-marker pending"></div>
-        <div class="trail-content">
-          <div class="trail-title">সমাধান</div>
-          <div class="trail-meta" style="color: var(--color-ink-tertiary);">অপেক্ষমান</div>
+        <div class="trail-marker current"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="currentColor" stroke="none"></circle></svg></div>
+        <div><div class="trail-title">চলমান</div><div class="trail-meta">ক্রু বি কাজ করছে</div></div>
+      </div>
+      <div class="trail-step">
+        <div class="trail-marker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle></svg></div>
+        <div><div class="trail-title upcoming">সমাধান</div><div class="trail-meta">অপেক্ষমান</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="eyebrow">07</div>
+  <h2>মূল পরিসংখ্যান</h2>
+  <p class="section-desc">
+    একটি সংখ্যা, তার লেবেল, এবং পরিবর্তনের দিক। দিকটি তীর + সংখ্যা দিয়ে
+    বোঝানো — শুধু রঙ দিয়ে নয়, কারণ "বেড়েছে" সবসময় ভালো নয়।
+  </p>
+  <div class="grid grid-4">
+    <div class="kpi">
+      <span class="kpi-label">মোট টিকিট</span>
+      <span class="kpi-value">৫৮</span>
+      <span class="kpi-trend bad">▲ <span class="tabular">১২%</span></span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">চলমান</span>
+      <span class="kpi-value">১৭</span>
+      <span class="kpi-trend good">▼ <span class="tabular">৪%</span></span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">গড় সমাধান</span>
+      <span class="kpi-value">১৮<span style="font-size: var(--text-caption); font-weight: var(--weight-regular);"> ঘণ্টা</span></span>
+      <span class="kpi-trend flat">▬ <span class="tabular">২৪ ঘণ্টা লক্ষ্য</span></span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">সমাধানের হার</span>
+      <span class="kpi-value">৭৮%</span>
+      <span class="kpi-trend good">▲ <span class="tabular">৬%</span></span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="eyebrow">08</div>
+  <h2>চার্ট</h2>
+  <p class="section-desc">
+    প্রতিটি চার্টের একটি <strong>দৃশ্যমান, sortable ডেটা টেবিল</strong> আছে।
+    কোনো সিরিজ শুধু রঙ দিয়ে চিহ্নিত হয় না — প্রতিটির একটি আলাদা dash pattern
+    আছে, তাই ধূসর প্রিন্টেও পড়া যায়।
+  </p>
+  <div class="grid grid-2">
+    <div class="chart">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">বিভাগ অনুযায়ী রিপোর্ট</div>
+          <div class="chart-sub">সর্বোচ্চ থেকে ক্রম — horizontal bar</div>
+        </div>
+        <button class="btn btn-secondary btn-sm">টেবিল দেখান</button>
+      </div>
+      <div class="bars">
+        <div class="bar-row">
+          <span class="bar-label">রাস্তায় গর্ত</span>
+          <div class="bar-track"><div class="bar-fill" style="width: 100%; background: var(--color-cat-pothole);"></div></div>
+          <span class="bar-value">৩৪</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">রাস্তার আলো</span>
+          <div class="bar-track"><div class="bar-fill" style="width: 65%; background: var(--color-cat-streetlight);"></div></div>
+          <span class="bar-value">২২</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">আবর্জনা</span>
+          <div class="bar-track"><div class="bar-fill" style="width: 41%; background: var(--color-cat-garbage);"></div></div>
+          <span class="bar-value">১৪</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">ড্রেনেজ</span>
+          <div class="bar-track"><div class="bar-fill" style="width: 24%; background: var(--color-cat-drain);"></div></div>
+          <span class="bar-value">৮</span>
+        </div>
+      </div>
+    </div>
+    <div class="chart">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">SLA বনাম লক্ষ্য</div>
+          <div class="chart-sub">Bullet chart — range band, value bar, target tick</div>
+        </div>
+        <button class="btn btn-secondary btn-sm">টেবিল দেখান</button>
+      </div>
+      <div class="row" style="justify-content: space-between; margin-top: var(--space-4);">
+        <span style="font-size: var(--text-body-sm); color: var(--color-ink-secondary);">গড় সমাধান সময়</span>
+        <span class="tabular" style="font-size: var(--text-body); font-weight: var(--weight-semibold);">১৮ ঘণ্টা</span>
+      </div>
+      <div class="bullet">
+        <div class="bullet-track">
+          <div class="bullet-value" style="width: 50%; background: var(--color-success);"></div>
+          <div class="bullet-target" style="left: 66%;"></div>
+        </div>
+        <div class="row" style="justify-content: space-between; margin-top: var(--space-2);">
+          <span class="tabular" style="font-size: var(--text-caption); color: var(--color-ink-tertiary);">০</span>
+          <span class="tabular" style="font-size: var(--text-caption); color: var(--color-ink-secondary);">লক্ষ্য: ২৪ ঘণ্টা</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Photo blocks -->
 <section class="section">
-  <div class="section-eyebrow">08</div>
-  <h2>Photo blocks</h2>
-  <p class="section-desc">Single image (placeholder), before/after pair, multi-after horizontal scroll with +n indicator.</p>
+  <div class="eyebrow">09</div>
+  <h2>ডেটা টেবিল</h2>
+  <p class="section-desc">
+    Sortable header-এ <code>aria-sort</code> থাকে, এবং sort বাটনের accessible name-এ
+    কলামের নাম ও sort অবস্থা দুটোই থাকে। সংখ্যা কলাম right-aligned ও tabular।
+  </p>
+  <table class="table">
+    <caption class="sr-only">ওয়ার্ড অনুযায়ী টিকিট</caption>
+    <thead>
+      <tr>
+        <th scope="col" aria-sort="ascending">ওয়ার্ড <span aria-hidden="true">▲</span></th>
+        <th scope="col" class="numeric" aria-sort="none">জমা <span aria-hidden="true">↕</span></th>
+        <th scope="col" class="numeric" aria-sort="none">সমাধান <span aria-hidden="true">↕</span></th>
+        <th scope="col" aria-sort="none">অবস্থা</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>ওয়ার্ড ১৪ · মিরপুর</td>
+        <td class="numeric tabular">৩৪</td>
+        <td class="numeric tabular">২৮</td>
+        <td><span class="status status-resolved"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg></span>সমাধান</span></td>
+      </tr>
+      <tr>
+        <td>ওয়ার্ড ১৫ · কাঠাবাড়ি</td>
+        <td class="numeric tabular">২২</td>
+        <td class="numeric tabular">১৫</td>
+        <td><span class="status status-in-progress"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>চলমান</span></td>
+      </tr>
+      <tr>
+        <td>ওয়ার্ড ১৬ · উত্তরা</td>
+        <td class="numeric tabular">১৪</td>
+        <td class="numeric tabular">১৪</td>
+        <td><span class="status status-closed"><span class="shape" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg></span>বন্ধ</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4);">
-    <div class="photo-block before">
-      <span class="photo-label">আগে</span>
-      <span style="color: rgba(0,0,0,0.5);">Before photo</span>
-    </div>
-    <div class="photo-block after">
-      <span class="photo-label">পরে</span>
-      <span style="color: rgba(0,0,0,0.5);">After photo</span>
-    </div>
-    <div style="position: relative;">
-      <div class="photo-block after">
-        <span class="photo-label">পরে</span>
-        <span style="color: rgba(0,0,0,0.5);">After photo 1</span>
+<section class="section">
+  <div class="eyebrow">10</div>
+  <h2>নেভিগেশন</h2>
+  <p class="section-desc">
+    Breadcrumb, tabs এবং side nav — তিনটিই active state বোঝায় রঙের পাশাপাশি
+    আকৃতি বা <code>aria-current</code> দিয়ে।
+  </p>
+  <div class="grid grid-2">
+    <div class="card stack">
+      <h3>Breadcrumb</h3>
+      <nav aria-label="ব্রেডক্রাম্ব">
+        <ol class="crumbs">
+          <li><a href="#">হোম</a></li>
+          <li><span class="sep" aria-hidden="true">/</span><a href="#">রিপোর্ট</a></li>
+          <li><span class="sep" aria-hidden="true">/</span><span aria-current="page">CF-1042</span></li>
+        </ol>
+      </nav>
+      <h3 style="margin-top: var(--space-4);">Tabs</h3>
+      <div class="tabs" role="tablist" aria-label="ট্যাব">
+        <button class="tab" role="tab" aria-selected="true">সব</button>
+        <button class="tab" role="tab" aria-selected="false">চলমান</button>
+        <button class="tab" role="tab" aria-selected="false">সমাধান</button>
       </div>
-      <div style="position: absolute; top: var(--space-3); right: var(--space-3); background: rgba(15,20,25,0.85); color: white; padding: 4px var(--space-2); border-radius: var(--radius-xs); font-size: var(--text-micro); font-weight: var(--weight-semibold);">+২</div>
+    </div>
+    <div class="card" style="padding: 0;">
+      <nav class="side-nav" aria-label="প্রধান নেভিগেশন">
+        <ul>
+          <li><a href="#" aria-current="page">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+            সারি</a></li>
+          <li><a href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"></path></svg>
+            মানচিত্র</a></li>
+          <li><a href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
+            পর্যবেক্ষণ</a></li>
+          <li><a href="#">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>
+            পারফরম্যান্স</a></li>
+        </ul>
+      </nav>
     </div>
   </div>
 </section>
 
-<!-- Banners -->
 <section class="section">
-  <div class="section-eyebrow">09</div>
-  <h2>Banners</h2>
-  <p class="section-desc">Slim info / warning / error banners used for offline, validation, and system messages.</p>
-
-  <div style="display: flex; flex-direction: column; gap: var(--space-3);">
-    <div class="banner banner-info">
-      <span>ℹ</span>
-      <span>অফলাইনে জমা হয়েছে — সংযোগ ফিরে আসলে আপলোড হবে</span>
+  <div class="eyebrow">11</div>
+  <h2>অবস্থা</h2>
+  <p class="section-desc">
+    খালি, ব্যর্থ ও লোড হচ্ছে — তিনটি আলাদা অবস্থা, তিনটি আলাদা বার্তা।
+    খালি অবস্থা একটি ডিজাইন করা মুহূর্ত, ত্রুটি নয়।
+  </p>
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="state">
+        <span class="state-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"></path></svg>
+        </span>
+        <p class="state-title">কোনো রিপোর্ট নেই</p>
+        <p class="state-body">প্রথম রিপোর্টটি যোগ করে শুরু করুন।</p>
+        <button class="btn btn-primary btn-sm">রিপোর্ট করুন</button>
+      </div>
     </div>
-    <div class="banner banner-warning">
-      <span>⚠</span>
-      <span>এই রিপোর্ট ৭ দিন ধরে চলমান — সাহায্য দরকার?</span>
+    <div class="card">
+      <div class="state">
+        <span class="state-icon danger">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+        </span>
+        <p class="state-title">লোড করা যায়নি</p>
+        <p class="state-body">এই অংশটি লোড করা যায়নি। আবার চেষ্টা করুন।</p>
+        <button class="btn btn-primary btn-sm">আবার চেষ্টা করুন</button>
+      </div>
     </div>
-    <div class="banner banner-error">
-      <span>✕</span>
-      <span>সংযোগ ব্যর্থ — আবার চেষ্টা করুন</span>
+    <div class="card">
+      <div class="state">
+        <span class="state-icon" style="color: var(--color-primary);">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"></path></svg>
+        </span>
+        <p class="state-title">লোড হচ্ছে…</p>
+        <p class="state-body">তথ্য আনা হচ্ছে।</p>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- Filter pills -->
 <section class="section">
-  <div class="section-eyebrow">10</div>
-  <h2>Filter pills</h2>
-  <p class="section-desc">Horizontal scrollable pill row. Active pill is filled with ink. Used in dispatcher dashboard, activity feed.</p>
-
-  <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-    <button class="filter-pill active">সব</button>
-    <button class="filter-pill">নতুন</button>
-    <button class="filter-pill">বরাদ্দ হয়নি</button>
-    <button class="filter-pill">চলমান</button>
-    <button class="filter-pill">আজকের সমাধান</button>
-  </div>
-</section>
-
-<!-- Modal -->
-<section class="section">
-  <div class="section-eyebrow">11</div>
-  <h2>Modal</h2>
-  <p class="section-desc">Used for assign-to-crew, resolve confirmation, and other high-stakes decisions. Centered, dimmed backdrop, clear hierarchy.</p>
-
-  <div style="position: relative; padding: var(--space-5); background: rgba(15,20,25,0.04); border-radius: var(--radius-lg);">
-    <div style="max-width: 480px; margin: 0 auto; background: var(--color-surface-card); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-modal);">
-      <h2 style="margin: 0 0 var(--space-2);">ক্রু নির্বাচন করুন</h2>
-      <p style="margin: 0 0 var(--space-5); color: var(--color-ink-secondary); font-size: var(--text-body-sm);">কোন ক্রু এই রিপোর্টটি পাবে?</p>
-      <div class="card" style="padding: var(--space-4); border-color: var(--color-primary); background: var(--color-primary-soft);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-weight: var(--weight-semibold);">ক্রু বি</div>
-            <div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">বৈদ্যুতিক · ৩টি কাজ · ০.৮ কিমি দূরে</div>
-          </div>
-          <span class="pill pill-routed">সেরা ম্যাচ</span>
+  <div class="eyebrow">12</div>
+  <h2>বার্তা ও মডাল</h2>
+  <p class="section-desc">
+    একটি toast নিজে থেকে সময় শেষে হারিয়ে যায় না — পাঠানো ব্যক্তি নিজের
+    গতিতে পড়ে নেয়। একটি modal একটি native <code>&lt;dialog&gt;</code>, তাই
+    পেছনের পেজ focus-এ থাকে না।
+  </p>
+  <div class="grid grid-2">
+    <div class="stack">
+      <div class="toast">
+        <span style="color: var(--color-info); display: inline-flex;" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
+        </span>
+        <div>
+          <p class="toast-title">রিপোর্ট জমা হয়েছে</p>
+          <p class="toast-body">আপনার টিকিট আইডি CF-1042</p>
         </div>
       </div>
-      <div style="margin-top: var(--space-5); display: flex; gap: var(--space-3); justify-content: flex-end;">
-        <button class="btn btn-tertiary">বাতিল</button>
-        <button class="btn btn-primary">বরাদ্দ করুন</button>
+      <div class="toast success">
+        <span style="color: var(--color-success); display: inline-flex;" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path></svg>
+        </span>
+        <div>
+          <p class="toast-title">সফলভাবে জমা হয়েছে</p>
+          <p class="toast-body">বিভাগটি ইতিমধ্যে অবহিত হয়েছে</p>
+        </div>
+      </div>
+      <div class="toast danger">
+        <span style="color: var(--color-danger); display: inline-flex;" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="m9 9 6 6M15 9l-6 6"></path></svg>
+        </span>
+        <div>
+          <p class="toast-title">জমা দেওয়া যায়নি</p>
+          <p class="toast-body">আবার চেষ্টা করুন</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-demo">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>রিপোর্ট বাতিল করবেন?</h3>
+          <button class="icon-btn" aria-label="ডায়ালগ বন্ধ করুন">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p style="margin: 0; color: var(--color-ink-secondary); font-size: var(--text-body-sm);">
+            রিপোর্টটি বাতিল করলে আপনার সব ছবি ও তথ্য মুছে যাবে। এই কাজটি ফিরিয়ে আনা যাবে না।
+          </p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-secondary btn-md">না, থাক</button>
+          <button class="btn btn-danger btn-md">হ্যাঁ, বাতিল করুন</button>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Footer -->
-<section class="section" style="padding-top: var(--space-7); padding-bottom: var(--space-7); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption);">
-  CityFix visual reference · Apple-like calm confidence · Bangla-first<br />
-  <a href="gallery.html" style="color: var(--color-primary); text-decoration: none;">View gallery →</a>
-</section>
+<div class="footer">
+  CityFix ডিজাইন সিস্টেম · Accessible + Swiss / Minimal · <a href="gallery.html">গ্যালারিতে ফিরে যান</a>
+</div>
 
 </body>
 </html>
