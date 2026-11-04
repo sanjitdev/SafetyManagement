@@ -13,6 +13,17 @@
  * components; on the server it renders the same DOM as on the
  * client.
  *
+ * A STATUS IS NEVER COLOUR ALONE
+ * ------------------------------
+ * The pill carries THREE signals: a shape (the Phosphor icon), a
+ * word (the translated label) and a colour. The colour is the third
+ * signal, not the only one — which is what makes the pill readable
+ * to a colour-blind user, in a greyscale printout, and to a screen
+ * reader (which reads the word).
+ *
+ * The icon comes from the shared registry (`lib/ui/icon-map.ts`) so
+ * the same status carries the same shape everywhere in the product.
+ *
  * Color tokens come from `tokens.css` (the
  * `--color-status-{name}` + `--color-status-{name}-soft` pairs).
  * The `submitted`/`routed`/`in_progress`/`resolved`/`paused`
@@ -27,6 +38,7 @@
  * the document default.
  */
 
+import { ICONS, type IconEntry } from '@/lib/ui/icon-map';
 import { t, type Language } from '@/lib/i18n/keys';
 
 export type StatusKey =
@@ -47,6 +59,8 @@ interface StatusVisual {
   bg: string;
   /** i18n key to look up the human label. */
   i18nKey: string;
+  /** The icon that gives the status its SHAPE. */
+  icon: IconEntry;
 }
 
 const STATUS_VISUAL: Record<StatusKey, StatusVisual> = {
@@ -54,46 +68,55 @@ const STATUS_VISUAL: Record<StatusKey, StatusVisual> = {
     fg: 'var(--color-status-submitted)',
     bg: 'var(--color-status-submitted-soft)',
     i18nKey: 'status.submitted',
+    icon: ICONS.statusSubmitted,
   },
   routed: {
     fg: 'var(--color-status-routed)',
     bg: 'var(--color-status-routed-soft)',
     i18nKey: 'status.routed',
+    icon: ICONS.statusRouted,
   },
   in_progress: {
     fg: 'var(--color-status-in-progress)',
     bg: 'var(--color-status-in-progress-soft)',
     i18nKey: 'status.in_progress',
+    icon: ICONS.statusInProgress,
   },
   resolved: {
     fg: 'var(--color-status-resolved)',
     bg: 'var(--color-status-resolved-soft)',
     i18nKey: 'status.resolved',
+    icon: ICONS.statusResolved,
   },
   closed: {
     fg: 'var(--color-ink-tertiary)',
     bg: 'var(--color-surface-raised)',
     i18nKey: 'status.closed',
+    icon: ICONS.statusResolved,
   },
   cancelled: {
     fg: 'var(--color-ink-tertiary)',
     bg: 'var(--color-surface-raised)',
     i18nKey: 'status.cancelled',
+    icon: ICONS.statusError,
   },
   paused: {
     fg: 'var(--color-status-paused)',
     bg: 'var(--color-status-in-progress-soft)',
     i18nKey: 'status.paused',
+    icon: ICONS.statusPaused,
   },
   error: {
     fg: 'var(--color-status-error)',
     bg: 'var(--color-status-error-soft)',
     i18nKey: 'status.error',
+    icon: ICONS.statusError,
   },
   warning: {
     fg: 'var(--color-status-warning)',
     bg: 'var(--color-status-warning-soft)',
     i18nKey: 'status.warning',
+    icon: ICONS.statusWarning,
   },
 };
 
@@ -120,7 +143,8 @@ export function StatusPill({
 }: StatusPillProps) {
   const visual = STATUS_VISUAL[status];
   const label = t(visual.i18nKey, null, lang);
-  const fontSize = size === 'md' ? 'var(--text-caption)' : 10;
+  const fontSize = size === 'md' ? 'var(--text-caption)' : 'var(--text-micro)';
+  const IconComponent = visual.icon.icon;
 
   return (
     <span
@@ -130,7 +154,9 @@ export function StatusPill({
       data-status={status}
       className={className}
       style={{
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--space-1)',
         padding: size === 'md' ? 'var(--space-1) var(--space-2)' : '2px var(--space-2)',
         background: visual.bg,
         color: visual.fg,
@@ -139,9 +165,15 @@ export function StatusPill({
         fontWeight: 'var(--weight-bold)',
         textTransform: 'uppercase',
         whiteSpace: 'nowrap',
-        lineHeight: 1.4,
+        lineHeight: 'var(--leading-snug)',
       }}
     >
+      <IconComponent
+        size={size === 'md' ? 14 : 12}
+        weight={visual.icon.weight}
+        aria-hidden
+        focusable="false"
+      />
       {label}
     </span>
   );

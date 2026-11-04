@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="cityfix-favicon-title">
+  <title id="cityfix-favicon-title">CityFix</title>
+  <!--
+    Monogram variant for the browser tab and the installed PWA icon.
+    The civic-blue tile is the same --color-primary the app uses, so the
+    favicon never drifts from the product's blue.
+  -->
+  <rect width="32" height="32" rx="7" fill="#1E40AF" />
+  <text
+    x="16"
+    y="22"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="15"
+    font-weight="700"
+    letter-spacing="-0.4"
+    fill="#FFFFFF"
+  >CF</text>
+</svg>

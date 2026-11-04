@@ -14,7 +14,7 @@
  * stays the single family across the stack.
  */
 
-/* ---------- LIGHT THEME (default) ---------- */
+/* ---------- LIGHT THEME (user-selectable override) ---------- */
 
 :root {
   /* ---------- COLOR ---------- */
@@ -61,7 +61,6 @@
   --color-surface-raised: #F1F5F9;  /* fills, dividers, inputs */
   --color-surface-sunken: #E8ECF1;  /* subtle sunken regions */
   --color-surface-inverse: #0F172A; /* dark surfaces (monitor, outdoor) */
-  --color-bg: #F8FAFC;              /* alias for legacy call sites */
 
   /* Border — `--color-border` is a hairline divider (decorative);
    * `--color-border-strong` separates interactive controls from the
@@ -275,7 +274,7 @@
   --shadow-focus: 0 0 0 3px rgba(0, 0, 0, 0.45);
 }
 
-/* ---------- DARK MODE (Habib's monitor, citizen-selectable) ---------- */
+/* ---------- DARK MODE (default, user-selectable) ---------- */
 
 .theme-dark {
   /* Surfaces */
@@ -284,7 +283,6 @@
   --color-surface-raised: #1F2937;
   --color-surface-sunken: #0F172A;
   --color-surface-inverse: #F7FAFC;
-  --color-bg: #0B1220;
 
   /* Ink */
   --color-ink: #F9FAFB;
@@ -387,7 +385,6 @@
     --color-surface-raised: #1F2937;
     --color-surface-sunken: #0F172A;
     --color-surface-inverse: #F7FAFC;
-    --color-bg: #0B1220;
 
     --color-ink: #F9FAFB;
     --color-ink-secondary: #CBD5E0;

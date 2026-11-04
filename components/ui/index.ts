@@ -27,6 +27,7 @@
  */
 
 export { StatusPill, type StatusPillProps, type StatusKey } from './StatusPill';
+export { CategoryIcon, type CategoryIconProps } from './CategoryIcon';
 export { ReportCard, type ReportCardProps } from './ReportCard';
 export {
   FilterChipGroup,
@@ -35,3 +36,62 @@ export {
 } from './FilterChipGroup';
 export { StepIndicator, type StepIndicatorProps } from './StepIndicator';
 export { ReportShell, type ReportShellProps } from './ReportShell';
+
+/* --- Wave 1 — the design foundation primitives ---------------------------- */
+
+export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
+export { IconButton, type IconButtonProps, type IconButtonVariant, type IconButtonSize } from './IconButton';
+export { Badge, type BadgeProps, type BadgeTone } from './Badge';
+export { Avatar, initialsOf, type AvatarProps, type AvatarSize } from './Avatar';
+
+export { Field, type FieldProps } from './Field';
+export { Input, type InputProps, type InputSize } from './Input';
+export { Select, type SelectProps, type SelectOption, type SelectSize } from './Select';
+export { Textarea, type TextareaProps } from './Textarea';
+
+export { Card, type CardProps } from './Card';
+export { Panel, type PanelProps } from './Panel';
+export { Toolbar, type ToolbarProps } from './Toolbar';
+export { FilterBar, type FilterBarProps } from './FilterBar';
+export {
+  DataTable,
+  sortRows,
+  type DataTableProps,
+  type DataTableColumn,
+  type SortDirection,
+} from './DataTable';
+
+export { EmptyState, type EmptyStateProps } from './EmptyState';
+export { ErrorState, type ErrorStateProps } from './ErrorState';
+export { LoadingState, type LoadingStateProps } from './LoadingState';
+
+export { Breadcrumb, type BreadcrumbProps, type BreadcrumbItem } from './Breadcrumb';
+export { SideNav, type SideNavProps, type SideNavItem } from './SideNav';
+export { Tabs, type TabsProps, type TabItem } from './Tabs';
+export { Modal, type ModalProps } from './Modal';
+export { Toast, type ToastProps, type ToastTone } from './Toast';
+export { KpiRow, type KpiRowProps, type KpiItem, type KpiTrend } from './KpiRow';
+export { Timeline, type TimelineProps, type TimelineItem, type TimelineState } from './Timeline';
+
+/* --- The chart kit -------------------------------------------------------- */
+
+export {
+  ChartFrame,
+  StatCard,
+  TrendLine,
+  CategoryBar,
+  SlaBullet,
+  sortByValueDescending,
+  clampToScale,
+  type ChartFrameProps,
+  type StatCardProps,
+  type StatTrend,
+  type StatTone,
+  type TrendLineProps,
+  type TrendLinePoint,
+  type TrendLineSeries,
+  type CategoryBarProps,
+  type CategoryBarEntry,
+  type SlaBulletProps,
+  type SlaTone,
+} from './charts';

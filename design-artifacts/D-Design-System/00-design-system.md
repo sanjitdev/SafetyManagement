@@ -2,7 +2,7 @@
 
 > Components, tokens, and patterns that grow from actual usage — not upfront planning.
 
-**Created:** 2026-09-18 (initial visual design), 2026-10-04 (reorganised into WDS template)
+**Created:** 2026-09-18 (initial visual design), 2026-10-04 (reorganised into WDS template), 2026-11-02 (UI redesign Waves 1–2)
 **Phase:** 7 — Design System (crystallises during Phase 4)
 **Agent:** Freya (Designer)
 
@@ -81,6 +81,10 @@ D-Design-System/
 - `A-Product-Brief/03-visual-direction.md` — the *intent* behind every token (brand personality, voice dimensions → typography mapping, layout breakpoints)
 - `C-UX-Scenarios/**/N.M-page.md` — page specifications that drove the design system
 - `E-Development/` — what the build phase will reference
+- `components/ui/` + `components/ui/charts/` — the implementation of this design system
+- `lib/ui/icon-map.ts` — the Phosphor icon registry
+- `.specsmd/aidlc/memory-bank/intents/009-ui-redesign/` — the redesign's requirements, units, stories and bolts
+- `_progress/00-design-log.md` — the dated record of every wave
 
 ---
 

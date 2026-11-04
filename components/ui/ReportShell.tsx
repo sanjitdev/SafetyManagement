@@ -33,6 +33,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { StepIndicator } from './StepIndicator';
 import { type Language } from '@/lib/i18n/keys';
+import { CityFixMark } from '@/components/CityFixMark';
 
 export interface ReportShellProps {
   /** 1-indexed current step (drives the indicator). */
@@ -113,15 +114,7 @@ export function ReportShell({
             color: 'var(--color-ink)',
           }}
         >
-          <span
-            aria-hidden
-            style={{
-              width: 12,
-              height: 12,
-              background: 'var(--color-primary)',
-              borderRadius: '50%',
-            }}
-          />
+          <CityFixMark size={34} />
           <span style={{ fontSize: 'var(--text-body-lg)', fontWeight: 'var(--weight-semibold)' }}>
             CityFix
           </span>
