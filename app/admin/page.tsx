@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
+import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 
@@ -21,14 +22,7 @@ const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), {
 });
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
-const ADMIN_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = {
-  submitted: '#2563eb',
-  routed: '#f59e0b',
-  in_progress: '#f59e0b',
-  resolved: '#16a765',
-  closed: '#16a765',
-  cancelled: '#ef4444',
-};
+const ADMIN_MAP_COLORS = MAP_STATUS_COLORS;
 const RANGE_OPTIONS = [7, 30, 90] as const;
 const DAY_MS = 86_400_000;
 
@@ -172,9 +166,9 @@ function TrendChart({ tickets, lang, days }: { tickets: SerializedTicket[]; lang
     });
   }, [days, lang]);
   const series = [
-    { key: 'total' as const, label: t('admin.dashboard.trend.total', null, lang), color: '#2563eb' },
-    { key: 'resolved' as const, label: t('admin.dashboard.trend.resolved', null, lang), color: '#16a765' },
-    { key: 'pending' as const, label: t('admin.dashboard.trend.pending', null, lang), color: '#ef4444' },
+    { key: 'total' as const, label: t('admin.dashboard.trend.total', null, lang), color: 'var(--color-primary)' },
+    { key: 'resolved' as const, label: t('admin.dashboard.trend.resolved', null, lang), color: 'var(--color-status-resolved)' },
+    { key: 'pending' as const, label: t('admin.dashboard.trend.pending', null, lang), color: 'var(--color-status-submitted)' },
   ];
   const values = series.map((entry) => trendFor(tickets, entry.key, days));
   const max = Math.max(1, ...values.flat());
@@ -190,11 +184,11 @@ function TrendChart({ tickets, lang, days }: { tickets: SerializedTicket[]; lang
         {series.map((entry) => <span key={entry.key}><i style={{ background: entry.color }} />{entry.label}</span>)}
       </div>
       <svg className="admin-trend-svg" viewBox="0 0 560 180" role="img" aria-label={t('admin.dashboard.trend', null, lang)}>
-        {[28, 56, 84, 112, 140].map((y) => <line key={y} x1="34" x2="540" y1={y} y2={y} stroke="#e9edf4" strokeWidth="1" />)}
+        {[28, 56, 84, 112, 140].map((y) => <line key={y} x1="34" x2="540" y1={y} y2={y} stroke="var(--color-border)" strokeWidth="1" />)}
         {series.map((entry, index) => <path key={entry.key} d={pointPath(values[index])} fill="none" stroke={entry.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />)}
         {labels.map((label, index) => {
           const x = labels.length <= 1 ? 280 : 34 + (index / (labels.length - 1)) * 480;
-          return <text key={label} x={x} y="165" textAnchor="middle" fill="#51617e" fontSize="11">{label}</text>;
+          return <text key={label} x={x} y="165" textAnchor="middle" fill="var(--color-ink-secondary)" fontSize="11">{label}</text>;
         })}
       </svg>
       <span className="sr-only">{t('admin.dashboard.range', null, lang)}: {days}</span>
@@ -210,7 +204,7 @@ function CrewActivity({ crewUsers, lang }: { crewUsers: AdminCrewUser[]; lang: L
   const percentage = crew.length ? Math.round((active / crew.length) * 100) : 0;
   return (
     <div className="admin-crew-content">
-      <div className="admin-donut" style={{ background: `conic-gradient(#16b765 0 ${percentage}%, #e7edf5 ${percentage}% 100%)` }} role="img" aria-label={`${percentage}% ${t('admin.dashboard.crew.active', null, lang)}`}>
+      <div className="admin-donut" style={{ background: `conic-gradient(var(--color-status-resolved) 0 ${percentage}%, var(--color-surface-raised) ${percentage}% 100%)` }} role="img" aria-label={`${percentage}% ${t('admin.dashboard.crew.active', null, lang)}`}>
         <span><strong>{percentage}%</strong><small>{t('admin.dashboard.crew.active', null, lang)}</small></span>
       </div>
       <ul className="admin-crew-stats">
@@ -359,10 +353,10 @@ export default function AdminHomePage() {
   const tickets = dashboard?.tickets ?? [];
   const previousTickets = dashboard?.previousTickets ?? [];
   const metrics: MetricDefinition[] = [
-    { key: 'total', color: '#2563eb', soft: '#e7efff', icon: 'reports', current: countStatus(tickets, 'total'), previous: countStatus(previousTickets, 'total'), spark: trendFor(tickets, 'total', rangeDays) },
-    { key: 'progress', color: '#f59e0b', soft: '#fff2df', icon: 'statusInProgress', current: countStatus(tickets, 'progress'), previous: countStatus(previousTickets, 'progress'), spark: trendFor(tickets, 'progress', rangeDays) },
-    { key: 'resolved', color: '#16a765', soft: '#e2f6ed', icon: 'statusResolved', current: countStatus(tickets, 'resolved'), previous: countStatus(previousTickets, 'resolved'), spark: trendFor(tickets, 'resolved', rangeDays) },
-    { key: 'pending', color: '#ef4444', soft: '#ffebeb', icon: 'statusSubmitted', current: countStatus(tickets, 'pending'), previous: countStatus(previousTickets, 'pending'), spark: trendFor(tickets, 'pending', rangeDays) },
+    { key: 'total', color: 'var(--color-primary)', soft: 'var(--color-primary-soft)', icon: 'reports', current: countStatus(tickets, 'total'), previous: countStatus(previousTickets, 'total'), spark: trendFor(tickets, 'total', rangeDays) },
+    { key: 'progress', color: 'var(--color-status-in-progress)', soft: 'var(--color-status-in-progress-soft)', icon: 'statusInProgress', current: countStatus(tickets, 'progress'), previous: countStatus(previousTickets, 'progress'), spark: trendFor(tickets, 'progress', rangeDays) },
+    { key: 'resolved', color: 'var(--color-status-resolved)', soft: 'var(--color-status-resolved-soft)', icon: 'statusResolved', current: countStatus(tickets, 'resolved'), previous: countStatus(previousTickets, 'resolved'), spark: trendFor(tickets, 'resolved', rangeDays) },
+    { key: 'pending', color: 'var(--color-status-submitted)', soft: 'var(--color-status-submitted-soft)', icon: 'statusSubmitted', current: countStatus(tickets, 'pending'), previous: countStatus(previousTickets, 'pending'), spark: trendFor(tickets, 'pending', rangeDays) },
   ];
   const filteredReports = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();

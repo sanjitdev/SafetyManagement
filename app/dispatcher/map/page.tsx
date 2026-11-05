@@ -29,6 +29,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { MapPin, MapStatus } from '@/components/DispatcherMap';
+import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 // MapLibre is browser-only; load the page's map component on
 // the client only. The page's own state (auth gate, filters,
@@ -410,9 +411,9 @@ export default function DispatcherMapPage() {
               {t('dispatcher.map.legend.title', null, lang)}
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <LegendRow color="#b58410" label={t('dispatcher.map.legend.submitted', null, lang)} />
-              <LegendRow color="#0E5A4A" label={t('dispatcher.map.legend.routed', null, lang)} />
-              <LegendRow color="#1c7ed6" label={t('dispatcher.map.legend.in_progress', null, lang)} />
+              <LegendRow color={MAP_STATUS_COLORS.submitted} label={t('dispatcher.map.legend.submitted', null, lang)} />
+              <LegendRow color={MAP_STATUS_COLORS.routed} label={t('dispatcher.map.legend.routed', null, lang)} />
+              <LegendRow color={MAP_STATUS_COLORS.in_progress} label={t('dispatcher.map.legend.in_progress', null, lang)} />
             </div>
           </div>
 

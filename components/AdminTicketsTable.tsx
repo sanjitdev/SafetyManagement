@@ -23,6 +23,7 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { StatusPill, type StatusKey } from '@/components/ui/StatusPill';
 
 interface AdminTicketsTableProps {
   rows: SerializedTicket[];
@@ -32,46 +33,6 @@ interface AdminTicketsTableProps {
   hasMore: boolean;
   lang: Language;
 }
-
-/**
- * The status pill's background + foreground.
- *
- * The convention across the app is a `*-soft` background with the
- * SATURATED `*-status` colour as the foreground. Using the
- * saturated token as the BACKGROUND made the label unreadable
- * (white text on a saturated blue).
- */
-const STATUS_STYLE: Record<
-  string,
-  { background: string; color: string }
-> = {
-  submitted: {
-    background: 'var(--color-status-submitted-soft)',
-    color: 'var(--color-status-submitted)',
-  },
-  routed: {
-    background: 'var(--color-status-routed-soft)',
-    color: 'var(--color-status-routed)',
-  },
-  in_progress: {
-    background: 'var(--color-status-in-progress-soft)',
-    color: 'var(--color-status-in-progress)',
-  },
-  resolved: {
-    background: 'var(--color-status-resolved-soft)',
-    color: 'var(--color-status-resolved)',
-  },
-  // `closed` and `cancelled` have no dedicated soft token — they
-  // render neutral, the same as the other admin surfaces.
-  closed: {
-    background: 'var(--color-surface-raised)',
-    color: 'var(--color-ink-secondary)',
-  },
-  cancelled: {
-    background: 'var(--color-surface-raised)',
-    color: 'var(--color-ink-secondary)',
-  },
-};
 
 export function AdminTicketsTable({
   rows,
@@ -162,23 +123,7 @@ export function AdminTicketsTable({
                 {formatTicketId(row.id)}
               </td>
               <td style={tdStyle}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    padding: '2px 8px',
-                    background:
-                      STATUS_STYLE[row.status]?.background ??
-                      'var(--color-surface-raised)',
-                    color:
-                      STATUS_STYLE[row.status]?.color ??
-                      'var(--color-ink-secondary)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-pill)',
-                    fontSize: 'var(--text-small)',
-                  }}
-                >
-                  {t(`status.${row.status}`, null, lang)}
-                </span>
+                <StatusPill status={row.status as StatusKey} lang={lang} />
               </td>
               <td style={tdStyle}>
                 {categoryLabel(row, lang)}

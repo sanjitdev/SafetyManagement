@@ -42,6 +42,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import { MAP_PRIMARY_COLOR, MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 export type MapStatus = 'submitted' | 'routed' | 'in_progress';
 
@@ -111,9 +112,9 @@ const CLUSTER_THRESHOLD = 50;
  * the visual is consistent.
  */
 const PIN_COLORS: Record<MapStatus, string> = {
-  submitted: '#b58410', // warning (matches dispatcher queue pill)
-  routed: '#0E5A4A', // primary
-  in_progress: '#1c7ed6', // blue (slightly distinct from routed)
+  submitted: MAP_STATUS_COLORS.submitted,
+  routed: MAP_STATUS_COLORS.routed,
+  in_progress: MAP_STATUS_COLORS.in_progress,
 };
 
 /**
@@ -207,7 +208,7 @@ export default function DispatcherMap({
           type: 'fill',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'fill-color': '#0E5A4A',
+            'fill-color': MAP_PRIMARY_COLOR,
             'fill-opacity': 0.06,
           },
         });
@@ -216,7 +217,7 @@ export default function DispatcherMap({
           type: 'line',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'line-color': '#0E5A4A',
+            'line-color': MAP_PRIMARY_COLOR,
             'line-width': 2,
             'line-dasharray': [2, 2],
           },
@@ -241,7 +242,7 @@ export default function DispatcherMap({
             source: PINS_SOURCE_ID,
             filter: ['has', 'point_count'],
             paint: {
-              'circle-color': '#0E5A4A',
+              'circle-color': MAP_PRIMARY_COLOR,
               'circle-radius': [
                 'step',
                 ['get', 'point_count'],

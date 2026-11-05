@@ -47,6 +47,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import { MAP_PRIMARY_COLOR, MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 export type CityActivityStatus =
   | 'submitted'
@@ -104,12 +105,7 @@ const CLUSTER_THRESHOLD = 50;
  * the side panel and the map read as one consistent visual.
  */
 const PIN_COLORS: Record<CityActivityStatus, string> = {
-  submitted: '#b58410', // warning
-  routed: '#0E5A4A', // primary
-  in_progress: '#1c7ed6', // blue
-  resolved: '#1f7a3f', // green
-  closed: '#5b6770', // grey
-  cancelled: '#9b2c2c', // red
+  ...MAP_STATUS_COLORS,
 };
 
 function pinsToFeatureCollection(
@@ -201,7 +197,7 @@ export default function CityActivityMap({
           type: 'fill',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'fill-color': '#0E5A4A',
+            'fill-color': MAP_PRIMARY_COLOR,
             'fill-opacity': 0.06,
           },
         });
@@ -210,7 +206,7 @@ export default function CityActivityMap({
           type: 'line',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'line-color': '#0E5A4A',
+            'line-color': MAP_PRIMARY_COLOR,
             'line-width': 2,
             'line-dasharray': [2, 2],
           },
@@ -236,7 +232,7 @@ export default function CityActivityMap({
             source: PINS_SOURCE_ID,
             filter: ['has', 'point_count'],
             paint: {
-              'circle-color': '#0E5A4A',
+              'circle-color': MAP_PRIMARY_COLOR,
               'circle-radius': [
                 'step',
                 ['get', 'point_count'],

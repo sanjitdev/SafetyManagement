@@ -40,13 +40,14 @@ import CityActivityMap, {
   type CityActivityPin,
   type CityActivityStatus,
 } from '@/components/CityActivityMap';
+import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 // DHAKA_CENTER — the home map's default focal point. Mirrors the
 // same constant used by `components/MapView.tsx` (the 1.7 location
 // page) and `components/DispatcherMap.tsx` (the 3.5 dispatcher
 // page), so all city-facing map surfaces share one anchor.
 const DHAKA_CENTER = { lat: 23.8069, lng: 90.3687 };
-const HOME_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = { submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#16a765', closed: '#16a765', cancelled: '#ef4444' };
+const HOME_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = MAP_STATUS_COLORS;
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const NOTIF_PROMPT_KEY = 'cityfix.notification_prompt_seen.v1';

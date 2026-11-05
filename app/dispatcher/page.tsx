@@ -445,7 +445,7 @@ export default function DispatcherPage() {
             <div className="dispatcher-map-legend"><span><i className="is-new" />{t('dispatcher.dashboard.new', null, lang)}</span><span><i className="is-assigned" />{t('dispatcher.dashboard.review', null, lang)}</span><span><i className="is-progress" />{t('dispatcher.dashboard.progress', null, lang)}</span><span><i className="is-resolved" />{t('dispatcher.dashboard.resolved', null, lang)}</span></div>
             <Link href="/dispatcher/map">{t('dispatcher.dashboard.full_map', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
           </header>
-          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: 300 }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} pinColors={{ submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#8b5cf6', closed: '#8b5cf6', cancelled: '#ef4444' }} />}</div>
+          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: 300 }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} />}</div>
         </article>
 
         <article className="dispatcher-panel dispatcher-recent-panel">

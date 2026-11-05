@@ -56,6 +56,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import { MAP_PRIMARY_COLOR } from '@/lib/ui/map-colors';
 
 interface MapViewProps {
   lat: number;
@@ -216,7 +217,7 @@ export default function MapView({
           type: 'fill',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'fill-color': '#0E5A4A',
+            'fill-color': MAP_PRIMARY_COLOR,
             'fill-opacity': showBoundary ? 0.08 : 0,
           },
         });
@@ -225,7 +226,7 @@ export default function MapView({
           type: 'line',
           source: DHAKA_DISTRICT_SOURCE_ID,
           paint: {
-            'line-color': '#0E5A4A',
+            'line-color': MAP_PRIMARY_COLOR,
             'line-width': 2,
             'line-dasharray': [2, 2],
           },
@@ -278,7 +279,7 @@ export default function MapView({
     el.style.width = '28px';
     el.style.height = '28px';
     el.style.borderRadius = '50%';
-    el.style.background = 'var(--color-primary, #0E5A4A)';
+    el.style.background = 'var(--color-primary, #1E40AF)';
     el.style.border = '3px solid #fff';
     el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
     el.style.cursor = draggable ? 'grab' : 'default';
