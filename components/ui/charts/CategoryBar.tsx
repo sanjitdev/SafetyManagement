@@ -19,10 +19,11 @@ import dynamic from 'next/dynamic';
 import { ChartFrame } from './ChartFrame';
 import { DataTable, type DataTableColumn } from '../DataTable';
 import { type Language } from '@/lib/i18n/keys';
+import { SkeletonBlock } from '@/components/ui/Skeleton';
 
 const CategoryBarCanvas = dynamic(() => import('./CategoryBarCanvas'), {
   ssr: false,
-  loading: () => <div style={{ height: 260 }} aria-hidden />,
+  loading: () => <SkeletonBlock style={{ width: '100%', height: 260 }} />,
 });
 
 export interface CategoryBarEntry {

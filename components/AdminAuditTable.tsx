@@ -16,6 +16,7 @@
 import { Fragment, useId } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { AuditEntryView } from '@/lib/admin/audit-query';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 interface AdminAuditTableProps {
   entries: AuditEntryView[];
@@ -42,23 +43,13 @@ export function AdminAuditTable({
 
   if (loading && entries.length === 0) {
     return (
-      <div style={{ padding: 'var(--space-4)' }}>
-        <p style={{ color: 'var(--color-ink-secondary)' }}>
-          {t('admin.audit.loading', null, lang)}
-        </p>
+      <SkeletonStatus lang={lang} className="admin-table-skeleton">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            style={{
-              height: 36,
-              marginBottom: 6,
-              background: 'var(--color-surface-raised)',
-              borderRadius: 'var(--radius-sm)',
-              animation: 'pulse 1.4s ease-in-out infinite',
-            }}
-          />
+          <div key={i} className="admin-table-skeleton-row">
+            {[0, 1, 2, 3, 4, 5].map((cell) => <SkeletonBlock key={cell} style={{ width: `${48 + (cell % 3) * 13}%`, height: 13 }} />)}
+          </div>
         ))}
-      </div>
+      </SkeletonStatus>
     );
   }
 

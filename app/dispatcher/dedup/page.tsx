@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -214,7 +215,7 @@ export default function DispatcherDedupReviewPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           flexDirection: 'column',
@@ -254,7 +255,7 @@ export default function DispatcherDedupReviewPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',
@@ -338,15 +339,21 @@ export default function DispatcherDedupReviewPage() {
         </p>
 
         {loading && (
-          <p
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-tertiary)',
-            }}
-          >
-            {t('dispatcher.dedup.loading', null, lang)}
-          </p>
+          <SkeletonStatus lang={lang} className="dedup-loading-list">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="dedup-loading-card">
+                <div style={{ display: 'grid', gap: 10, flex: 1 }}>
+                  <SkeletonBlock style={{ width: '42%', height: 15 }} />
+                  <SkeletonBlock style={{ width: '72%', height: 12 }} />
+                  <SkeletonBlock style={{ width: '58%', height: 12 }} />
+                </div>
+                <div className="dedup-loading-actions">
+                  <SkeletonBlock style={{ width: 118, height: 38, borderRadius: 'var(--radius-md)' }} />
+                  <SkeletonBlock style={{ width: 118, height: 38, borderRadius: 'var(--radius-md)' }} />
+                </div>
+              </div>
+            ))}
+          </SkeletonStatus>
         )}
 
         {error && error !== 'not_authenticated' && (

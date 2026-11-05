@@ -32,6 +32,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 interface UserRow {
   id: string;
@@ -276,6 +277,12 @@ function DevLoginInner() {
               </option>
             ))}
           </select>
+
+          {secret && !users && !listError && (
+            <SkeletonStatus lang="en" className="dev-user-loading">
+              <SkeletonBlock style={{ width: '100%', height: 40, borderRadius: 'var(--radius-input)' }} />
+            </SkeletonStatus>
+          )}
 
           {listError && (
             <p

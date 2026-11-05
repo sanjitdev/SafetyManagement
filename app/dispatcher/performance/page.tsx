@@ -35,6 +35,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { categoryLabel } from '@/lib/identity/display-name';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -327,7 +328,7 @@ export default function DispatcherPerformancePage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -373,7 +374,7 @@ export default function DispatcherPerformancePage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',
@@ -511,18 +512,15 @@ export default function DispatcherPerformancePage() {
         }}
       >
         {loading ? (
-          <p
-            lang={lang}
-            data-testid="dispatcher-performance-loading"
-            style={{
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textAlign: 'center',
-              padding: 'var(--space-7)',
-            }}
-          >
-            {t('dispatcher.performance.loading', null, lang)}
-          </p>
+          <SkeletonStatus lang={lang} className="performance-loading" data-testid="dispatcher-performance-loading">
+            <div className="performance-loading-stats">
+              {[0, 1, 2].map((item) => <div key={item} className="performance-loading-card"><SkeletonBlock style={{ width: '44%', height: 12 }} /><SkeletonBlock style={{ width: '62%', height: 28 }} /><SkeletonBlock style={{ width: '34%', height: 11 }} /></div>)}
+            </div>
+            <div className="performance-loading-chart"><SkeletonBlock style={{ width: 190, height: 17 }} /><SkeletonBlock style={{ width: '100%', height: 200, borderRadius: 'var(--radius-md)' }} /></div>
+            <div className="performance-loading-table">
+              {[0, 1, 2, 3, 4].map((item) => <div key={item}><SkeletonBlock style={{ width: `${64 + (item % 3) * 9}%`, height: 14 }} /><SkeletonBlock style={{ width: 52, height: 14 }} /></div>)}
+            </div>
+          </SkeletonStatus>
         ) : error ? (
           <p
             lang={lang}

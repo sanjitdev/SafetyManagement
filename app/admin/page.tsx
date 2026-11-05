@@ -8,6 +8,8 @@ import { UserMenu } from '@/components/UserMenu';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { CityFixMark } from '@/components/CityFixMark';
 import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -15,7 +17,7 @@ import type { SerializedTicket } from '@/lib/serializers/ticket';
 
 const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), {
   ssr: false,
-  loading: () => <div className="admin-map-loading" aria-hidden="true" />,
+  loading: () => <SkeletonBlock style={{ width: '100%', height: '100%', minHeight: 262 }} />,
 });
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -259,12 +261,23 @@ export default function AdminHomePage() {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(30);
   const [dashboard, setDashboard] = useState<AdminDashboardPayload | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState('');
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+
+  const toggleLanguage = useCallback(() => {
+    const next: Language = lang === 'bn' ? 'en' : 'bn';
+    setLang(next);
+    try {
+      window.localStorage.setItem(LANG_KEY, next);
+    } catch {
+      // Keep the current page language if browser storage is unavailable.
+    }
+    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
+  }, [lang]);
 
   useEffect(() => {
     try {
@@ -364,26 +377,27 @@ export default function AdminHomePage() {
     status: ticket.status as CityActivityStatus,
   })), [tickets]);
   const activeCity = identity?.cityId;
-  const userHref = activeCity ? `/admin/cities/${activeCity}/users` : '/admin/cities';
+  const userHref = activeCity ? `/admin/cities/${activeCity}/users?role=all` : '/admin/cities';
+  const crewHref = activeCity ? `/admin/cities/${activeCity}/users?role=crew` : '/admin/cities';
   const settingsHref = activeCity ? `/admin/cities/${activeCity}/setup` : '/admin/cities';
   const pendingCount = metrics.find((metric) => metric.key === 'pending')?.current ?? 0;
 
   return (
-    <div className={`admin-dashboard${navOpen ? ' admin-dashboard--nav-open' : ''}`}>
+    <div data-app-shell data-shell-role="staff" className={`admin-dashboard${navOpen ? ' admin-dashboard--nav-open' : ''}`}>
       <button type="button" className="admin-dashboard-scrim" aria-label={t('ui.action.close', null, lang)} onClick={() => setNavOpen(false)} />
       <aside className="admin-dashboard-sidebar">
         <Link href="/admin" className="admin-brand" aria-label="CityFix dashboard">
           <CityFixMark size={48} />
           <span><strong>CityFix</strong><small>A Cleaner, Safer City</small></span>
         </Link>
-        <nav className="admin-side-nav" aria-label={t('admin.dashboard.nav.dashboard', null, lang)}>
+        <nav id="admin-dashboard-sidebar" className="admin-side-nav" aria-label={t('shell.nav.label', null, lang)}>
           <Link href="/admin" className="admin-side-link is-active" aria-current="page" onClick={() => setNavOpen(false)}>
             <ICONS.home.icon size={21} weight="bold" aria-hidden /><span>{t('admin.dashboard.nav.dashboard', null, lang)}</span>
           </Link>
           <Link href="/admin/tickets" className="admin-side-link" onClick={() => setNavOpen(false)}>
             <ICONS.reports.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.reports', null, lang)}</span>
           </Link>
-          <Link href={userHref} className="admin-side-link" onClick={() => setNavOpen(false)}>
+          <Link href={crewHref} className="admin-side-link" onClick={() => setNavOpen(false)}>
             <ICONS.users.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.crews', null, lang)}</span>
           </Link>
           <button type="button" className={`admin-side-link admin-side-toggle${operationsOpen ? ' is-open' : ''}`} onClick={() => setOperationsOpen((open) => !open)} aria-expanded={operationsOpen}>
@@ -409,7 +423,7 @@ export default function AdminHomePage() {
 
       <div className="admin-dashboard-main">
         <header className="admin-dashboard-topbar">
-          <button type="button" className="admin-mobile-menu" aria-label={t('admin.dashboard.nav.dashboard', null, lang)} onClick={() => setNavOpen(true)}>
+          <button type="button" className="admin-mobile-menu" aria-label={t('shell.nav.open', null, lang)} aria-expanded={navOpen} aria-controls="admin-dashboard-sidebar" onClick={() => setNavOpen(true)}>
             <ICONS.menu.icon size={21} aria-hidden />
           </button>
           <label className="admin-searchbox">
@@ -438,6 +452,11 @@ export default function AdminHomePage() {
               </select>
               <ICONS.chevronDown.icon size={14} aria-hidden />
             </label>
+            <button type="button" className="admin-language-toggle" onClick={toggleLanguage} aria-label={t('welcome.lang.toggle', null, lang)} title={t('welcome.lang.toggle', null, lang)}>
+              <span className="admin-language-long">{t('welcome.lang.toggle', null, lang)}</span>
+              <span className="admin-language-short" aria-hidden="true">{lang === 'bn' ? 'EN' : 'বাং'}</span>
+            </button>
+            <ThemeToggle lang={lang} />
           </div>
         </header>
 
@@ -458,7 +477,11 @@ export default function AdminHomePage() {
           ) : null}
 
           <section className="admin-kpi-grid" aria-label={t('admin.home.title', null, lang)}>
-            {metrics.map((metric) => <MetricCard key={metric.key} metric={metric} lang={lang} days={rangeDays} />)}
+            {loading && !dashboard ? (
+              <SkeletonStatus lang={lang} className="admin-dashboard-kpi-skeleton">
+                {metrics.map((metric) => <div key={metric.key} className="admin-kpi-card admin-kpi-skeleton"><SkeletonBlock style={{ width: '42%', height: 13 }} /><SkeletonBlock style={{ width: '58%', height: 28 }} /><SkeletonBlock style={{ width: '72%', height: 12 }} /></div>)}
+              </SkeletonStatus>
+            ) : metrics.map((metric) => <MetricCard key={metric.key} metric={metric} lang={lang} days={rangeDays} />)}
           </section>
 
           <section className="admin-dashboard-middle">
@@ -472,7 +495,7 @@ export default function AdminHomePage() {
                 </div>
               </header>
               <div className="admin-map-view">
-                <CityActivityMap pins={pins} center={DHAKA_CENTER} pinColors={ADMIN_MAP_COLORS} />
+                {loading && !dashboard ? <SkeletonStatus lang={lang} className="admin-map-data-skeleton"><SkeletonBlock style={{ width: '100%', height: 262, borderRadius: 0 }} /></SkeletonStatus> : <CityActivityMap pins={pins} center={DHAKA_CENTER} pinColors={ADMIN_MAP_COLORS} />}
               </div>
             </article>
 
@@ -482,7 +505,7 @@ export default function AdminHomePage() {
                 <Link href="/admin/tickets" className="admin-view-all">{t('admin.dashboard.view_all', null, lang)} <ICONS.forward.icon size={16} aria-hidden /></Link>
               </header>
               <div className="admin-reports-list">
-                {filteredReports.length ? filteredReports.map((ticket) => <ReportRow key={ticket.id} ticket={ticket} lang={lang} />) : (
+                {loading && !tickets.length ? <SkeletonStatus lang={lang} className="admin-reports-skeleton">{[0, 1, 2, 3].map((item) => <div key={item}><SkeletonBlock style={{ width: 54, height: 40, borderRadius: 8 }} /><span><SkeletonBlock style={{ width: '70%', height: 13 }} /><SkeletonBlock style={{ width: '46%', height: 11 }} /></span></div>)}</SkeletonStatus> : filteredReports.length ? filteredReports.map((ticket) => <ReportRow key={ticket.id} ticket={ticket} lang={lang} />) : (
                   <p className="admin-reports-empty">{t('admin.dashboard.empty_reports', null, lang)}</p>
                 )}
               </div>
@@ -492,17 +515,17 @@ export default function AdminHomePage() {
           <section className="admin-dashboard-bottom">
             <article className="admin-dashboard-panel admin-trend-panel">
               <header className="admin-panel-heading"><h2><ICONS.performance.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.trend', null, lang)}</h2></header>
-              <TrendChart tickets={tickets} lang={lang} days={rangeDays} />
+              {loading && !tickets.length ? <SkeletonStatus lang={lang} className="admin-chart-skeleton"><SkeletonBlock style={{ width: '100%', height: 190 }} /></SkeletonStatus> : <TrendChart tickets={tickets} lang={lang} days={rangeDays} />}
             </article>
             <article className="admin-dashboard-panel admin-crew-panel">
               <header className="admin-panel-heading"><h2><ICONS.users.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.crew_activity', null, lang)}</h2></header>
-              <CrewActivity crewUsers={dashboard?.crewUsers ?? []} lang={lang} />
+              {loading && !dashboard ? <SkeletonStatus lang={lang} className="admin-crew-skeleton">{[0, 1, 2].map((item) => <div key={item}><SkeletonBlock style={{ width: 42, height: 42, borderRadius: '50%' }} /><SkeletonBlock style={{ width: '50%', height: 13 }} /><SkeletonBlock style={{ width: 46, height: 13 }} /></div>)}</SkeletonStatus> : <CrewActivity crewUsers={dashboard?.crewUsers ?? []} lang={lang} />}
             </article>
             <article className="admin-dashboard-panel admin-actions-panel">
               <header className="admin-panel-heading"><h2><ICONS.newReport.icon size={20} weight="bold" aria-hidden />{t('admin.dashboard.quick_actions', null, lang)}</h2></header>
               <div className="admin-quick-actions">
                 <QuickAction href="/admin/tickets" icon={ICONS.reports.icon} tone="blue" title={t('admin.dashboard.action.reports', null, lang)} hint={t('admin.dashboard.action.reports_hint', null, lang)} />
-                <QuickAction href={userHref} icon={ICONS.users.icon} tone="purple" title={t('admin.dashboard.action.crews', null, lang)} hint={t('admin.dashboard.action.crews_hint', null, lang)} />
+                <QuickAction href={crewHref} icon={ICONS.users.icon} tone="purple" title={t('admin.dashboard.action.crews', null, lang)} hint={t('admin.dashboard.action.crews_hint', null, lang)} />
                 <QuickAction href="/admin/audit" icon={ICONS.audit.icon} tone="green" title={t('admin.dashboard.action.status', null, lang)} hint={t('admin.dashboard.action.status_hint', null, lang)} />
                 <QuickAction href={settingsHref} icon={ICONS.city.icon} tone="neutral" title={t('admin.dashboard.action.settings', null, lang)} hint={t('admin.dashboard.action.settings_hint', null, lang)} />
               </div>
@@ -533,14 +556,24 @@ export default function AdminHomePage() {
         @media (max-width: 540px) {
           .admin-dashboard-content { padding: 18px 14px 28px !important; }
           .admin-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .admin-dashboard-topbar { padding-inline: 14px !important; }
+          .admin-dashboard-topbar { gap: 6px; padding-inline: 10px !important; }
+          .admin-topbar-actions { gap: 3px; }
           .admin-searchbox { min-width: 0 !important; flex: 1; }
           .admin-searchbox input { width: 100%; }
-          .admin-range-select select { max-width: 92px; }
+          .admin-range-select { gap: 4px; padding-inline: 7px; }
+          .admin-range-select > svg:first-child { display: none; }
+          .admin-range-select select { max-width: 76px; }
+          .admin-language-toggle { width: 44px; padding-inline: 6px; }
+          .admin-language-long { display: none; }
+          .admin-language-short { display: inline; }
           .admin-kpi-card { min-height: 130px; }
           .admin-report-age { display: none; }
           .admin-status-chip { display: none; }
           .admin-crew-content { justify-content: center; gap: 22px !important; }
+        }
+        @media (max-width: 380px) {
+          .admin-dashboard-topbar { height: auto; flex-wrap: wrap; padding-block: 8px; }
+          .admin-topbar-actions { flex: 1 0 100%; justify-content: flex-end; }
         }
       ` }} />
     </div>

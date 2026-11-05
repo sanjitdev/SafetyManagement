@@ -74,7 +74,7 @@ export default function AdminTicketsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [rows, setRows] = useState<SerializedTicket[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -233,7 +233,7 @@ export default function AdminTicketsPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-full flex flex-col"
       style={{ background: 'var(--color-surface-page)' }}
     >
       <div

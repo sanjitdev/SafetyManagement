@@ -44,6 +44,7 @@ import {
   downscalePhotoFile,
 } from '@/lib/photo/downscale';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const LANG: Language = 'bn';
 
@@ -91,6 +92,7 @@ export default function PhotoPage() {
   const [photoEntries, setPhotoEntries] = useState<PhotoEntry[]>([]);
   const [cap, setCap] = useState<number>(3);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
   /**
    * True while a large photo is being decoded + re-encoded. A
    * 4000×3000 decode plus a JPEG encode takes ~300–800 ms on a
@@ -106,31 +108,33 @@ export default function PhotoPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!res.ok) {
+      try {
+        const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
+        if (!res.ok) {
+          setAuthed(false);
+          return;
+        }
+        const data = (await res.json()) as { categories: CategorySummaryLike[] };
+        setAuthed(true);
+        const draft = loadDraft();
+        if (draft?.photoUrls) {
+          // The draft's blobs are restored ALONGSIDE its URLs — the two
+          // must stay in lock-step, otherwise a refresh would submit
+          // the inline path with the raw bytes lost.
+          setPhotoEntries(
+            draft.photoUrls.map((url, idx) => ({
+              url,
+              blob: draft.photoBlobs?.[idx] ?? null,
+            })),
+          );
+        }
+        // The cap is re-derived from the draft's categoryId on every mount.
+        setCap(derivePhotoCap(draft, data.categories));
+      } catch {
         setAuthed(false);
-        return;
+      } finally {
+        setLoading(false);
       }
-      const data = (await res.json()) as { categories: CategorySummaryLike[] };
-      setAuthed(true);
-      const draft = loadDraft();
-      if (draft?.photoUrls) {
-        // The draft's blobs are restored ALONGSIDE its URLs — the two
-        // must stay in lock-step, otherwise a refresh would submit
-        // the inline path with the raw bytes lost.
-        setPhotoEntries(
-          draft.photoUrls.map((url, idx) => ({
-            url,
-            blob: draft.photoBlobs?.[idx] ?? null,
-          })),
-        );
-      }
-      // The cap is re-derived from the draft's categoryId on every
-      // mount: if the citizen bounced back from a later step (e.g.
-      // the category step), the cap narrows to the narrow-category
-      // photo cap (e.g. 2 for `cat_streetlight`). The default of 3
-      // holds when the draft has no categoryId yet.
-      setCap(derivePhotoCap(draft, data.categories));
     })();
   }, []);
 
@@ -142,6 +146,8 @@ export default function PhotoPage() {
       </div>
     );
   }
+
+  if (loading) return <ReportFlowSkeleton lang={LANG} testId="report-photo-loading" />;
 
   function addFiles(files: FileList | null) {
     if (!files) return;

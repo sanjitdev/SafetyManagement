@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -140,16 +141,12 @@ export default function AdminCitiesPage() {
     }
   }, [lang]);
 
-  if (signedIn === null) {
-    return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.cities.title', null, lang)} …
-      </div>
-    );
+  if (signedIn === null && !error) {
+    return <AdminPageSkeleton lang={lang} />;
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+    <div className="min-h-full" style={{ background: 'var(--color-surface-page)' }}>
       <div
         className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
         style={{
@@ -205,11 +202,11 @@ export default function AdminCitiesPage() {
             {error}
           </div>
         ) : null}
-        {!cities ? (
-          <div className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-            …
-          </div>
-        ) : cities.length === 0 ? (
+        {!cities && !error ? (
+          <SkeletonStatus lang={lang} className="admin-city-list-skeleton">
+            {[0, 1, 2, 3, 4].map((row) => <div className="admin-city-skeleton-row" key={row}><SkeletonBlock style={{ width: `${34 + row % 3 * 12}%`, height: 15 }} /><SkeletonBlock style={{ width: 90, height: 22, borderRadius: 999 }} /><SkeletonBlock style={{ width: 58, height: 14 }} /><SkeletonBlock style={{ width: 92, height: 14 }} /></div>)}
+          </SkeletonStatus>
+        ) : !cities ? null : cities.length === 0 ? (
           <div
             className="rounded border p-8 text-center text-sm"
             style={{

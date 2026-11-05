@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { AdminPageSkeleton, SkeletonBlock } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -62,6 +63,7 @@ export default function WardsPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [wards, setWards] = useState<Ward[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [newWard, setNewWard] = useState({
@@ -84,12 +86,19 @@ export default function WardsPage() {
   }, [lang]);
 
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/v1/admin/cities/${id}/wards`, {
-      credentials: 'include',
-    });
-    if (res.ok) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/admin/cities/${id}/wards`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`http_${res.status}`);
       const data = (await res.json()) as { wards: Ward[] };
       setWards(data.wards);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'network');
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
@@ -172,15 +181,11 @@ export default function WardsPage() {
   );
 
   if (signedIn === null) {
-    return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.wards.title', null, lang)} …
-      </div>
-    );
+    return <AdminPageSkeleton lang={lang} />;
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+    <div className="min-h-full" style={{ background: 'var(--color-surface-page)' }}>
       <div
         className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
         style={{
@@ -251,8 +256,8 @@ export default function WardsPage() {
                 <th className="px-3 py-2 text-right"></th>
               </tr>
             </thead>
-            <tbody>
-              {wards.map((w) => (
+            <tbody aria-busy={loading}>
+              {loading ? Array.from({ length: 5 }).map((_, row) => <tr key={`loading-${row}`}><td className="px-3 py-3" colSpan={4}><div className="admin-ward-skeleton-row" aria-hidden="true"><SkeletonBlock style={{ width: '48%', height: 14 }} /><SkeletonBlock style={{ width: '26%', height: 14 }} /><SkeletonBlock style={{ width: 38, height: 14 }} /></div></td></tr>) : wards.map((w) => (
                 <tr
                   key={w.id}
                   className="border-t"

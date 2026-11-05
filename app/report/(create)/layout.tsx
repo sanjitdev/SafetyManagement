@@ -23,9 +23,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { t } from '@/lib/i18n/keys';
+import { type Language } from '@/lib/i18n/keys';
 import { StepIndicator } from '@/components/ui';
 
 const STEP_BY_PATH: Record<string, number> = {
@@ -38,6 +39,7 @@ const STEP_BY_PATH: Record<string, number> = {
 
 const STEP_LABELS_BN = ['অবস্থান', 'বিভাগ', 'ছবি', 'নোট', 'সারাংশ'];
 const STEP_LABELS_EN = ['Location', 'Category', 'Photo', 'Note', 'Summary'];
+const LANG_KEY = 'cityfix.preferred_language.v1';
 
 function resolveCurrentStep(pathname: string | null): number {
   if (!pathname) return 1;
@@ -47,7 +49,16 @@ function resolveCurrentStep(pathname: string | null): number {
 
 export default function ReportLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const lang = 'bn' as const;
+  const [lang, setLang] = useState<Language>('bn');
+  useEffect(() => {
+    const syncLanguage = (event?: Event) => {
+      const next = event instanceof CustomEvent ? event.detail : window.localStorage.getItem(LANG_KEY);
+      if (next === 'bn' || next === 'en') setLang(next);
+    };
+    syncLanguage();
+    window.addEventListener('cityfix:language-updated', syncLanguage);
+    return () => window.removeEventListener('cityfix:language-updated', syncLanguage);
+  }, []);
   const currentStep = resolveCurrentStep(pathname);
   const stepLabels = lang === 'bn' ? STEP_LABELS_BN : STEP_LABELS_EN;
 
@@ -69,15 +80,11 @@ export default function ReportLayout({ children }: { children: ReactNode }) {
             total={5}
             labels={stepLabels}
             lang={lang}
+            className="report-step-indicator"
           />
         </div>
       }
     >
-      <style>{`
-        @media (max-width: 1024px) {
-          .report-layout-step-labels { display: none !important; }
-        }
-      `}</style>
       {children}
     </AppShell>
   );

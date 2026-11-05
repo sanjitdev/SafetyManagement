@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { ICONS } from '@/lib/ui/icon-map';
 import type { PerfSnapshot } from '@/lib/dispatcher/performance';
@@ -41,7 +42,7 @@ import type { PerfSnapshot } from '@/lib/dispatcher/performance';
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 const DHAKA_CENTER = { lat: 23.789, lng: 90.4075 };
-const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), { ssr: false, loading: () => <div className="dispatcher-map-loading" /> });
+const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), { ssr: false, loading: () => <SkeletonBlock style={{ width: '100%', height: '100%', minHeight: 280 }} /> });
 
 type TicketStatus = 'submitted' | 'routed' | 'in_progress' | 'resolved' | 'closed' | 'cancelled';
 
@@ -369,7 +370,7 @@ export default function DispatcherPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -429,10 +430,12 @@ export default function DispatcherPage() {
       </header>
 
       <section className="dispatcher-kpi-grid" aria-label={t('dispatcher.dashboard.title', null, lang)}>
-        <DashboardMetric icon="newReport" tone="blue" label={t('dispatcher.dashboard.new', null, lang)} value={statusCount(['submitted'])} values={statusTrend(['submitted'])} />
-        <DashboardMetric icon="statusSubmitted" tone="amber" label={t('dispatcher.dashboard.review', null, lang)} value={statusCount(['routed'])} values={statusTrend(['routed'])} />
-        <DashboardMetric icon="statusInProgress" tone="green" label={t('dispatcher.dashboard.progress', null, lang)} value={statusCount(['in_progress'])} values={statusTrend(['in_progress'])} />
-        <DashboardMetric icon="statusResolved" tone="purple" label={t('dispatcher.dashboard.resolved', null, lang)} value={statusCount(['resolved', 'closed'])} values={statusTrend(['resolved', 'closed'])} />
+        {loading ? <SkeletonStatus lang={lang} className="dispatcher-kpi-skeleton">{[0, 1, 2, 3].map((item) => <div key={item}><SkeletonBlock style={{ width: '46%', height: 12 }} /><SkeletonBlock style={{ width: '36%', height: 26 }} /><SkeletonBlock style={{ width: '64%', height: 11 }} /></div>)}</SkeletonStatus> : <>
+          <DashboardMetric icon="newReport" tone="blue" label={t('dispatcher.dashboard.new', null, lang)} value={statusCount(['submitted'])} values={statusTrend(['submitted'])} />
+          <DashboardMetric icon="statusSubmitted" tone="amber" label={t('dispatcher.dashboard.review', null, lang)} value={statusCount(['routed'])} values={statusTrend(['routed'])} />
+          <DashboardMetric icon="statusInProgress" tone="green" label={t('dispatcher.dashboard.progress', null, lang)} value={statusCount(['in_progress'])} values={statusTrend(['in_progress'])} />
+          <DashboardMetric icon="statusResolved" tone="purple" label={t('dispatcher.dashboard.resolved', null, lang)} value={statusCount(['resolved', 'closed'])} values={statusTrend(['resolved', 'closed'])} />
+        </>}
       </section>
 
       <section className="dispatcher-overview-grid">
@@ -442,7 +445,7 @@ export default function DispatcherPage() {
             <div className="dispatcher-map-legend"><span><i className="is-new" />{t('dispatcher.dashboard.new', null, lang)}</span><span><i className="is-assigned" />{t('dispatcher.dashboard.review', null, lang)}</span><span><i className="is-progress" />{t('dispatcher.dashboard.progress', null, lang)}</span><span><i className="is-resolved" />{t('dispatcher.dashboard.resolved', null, lang)}</span></div>
             <Link href="/dispatcher/map">{t('dispatcher.dashboard.full_map', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
           </header>
-          <div className="dispatcher-dashboard-map"><CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} pinColors={{ submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#8b5cf6', closed: '#8b5cf6', cancelled: '#ef4444' }} /></div>
+          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: 300 }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} pinColors={{ submitted: '#2563eb', routed: '#f59e0b', in_progress: '#16a765', resolved: '#8b5cf6', closed: '#8b5cf6', cancelled: '#ef4444' }} />}</div>
         </article>
 
         <article className="dispatcher-panel dispatcher-recent-panel">
@@ -466,8 +469,7 @@ export default function DispatcherPage() {
         <article className="dispatcher-panel dispatcher-crew-panel">
           <header className="dispatcher-panel-heading"><h2><ICONS.crew.icon size={20} aria-hidden />{t('dispatcher.dashboard.crew_activity', null, lang)}</h2><Link href="/dispatcher/performance">{t('dispatcher.dashboard.view_crews', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link></header>
           <div className="dispatcher-crew-list">
-            {performance?.crewTable.slice(0, 4).map((crew) => <div className="dispatcher-crew-row" key={crew.crewId}><span className="dispatcher-crew-avatar">{crew.crewName.slice(0, 1).toLocaleUpperCase()}</span><span><strong>{crew.crewName}</strong><small>{crew.specialty || t('dispatcher.dashboard.field_crew', null, lang)}</small></span><b>{crew.jobsCompleted}<small>{t('dispatcher.dashboard.jobs', null, lang)}</small></b></div>)}
-            {!performance?.crewTable.length ? <p className="dispatcher-panel-empty">{t('dispatcher.dashboard.no_crew_activity', null, lang)}</p> : null}
+            {loading ? <SkeletonStatus lang={lang} className="dispatcher-crew-skeleton">{[0, 1, 2, 3].map((item) => <div key={item}><SkeletonBlock style={{ width: 38, height: 38, borderRadius: '50%' }} /><SkeletonBlock style={{ width: '46%', height: 13 }} /><SkeletonBlock style={{ width: 42, height: 13 }} /></div>)}</SkeletonStatus> : <>{performance?.crewTable.slice(0, 4).map((crew) => <div className="dispatcher-crew-row" key={crew.crewId}><span className="dispatcher-crew-avatar">{crew.crewName.slice(0, 1).toLocaleUpperCase()}</span><span><strong>{crew.crewName}</strong><small>{crew.specialty || t('dispatcher.dashboard.field_crew', null, lang)}</small></span><b>{crew.jobsCompleted}<small>{t('dispatcher.dashboard.jobs', null, lang)}</small></b></div>)}{!performance?.crewTable.length ? <p className="dispatcher-panel-empty">{t('dispatcher.dashboard.no_crew_activity', null, lang)}</p> : null}</>}
           </div>
         </article>
         <article className="dispatcher-panel dispatcher-actions-panel">
@@ -481,7 +483,7 @@ export default function DispatcherPage() {
         </article>
         <article className="dispatcher-panel dispatcher-trend-panel">
           <header className="dispatcher-panel-heading"><h2><ICONS.performance.icon size={20} aria-hidden />{t('dispatcher.dashboard.trends', null, lang)}</h2><span>{t('dispatcher.dashboard.week', null, lang)}</span></header>
-          <DispatcherTrend points={performance?.submittedVsResolved ?? []} lang={lang} />
+          {loading ? <SkeletonStatus lang={lang} className="dispatcher-trend-skeleton"><SkeletonBlock style={{ width: '100%', height: 160 }} /></SkeletonStatus> : <DispatcherTrend points={performance?.submittedVsResolved ?? []} lang={lang} />}
         </article>
       </section>
     </div>

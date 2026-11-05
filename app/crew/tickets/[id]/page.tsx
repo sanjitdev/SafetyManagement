@@ -75,6 +75,7 @@ import {
 import { pendingSyncLabel } from '@/lib/crew/queue-copy';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { isRenderablePhotoUrl } from '@/lib/format/photo-url';
+import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import { registerServiceWorker } from '@/lib/crew/service-worker';
 import {
   formatCachedAge,
@@ -612,7 +613,7 @@ export default function CrewTicketPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -654,7 +655,7 @@ export default function CrewTicketPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -694,28 +695,7 @@ export default function CrewTicketPage() {
   }
 
   if (loading || !ticket) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: 'var(--color-surface-page)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        data-testid="crew-ticket-loading"
-      >
-        <p
-          lang={lang}
-          style={{
-            fontSize: 'var(--text-body-md)',
-            color: 'var(--color-ink-secondary)',
-          }}
-        >
-          {t('crew.detail.loading', null, lang)}
-        </p>
-      </div>
-    );
+    return <TicketDetailSkeleton lang={lang} testId="crew-ticket-loading" />;
   }
 
   const noteTrimmed = resolutionNote.trim();
@@ -724,7 +704,7 @@ export default function CrewTicketPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',

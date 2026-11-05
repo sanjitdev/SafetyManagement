@@ -22,6 +22,7 @@ import { formatTimestamp } from '@/lib/format/datetime';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 interface AdminTicketsTableProps {
   rows: SerializedTicket[];
@@ -84,24 +85,13 @@ export function AdminTicketsTable({
 
   if (loading && rows.length === 0) {
     return (
-      <div style={{ padding: 'var(--space-4)' }}>
-        <p style={{ color: 'var(--color-ink-secondary)' }}>
-          {t('admin.tickets.loading', null, lang)}
-        </p>
+      <SkeletonStatus lang={lang} className="admin-table-skeleton">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            data-testid="admin-tickets-skeleton-row"
-            style={{
-              height: 36,
-              marginBottom: 6,
-              background: 'var(--color-surface-raised)',
-              borderRadius: 'var(--radius-sm)',
-              animation: 'pulse 1.4s ease-in-out infinite',
-            }}
-          />
+          <div key={i} data-testid="admin-tickets-skeleton-row" className="admin-table-skeleton-row">
+            {[0, 1, 2, 3, 4, 5, 6].map((cell) => <SkeletonBlock key={cell} style={{ width: `${48 + (cell % 3) * 13}%`, height: 13 }} />)}
+          </div>
         ))}
-      </div>
+      </SkeletonStatus>
     );
   }
 

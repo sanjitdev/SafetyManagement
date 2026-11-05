@@ -35,6 +35,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
+import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -209,7 +210,7 @@ export default function AdminTicketDetailPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-full flex flex-col"
       style={{ background: 'var(--color-surface-page)' }}
     >
       <div
@@ -251,9 +252,7 @@ export default function AdminTicketDetailPage() {
       )}
 
       {!ticket && !error && (
-        <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-          {t('admin.tickets.loading', null, lang)}
-        </div>
+        <TicketDetailSkeleton lang={lang} />
       )}
 
       {ticket && (

@@ -57,12 +57,14 @@ interface AppHeaderProps {
   signedIn?: boolean | null;
   /** Compact operational top bar used beside the role sidebar. */
   compact?: boolean;
+  /** Whether the responsive role navigation drawer is open. */
+  navOpen?: boolean;
   onOpenNav?: () => void;
 }
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
-export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, onOpenNav }: AppHeaderProps) {
+export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, navOpen = false, onOpenNav }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname() ?? '/';
   const [lang, setLang] = useState<Language>(langProp ?? 'bn');
@@ -286,7 +288,7 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
 
       {compact ? (
         <div className="appheader-compact-tools">
-          <button type="button" className="appheader-open-nav" aria-label={t('shell.nav.open', null, lang)} onClick={onOpenNav}>
+          <button type="button" className="appheader-open-nav" aria-label={t('shell.nav.open', null, lang)} aria-expanded={navOpen} aria-controls="role-sidebar" onClick={onOpenNav}>
             <ICONS.menu.icon size={20} aria-hidden />
           </button>
           <form className="appheader-search" role="search" onSubmit={submitSearch}>
@@ -355,7 +357,7 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           aria-label={t('welcome.lang.toggle', null, lang)}
           title={t('welcome.lang.toggle', null, lang)}
           style={{
-            height: 36,
+            height: 40,
             minWidth: 40,
             padding: '0 var(--space-3)',
             background: 'transparent',

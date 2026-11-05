@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { AdminPageSkeleton } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -114,6 +115,7 @@ export default function AdminCityAdoptionPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [dash, setDash] = useState<Dashboard | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<RangeKey>('30d');
   const [compare, setCompare] = useState(false);
@@ -156,16 +158,23 @@ export default function AdminCityAdoptionPage() {
 
   const load = useCallback(async () => {
     setError(null);
-    const res = await fetch(
-      `/api/v1/admin/cities/${cityId}/adoption?${rangeParams()}`,
-      { credentials: 'include' },
-    );
-    if (!res.ok) {
-      setError(`http_${res.status}`);
-      return;
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/v1/admin/cities/${cityId}/adoption?${rangeParams()}`,
+        { credentials: 'include' },
+      );
+      if (!res.ok) {
+        setError(`http_${res.status}`);
+        return;
+      }
+      const payload = (await res.json()) as Dashboard;
+      setDash(payload);
+    } catch {
+      setError('network');
+    } finally {
+      setLoading(false);
     }
-    const payload = (await res.json()) as Dashboard;
-    setDash(payload);
   }, [cityId, rangeParams]);
 
   // Auth + role gate.
@@ -281,10 +290,16 @@ export default function AdminCityAdoptionPage() {
     return `${Math.round(hours / 24)}d`;
   };
 
-  if (signedIn === null) {
+  if (signedIn === null || loading) {
+    return <AdminPageSkeleton lang={lang} />;
+  }
+  if (!dash) {
     return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.adoption.title', null, lang)} …
+      <div className="mx-auto max-w-xl p-8 text-center" role="alert" style={{ color: 'var(--color-danger)' }}>
+        <p>{t('admin.adoption.error', null, lang)}{error ? ` (${error})` : ''}</p>
+        <button type="button" className="admin-btn-primary rounded-md px-4 py-2 text-sm font-medium" onClick={() => void load()}>
+          {t('ui.action.retry', null, lang)}
+        </button>
       </div>
     );
   }
@@ -319,7 +334,7 @@ export default function AdminCityAdoptionPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+    <div className="min-h-full" style={{ background: 'var(--color-surface-page)' }}>
       {/*
         The print rules live in the global stylesheet now
         (`app/globals.css`) — the page-local `body { background: #fff }`

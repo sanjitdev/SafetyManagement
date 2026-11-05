@@ -21,6 +21,7 @@
 
 import { useEffect, useState } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import {
   TICKET_STATUS_VALUES,
   type AdminTicketsFilters as Filters,
@@ -69,6 +70,8 @@ export function AdminTicketsFilters({
   const [cities, setCities] = useState<CityRow[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [wards, setWards] = useState<WardRow[]>([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
+  const [cityOptionsLoading, setCityOptionsLoading] = useState(false);
 
   // Load the admin's cities on mount.
   useEffect(() => {
@@ -85,6 +88,8 @@ export function AdminTicketsFilters({
         // If a city is already set in initial, leave the dropdown as-is.
       } catch {
         // Network errors are non-fatal; the user can retry.
+      } finally {
+        if (!cancelled) setCitiesLoading(false);
       }
     })();
     return () => {
@@ -97,9 +102,11 @@ export function AdminTicketsFilters({
     if (!cityId) {
       setCategories([]);
       setWards([]);
+      setCityOptionsLoading(false);
       return;
     }
     let cancelled = false;
+    setCityOptionsLoading(true);
     (async () => {
       try {
         const [catRes, wardRes] = await Promise.all([
@@ -127,6 +134,8 @@ export function AdminTicketsFilters({
         if (cancelled) return;
         setCategories([]);
         setWards([]);
+      } finally {
+        if (!cancelled) setCityOptionsLoading(false);
       }
     })();
     return () => {
@@ -224,6 +233,8 @@ export function AdminTicketsFilters({
             setWardId('');
           }}
           style={inputStyle}
+          aria-busy={citiesLoading}
+          disabled={citiesLoading}
         >
           <option value="">{t('admin.tickets.filter.statusAll', null, lang)}</option>
           {cities.map((c) => (
@@ -232,6 +243,7 @@ export function AdminTicketsFilters({
             </option>
           ))}
         </select>
+        {citiesLoading && <SkeletonStatus lang={lang} className="admin-filter-skeleton"><SkeletonBlock style={{ width: '100%', height: 32 }} /></SkeletonStatus>}
       </div>
 
       <div>
@@ -245,6 +257,7 @@ export function AdminTicketsFilters({
           onChange={(e) => setCategoryId(e.target.value)}
           style={inputStyle}
           disabled={!cityId}
+          aria-busy={cityOptionsLoading}
         >
           <option value="">{t('admin.tickets.filter.statusAll', null, lang)}</option>
           {categories.map((c) => (
@@ -253,6 +266,7 @@ export function AdminTicketsFilters({
             </option>
           ))}
         </select>
+        {cityOptionsLoading && <SkeletonStatus lang={lang} className="admin-filter-skeleton"><SkeletonBlock style={{ width: '100%', height: 32 }} /></SkeletonStatus>}
       </div>
 
       <div>
@@ -266,6 +280,7 @@ export function AdminTicketsFilters({
           onChange={(e) => setWardId(e.target.value)}
           style={inputStyle}
           disabled={!cityId}
+          aria-busy={cityOptionsLoading}
         >
           <option value="">{t('admin.tickets.filter.statusAll', null, lang)}</option>
           {wards.map((w) => (
@@ -274,6 +289,7 @@ export function AdminTicketsFilters({
             </option>
           ))}
         </select>
+        {cityOptionsLoading && <SkeletonStatus lang={lang} className="admin-filter-skeleton"><SkeletonBlock style={{ width: '100%', height: 32 }} /></SkeletonStatus>}
       </div>
 
       <div>

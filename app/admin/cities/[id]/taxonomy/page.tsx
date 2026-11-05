@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { AdminPageSkeleton } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -232,10 +233,13 @@ export default function TaxonomyPage() {
     [id, refresh],
   );
 
-  if (signedIn === null || !city) {
+  if (signedIn === null || (!city && !error)) {
+    return <AdminPageSkeleton lang={lang} />;
+  }
+  if (!city) {
     return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.taxonomy.title', null, lang)} …
+      <div className="p-8 text-sm" role="alert" style={{ color: 'var(--color-danger)' }}>
+        {error}
       </div>
     );
   }
@@ -252,7 +256,7 @@ export default function TaxonomyPage() {
   const formDividerStyle = { borderTop: '1px solid var(--color-border)' };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-surface-page)' }}>
+    <div className="min-h-full" style={{ background: 'var(--color-surface-page)' }}>
       <div
         className="border-b px-6 py-4 flex items-center justify-between flex-wrap gap-3"
         style={{

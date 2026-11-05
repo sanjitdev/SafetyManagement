@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { categoryLabel, displayNameFor } from '@/lib/identity/display-name';
 import { thumbnailBackground } from '@/lib/format/photo-url';
@@ -267,7 +268,7 @@ export default function DispatcherMonitorPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -308,7 +309,7 @@ export default function DispatcherMonitorPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',
@@ -478,19 +479,9 @@ export default function DispatcherMonitorPage() {
           </div>
 
           {loading ? (
-            <div data-testid="dispatcher-monitor-skeleton">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    height: 72,
-                    background: 'var(--color-surface-raised)',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: 'var(--space-2)',
-                  }}
-                />
-              ))}
-            </div>
+            <SkeletonStatus lang={lang} data-testid="dispatcher-monitor-skeleton" className="dispatcher-monitor-skeleton">
+              {[0, 1, 2].map((i) => <div key={i} className="dispatcher-monitor-skeleton-row"><SkeletonBlock style={{ width: 40, height: 40, borderRadius: '50%' }} /><div><SkeletonBlock style={{ width: '46%', height: 14 }} /><SkeletonBlock style={{ width: '78%', height: 12 }} /></div><SkeletonBlock style={{ width: 72, height: 24, borderRadius: 999 }} /></div>)}
+            </SkeletonStatus>
           ) : rows.length === 0 ? (
             <div
               data-testid="dispatcher-monitor-empty"

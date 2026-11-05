@@ -28,9 +28,9 @@ const ROLE_KEY: Record<Role, keyof typeof import('@/lib/i18n/keys').TRANSLATIONS
   admin: 'user.menu.role.admin',
 };
 
-function initialsOf(name: string | null | undefined): string {
+function initialsOf(name: string | null | undefined): string | null {
   const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  if (!words.length) return '•';
+  if (!words.length) return null;
   return words.length === 1
     ? words[0].slice(0, 1)
     : `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
@@ -123,15 +123,14 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         aria-label={name ? t('user.menu.aria.avatar', { name }, lang) : t('user.menu.open_menu', null, lang)}
         aria-expanded={open}
         aria-controls={menuId}
-        aria-haspopup="true"
         onClick={() => {
           setOpen((wasOpen) => !wasOpen);
           if (!open) void refreshStatus();
         }}
         style={{
-          minWidth: sidebar ? 0 : 40,
+          minWidth: sidebar ? 0 : 44,
           width: sidebar ? '100%' : undefined,
-          height: sidebar ? 58 : 40,
+          height: sidebar ? 58 : 44,
           padding: sidebar ? 'var(--space-2)' : '0 var(--space-2)',
           border: sidebar ? '1px solid transparent' : (open ? '1px solid var(--color-border-strong)' : '1px solid var(--color-border)'),
           borderRadius: sidebar ? 'var(--radius-md)' : 'var(--radius-pill)',
@@ -161,7 +160,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
             fontWeight: 'var(--weight-bold)',
           }}
         >
-          {initialsOf(name)}
+          {initialsOf(name) ?? <ProfileIcon />}
         </span>
         <span className="usermenu-label" style={{ minWidth: 0, maxWidth: sidebar ? 150 : 112, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: sidebar ? 'normal' : 'nowrap', display: sidebar ? 'flex' : undefined, flexDirection: sidebar ? 'column' : undefined, alignItems: sidebar ? 'flex-start' : undefined, gap: sidebar ? 3 : undefined, marginInlineStart: sidebar ? 'var(--space-2)' : undefined, flex: sidebar ? 1 : undefined, fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{name ?? t('user.menu.open_menu', null, lang)}</span>
@@ -198,7 +197,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         >
           <div style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <span aria-hidden style={{ width: 42, height: 42, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: 'var(--text-body)', fontWeight: 'var(--weight-bold)' }}>
-              {initialsOf(name)}
+              {initialsOf(name) ?? <ProfileIcon />}
             </span>
             <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <strong style={{ color: 'var(--color-ink)', fontSize: 'var(--text-body-sm)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{name ?? '—'}</strong>

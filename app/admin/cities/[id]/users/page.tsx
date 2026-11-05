@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTimestamp } from '@/lib/format/datetime';
+import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -134,6 +135,21 @@ export default function AdminCityUsersPage() {
         : null;
     if (stored === 'bn' || stored === 'en') setLang(stored);
   }, []);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get('role');
+    if (requestedTab === 'all' || requestedTab === 'dispatcher' || requestedTab === 'crew' || requestedTab === 'supervisor') {
+      setTab(requestedTab);
+    }
+  }, []);
+
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('role', next);
+    window.history.replaceState(null, '', url.toString());
+    window.dispatchEvent(new CustomEvent('cityfix:admin-users-filter-updated', { detail: next }));
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -345,12 +361,8 @@ export default function AdminCityUsersPage() {
     URL.revokeObjectURL(url);
   }, []);
 
-  if (signedIn === null) {
-    return (
-      <div className="p-8 text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-        {t('admin.users.title', null, lang)} …
-      </div>
-    );
+  if (signedIn === null || (!data && !error)) {
+    return <AdminPageSkeleton lang={lang} />;
   }
 
   /**
@@ -390,7 +402,7 @@ export default function AdminCityUsersPage() {
 
   return (
     <div
-      className="min-h-screen pb-24"
+      className="min-h-full pb-24"
       style={{ background: 'var(--color-surface-page)' }}
     >
       <header
@@ -473,7 +485,7 @@ export default function AdminCityUsersPage() {
                 role="tab"
                 aria-selected={tab === key}
                 data-testid={`admin-city-users-tab-${key}`}
-                onClick={() => setTab(key)}
+                onClick={() => selectTab(key)}
                 className="rounded-full px-3 py-1 text-xs font-medium"
                 style={
                   tab === key
@@ -510,11 +522,11 @@ export default function AdminCityUsersPage() {
           ) : null}
 
           <div data-testid="admin-city-users-list" className="space-y-2">
-            {!data ? (
-              <div className="text-sm" style={{ color: 'var(--color-ink-secondary)' }}>
-                …
-              </div>
-            ) : visibleUsers.length === 0 ? (
+            {!data && !error ? (
+              <SkeletonStatus lang={lang} className="admin-users-loading-list">
+                {[0, 1, 2, 3, 4].map((item) => <div className="admin-user-skeleton-card" key={item}><SkeletonBlock style={{ width: 40, height: 40, borderRadius: '50%', flex: '0 0 auto' }} /><div style={{ display: 'grid', gap: 8, flex: 1 }}><SkeletonBlock style={{ width: '46%', height: 14 }} /><SkeletonBlock style={{ width: '72%', height: 12 }} /></div><SkeletonBlock style={{ width: 58, height: 22, borderRadius: 999 }} /></div>)}
+              </SkeletonStatus>
+            ) : !data ? null : visibleUsers.length === 0 ? (
               <div
                 className="rounded border p-8 text-center text-sm"
                 style={{

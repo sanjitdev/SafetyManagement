@@ -193,7 +193,7 @@ export default function DispatcherMapPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -234,7 +234,7 @@ export default function DispatcherMapPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',

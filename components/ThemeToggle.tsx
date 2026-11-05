@@ -5,17 +5,17 @@
  *
  * Compact 2-state icon button: a single sun / moon toggle. The
  * underlying appearance model still supports three values
- * (`'light' | 'dark' | 'system'`) — the "system" value is the
- * default and is used until the citizen clicks the toggle for the
- * first time. After that, clicking flips between `'light'` and
- * `'dark'`. The first paint never FOUCs: the inline boot script
+ * (`'light' | 'dark' | 'system'`) — the dark value is the
+ * default until the user chooses another appearance. After that,
+ * clicking flips between `'light'` and `'dark'`. The first paint
+ * never FOUCs: the inline boot script
  * (`app/appearance-boot.tsx`) reads the stored preference and
  * applies the right class to <html> before React hydrates.
  *
  * Why a single button instead of the earlier 3-option segmented
  * control: the AppHeader is shared across every surface and the
  * 3-option pill took too much horizontal space at 1024×768. A
- * 36×36 icon button leaves room for the inline nav and the
+ * 44×44 icon button remains easy to tap while leaving room for the inline nav and the
  * Report CTA in the citizen header. Staff and public headers
  * have even more room; the same button works on every role.
  *
@@ -75,8 +75,8 @@ export function ThemeToggle({ lang = 'bn' }: ThemeToggleProps) {
       aria-label={label}
       title={label}
       style={{
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',

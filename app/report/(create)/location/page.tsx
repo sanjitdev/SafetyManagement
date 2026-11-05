@@ -50,6 +50,7 @@ import {
   inGeofence,
 } from '@/lib/report-geofence';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const LANG: Language = 'bn';
 
@@ -151,13 +152,7 @@ export default function LocationPage() {
   }
 
   if (!boot) {
-    return (
-      <div style={{ padding: 'var(--space-7) var(--space-5)' }}>
-        <p style={{ color: 'var(--color-ink-secondary)' }}>
-          {t('detail.loading', null, LANG)}
-        </p>
-      </div>
-    );
+    return <ReportFlowSkeleton lang={LANG} testId="report-location-loading" />;
   }
 
   const outOfBounds = !isInBounds(lat, lng);

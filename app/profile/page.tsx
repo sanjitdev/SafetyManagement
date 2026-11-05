@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -153,9 +154,19 @@ export default function ProfilePage() {
         </header>
 
         {loading ? (
-          <div role="status" lang={lang} style={{ padding: 'var(--space-5)', background: 'var(--color-surface-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)', color: 'var(--color-ink-secondary)' }}>
-            {t('profile.loading', null, lang)}
-          </div>
+          <SkeletonStatus lang={lang} className="profile-loading-card">
+            <div className="profile-loading-heading">
+              <SkeletonBlock style={{ width: 56, height: 56, borderRadius: '50%', flex: '0 0 auto' }} />
+              <div style={{ display: 'grid', gap: 9, flex: 1 }}>
+                <SkeletonBlock style={{ width: '42%', height: 17 }} />
+                <SkeletonBlock style={{ width: '24%', height: 12 }} />
+              </div>
+            </div>
+            <div className="profile-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-4)' }}>
+              {[0, 1, 2, 3].map((item) => <div key={item} style={{ display: 'grid', gap: 9 }}><SkeletonBlock style={{ width: '34%', height: 11 }} /><SkeletonBlock style={{ height: 42, borderRadius: 'var(--radius-input)' }} /></div>)}
+            </div>
+            <SkeletonBlock style={{ width: 132, height: 42, justifySelf: 'end' }} />
+          </SkeletonStatus>
         ) : error === 'load' ? (
           <div role="alert" lang={lang} style={{ padding: 'var(--space-4)', background: 'var(--color-danger-soft)', borderRadius: 'var(--radius-card)', color: 'var(--color-danger)' }}>
             {t('profile.error.load', null, lang)}

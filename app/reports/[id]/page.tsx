@@ -27,6 +27,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { thumbnailBackground } from '@/lib/format/photo-url';
+import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -227,11 +228,7 @@ export default function MyReportDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{ padding: 'var(--space-7) var(--space-5)', color: 'var(--color-ink-secondary)' }}>
-        {t('detail.loading', null, LANG)}
-      </div>
-    );
+    return <TicketDetailSkeleton lang={LANG} />;
   }
 
   if (error || !ticket) {
@@ -323,7 +320,7 @@ export default function MyReportDetailPage() {
   }
 
   return (
-    <div style={{ background: 'var(--color-surface-page)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--color-surface-page)', minHeight: '100%' }}>
       {/* No page-level top bar: the global <AppHeader> is provided by
           the /reports/* layout's <AppShell> wrapper. The detail page
           lives directly under that header. */}

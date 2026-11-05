@@ -33,6 +33,7 @@ import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { loadDraft, saveDraft } from '@/lib/report-draft';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const LANG: Language = 'bn';
 
@@ -156,6 +157,7 @@ export default function CategoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
   const [rawQuery, setRawQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,16 +172,22 @@ export default function CategoryPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!res.ok) {
+      try {
+        const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
+        if (!res.ok) {
+          setAuthed(false);
+          return;
+        }
+        const data = await res.json();
+        setCategories(data.categories);
+        setAuthed(true);
+        const draft = loadDraft();
+        if (draft?.categoryId) setSelected(draft.categoryId);
+      } catch {
         setAuthed(false);
-        return;
+      } finally {
+        setLoading(false);
       }
-      const data = await res.json();
-      setCategories(data.categories);
-      setAuthed(true);
-      const draft = loadDraft();
-      if (draft?.categoryId) setSelected(draft.categoryId);
     })();
   }, []);
 
@@ -196,6 +204,8 @@ export default function CategoryPage() {
       </div>
     );
   }
+
+  if (loading) return <ReportFlowSkeleton lang={LANG} />;
 
   function handleContinue() {
     if (!selected) return;

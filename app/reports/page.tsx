@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -268,7 +269,7 @@ export default function ReportsListPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           alignItems: 'center',
@@ -409,15 +410,19 @@ export default function ReportsListPage() {
 
           {/* Loading / error / empty / list */}
           {loading && (
-            <p
-              lang={lang}
-              style={{
-                color: 'var(--color-ink-secondary)',
-                fontSize: 'var(--text-body)',
-              }}
-            >
-              {t('feed.loading', null, lang)}
-            </p>
+            <SkeletonStatus lang={lang} className="reports-loading-list">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="reports-loading-card">
+                  <SkeletonBlock style={{ width: 72, height: 72, borderRadius: 'var(--radius-md)', flex: '0 0 auto' }} />
+                  <div style={{ display: 'grid', gap: 9, flex: 1 }}>
+                    <SkeletonBlock style={{ width: '52%', height: 15 }} />
+                    <SkeletonBlock style={{ width: '86%', height: 12 }} />
+                    <SkeletonBlock style={{ width: '36%', height: 11 }} />
+                  </div>
+                  <SkeletonBlock className="reports-loading-status" style={{ width: 84, height: 24, borderRadius: 999 }} />
+                </div>
+              ))}
+            </SkeletonStatus>
           )}
 
           {error && !loading && (

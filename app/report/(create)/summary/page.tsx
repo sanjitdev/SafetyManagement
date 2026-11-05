@@ -34,6 +34,7 @@ import { formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const LANG: Language = 'bn';
 
@@ -58,6 +59,7 @@ export default function SummaryPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const raw = sessionStorage.getItem('cityfix.reportDedup.v1');
@@ -66,35 +68,40 @@ export default function SummaryPage() {
       router.replace('/report/location');
       return;
     }
-    const parsed = JSON.parse(raw) as DedupContext;
-    setCtx(parsed);
     (async () => {
-      const authRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!authRes.ok) {
-        setAuthed(false);
-        return;
-      }
-      setAuthed(true);
-      const detail = await fetch(`/api/tickets/${parsed.existingTicketId}`, {
-        credentials: 'include',
-      });
-      if (detail.ok) {
-        const body = await detail.json();
-        setExisting({
-          id: body.ticket.id,
-          status: body.ticket.status,
-          createdAt: body.ticket.createdAt,
-          note: body.ticket.note,
-          categoryId: body.ticket.categoryId,
-          photoUrls: body.ticket.photoUrls,
+      try {
+        const parsed = JSON.parse(raw) as DedupContext;
+        setCtx(parsed);
+        const authRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
+        if (!authRes.ok) {
+          setAuthed(false);
+          return;
+        }
+        setAuthed(true);
+        const detail = await fetch(`/api/tickets/${parsed.existingTicketId}`, {
+          credentials: 'include',
         });
+        if (detail.ok) {
+          const body = await detail.json();
+          setExisting({
+            id: body.ticket.id,
+            status: body.ticket.status,
+            createdAt: body.ticket.createdAt,
+            note: body.ticket.note,
+            categoryId: body.ticket.categoryId,
+            photoUrls: body.ticket.photoUrls,
+          });
+        }
+      } catch {
+        setError(t('report.summary.error_retry', null, LANG));
+      } finally {
+        setLoading(false);
       }
     })();
   }, [router]);
 
-  if (authed === false || !ctx) {
-    return null;
-  }
+  if (authed === false) return null;
+  if (loading || !ctx) return <ReportFlowSkeleton lang={LANG} testId="report-summary-loading" />;
 
   function handleLink() {
     if (!ctx) return;

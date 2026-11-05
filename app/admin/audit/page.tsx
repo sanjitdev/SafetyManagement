@@ -65,7 +65,7 @@ export default function AdminAuditPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [entries, setEntries] = useState<AuditEntryView[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -241,7 +241,7 @@ export default function AdminAuditPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-full flex flex-col"
       style={{ background: 'var(--color-surface-page)' }}
     >
       <div

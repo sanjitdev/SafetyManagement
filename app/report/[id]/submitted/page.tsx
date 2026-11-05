@@ -23,6 +23,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const LANG: Language = 'bn';
 
@@ -49,36 +50,38 @@ export default function SubmittedPage() {
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const [animateCheck, setAnimateCheck] = useState(false);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      // Light-touch: just confirm we have a citizen session before rendering.
-      const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!res.ok) {
+      try {
+        // Light-touch: just confirm we have a citizen session before rendering.
+        const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
+        if (!res.ok) {
+          setAuthed(false);
+          return;
+        }
+        setAuthed(true);
+        // The decline-noted toast fires after a declined dedup suggestion.
+        if (sessionStorage.getItem('cityfix.reportDeclineNoted.v1') === '1') {
+          setShowDeclineToast(true);
+          sessionStorage.removeItem('cityfix.reportDeclineNoted.v1');
+          window.setTimeout(() => setShowDeclineToast(false), 6000);
+        }
+        if (sessionStorage.getItem(ANIMATION_FLAG) !== '1') {
+          setAnimateCheck(true);
+          sessionStorage.setItem(ANIMATION_FLAG, '1');
+          window.setTimeout(() => setAnimateCheck(false), 1300);
+        }
+      } catch {
         setAuthed(false);
-        return;
-      }
-      setAuthed(true);
-      // The decline-noted toast fires when the citizen just submitted a
-      // duplicate-flagged ticket and chose "Submit as new report". This
-      // sessionStorage flag was set by /report/summary before we got here.
-      if (sessionStorage.getItem('cityfix.reportDeclineNoted.v1') === '1') {
-        setShowDeclineToast(true);
-        sessionStorage.removeItem('cityfix.reportDeclineNoted.v1');
-        // Auto-dismiss after a few seconds so it doesn't haunt the citizen.
-        window.setTimeout(() => setShowDeclineToast(false), 6000);
-      }
-      // The success animation only fires on the first visit per session.
-      if (sessionStorage.getItem(ANIMATION_FLAG) !== '1') {
-        setAnimateCheck(true);
-        sessionStorage.setItem(ANIMATION_FLAG, '1');
-        // Animation duration 1.2s; clear the flag in the React state so
-        // a re-render (e.g. when the citizen clicks "View report" and
-        // comes back) doesn't re-trigger the entrance.
-        window.setTimeout(() => setAnimateCheck(false), 1300);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
+
+  if (loading) return <ReportFlowSkeleton lang={LANG} testId="report-submitted-loading" />;
 
   if (authed === false) {
     return (

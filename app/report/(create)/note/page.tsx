@@ -28,6 +28,7 @@ import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const NOTE_MAX = 280;
 const LANG: Language = 'bn';
@@ -53,17 +54,24 @@ export default function NotePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!res.ok) {
+      try {
+        const res = await fetch('/api/report/bootstrap', { credentials: 'include' });
+        if (!res.ok) {
+          setAuthed(false);
+          return;
+        }
+        setAuthed(true);
+        const draft = loadDraft();
+        if (draft?.note) setNote(draft.note);
+      } catch {
         setAuthed(false);
-        return;
+      } finally {
+        setLoading(false);
       }
-      setAuthed(true);
-      const draft = loadDraft();
-      if (draft?.note) setNote(draft.note);
     })();
   }, []);
 
@@ -75,6 +83,8 @@ export default function NotePage() {
       </div>
     );
   }
+
+  if (loading) return <ReportFlowSkeleton lang={LANG} testId="report-note-loading" />;
 
   const validation = validateNote(note);
   const isOver = validation.tooLong;

@@ -56,7 +56,7 @@ export function AppShell({
         <RoleSidebar role={role} onNavigate={() => setNavOpen(false)} />
         <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
         <div className="role-app-main">
-          <AppHeader lang={lang} role={role} signedIn={signedIn} compact onOpenNav={() => setNavOpen(true)} />
+          <AppHeader lang={lang} role={role} signedIn={signedIn} compact navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
           {subHeader}
           <main className="role-app-content">{children}</main>
         </div>

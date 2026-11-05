@@ -47,6 +47,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import {
   displayNameFor,
   categoryLabel,
@@ -411,7 +412,7 @@ export default function DispatcherTicketDetailPage() {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          minHeight: '100%',
           background: 'var(--color-surface-page)',
           display: 'flex',
           flexDirection: 'column',
@@ -455,26 +456,13 @@ export default function DispatcherTicketDetailPage() {
   }
 
   if (loading || !ticket) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: 'var(--color-surface-page)',
-          padding: 'var(--space-7) var(--space-5)',
-          textAlign: 'center',
-          color: 'var(--color-ink-secondary)',
-        }}
-        lang={lang}
-      >
-        <p>{t('dispatcher.detail.loading', null, lang)}</p>
-      </div>
-    );
+    return <TicketDetailSkeleton lang={lang} />;
   }
 
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100%',
         background: 'var(--color-surface-page)',
         display: 'flex',
         flexDirection: 'column',
