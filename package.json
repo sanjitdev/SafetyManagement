@@ -22,6 +22,7 @@
     "test:unit:watch": "vitest",
     "test:unit:coverage": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n-keys.mjs",
+    "docs:generate": "tsx scripts/generate-openapi.ts",
     "test:mockups": "playwright test tests/01-mockups.spec.ts",
     "test:update-baselines": "playwright test tests/01-mockups.spec.ts --update-snapshots",
     "test:report": "playwright show-report",

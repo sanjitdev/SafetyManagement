@@ -81,12 +81,18 @@ const nextConfig = {
           //     every page and the UI falls back to a system font
           //     (this was a real, app-wide defect — not a nit).
           //   - data: + blob: + https: for the MapLibre WebGL canvas + photos
+          //   - unpkg.com for the Swagger UI assets served by /api/docs.
+          //     The docs page loads swagger-ui-dist from the CDN, so
+          //     BOTH script-src and style-src need the host — without
+          //     it the page renders as a blank <div id="swagger-ui"> and
+          //     the API reference is silently unusable in the browser
+          //     (the JSON spec endpoint still works).
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
