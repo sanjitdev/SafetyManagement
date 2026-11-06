@@ -20,6 +20,9 @@
 .reports-loading-card { min-height: 104px; display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-card); }
 .profile-loading-card { display: grid; gap: var(--space-5); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-card); }
 .profile-loading-heading { display: flex; align-items: center; gap: var(--space-4); padding-bottom: var(--space-4); border-bottom: 1px solid var(--color-border); }
+.profile-tab { transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out); }
+.profile-tab:hover { color: var(--color-primary); }
+.profile-tab.is-active { border-bottom-color: var(--color-primary) !important; }
 .dedup-loading-list { display: grid; gap: var(--space-3); }
 .dedup-loading-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); min-height: 128px; padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-card); }
 .dedup-loading-actions { display: flex; gap: var(--space-2); }
@@ -890,6 +893,216 @@ h1, h2, h3, h4 {
 @media (max-width: 1100px) { .dispatcher-overview-grid { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }.dispatcher-lower-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.dispatcher-trend-panel { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .dispatcher-portal { padding: 20px 18px 26px; }.dispatcher-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.dispatcher-overview-grid, .dispatcher-lower-grid { grid-template-columns: minmax(0,1fr); }.dispatcher-trend-panel { grid-column: auto; }.dispatcher-map-legend { display: none; }.dispatcher-dashboard-map { height: 270px; } }
 @media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: 11px; }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-kpi-card { min-height: 100px; gap: 8px; padding: 11px 9px; }.dispatcher-kpi-card > span { width: 34px; height: 34px; flex-basis: 34px; }.dispatcher-kpi-card strong { font-size: 22px; }.dispatcher-mini-trend { width: 66px; right: 7px; bottom: 4px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: 11px; }.dispatcher-filter-row { overflow-x: auto; }.dispatcher-filter-row small { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; }.dispatcher-recent-list > a > span:last-child { display: none !important; } }
+
+/*
+ * Crew portal: the field dashboard's KPI strip, the three-column
+ * jobs | map | detail grid, and the activity / field-tips row.
+ *
+ * The layout mirrors `ui-design/Crew Portal Dashboard.png`: a four-card
+ * KPI row across the top, then a `jobs | map | detail` split where the
+ * map is the visual centre, then an activity + tips row underneath.
+ */
+.crew-page { box-sizing: border-box; min-height: 100%; display: grid; align-content: start; gap: 14px; padding: 22px 26px 30px; color: var(--color-ink); background: var(--color-surface-page); }
+.crew-dashboard-heading { min-height: 56px; display: flex; align-items: center; gap: 12px; }
+.crew-dashboard-heading-icon { width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; color: #7caaff; background: var(--color-primary-soft); }
+.crew-dashboard-heading > div { min-width: 0; }
+.crew-dashboard-heading h1 { margin: 0; color: var(--color-ink); font-size: clamp(20px,1.9vw,27px); font-weight: 720; letter-spacing: -.03em; line-height: 1.2; }
+.crew-dashboard-heading p { margin: 4px 0 0; color: var(--color-ink-secondary); font-size: 12px; }
+
+/* KPI row — four equal cards, each an icon tile + a number + a label + a hint. */
+.crew-kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; }
+.crew-kpi-card { min-width: 0; min-height: 104px; display: grid; grid-template-columns: 44px minmax(0,1fr); grid-template-rows: auto auto auto; align-content: center; align-items: center; column-gap: 12px; padding: 15px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+.crew-kpi-card > span { width: 44px; height: 44px; grid-row: 1 / 4; display: grid; place-items: center; border-radius: 12px; }
+.crew-kpi-card strong { color: var(--color-ink); font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.crew-kpi-card small { overflow: hidden; color: var(--color-ink); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.crew-kpi-card em { overflow: hidden; color: var(--color-ink-tertiary); font-size: 10px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.crew-kpi-card.tone-blue > span { color: #69a5ff; background: #1c3760; }
+.crew-kpi-card.tone-green > span { color: #53d692; background: #173e32; }
+.crew-kpi-card.tone-amber > span { color: #ffc45b; background: #46371f; }
+.crew-kpi-card.tone-violet > span { color: #ba9bff; background: #31254e; }
+/* The design's KPI cards carry a right-edge chevron (the card is a
+   drill-down affordance). It is decorative — the card itself is
+   not a link in v1 — so it is an aria-hidden span. */
+.crew-kpi-chevron { position: absolute; top: 50%; right: 12px; translate: 0 -50%; color: var(--color-ink-tertiary); }
+.crew-kpi-card { position: relative; padding-right: 32px; }
+
+/* Main three-column grid: jobs | map | focused detail. */
+.crew-main-grid { display: grid; grid-template-columns: minmax(280px,.95fr) minmax(360px,1.45fr) minmax(290px,1fr); gap: 13px; align-items: start; }
+.crew-panel { min-width: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+.crew-panel-heading { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--color-border); }
+.crew-panel-heading h2 { min-width: 0; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); font-size: 13px; font-weight: 650; white-space: nowrap; }
+.crew-panel-heading h2 svg { flex: 0 0 auto; color: var(--color-ink-secondary); }
+.crew-panel-heading > a, .crew-panel-heading > span { display: inline-flex; align-items: center; gap: 4px; color: var(--color-primary); font-size: 10px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.crew-panel-heading > a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* "Today's Jobs" panel. */
+.crew-map-legend { display: flex; align-items: center; gap: 11px; padding: 9px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-ink-secondary); font-size: 9px; }
+.crew-map-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.crew-map-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-status-routed); }
+.crew-map-legend i.is-progress { background: var(--color-status-in-progress); }
+.crew-map-legend i.is-pending { background: var(--color-status-submitted); }
+.crew-map-legend i.is-completed { background: var(--color-status-resolved); }
+.crew-map-legend i.is-location { background: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+.crew-job-list { max-height: 420px; display: flex; flex-direction: column; gap: 7px; overflow: auto; padding: 9px 11px 11px; }
+.crew-job-row { width: 100%; min-height: 74px; display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 8px 9px; border: 1px solid transparent; border-radius: 9px; color: inherit; background: transparent; text-align: left; transition: border-color 140ms ease, background 140ms ease; }
+.crew-job-row:hover { border-color: var(--color-border); background: var(--color-surface-raised); }
+.crew-job-row.is-selected { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.crew-job-thumb { width: 46px; height: 46px; overflow: hidden; display: grid; place-items: center; border-radius: 9px; color: var(--color-ink-tertiary); background: var(--color-surface-raised); font-size: 10px; }
+.crew-job-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.crew-job-row > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.crew-job-row strong { overflow: hidden; color: var(--color-ink); font-size: 11px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+
+/*
+ * The design's job row is a three-line card:
+ *
+ *   ● #CF-1024                    [In Progress]
+ *   ⌂ Gulshan-1
+ *   ◷ 10:00 AM · 1h est
+ *
+ * The blue dot is the STATUS marker (the row's leading colour
+ * cue), the id is the headline, and the pill repeats the status
+ * in words. The dot is decorative — the pill carries the same
+ * information in text — so it is aria-hidden.
+ */
+.crew-job-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.crew-job-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--color-status-routed); }
+.crew-job-dot.is-in_progress { background: var(--color-status-in-progress); }
+.crew-job-dot.is-resolved { background: var(--color-status-resolved); }
+.crew-job-dot.is-submitted { background: var(--color-status-submitted); }
+.crew-job-id { overflow: hidden; color: var(--color-ink); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.crew-job-meta { display: flex; align-items: center; gap: 5px; overflow: hidden; color: var(--color-ink-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.crew-job-meta svg { flex: 0 0 auto; color: var(--color-ink-tertiary); }
+.crew-job-row small { overflow: hidden; color: var(--color-ink-tertiary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.crew-job-status { justify-self: end; }
+.crew-panel-empty { padding: 30px 14px; color: var(--color-ink-tertiary); text-align: center; font-size: 11px; }
+.crew-panel-empty p { margin: 6px 0 0; font-size: 10px; }
+
+/* Map panel. */
+.crew-map-panel { min-height: 420px; }
+.crew-map-canvas { height: 420px; position: relative; overflow: hidden; background: var(--color-map-bg); }
+.crew-map-canvas > div { width: 100%; height: 100%; }
+.crew-map-loading { height: 100%; min-height: 420px; background: var(--color-surface-raised); }
+
+/* Focused job detail card. */
+.crew-detail-card { padding: 14px; }
+/*
+ * The design's focused job opens with a SOLID BLUE header band
+ * carrying the ticket id (white) and the status chip (a lighter
+ * blue pill on white text). It is the panel's strongest colour
+ * cue, so it stays saturated in both themes — the band is a
+ * brand surface, not a text surface.
+ */
+.crew-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -14px -14px 12px; padding: 11px 14px; background: var(--color-primary); }
+.crew-detail-id { color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
+.crew-detail-header .crew-detail-chip { padding: 3px 9px; border-radius: 99px; color: #fff; background: #ffffff2e; font-size: 9px; font-weight: 650; text-transform: uppercase; white-space: nowrap; }
+.crew-detail-loc { display: flex; align-items: center; gap: 5px; margin: 5px 0 0; color: var(--color-ink-secondary); font-size: 10px; }
+.crew-detail-loc svg { flex: 0 0 auto; color: var(--color-ink-tertiary); }
+/*
+ * INSIDE the blue header band the location turns white. The rule
+ * below is the general (on-surface) treatment; this one is the
+ * override, and it has to come after it in the cascade.
+ */
+.crew-detail-header .crew-detail-loc { min-width: 0; margin: 0; color: #fff; font-size: 11px; font-weight: 620; }
+.crew-detail-header .crew-detail-loc svg { color: #ffffffcc; }
+.crew-detail-card h3 { margin: 0; color: var(--color-ink); font-size: 14px; font-weight: 680; line-height: 1.35; }
+
+/*
+ * The evidence row: the citizen's photo on the left, the note on
+ * the right. The design pairs them so the crew reads what the site
+ * LOOKED like and what the citizen SAID about it in one glance.
+ */
+.crew-detail-evidence { display: grid; grid-template-columns: 96px minmax(0,1fr); align-items: start; gap: 11px; margin: 11px 0; }
+.crew-detail-evidence .crew-detail-description { margin: 0; }
+.crew-detail-photos { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 11px 0; }
+.crew-detail-evidence .crew-detail-photos { grid-template-columns: 1fr; margin: 0; }
+.crew-detail-photos > span { height: 58px; overflow: hidden; display: grid; place-items: center; border-radius: 8px; color: var(--color-ink-tertiary); background: var(--color-surface-raised); font-size: 9px; }
+.crew-detail-evidence .crew-detail-photos > span { height: 74px; border-radius: 9px; }
+.crew-detail-photos img { width: 100%; height: 100%; object-fit: cover; }
+.crew-detail-description { margin: 0 0 12px; color: var(--color-ink-secondary); font-size: 11px; line-height: 1.55; }
+
+/*
+ * The design's two actions on the focused job: attach a photo of
+ * the work, and declare the job done. The solid button is the one
+ * the crew reaches for at the end of the round, so it takes the
+ * primary colour; the outline button is the secondary action.
+ */
+.crew-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.crew-detail-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border: 1px solid transparent; border-radius: 9px; font-size: 11px; font-weight: 650; text-decoration: none; transition: background 140ms ease, border-color 140ms ease; }
+.crew-detail-btn.is-ghost { border-color: var(--color-primary); color: var(--color-primary); background: transparent; }
+.crew-detail-btn.is-ghost:hover { background: var(--color-primary-soft); }
+.crew-detail-btn.is-solid { color: #fff; background: var(--color-primary); }
+.crew-detail-btn.is-solid:hover { filter: brightness(1.08); }
+.crew-detail-btn svg { flex: 0 0 auto; }
+.crew-trail { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; }
+.crew-trail li { position: relative; display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 9px; padding-bottom: 13px; }
+.crew-trail li:last-child { padding-bottom: 0; }
+.crew-trail li::before { content: ''; position: absolute; left: 8px; top: 15px; bottom: 0; width: 1px; background: var(--color-border); }
+.crew-trail li:last-child::before { display: none; }
+.crew-trail li > span { width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid var(--color-border); border-radius: 50%; color: var(--color-ink-tertiary); background: var(--color-surface-card); font-size: 9px; }
+.crew-trail li.is-done > span { border-color: transparent; color: #fff; background: var(--color-success); }
+.crew-trail li.is-active > span { border-color: var(--color-primary); color: var(--color-primary); }
+.crew-trail li > div { min-width: 0; display: grid; gap: 2px; }
+.crew-trail strong { color: var(--color-ink); font-size: 11px; font-weight: 620; }
+.crew-trail small { color: var(--color-ink-tertiary); font-size: 9px; }
+.crew-detail-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
+.crew-detail-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.crew-help-card { margin-top: 13px; padding: 13px 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+.crew-help-card h3 { margin: 0 0 5px; color: var(--color-ink); font-size: 12px; font-weight: 650; }
+.crew-help-card p { margin: 0 0 9px; color: var(--color-ink-secondary); font-size: 10px; line-height: 1.5; }
+.crew-help-card a { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
+.crew-help-card a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Bottom row: recent activity | field tips. */
+.crew-bottom-grid { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); gap: 13px; }
+.crew-activity-list { display: grid; gap: 0; margin: 0; padding: 4px 14px 12px; list-style: none; }
+.crew-activity-item { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 42px; border-bottom: 1px solid var(--color-border); }
+.crew-activity-item:last-child { border-bottom: 0; }
+.crew-activity-item > span:first-child { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--color-ink-tertiary); background: var(--color-surface-raised); font-size: 10px; }
+.crew-activity-item.is-done > span:first-child { color: #fff; background: var(--color-success); }
+.crew-activity-item.is-active > span:first-child { color: var(--color-primary); background: var(--color-primary-soft); }
+.crew-activity-item p { overflow: hidden; margin: 0; color: var(--color-ink-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.crew-activity-item time { color: var(--color-ink-tertiary); font-size: 9px; white-space: nowrap; }
+.crew-field-tips { min-height: 150px; display: flex; align-items: center; gap: 14px; padding: 15px 16px; }
+.crew-field-tips > div { min-width: 0; }
+.crew-field-tips h3 { margin: 0 0 4px; color: var(--color-ink); font-size: 13px; font-weight: 650; }
+.crew-field-tips p { margin: 0 0 9px; color: var(--color-ink-secondary); font-size: 10px; line-height: 1.5; }
+.crew-field-tips a { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
+.crew-field-tips a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.crew-field-tips-art { width: 78px; height: 78px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; color: var(--color-primary); background: var(--color-primary-soft); }
+
+@media (max-width: 1200px) {
+  .crew-main-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-areas: 'jobs map' 'detail detail'; }
+  .crew-jobs-panel { grid-area: jobs; }
+  .crew-map-panel { grid-area: map; }
+  .crew-detail-panel { grid-area: detail; }
+}
+@media (max-width: 900px) {
+  .crew-main-grid { grid-template-columns: minmax(0,1fr); grid-template-areas: 'map' 'jobs' 'detail'; }
+  .crew-bottom-grid { grid-template-columns: minmax(0,1fr); }
+  .crew-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+  .crew-page { gap: 11px; padding: 18px 16px 24px; }
+  .crew-dashboard-heading { min-height: 48px; }
+  .crew-dashboard-heading-icon { width: 38px; height: 38px; }
+  .crew-dashboard-heading p { font-size: 11px; }
+  .crew-job-list { max-height: 340px; }
+  .crew-map-canvas { height: 320px; }
+  .crew-map-loading { min-height: 320px; }
+  .crew-map-panel { min-height: 320px; }
+}
+@media (max-width: 480px) {
+  .crew-page { gap: 9px; padding: 14px 11px 20px; }
+  .crew-kpi-grid { gap: 8px; }
+  .crew-kpi-card { min-height: 88px; grid-template-columns: 34px minmax(0,1fr); column-gap: 8px; padding: 10px; }
+  .crew-kpi-card > span { width: 34px; height: 34px; border-radius: 9px; }
+  .crew-kpi-card strong { font-size: 20px; }
+  .crew-kpi-card small { font-size: 10px; }
+  .crew-kpi-card em { font-size: 9px; }
+  .crew-job-row { grid-template-columns: 38px minmax(0,1fr) auto; gap: 8px; }
+  .crew-job-thumb { width: 38px; height: 38px; }
+  .crew-map-legend { flex-wrap: wrap; gap: 8px; padding-inline: 11px; }
+}
 
 /*
  * The resident dashboard grid is defined once, in the "Resident

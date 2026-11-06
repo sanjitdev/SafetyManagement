@@ -2233,6 +2233,8 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'shell.nav.operations': { bn: 'অপারেশন', en: 'Operations' },
   'shell.nav.users': { bn: 'ব্যবহারকারী', en: 'Users' },
   'shell.nav.settings': { bn: 'সেটিংস', en: 'Settings' },
+  'shell.nav.my_jobs': { bn: 'আমার কাজ', en: 'My Jobs' },
+  'shell.nav.activity_log': { bn: 'কার্যক্রম লগ', en: 'Activity Log' },
   'shell.search': { bn: 'রিপোর্ট বা অবস্থান খুঁজুন…', en: 'Search reports, locations…' },
   'shell.search.submit': { bn: 'খুঁজুন', en: 'Search' },
   'shell.nav.open': { bn: 'নেভিগেশন খুলুন', en: 'Open navigation' },
@@ -2322,6 +2324,223 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'admin.dashboard.loading': { bn: 'ড্যাশবোর্ড লোড হচ্ছে…', en: 'Loading dashboard…' },
 
   // WO-003 (Intent 004) — Crew surfaces (today's assignments)
+  //
+  // CREW DASHBOARD (/crew) — the crew portal's home surface.
+  //
+  // The dashboard is a supervisor-at-a-glance view of one crew
+  // member's day: four KPIs, a "Today's Jobs" list, a map with
+  // numbered pins, a focused-job detail panel and a recent-activity
+  // timeline. The design reference is
+  // `ui-design/Crew Portal Dashboard.png`.
+  'crew.dashboard.greeting': {
+    bn: 'সুপ্রভাত, {name}',
+    en: 'Good morning, {name}',
+  },
+  'crew.dashboard.greeting_afternoon': {
+    bn: 'শুভ অপরাহ্ন, {name}',
+    en: 'Good afternoon, {name}',
+  },
+  'crew.dashboard.greeting_evening': {
+    bn: 'শুভ সন্ধ্যা, {name}',
+    en: 'Good evening, {name}',
+  },
+  'crew.dashboard.subtitle': {
+    bn: 'আজ আপনার দায়িত্বে থাকা কাজগুলো দেখুন',
+    en: 'Here are your assigned tasks for today',
+  },
+  // KPI row — four cards, each with a headline value, a label and
+  // a supporting hint. The labels follow the design reference
+  // (`ui-design/Crew Portal Dashboard.png`): Assigned Jobs /
+  // Completed Today / Pending / Total Work Time.
+  'crew.dashboard.metric.assigned': {
+    bn: 'বরাদ্দকৃত কাজ',
+    en: 'Assigned Jobs',
+  },
+  'crew.dashboard.metric.assigned_hint': {
+    bn: '{count}টি কাজ বাকি',
+    en: '{count} tasks awaiting',
+  },
+  'crew.dashboard.metric.in_progress': {
+    bn: 'আজ সম্পন্ন',
+    en: 'Completed Today',
+  },
+  'crew.dashboard.metric.in_progress_hint': {
+    bn: 'এখন কাজ চলছে',
+    en: 'Currently working',
+  },
+  'crew.dashboard.metric.pending': {
+    bn: 'অপেক্ষমাণ',
+    en: 'Pending',
+  },
+  'crew.dashboard.metric.pending_hint': {
+    bn: 'পরবর্তী পদক্ষেপের অপেক্ষায়',
+    en: 'Awaiting action',
+  },
+  'crew.dashboard.metric.avg_resolution': {
+    bn: 'মোট কাজের সময়',
+    en: 'Total Work Time',
+  },
+  'crew.dashboard.metric.avg_resolution_hint': {
+    bn: 'এই সপ্তাহে',
+    en: 'This week',
+  },
+  'crew.dashboard.metric.no_resolution_data': {
+    bn: '—',
+    en: '—',
+  },
+  // "Today's Jobs" panel (the left column).
+  'crew.dashboard.jobs_title': {
+    bn: 'আজকের কাজ',
+    en: "Today's jobs",
+  },
+  'crew.dashboard.jobs_empty': {
+    bn: 'আজকের জন্য কোনো কাজ নেই',
+    en: 'No jobs assigned today',
+  },
+  'crew.dashboard.jobs_empty_hint': {
+    bn: 'নতুন কাজ এলে এখানে দেখা যাবে।',
+    en: 'New assignments will appear here.',
+  },
+  'crew.dashboard.job_eta': {
+    bn: '{time} বাকি',
+    en: '{time} est',
+  },
+  'crew.dashboard.job_eta_overdue': {
+    bn: 'সময় চলে গেছে',
+    en: 'Overdue',
+  },
+  // Map panel (the centre column).
+  'crew.dashboard.map_title': {
+    bn: 'এলাকার কাজ',
+    en: 'Jobs around you',
+  },
+  'crew.dashboard.map_legend.location': {
+    bn: 'আমার অবস্থান',
+    en: 'My location',
+  },
+  'crew.dashboard.map_legend.assigned': {
+    bn: 'বরাদ্দকৃত',
+    en: 'Assigned',
+  },
+  'crew.dashboard.map_legend.pending': {
+    bn: 'অপেক্ষমাণ',
+    en: 'Pending',
+  },
+  'crew.dashboard.map_legend.completed': {
+    bn: 'সম্পন্ন',
+    en: 'Completed',
+  },
+  // Focused-job detail panel (the right column).
+  'crew.dashboard.detail_title': {
+    bn: 'নির্বাচিত কাজ',
+    en: 'Selected job',
+  },
+  'crew.dashboard.detail_empty': {
+    bn: 'বিস্তারিত দেখতে একটি কাজ নির্বাচন করুন',
+    en: 'Select a job to see its details',
+  },
+  'crew.dashboard.detail_open': {
+    bn: 'রিপোর্ট খুলুন',
+    en: 'Open report',
+  },
+  'crew.dashboard.detail.trail_title': {
+    bn: 'অগ্রগতি',
+    en: 'Progress',
+  },
+  // The four-step trail ladder shown in the focused-job panel.
+  'crew.dashboard.trail.assigned': {
+    bn: 'বরাদ্দ হয়েছে',
+    en: 'Assigned',
+  },
+  'crew.dashboard.trail.pending_report': {
+    bn: 'রিপোর্টের অপেক্ষায়',
+    en: 'Pending Report',
+  },
+  'crew.dashboard.trail.pending_review': {
+    bn: 'পর্যালোচনার অপেক্ষায়',
+    en: 'Pending Review',
+  },
+  'crew.dashboard.trail.completed': {
+    bn: 'সম্পন্ন',
+    en: 'Completed',
+  },
+  // The focused-job panel's action buttons.
+  'crew.dashboard.detail.upload_photo': {
+    bn: 'ছবি আপলোড করুন',
+    en: 'Upload Photo',
+  },
+  'crew.dashboard.detail.mark_done': {
+    bn: 'সম্পন্ন হিসেবে চিহ্নিত করুন',
+    en: 'Mark as Done',
+  },
+  'crew.dashboard.detail.reporter': {
+    bn: 'রিপোর্টকারী',
+    en: 'Reported by',
+  },
+  'crew.dashboard.detail.photos': {
+    bn: 'ছবি',
+    en: 'Photos',
+  },
+  'crew.dashboard.detail.photos_empty': {
+    bn: 'কোনো ছবি নেই',
+    en: 'No photos',
+  },
+  // "Need help?" card under the detail panel.
+  'crew.dashboard.help_title': {
+    bn: 'সাহায্য দরকার?',
+    en: 'Need help?',
+  },
+  'crew.dashboard.help_body': {
+    bn: 'কাজ ভুলভাবে বরাদ্দ হয়েছে? সমস্যা জানান।',
+    en: 'Job not assigned correctly? Report an issue',
+  },
+  'crew.dashboard.help_call_dispatcher': {
+    bn: 'ডিসপ্যাচারকে কল করুন',
+    en: 'Call dispatcher',
+  },
+  // Recent Activity timeline (bottom left).
+  'crew.dashboard.activity_title': {
+    bn: 'সাম্প্রতিক কাজ',
+    en: 'Recent activity',
+  },
+  'crew.dashboard.activity_view_all': {
+    bn: 'সব দেখুন',
+    en: 'View all',
+  },
+  'crew.dashboard.activity_empty': {
+    bn: 'এখনো কোনো কাজের কার্যক্রম নেই',
+    en: 'No activity yet',
+  },
+  'crew.dashboard.activity.started': {
+    bn: 'আপনি {id} কাজটি শুরু করেছেন',
+    en: 'You started job {id}',
+  },
+  'crew.dashboard.activity.resolved': {
+    bn: 'আপনি {id} কাজটি সম্পন্ন করেছেন',
+    en: 'You marked job {id} as completed',
+  },
+  'crew.dashboard.activity.assigned': {
+    bn: 'নতুন কাজ {id} আপনার নামে বরাদ্দ হয়েছে',
+    en: 'New job {id} assigned to you',
+  },
+  'crew.dashboard.activity.routed': {
+    bn: '{id} কাজটি আপনার ওয়ার্ডে পাঠানো হয়েছে',
+    en: 'Job {id} was routed to your ward',
+  },
+  // Field Tips card (bottom right).
+  'crew.dashboard.tips_title': {
+    bn: 'ক্ষেত্রের পরামর্শ',
+    en: 'Field tips',
+  },
+  'crew.dashboard.tips_body': {
+    bn: 'মাঠপর্যায়ে নিরাপদ থাকুন',
+    en: 'Stay safe in the field',
+  },
+  'crew.dashboard.tips_action': {
+    bn: 'নিরাপত্তা নির্দেশিকা দেখুন',
+    en: 'View safety guide',
+  },
+
   'crew.list.title': {
     bn: 'আজকের কাজ',
     en: "Today's assignments",
@@ -2584,6 +2803,28 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'profile.error.name': { bn: 'নাম লিখুন (সর্বোচ্চ ৮০ অক্ষর)।', en: 'Enter a name (up to 80 characters).' },
   'profile.error.name_bn': { bn: 'বাংলা নাম ৮০ অক্ষরের মধ্যে হতে হবে।', en: 'Bangla name must be 80 characters or fewer.' },
   'profile.loading': { bn: 'প্রোফাইল লোড হচ্ছে…', en: 'Loading your profile…' },
+  'profile.tab.details': { bn: 'বিবরণ', en: 'Details' },
+  'profile.tab.settings': { bn: 'সেটিংস', en: 'Settings' },
+  'profile.settings.title': { bn: 'সেটিংস', en: 'Settings' },
+  'profile.settings.subtitle': {
+    bn: 'ভাষা ও চেহারা বেছে নিন।',
+    en: 'Choose your language and appearance.',
+  },
+  'profile.settings.language.title': { bn: 'ভাষা', en: 'Language' },
+  'profile.settings.language.hint': {
+    bn: 'CityFix বাংলা-প্রথম। ইংরেজিতেও দেখতে পারেন।',
+    en: 'CityFix is Bangla-first. You can also read it in English.',
+  },
+  'profile.settings.language.bn': { bn: 'বাংলা', en: 'Bangla' },
+  'profile.settings.language.en': { bn: 'ইংরেজি', en: 'English' },
+  'profile.settings.appearance.title': { bn: 'চেহারা', en: 'Appearance' },
+  'profile.settings.appearance.hint': {
+    bn: 'হালকা বা গাঢ় থিম বেছে নিন।',
+    en: 'Pick the light or dark theme.',
+  },
+  'profile.settings.appearance.light': { bn: 'হালকা', en: 'Light' },
+  'profile.settings.appearance.dark': { bn: 'গাঢ়', en: 'Dark' },
+  'profile.settings.appearance.system': { bn: 'সিস্টেম', en: 'System' },
 
   // ---------------------------------------------------------------------------
   // UI PRIMITIVE LABELS (Wave 1 — design foundation)

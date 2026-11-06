@@ -81,6 +81,11 @@ const nextConfig = {
           //     every page and the UI falls back to a system font
           //     (this was a real, app-wide defect — not a nit).
           //   - data: + blob: + https: for the MapLibre WebGL canvas + photos
+          //   - demotiles.maplibre.org in connect-src for the MapLibre
+          //     glyph server. MapLibre fetches glyph ranges from it to
+          //     draw any `text-field`; without it the numbered map pins
+          //     (and cluster counts) render as invisible dots, with
+          //     only a CSP console error to show for it.
           //   - unpkg.com for the Swagger UI assets served by /api/docs.
           //     The docs page loads swagger-ui-dist from the CDN, so
           //     BOTH script-src and style-src need the host — without
@@ -95,7 +100,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
+              "connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.openstreetmap.fr https://nominatim.openstreetmap.org https://demotiles.maplibre.org https://*.cityfix.vercel.app https://cityfix.vercel.app",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",

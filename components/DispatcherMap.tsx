@@ -16,8 +16,10 @@
  *     `DHAKA_DISTRICT_FEATURE_COLLECTION` source).
  * The component does NOT share state with `MapView` because the
  * citizen-side map's prop surface is contractually bound to a
- * single draggable marker. A v1.1 bolt can extract a shared
- * `lib/map/osm-raster.ts` to deduplicate the OSM constants.
+ * single draggable marker. The OSM constants (tile URL,
+ * attribution, glyph endpoint, symbol font) live in
+ * `lib/map/osm-raster.ts` so all three maps share one
+ * definition.
  *
  * Pin source: a GeoJSON source with `cluster: true` when the
  * pin set has > 50 entries (the unit-brief's threshold). Below
@@ -42,6 +44,12 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import {
+  GLYPHS_URL,
+  OSM_ATTRIBUTION,
+  OSM_TILE_URL,
+  SYMBOL_FONT,
+} from '@/lib/map/osm-raster';
 import { MAP_PRIMARY_COLOR, MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 export type MapStatus = 'submitted' | 'routed' | 'in_progress';
@@ -94,10 +102,9 @@ const PINS_SELECTED_LAYER_ID = 'dispatcher-pins-selected';
  *
  * Attribution is rendered via the MapLibre
  * `AttributionControl`; OSM requires the credit to be visible.
+ *
+ * The constants themselves live in `lib/map/osm-raster.ts`.
  */
-const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /**
  * Cluster threshold (per the unit-brief's bolt-suggestion note).
@@ -168,6 +175,10 @@ export default function DispatcherMap({
       container: containerRef.current,
       style: {
         version: 8,
+        // Without a `glyphs` endpoint MapLibre cannot draw any
+        // `text-field` — the cluster-count symbol layer below
+        // would silently render nothing.
+        glyphs: GLYPHS_URL,
         sources: {
           'osm-tiles': {
             type: 'raster',
@@ -262,7 +273,7 @@ export default function DispatcherMap({
             layout: {
               'text-field': ['get', 'point_count_abbreviated'],
               'text-size': 12,
-              'text-font': ['Open Sans Regular'],
+              'text-font': [...SYMBOL_FONT],
             },
             paint: {
               'text-color': '#fff',

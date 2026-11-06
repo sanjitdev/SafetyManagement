@@ -46,6 +46,21 @@ const VIEWPORT = { width: 390, height: 844 };
 const CREW_USER_ID = 'user_crew_rashid';
 const ROUTED_TICKET_ID = 'ticket_seed_routed_1';
 const IN_PROGRESS_TICKET_ID = 'ticket_seed_inprogress_1';
+/**
+ * A SECOND routed ticket, used only by the visual baseline test.
+ *
+ * `ticket_seed_routed_1` is mutated by the transition tests above
+ * (`routed → in_progress`), and the in-memory dev store is
+ * process-wide — so by the time the baseline test runs, that ticket
+ * is no longer `routed` and the screenshot captures the wrong
+ * state. This ticket is never touched by any transition test, so it
+ * is still `routed` when the baseline runs.
+ *
+ * It must also carry the SAME department as the crew session
+ * (`requireScope` rejects a category with no department), so it
+ * uses the streetlight category rather than `other`.
+ */
+const ROUTED_BASELINE_TICKET_ID = 'ticket_seed_crew_routed_3';
 
 async function devLogin(
   ctx: APIRequestContext,
@@ -342,20 +357,16 @@ test('after-photo POST with invalid url → 400 invalid_input', async () => {
 // --- Visual baselines ----------------------------------------------------
 
 test('crew-ticket-routed-390x844 matches light baseline', async ({ page }) => {
-  // Uses the dev seed's `ticket_seed_routed_1` (a routed
+  // Uses the dev seed's `ticket_seed_crew_routed_3` (a routed
   // streetlight ticket assigned to Rashid). The page renders
   // the "Mark in progress" CTA prominently.
   //
-  // IMPORTANT: if a previous test moved this ticket to
-  // in_progress, this baseline is stale. Playwright's
-  // test-isolation re-runs each spec file in a fresh
-  // process, but the in-memory dev store is process-wide.
-  // To make the baseline deterministic, we re-seed by
-  // calling /api/dev/login?role=admin and posting a
-  // direct DB reset (no such endpoint exists in v1; instead
-  // we rely on the suite being run AFTER a fresh dev store
-  // boot, which is the dev workflow today). The bolt
-  // record documents this caveat.
+  // A SECOND routed ticket is used deliberately: the transition
+  // tests above mutate `ticket_seed_routed_1` to `in_progress`,
+  // and the in-memory dev store is process-wide, so that ticket
+  // is no longer `routed` by the time this baseline runs.
+  // `ticket_seed_crew_routed_2` is never mutated, so the
+  // baseline captures a genuinely routed ticket every run.
   await page.setViewportSize(VIEWPORT);
   await forceLightTheme(page);
   const ctx = page.context();
@@ -366,7 +377,7 @@ test('crew-ticket-routed-390x844 matches light baseline', async ({ page }) => {
   expect(login.status()).toBe(303);
 
   const resp = await page.goto(
-    `${BASE}/crew/tickets/${encodeURIComponent(ROUTED_TICKET_ID)}`,
+    `${BASE}/crew/tickets/${encodeURIComponent(ROUTED_BASELINE_TICKET_ID)}`,
     { waitUntil: 'networkidle' },
   );
   expect(resp, 'expected response for /crew/tickets/[id]').not.toBeNull();

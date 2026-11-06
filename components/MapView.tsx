@@ -56,6 +56,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import { OSM_ATTRIBUTION, OSM_TILE_URL } from '@/lib/map/osm-raster';
 import { MAP_PRIMARY_COLOR } from '@/lib/ui/map-colors';
 
 interface MapViewProps {
@@ -101,11 +102,9 @@ const DEDUP_RING_LINE_LAYER_ID = 'dedup-ring-line';
  * Attribution is rendered via the MapLibre
  * `AttributionControl`; OSM requires the credit
  * to be visible.
+ *
+ * The constants themselves live in `lib/map/osm-raster.ts`.
  */
-const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /**
  * Build a 50m-radius circle polygon around (lng, lat).

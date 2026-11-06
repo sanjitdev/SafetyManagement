@@ -8,7 +8,15 @@ export default async function ProfileLayout({ children }: { children: ReactNode 
   if (!session) redirect('/login?next=%2Fprofile');
 
   return (
-    <AppShell role={session.role === 'citizen' ? 'citizen' : 'staff'} signedIn>
+    <AppShell
+      role={session.role === 'citizen' ? 'citizen' : 'staff'}
+      signedIn
+      // `signedIn` disables the SessionProvider, so the sidebar has no
+      // session to read the role from — it needs to be told which
+      // staff surface to render, or a crew member who navigated here
+      // from the crew portal would see the citizen nav.
+      surface={session.role === 'citizen' ? undefined : session.role}
+    >
       {children}
     </AppShell>
   );

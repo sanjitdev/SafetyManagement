@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CityFixMark } from '@/components/CityFixMark';
@@ -14,10 +14,40 @@ type Item = { href: string; label: string; icon: keyof typeof ICONS; exact?: boo
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
-export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole; onNavigate: () => void }) {
+export function RoleSidebar({
+  role = 'citizen',
+  surface: surfaceProp,
+  onNavigate,
+}: {
+  role?: ShellRole;
+  /**
+   * The staff surface to render when the shared session is unavailable
+   * (a route whose layout resolved the session on the server and so
+   * disabled the `SessionProvider`).
+   */
+  surface?: 'crew' | 'dispatcher' | 'admin';
+  onNavigate: () => void;
+}) {
   const pathname = usePathname() ?? '/';
   const [lang, setLang] = useState<Language>('bn');
   const [userListFilter, setUserListFilter] = useState<string | null>(null);
+  // The `tab` query of the CURRENT URL.
+  //
+  // This deliberately does NOT use `useSearchParams()`. That hook
+  // forces a client-side-rendering bailout on every route that
+  // renders the sidebar, which broke static prerendering for the
+  // whole app (Next.js: "useSearchParams() should be wrapped in a
+  // suspense boundary"). The sidebar is shared chrome, so its
+  // hook cost every page — and a `<Suspense>` boundary inside a
+  // client component does not satisfy Next.js's check.
+  //
+  // Instead, the tab is read from `window.location.search` and
+  // re-read whenever the route changes. The PAGE that owns the tab
+  // also publishes it over a `cityfix:profile-tab-updated`
+  // event, so a client-side Link navigation updates the highlight
+  // immediately — the same pattern the admin users `role` filter
+  // already uses below.
+  const [currentTab, setCurrentTab] = useState<string | null>(null);
   // The sidebar used to fetch `/api/auth/status` on mount to learn the
   // session's role and cityId. It now reads the shared session, which
   // the AppShell's `SessionProvider` already resolved with a single
@@ -25,7 +55,7 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
   const { session } = useSession();
   const userRole = session?.role ?? null;
   const cityId = session?.cityId ?? null;
-  const surface = pathname.startsWith('/admin') ? 'admin' : pathname.startsWith('/dispatcher') ? 'dispatcher' : pathname.startsWith('/crew') ? 'crew' : (pathname.startsWith('/reports') || pathname.startsWith('/profile') || pathname.startsWith('/feed')) && userRole && userRole !== 'citizen' ? userRole : role === 'staff' && userRole ? userRole : 'citizen';
+  const surface = pathname.startsWith('/admin') ? 'admin' : pathname.startsWith('/dispatcher') ? 'dispatcher' : pathname.startsWith('/crew') ? 'crew' : (pathname.startsWith('/reports') || pathname.startsWith('/profile') || pathname.startsWith('/feed')) && userRole && userRole !== 'citizen' ? userRole : role === 'staff' ? (userRole ?? surfaceProp ?? 'crew') : 'citizen';
 
   useEffect(() => {
     try {
@@ -42,15 +72,32 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
       const roleFilter = (event as CustomEvent<string>).detail;
       if (roleFilter === 'crew' || roleFilter === 'all' || roleFilter === 'dispatcher' || roleFilter === 'supervisor') setUserListFilter(roleFilter);
     };
+    // The page that owns the `tab` query publishes the active tab.
+    // This is what makes a client-side Link navigation (which does
+    // NOT fire `popstate`) update the highlight.
+    const onProfileTabUpdated = (event: Event) => {
+      const tab = (event as CustomEvent<string | null>).detail;
+      setCurrentTab(tab ?? null);
+    };
     syncUserListFilter();
     window.addEventListener('popstate', syncUserListFilter);
     window.addEventListener('cityfix:admin-users-filter-updated', onUserListFilterUpdated);
+    window.addEventListener('cityfix:profile-tab-updated', onProfileTabUpdated);
     return () => {
       window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
       window.removeEventListener('popstate', syncUserListFilter);
       window.removeEventListener('cityfix:admin-users-filter-updated', onUserListFilterUpdated);
+      window.removeEventListener('cityfix:profile-tab-updated', onProfileTabUpdated);
     };
   }, []);
+
+  // Re-read the `tab` query whenever the route changes. This
+  // covers a direct load of `/profile?tab=settings` and a
+  // back/forward navigation (the `popstate` listener above only
+  // covers the admin `role` filter).
+  useEffect(() => {
+    setCurrentTab(new URLSearchParams(window.location.search).get('tab'));
+  }, [pathname]);
 
   const items = useMemo<Item[]>(() => {
     if (surface === 'admin') return [
@@ -70,9 +117,11 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
       { href: '/dispatcher/dedup', label: t('dispatcher.dashboard.duplicates', null, lang), icon: 'city' },
     ];
     if (surface === 'crew') return [
-      { href: '/crew', label: t('shell.nav.dashboard', null, lang), icon: 'home', exact: true },
-      { href: '/reports', label: t('shell.nav.reports', null, lang), icon: 'reports' },
+      { href: '/crew', label: t('shell.nav.my_jobs', null, lang), icon: 'home', exact: true },
+      { href: '/crew/map', label: t('shell.nav.map', null, lang), icon: 'map' },
+      { href: '/crew/activity', label: t('shell.nav.activity_log', null, lang), icon: 'queue' },
       { href: '/profile', label: t('shell.nav.profile', null, lang), icon: 'users' },
+      { href: '/profile?tab=settings', label: t('shell.nav.settings', null, lang), icon: 'city' },
     ];
     return [
       { href: '/home', label: t('shell.nav.dashboard', null, lang), icon: 'home', exact: true },
@@ -83,6 +132,18 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
     ];
   }, [cityId, lang, surface]);
 
+  // The `tab` query claimed by a sibling nav item, if any. `/profile`
+  // and `/profile?tab=settings` are two destinations on the same path,
+  // so the bare-path item must stand down when the URL carries the
+  // query its sibling claims.
+  const claimedTab = useMemo(() => {
+    for (const item of items) {
+      const query = item.href.split('?')[1];
+      if (query) return new URLSearchParams(query).get('tab');
+    }
+    return null;
+  }, [items]);
+
   return (
     <aside id="role-sidebar" className="role-sidebar">
       <Link href={surface === 'admin' ? '/admin' : surface === 'dispatcher' ? '/dispatcher' : surface === 'crew' ? '/crew' : '/home'} className="role-sidebar-brand" aria-label="CityFix">
@@ -91,13 +152,29 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
       </Link>
       <nav className="role-sidebar-nav" aria-label={t('shell.nav.label', null, lang)}>
         {items.map((item) => {
-          const path = item.href.split('?')[0];
+          const [itemPath, itemQuery] = item.href.split('?');
           const isUserList = pathname.includes('/users');
+          // A nav item that carries its own query string is a DISTINCT
+          // destination from its bare-path sibling: `/profile` and
+          // `/profile?tab=settings` are two different pages. Matching
+          // on the path alone would light up BOTH at once.
+          //
+          // So the `tab` query is compared on both sides of the pair:
+          //   - an item WITH a query is active only when the URL
+          //     carries that exact query;
+          //   - an item WITHOUT a query is active only when the URL
+          //     does NOT carry a query that a sibling claims.
+          // A URL with no `tab` at all activates the bare-path item,
+          // which is the common case.
+          const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null;
+          const queryMatches = itemTab
+            ? currentTab === itemTab
+            : claimedTab === null || currentTab !== claimedTab;
           const active = item.roleFilter
             ? isUserList && userListFilter === item.roleFilter
             : item.exact
-              ? pathname === path
-              : pathname === path || pathname.startsWith(`${path}/`);
+              ? pathname === itemPath
+              : (pathname === itemPath || pathname.startsWith(`${itemPath}/`)) && queryMatches;
           const Icon = ICONS[item.icon].icon;
           return (
             <Link key={`${item.href}:${item.label}`} href={item.href} onClick={() => {

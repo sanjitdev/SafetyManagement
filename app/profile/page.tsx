@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
+import { useTheme } from '@/lib/theme/ThemeProvider';
+import type { Appearance } from '@/lib/theme/appearance';
 import { t, type Language } from '@/lib/i18n/keys';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -27,8 +29,44 @@ interface Profile {
   cityId: string;
 }
 
+/**
+ * Module-scope in-flight promise for the profile read.
+ *
+ * The `/profile` layout resolves the session on the SERVER and passes
+ * `signedIn` to `AppShell`, which disables the `SessionProvider` —
+ * so there is no shared session to gate the fetch on, and a plain
+ * mount effect would fire it twice under React 18 StrictMode.
+ *
+ * Caching the in-flight promise makes the second mount JOIN the first
+ * request instead of starting another one. The result is settled into
+ * module scope too, so the remount reads the payload synchronously
+ * rather than re-fetching.
+ */
+let profileRequest: Promise<{ profile: Profile } | null> | null = null;
+let profileResult: { profile: Profile } | null = null;
+
+function loadProfile(): Promise<{ profile: Profile } | null> {
+  if (profileResult) return Promise.resolve(profileResult);
+  if (!profileRequest) {
+    profileRequest = fetch('/api/profile', { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (response.status === 401) return null;
+        if (!response.ok) throw new Error('profile_load_failed');
+        const payload = (await response.json()) as { profile: Profile };
+        profileResult = payload;
+        return payload;
+      })
+      .finally(() => {
+        profileRequest = null;
+      });
+  }
+  return profileRequest;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { appearance, setAppearance } = useTheme();
   const [lang, setLang] = useState<Language>('bn');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
@@ -37,6 +75,37 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<'load' | 'save' | 'name' | 'name_bn' | null>(null);
+
+  // The sidebar's "Settings" item deep-links to `/profile?tab=settings`.
+  // The tab lives in the URL so the nav item can highlight correctly and
+  // the link is shareable; anything else falls back to the details tab.
+  const tab = searchParams.get('tab') === 'settings' ? 'settings' : 'details';
+
+  // Publish the active tab to the sidebar.
+  //
+  // The sidebar cannot read the query itself: `useSearchParams()` in
+  // shared chrome forces a client-side-rendering bailout on every
+  // statically-prerendered route in the app. So this page — which
+  // owns the `tab` query — announces it, and the sidebar listens.
+  // This is the same pattern the admin users `role` filter uses.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('cityfix:profile-tab-updated', {
+        detail: tab === 'settings' ? 'settings' : null,
+      }),
+    );
+  }, [tab]);
+
+  function chooseLanguage(next: Language) {
+    setLang(next);
+    try {
+      window.localStorage.setItem(LANG_KEY, next);
+    } catch {
+      // Storage may be unavailable (private mode) — the in-memory
+      // state still drives this render.
+    }
+    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
+  }
 
   useEffect(() => {
     const onLanguageUpdated = (event: Event) => {
@@ -51,18 +120,23 @@ export default function ProfilePage() {
       // Keep the Bangla-first default when storage is unavailable.
     }
 
+    return () => {
+      window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
+    };
+  }, []);
+
+  // The profile read. `loadProfile` dedupes the request at module
+  // scope, so StrictMode's double mount joins the first call instead
+  // of issuing a second one.
+  useEffect(() => {
     let cancelled = false;
-    void fetch('/api/profile', { credentials: 'same-origin' })
-      .then(async (response) => {
-        if (response.status === 401) {
-          router.replace('/login?next=%2Fprofile');
-          return null;
-        }
-        if (!response.ok) throw new Error('profile_load_failed');
-        return (await response.json()) as { profile: Profile };
-      })
+    void loadProfile()
       .then((payload) => {
-        if (cancelled || !payload) return;
+        if (cancelled) return;
+        if (!payload) {
+          router.replace('/login?next=%2Fprofile');
+          return;
+        }
         setProfile(payload.profile);
         setName(payload.profile.name);
         setNameBn(payload.profile.nameBn ?? '');
@@ -76,7 +150,6 @@ export default function ProfilePage() {
 
     return () => {
       cancelled = true;
-      window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
     };
   }, [router]);
 
@@ -113,6 +186,9 @@ export default function ProfilePage() {
       }
       if (!response.ok) throw new Error('profile_save_failed');
       const payload = (await response.json()) as { profile: Profile };
+      // Refresh the module-scope cache so a remount reads the SAVED
+      // profile rather than the pre-save snapshot.
+      profileResult = payload;
       setProfile(payload.profile);
       setName(payload.profile.name);
       setNameBn(payload.profile.nameBn ?? '');
@@ -144,14 +220,46 @@ export default function ProfilePage() {
           <span aria-hidden>←</span>{t('profile.back', null, lang)}
         </Link>
 
-        <header style={{ marginBottom: 'var(--space-5)' }}>
+        <header style={{ marginBottom: 'var(--space-4)' }}>
           <h1 lang={lang} style={{ margin: 0, color: 'var(--color-ink)', fontSize: 'var(--text-h1)', fontWeight: 'var(--weight-bold)', letterSpacing: '-0.025em', lineHeight: 'var(--leading-tight)' }}>
-            {t('profile.title', null, lang)}
+            {tab === 'settings' ? t('profile.settings.title', null, lang) : t('profile.title', null, lang)}
           </h1>
           <p lang={lang} style={{ margin: 'var(--space-2) 0 0', color: 'var(--color-ink-secondary)', fontSize: 'var(--text-body)', lineHeight: 'var(--leading-normal)' }}>
-            {t('profile.subtitle', null, lang)}
+            {tab === 'settings' ? t('profile.settings.subtitle', null, lang) : t('profile.subtitle', null, lang)}
           </p>
         </header>
+
+        <nav className="profile-tabs" aria-label={t('shell.nav.label', null, lang)} style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)', borderBottom: '1px solid var(--color-border)' }}>
+          {(['details', 'settings'] as const).map((value) => {
+            const isActive = tab === value;
+            const href = value === 'settings' ? '/profile?tab=settings' : '/profile';
+            return (
+              <Link
+                key={value}
+                href={href}
+                lang={lang}
+                aria-current={isActive ? 'page' : undefined}
+                className={`profile-tab${isActive ? ' is-active' : ''}`}
+                style={{
+                  padding: 'var(--space-2) var(--space-3)',
+                  marginBottom: '-1px',
+                  borderBottom: '2px solid transparent',
+                  color: isActive ? 'var(--color-primary)' : 'var(--color-ink-secondary)',
+                  fontSize: 'var(--text-body-sm)',
+                  fontWeight: 'var(--weight-semibold)',
+                  textDecoration: 'none',
+                }}
+              >
+                {t(value === 'settings' ? 'profile.tab.settings' : 'profile.tab.details', null, lang)}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {tab === 'settings' ? (
+          <SettingsPanel lang={lang} appearance={appearance} onAppearance={setAppearance} onLanguage={chooseLanguage} />
+        ) : (
+        <>
 
         {loading ? (
           <SkeletonStatus lang={lang} className="profile-loading-card">
@@ -223,6 +331,8 @@ export default function ProfilePage() {
             </form>
           </section>
         ) : null}
+        </>
+        )}
       </main>
       <style dangerouslySetInnerHTML={{ __html: `
         @media (max-width: 640px) {
@@ -238,6 +348,114 @@ function ReadOnlyDetail({ label, value }: { label: string; value: string | null 
     <div style={{ padding: 'var(--space-3)', minWidth: 0, borderRadius: 'var(--radius-input)', background: 'var(--color-surface-raised)' }}>
       <div style={{ color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>{label}</div>
       <div style={{ marginTop: 4, color: 'var(--color-ink)', fontSize: 'var(--text-body-sm)', overflowWrap: 'anywhere' }}>{value || '—'}</div>
+    </div>
+  );
+}
+
+/**
+ * The Settings tab.
+ *
+ * Everything on it is a device-local preference — the same two the
+ * header already exposes (language and appearance), collected in one
+ * place instead of scattered across chrome. Both write to
+ * localStorage and broadcast the change so every listener (the header,
+ * the sidebar, this page) stays in sync without a reload.
+ */
+function SettingsPanel({
+  lang,
+  appearance,
+  onAppearance,
+  onLanguage,
+}: {
+  lang: Language;
+  appearance: Appearance;
+  onAppearance: (next: Appearance) => void;
+  onLanguage: (next: Language) => void;
+}) {
+  return (
+    <section style={{ background: 'var(--color-surface-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+      <div style={{ padding: 'var(--space-5)', borderBottom: '1px solid var(--color-border)' }}>
+        <h2 style={{ margin: 0, color: 'var(--color-ink)', fontSize: 'var(--text-body-lg)', fontWeight: 'var(--weight-semibold)' }}>
+          {t('profile.settings.language.title', null, lang)}
+        </h2>
+        <p style={{ margin: 'var(--space-1) 0 var(--space-3)', color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)' }}>
+          {t('profile.settings.language.hint', null, lang)}
+        </p>
+        <SegmentedControl
+          lang={lang}
+          options={[
+            { value: 'bn', label: t('profile.settings.language.bn', null, lang) },
+            { value: 'en', label: t('profile.settings.language.en', null, lang) },
+          ]}
+          selected={lang}
+          onSelect={(value) => onLanguage(value as Language)}
+        />
+      </div>
+
+      <div style={{ padding: 'var(--space-5)' }}>
+        <h2 style={{ margin: 0, color: 'var(--color-ink)', fontSize: 'var(--text-body-lg)', fontWeight: 'var(--weight-semibold)' }}>
+          {t('profile.settings.appearance.title', null, lang)}
+        </h2>
+        <p style={{ margin: 'var(--space-1) 0 var(--space-3)', color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)' }}>
+          {t('profile.settings.appearance.hint', null, lang)}
+        </p>
+        <SegmentedControl
+          lang={lang}
+          options={[
+            { value: 'light', label: t('profile.settings.appearance.light', null, lang) },
+            { value: 'dark', label: t('profile.settings.appearance.dark', null, lang) },
+            { value: 'system', label: t('profile.settings.appearance.system', null, lang) },
+          ]}
+          selected={appearance}
+          onSelect={(value) => onAppearance(value as Appearance)}
+        />
+      </div>
+    </section>
+  );
+}
+
+function SegmentedControl({
+  lang,
+  options,
+  selected,
+  onSelect,
+}: {
+  lang: Language;
+  options: { value: string; label: string }[];
+  selected: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div
+      role="group"
+      lang={lang}
+      style={{ display: 'inline-flex', gap: 2, padding: 3, borderRadius: 'var(--radius-input)', background: 'var(--color-surface-raised)' }}
+    >
+      {options.map((option) => {
+        const isActive = option.value === selected;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelect(option.value)}
+            aria-pressed={isActive}
+            style={{
+              padding: '7px 14px',
+              border: '1px solid transparent',
+              borderRadius: 'calc(var(--radius-input) - 3px)',
+              background: isActive ? 'var(--color-surface-card)' : 'transparent',
+              color: isActive ? 'var(--color-primary)' : 'var(--color-ink-secondary)',
+              boxShadow: isActive ? '0 1px 2px rgba(15, 23, 42, 0.12)' : 'none',
+              fontFamily: 'inherit',
+              fontSize: 'var(--text-body-sm)',
+              fontWeight: 'var(--weight-semibold)',
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

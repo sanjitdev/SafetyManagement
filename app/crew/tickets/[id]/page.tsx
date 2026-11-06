@@ -1098,6 +1098,7 @@ export default function CrewTicketPage() {
               submit is enabled when either a file is chosen
               OR a non-empty URL is typed. */}
           <div
+            id="add-photo"
             style={{
               marginTop: 'var(--space-3)',
               paddingTop: 'var(--space-3)',
@@ -1105,6 +1106,7 @@ export default function CrewTicketPage() {
               display: 'flex',
               flexDirection: 'column',
               gap: 'var(--space-2)',
+              scrollMarginTop: 'var(--space-6)',
             }}
           >
             <label
@@ -1375,10 +1377,12 @@ export default function CrewTicketPage() {
 
               {visibleTransitions.includes('resolved') && (
                 <div
+                  id="resolve"
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 'var(--space-2)',
+                    scrollMarginTop: 'var(--space-6)',
                   }}
                 >
                   <label

@@ -276,11 +276,18 @@ test('crew-assignments-populated-390x844 matches light baseline', async ({ page 
   expect(resp!.status(), `expected 200 for /crew, got ${resp!.status()}`).toBe(
     200,
   );
-  // Wait for the list page to load.
-  await page.waitForSelector('[data-testid="crew-list-page"]', { timeout: 10_000 });
-  // Wait for the populated state to settle: at least one
-  // row should be visible (the seed's in_progress ticket).
-  await page.waitForSelector('[data-testid="crew-list-row"]', { timeout: 10_000 });
+  // Wait for the dashboard shell to load. The crew landing
+  // page was rebuilt as the three-panel dashboard (KPIs + job
+  // list + map), so the old `crew-list-page` wrapper is gone —
+  // `crew-dashboard-page` is its replacement.
+  await page.waitForSelector('[data-testid="crew-dashboard-page"]', { timeout: 10_000 });
+  // Wait for the populated state to settle: the job list must
+  // have rendered at least one row (the seed's routed and
+  // in_progress tickets). `crew-list-row` now lives on a job row
+  // inside the detail panel, so the job list itself is the
+  // reliable signal that the tickets landed.
+  await page.waitForSelector('[data-testid="crew-job-list"]', { timeout: 10_000 });
+  await expect(page.locator('[data-testid="crew-job-list"] > *').first()).toBeVisible({ timeout: 10_000 });
   await expect(page).toHaveScreenshot('crew-assignments-populated-390x844.png', {
     fullPage: true,
   });

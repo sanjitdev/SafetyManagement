@@ -27,6 +27,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { DHAKA_CENTER } from './geo/constants';
+import { seedPhotoUrl } from './dev-store/seed-photo';
 
 export { DHAKA_CENTER };
 
@@ -569,6 +570,26 @@ function seed(): Store {
   // a debug-only marker.
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
+  /**
+   * A wall-clock time TODAY at the given hour/minute.
+   *
+   * The crew dashboard's job rows show the slot time an assignment
+   * was dispatched. Seeding that with a relative offset ("3 hours
+   * ago") makes every row land on the same clock time whenever the
+   * store is seeded inside one hour, so the list reads as duplicate
+   * rows. Pinning each open assignment to a fixed slot of the day
+   * keeps the dashboard legible: 10:00, 12:30, 15:00.
+   *
+   * If the requested slot has already passed today, the time is
+   * rolled back to yesterday at the same hour — a slot in the past
+   * is still a valid dispatch record.
+   */
+  const slotTime = (base: number, hour: number, minute: number): Date => {
+    const d = new Date(base);
+    d.setHours(hour, minute, 0, 0);
+    if (d.getTime() > base) d.setDate(d.getDate() - 1);
+    return d;
+  };
   const tickets = new Map<string, DevTicket>();
   const trail: DevTrailEntry[] = [];
   // Bolt 007-001: pre-seeded with the same five `seedTickets`. The
@@ -617,7 +638,7 @@ function seed(): Store {
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 2 * day).toISOString(),
-      updatedAt: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      updatedAt: slotTime(now, 10, 0).toISOString(),
       resolvedAt: null,
     },
     {
@@ -643,7 +664,7 @@ function seed(): Store {
       duplicateOfId: null,
       closeReason: null,
       createdAt: new Date(now - 4 * day).toISOString(),
-      updatedAt: new Date(now - 1 * day).toISOString(),
+      updatedAt: slotTime(now, 10, 0).toISOString(),
       resolvedAt: null,
     },
     {
@@ -690,8 +711,199 @@ function seed(): Store {
       updatedAt: new Date(now - 5 * day).toISOString(),
       resolvedAt: null,
     },
+    /*
+     * CREW DASHBOARD SEED — Rashid's completed history.
+     *
+     * The crew DASHBOARD (/crew) shows four KPIs, two of which are
+     * about work the crew has ALREADY FINISHED: "Completed Today"
+     * and "Avg. Resolution Time". Neither is derivable from the
+     * actionable set (`routed` + `in_progress`) — a finished ticket
+     * is not in it by definition.
+     *
+     * These three resolved rows give the dashboard real history to
+     * aggregate: one resolved a few HOURS ago (so "Completed Today"
+     * is non-zero), and two resolved on earlier days (so the average
+     * resolution time spans more than one value rather than being a
+     * single data point).
+     *
+     * All three are `cat_streetlight` → `dept_streetlight`, which is
+     * the department the crew persona (Rashid) is bound to — so they
+     * pass the crew list's category-department filter.
+     */
+    {
+      id: 'ticket_seed_crew_done_today_1',
+      cityId,
+      wardId,
+      categoryId: catIds.streetlight,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'resolved',
+      locationLng: DHAKA_CENTER.lng + 0.0035,
+      locationLat: DHAKA_CENTER.lat + 0.0035,
+      locationLabel: 'Mirpur 15, school gate',
+      locationLabelBn: 'মিরপুর ১৫, স্কুলের গেট',
+      note: 'The light above the school gate is completely dark.',
+      internalNote: 'Fuse replaced; unit tested at 19:00.',
+      feedback: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(now - 1 * 60 * 60 * 1000).toISOString(),
+      resolvedAt: new Date(now - 1 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'ticket_seed_crew_done_today_2',
+      cityId,
+      wardId,
+      categoryId: catIds.streetlight,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'resolved',
+      locationLng: DHAKA_CENTER.lng - 0.0035,
+      locationLat: DHAKA_CENTER.lat + 0.0035,
+      locationLabel: 'Mirpur 16, mosque lane',
+      locationLabelBn: 'মিরপুর ১৬, মসজিদের গলি',
+      note: 'Streetlight flickering for a week, now off completely.',
+      internalNote: 'Driver replaced; wiring re-terminated.',
+      feedback: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 7 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      resolvedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'ticket_seed_crew_done_earlier_1',
+      cityId,
+      wardId,
+      categoryId: catIds.streetlight,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'resolved',
+      locationLng: DHAKA_CENTER.lng + 0.005,
+      locationLat: DHAKA_CENTER.lat + 0.0005,
+      locationLabel: 'Mirpur 17, market junction',
+      locationLabelBn: 'মিরপুর ১৭, বাজারের মোড়',
+      note: 'Two streetlights out on the junction.',
+      internalNote: 'Both units replaced.',
+      feedback: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 3 * day).toISOString(),
+      updatedAt: new Date(now - 2 * day).toISOString(),
+      resolvedAt: new Date(now - 2 * day).toISOString(),
+    },
+    /*
+     * Two more OPEN assignments for Rashid. The dashboard's
+     * "Today's Jobs" list and its NUMBERED map pins need enough
+     * rows to show the numbering the design specifies (1, 2, 3),
+     * and the design's job list shows a mix of In Progress /
+     * Pending / Assigned rather than a single row.
+     *
+     * `cat_other` has no department, so it stays visible to every
+     * crew regardless of the department filter.
+     */
+    {
+      id: 'ticket_seed_crew_routed_2',
+      cityId,
+      wardId,
+      categoryId: catIds.other,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'routed',
+      locationLng: DHAKA_CENTER.lng - 0.0015,
+      locationLat: DHAKA_CENTER.lat - 0.0015,
+      locationLabel: 'Mirpur 18, community centre',
+      locationLabelBn: 'মিরপুর ১৮, কমিউনিটি সেন্টার',
+      note: 'The light in front of the community centre is out.',
+      internalNote: null,
+      feedback: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 1 * day).toISOString(),
+      updatedAt: slotTime(now, 12, 30).toISOString(),
+      resolvedAt: null,
+    },
+    {
+      id: 'ticket_seed_crew_routed_3',
+      cityId,
+      wardId,
+      categoryId: catIds.streetlight,
+      reporterId: citizenId,
+      assignedCrewId: crewId,
+      status: 'routed',
+      locationLng: DHAKA_CENTER.lng + 0.0005,
+      locationLat: DHAKA_CENTER.lat - 0.0035,
+      locationLabel: 'Mirpur 19, footbridge',
+      locationLabelBn: 'মিরপুর ১৯, ফুটব্রিজ',
+      note: 'Footbridge approach light is out — very dark at night.',
+      internalNote: null,
+      feedback: null,
+      duplicateOfId: null,
+      closeReason: null,
+      createdAt: new Date(now - 3 * day).toISOString(),
+      updatedAt: slotTime(now, 15, 0).toISOString(),
+      resolvedAt: null,
+    },
   ];
   for (const t of seedTickets) tickets.set(t.id, t);
+  /*
+   * Seed photos.
+   *
+   * The crew dashboard's job rows show a photo thumbnail of the site
+   * (the design reference puts a picture next to every assignment),
+   * and the focused-job panel shows the citizen's evidence photo.
+   * The dev store previously seeded no photos at all, so every row
+   * fell back to the category glyph and the panel showed no evidence.
+   *
+   * The photos are inline SVG data URLs — see
+   * `lib/dev-store/seed-photo.ts` for why they are inline rather
+   * than remote (determinism for the visual baselines, no object
+   * storage, and the CSP already allows `data:` for images).
+   *
+   * Every seeded ticket gets ONE citizen "before" photo. The
+   * tickets the crew has already finished ALSO get a crew "after"
+   * photo, so the "Completed" evidence path has something to show.
+   */
+  const seedCategorySlug: Record<string, string> = {
+    [catIds.streetlight]: 'streetlight',
+    [catIds.pothole]: 'pothole',
+    [catIds.drainage]: 'drainage',
+    [catIds.garbage]: 'garbage',
+    [catIds.other]: 'other',
+  };
+  for (const [index, t] of seedTickets.entries()) {
+    const slug = seedCategorySlug[t.categoryId] ?? 'other';
+    const photos: DevTicketPhoto[] = [
+      {
+        id: `tph_seed_${t.id}_before`,
+        ticketId: t.id,
+        url: seedPhotoUrl(slug, index + 1),
+        uploadedByRole: 'citizen',
+        uploadedAt: t.createdAt,
+        storageKey: null,
+        mimeType: 'image/svg+xml',
+        sizeBytes: null,
+        width: 320,
+        height: 240,
+      },
+    ];
+    if (t.status === 'resolved' || t.status === 'closed') {
+      photos.push({
+        id: `tph_seed_${t.id}_after`,
+        ticketId: t.id,
+        url: seedPhotoUrl(slug, index + 11),
+        uploadedByRole: 'crew',
+        uploadedAt: t.resolvedAt ?? t.updatedAt,
+        storageKey: null,
+        mimeType: 'image/svg+xml',
+        sizeBytes: null,
+        width: 320,
+        height: 240,
+      });
+    }
+    ticketPhotos.set(t.id, photos);
+  }
   // One trail entry per seed ticket so getTicketWithTrail has rows.
   // For tickets already past `submitted`, add a `routed` trail entry
   // (dispatcher) and — for in_progress/resolved — a final trail entry
@@ -746,6 +958,26 @@ function seed(): Store {
           new Date(t.updatedAt).getTime() - 3 * 60 * 60 * 1000,
         ).toISOString(),
       });
+      /*
+       * A RESOLVED ticket also gets the crew's own resolution
+       * entry. Without it the trail stops at `routed` and the
+       * dashboard's status trail shows the job as still pending —
+       * and the "Completed Today" KPI would have no trail entry
+       * to hang its activity line on.
+       *
+       * `closed` rows are dispatcher-closed (e.g. duplicates), not
+       * crew-completed, so they get no crew entry.
+       */
+      if (t.status === 'resolved' && t.assignedCrewId) {
+        trail.push({
+          id: `trail_seed_${t.id}_resolved`,
+          ticketId: t.id,
+          toStatus: 'resolved',
+          actorId: t.assignedCrewId,
+          note: t.internalNote,
+          timestamp: t.resolvedAt ?? t.updatedAt,
+        });
+      }
     }
   }
 

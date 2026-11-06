@@ -33,6 +33,17 @@ interface AppShellProps {
   /** Optional: force the signed-in state (skips the header's /api/auth/status probe). */
   signedIn?: boolean | null;
   /**
+   * The staff surface the sidebar should render when the shared session
+   * is unavailable.
+   *
+   * A route whose layout resolves the session on the SERVER passes
+   * `signedIn`, which disables the `SessionProvider` — so the sidebar
+   * has no session to read the role from. Without this prop it would
+   * fall back to the citizen nav, which is wrong for a crew member who
+   * navigated to `/profile` from the crew portal.
+   */
+  surface?: 'crew' | 'dispatcher' | 'admin';
+  /**
    * Optional sub-header (used by /report/* to slot its step indicator
    * strip *below* the global header without competing with it).
    * The sub-header shares the sticky offset of the global header
@@ -47,6 +58,7 @@ export function AppShell({
   lang,
   role = 'public',
   signedIn,
+  surface,
   subHeader,
 }: AppShellProps) {
   return (
@@ -68,6 +80,7 @@ export function AppShell({
         lang={lang}
         role={role}
         signedIn={signedIn}
+        surface={surface}
         subHeader={subHeader}
       >
         {children}
@@ -81,6 +94,7 @@ function AppShellInner({
   lang,
   role,
   signedIn,
+  surface,
   subHeader,
 }: AppShellProps) {
   const [navOpen, setNavOpen] = useState(false);
@@ -88,7 +102,7 @@ function AppShellInner({
   if (role !== 'public') {
     return (
       <div className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`} data-app-shell data-shell-role={role}>
-        <RoleSidebar role={role} onNavigate={() => setNavOpen(false)} />
+        <RoleSidebar role={role} surface={surface} onNavigate={() => setNavOpen(false)} />
         <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
         <div className="role-app-main">
           <AppHeader lang={lang} role={role} signedIn={signedIn} compact navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
