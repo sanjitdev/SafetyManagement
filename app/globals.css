@@ -909,13 +909,30 @@ h1, h2, h3, h4 {
 .crew-dashboard-heading h1 { margin: 0; color: var(--color-ink); font-size: clamp(20px,1.9vw,27px); font-weight: 720; letter-spacing: -.03em; line-height: 1.2; }
 .crew-dashboard-heading p { margin: 4px 0 0; color: var(--color-ink-secondary); font-size: 12px; }
 
-/* KPI row — four equal cards, each an icon tile + a number + a label + a hint. */
-.crew-kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; }
-.crew-kpi-card { min-width: 0; min-height: 104px; display: grid; grid-template-columns: 44px minmax(0,1fr); grid-template-rows: auto auto auto; align-content: center; align-items: center; column-gap: 12px; padding: 15px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
-.crew-kpi-card > span { width: 44px; height: 44px; grid-row: 1 / 4; display: grid; place-items: center; border-radius: 12px; }
-.crew-kpi-card strong { color: var(--color-ink); font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.crew-kpi-card small { overflow: hidden; color: var(--color-ink); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.crew-kpi-card em { overflow: hidden; color: var(--color-ink-tertiary); font-size: 10px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+/* KPI row — four equal cards, each an icon tile + a number + a label + a hint.
+ *
+ * The alignment rule: the icon tile is a FIXED-width first column,
+ * and the number / label / hint stack in a second column that is
+ * LEFT-aligned. That is what makes the four cards line up with
+ * each other: the icon always starts at the same x, and the
+ * number always starts at the same x, whatever the number's width.
+ *
+ * The earlier rule used `align-items: center` on the grid, which
+ * centres each cell inside its track. Because the four values have
+ * different widths ("3", "1", "2", "6h 30m"), that pushed each
+ * card's icon and number to a different x — the row read as four
+ * unrelated cards instead of one aligned strip.
+ */
+.crew-kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; align-items: stretch; }
+.crew-kpi-card { position: relative; min-width: 0; min-height: 104px; display: grid; grid-template-columns: 44px minmax(0,1fr); grid-template-rows: auto auto auto; align-content: center; align-items: start; column-gap: 12px; padding: 15px 34px 15px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+/* The icon tile spans all three text rows and is centred against
+   the whole stack, so it reads as one badge beside the block. */
+.crew-kpi-card > span { width: 44px; height: 44px; grid-row: 1 / 4; align-self: center; display: grid; place-items: center; border-radius: 12px; }
+/* The value is the card's headline. It never wraps: "6h 30m" on one
+   line is what keeps all four cards the same height. */
+.crew-kpi-card strong { overflow: hidden; color: var(--color-ink); font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.crew-kpi-card small { overflow: hidden; color: var(--color-ink); font-size: 12px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.crew-kpi-card em { overflow: hidden; color: var(--color-ink-tertiary); font-size: 10px; font-style: normal; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .crew-kpi-card.tone-blue > span { color: #69a5ff; background: #1c3760; }
 .crew-kpi-card.tone-green > span { color: #53d692; background: #173e32; }
 .crew-kpi-card.tone-amber > span { color: #ffc45b; background: #46371f; }
@@ -923,30 +940,62 @@ h1, h2, h3, h4 {
 /* The design's KPI cards carry a right-edge chevron (the card is a
    drill-down affordance). It is decorative — the card itself is
    not a link in v1 — so it is an aria-hidden span. */
-.crew-kpi-chevron { position: absolute; top: 50%; right: 12px; translate: 0 -50%; color: var(--color-ink-tertiary); }
-.crew-kpi-card { position: relative; padding-right: 32px; }
+.crew-kpi-chevron { position: absolute; top: 50%; right: 13px; translate: 0 -50%; color: var(--color-ink-tertiary); }
 
-/* Main three-column grid: jobs | map | focused detail. */
-.crew-main-grid { display: grid; grid-template-columns: minmax(280px,.95fr) minmax(360px,1.45fr) minmax(290px,1fr); gap: 13px; align-items: start; }
-.crew-panel { min-width: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
-.crew-panel-heading { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--color-border); }
+/* Main three-column grid: jobs | map | focused detail.
+ *
+ * `align-items: stretch` (the default) makes all three panels the
+ * same height, so the row ends on a straight line instead of the
+ * ragged 426 / 503 / 681 bottoms it had before. Each panel is a
+ * flex column, and its BODY (the part under the heading strip) is
+ * the element that grows, so the growing part is always the
+ * scrollable region rather than the heading.
+ */
+.crew-main-grid { display: grid; grid-template-columns: minmax(280px,.95fr) minmax(360px,1.45fr) minmax(290px,1fr); gap: 13px; align-items: stretch; }
+.crew-panel { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+.crew-panel-heading { min-height: 48px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--color-border); }
 .crew-panel-heading h2 { min-width: 0; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); font-size: 13px; font-weight: 650; white-space: nowrap; }
 .crew-panel-heading h2 svg { flex: 0 0 auto; color: var(--color-ink-secondary); }
 .crew-panel-heading > a, .crew-panel-heading > span { display: inline-flex; align-items: center; gap: 4px; color: var(--color-primary); font-size: 10px; font-weight: 650; text-decoration: none; white-space: nowrap; }
 .crew-panel-heading > a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+/*
+ * The strip under a panel heading — the map's legend, the job
+ * list's scope note. It has a FIXED height so that the panel
+ * BODIES of the three columns start on the same line. Without it
+ * the map body started 40px lower than the jobs body and the
+ * columns looked staggered rather than aligned.
+ */
+.crew-panel-strip { height: 36px; flex: 0 0 36px; display: flex; align-items: center; overflow: hidden; border-bottom: 1px solid var(--color-border); }
+
 /* "Today's Jobs" panel. */
-.crew-map-legend { display: flex; align-items: center; gap: 11px; padding: 9px 14px; border-bottom: 1px solid var(--color-border); color: var(--color-ink-secondary); font-size: 9px; }
+.crew-map-legend { gap: 11px; padding: 0 14px; color: var(--color-ink-secondary); font-size: 9px; }
 .crew-map-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .crew-map-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-status-routed); }
 .crew-map-legend i.is-progress { background: var(--color-status-in-progress); }
 .crew-map-legend i.is-pending { background: var(--color-status-submitted); }
 .crew-map-legend i.is-completed { background: var(--color-status-resolved); }
 .crew-map-legend i.is-location { background: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
-.crew-job-list { max-height: 420px; display: flex; flex-direction: column; gap: 7px; overflow: auto; padding: 9px 11px 11px; }
-.crew-job-row { width: 100%; min-height: 74px; display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 8px 9px; border: 1px solid transparent; border-radius: 9px; color: inherit; background: transparent; text-align: left; transition: border-color 140ms ease, background 140ms ease; }
-.crew-job-row:hover { border-color: var(--color-border); background: var(--color-surface-raised); }
-.crew-job-row.is-selected { border-color: var(--color-primary); background: var(--color-primary-soft); }
+/*
+ * The job list.
+ *
+ * The design stacks the rows EDGE TO EDGE with a hairline
+ * between them — they are rows of a list, not a stack of floating
+ * cards. An earlier version put a 7px gap between pill-shaped
+ * cards, which left the panel looking like a few loose cards in a
+ * large empty box rather than a filled list.
+ */
+.crew-job-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 0 11px; }
+.crew-job-row { width: 100%; min-height: 74px; flex: 0 0 auto; display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 9px; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; color: inherit; background: transparent; text-align: left; transition: background 140ms ease; }
+.crew-job-row:last-child { border-bottom: 0; }
+.crew-job-row:hover { background: var(--color-surface-raised); }
+/*
+ * The selected row carries a BLUE LEFT EDGE, the way the design
+ * marks the focused job — not a full border, which on a
+ * borderless row would have drawn a box around the whole row and
+ * fought the hairlines between the other rows.
+ */
+.crew-job-row.is-selected { position: relative; background: var(--color-primary-soft); box-shadow: inset 3px 0 0 var(--color-primary); }
 .crew-job-thumb { width: 46px; height: 46px; overflow: hidden; display: grid; place-items: center; border-radius: 9px; color: var(--color-ink-tertiary); background: var(--color-surface-raised); font-size: 10px; }
 .crew-job-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .crew-job-row > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
@@ -977,11 +1026,19 @@ h1, h2, h3, h4 {
 .crew-panel-empty { padding: 30px 14px; color: var(--color-ink-tertiary); text-align: center; font-size: 11px; }
 .crew-panel-empty p { margin: 6px 0 0; font-size: 10px; }
 
-/* Map panel. */
-.crew-map-panel { min-height: 420px; }
-.crew-map-canvas { height: 420px; position: relative; overflow: hidden; background: var(--color-map-bg); }
+/* Map panel.
+ *
+ * The map is the row's ANCHOR: it fixes the height of the main
+ * grid row. Without a ceiling here the map grew to whatever the
+ * detail column's ticket trail demanded, which made the map tower
+ * over the job list and pushed the bottom row off the fold. With
+ * the ceiling the map keeps the design's proportions and the
+ * detail card's body scrolls inside its own panel instead.
+ */
+.crew-map-panel { min-height: 420px; max-height: 560px; }
+.crew-map-canvas { flex: 1 1 auto; min-height: 340px; position: relative; overflow: hidden; background: var(--color-map-bg); }
 .crew-map-canvas > div { width: 100%; height: 100%; }
-.crew-map-loading { height: 100%; min-height: 420px; background: var(--color-surface-raised); }
+.crew-map-loading { height: 100%; min-height: 340px; background: var(--color-surface-raised); }
 
 /* Focused job detail card. */
 .crew-detail-card { padding: 14px; }
@@ -992,7 +1049,16 @@ h1, h2, h3, h4 {
  * cue, so it stays saturated in both themes — the band is a
  * brand surface, not a text surface.
  */
-.crew-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -14px -14px 12px; padding: 11px 14px; background: var(--color-primary); }
+/*
+ * The detail column's strip: the blue band carrying the job's
+ * location (left) and status chip (right).
+ *
+ * It is a STRIP, not a card header — it sits between the panel
+ * heading and the ticket body, on the same line as the jobs
+ * panel's scope note and the map's legend, so the three columns'
+ * bodies all start at the same y.
+ */
+.crew-detail-header { justify-content: space-between; gap: 8px; padding: 0 14px; background: var(--color-primary); }
 .crew-detail-id { color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
 .crew-detail-header .crew-detail-chip { padding: 3px 9px; border-radius: 99px; color: #fff; background: #ffffff2e; font-size: 9px; font-weight: 650; text-transform: uppercase; white-space: nowrap; }
 .crew-detail-loc { display: flex; align-items: center; gap: 5px; margin: 5px 0 0; color: var(--color-ink-secondary); font-size: 10px; }
@@ -1046,7 +1112,24 @@ h1, h2, h3, h4 {
 .crew-trail small { color: var(--color-ink-tertiary); font-size: 9px; }
 .crew-detail-link { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
 .crew-detail-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.crew-help-card { margin-top: 13px; padding: 13px 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
+/*
+ * The focused-job column: the detail card on top, the "Need help?"
+ * card below it. It is a flex column so the DETAIL CARD absorbs the
+ * extra height when the main grid stretches the row — the help card
+ * keeps its natural size and sits at the bottom.
+ *
+ * The column is CAPPED at the map's height. Without the cap a long
+ * ticket trail made this column the tallest thing in the row, which
+ * stretched the map and the job list with it and pushed the bottom
+ * row off the fold. Capped, the ticket's own body scrolls inside
+ * the card and the row keeps the design's proportions.
+ */
+.crew-detail-panel { min-width: 0; max-height: 560px; display: flex; flex-direction: column; gap: 13px; }
+/* The detail card is the element that grows; its own body scrolls
+   once the ticket's trail is taller than the space left over. */
+.crew-detail-panel > .crew-panel { flex: 1 1 auto; min-height: 0; }
+.crew-detail-panel > .crew-panel > .crew-detail-card { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.crew-help-card { flex: 0 0 auto; margin-top: 0; padding: 13px 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-card); }
 .crew-help-card h3 { margin: 0 0 5px; color: var(--color-ink); font-size: 12px; font-weight: 650; }
 .crew-help-card p { margin: 0 0 9px; color: var(--color-ink-secondary); font-size: 10px; line-height: 1.5; }
 .crew-help-card a { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
@@ -1086,8 +1169,7 @@ h1, h2, h3, h4 {
   .crew-dashboard-heading { min-height: 48px; }
   .crew-dashboard-heading-icon { width: 38px; height: 38px; }
   .crew-dashboard-heading p { font-size: 11px; }
-  .crew-job-list { max-height: 340px; }
-  .crew-map-canvas { height: 320px; }
+  .crew-map-canvas { min-height: 320px; }
   .crew-map-loading { min-height: 320px; }
   .crew-map-panel { min-height: 320px; }
 }
@@ -1101,7 +1183,15 @@ h1, h2, h3, h4 {
   .crew-kpi-card em { font-size: 9px; }
   .crew-job-row { grid-template-columns: 38px minmax(0,1fr) auto; gap: 8px; }
   .crew-job-thumb { width: 38px; height: 38px; }
-  .crew-map-legend { flex-wrap: wrap; gap: 8px; padding-inline: 11px; }
+  /*
+   * The map legend does NOT wrap. The strip is a fixed 36px
+   * tall, so a wrapped second row would be clipped away. The
+   * four legend chips instead shrink their gap and drop to 8px
+   * type so they still read on one line.
+   */
+  .crew-map-legend { gap: 7px; padding-inline: 11px; font-size: 8px; }
+  .crew-map-legend span { gap: 4px; }
+  .crew-map-legend i { width: 7px; height: 7px; }
 }
 
 /*

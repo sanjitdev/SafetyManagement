@@ -1082,9 +1082,18 @@ export default function CrewPage() {
             </div>
           </div>
 
-          {geo?.state !== 'granted' && (
-            <div className="crew-map-legend" style={{ justifyContent: 'space-between' }}>
-              <span lang={lang}>{scopeLabel(lang, scope)}</span>
+          {/*
+            The scope strip. It is ALWAYS rendered — even when the
+            crew has granted location — because all three columns of
+            the main grid carry a strip of the same height, so their
+            bodies start on the same line. Dropping it (as an
+            earlier version did, when location was granted) shifted
+            the job list up by a whole strip and the columns looked
+            staggered.
+          */}
+          <div className="crew-panel-strip crew-map-legend" style={{ justifyContent: 'space-between' }}>
+            <span lang={lang}>{scopeLabel(lang, scope)}</span>
+            {geo?.state !== 'granted' && (
               <button
                 type="button"
                 onClick={requestLocation}
@@ -1104,8 +1113,8 @@ export default function CrewPage() {
               >
                 {t('crew.list.row.distance_pending', null, lang)}
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="crew-job-list" data-testid="crew-job-list">
             {loading ? (
@@ -1158,7 +1167,7 @@ export default function CrewPage() {
               {t('crew.dashboard.map_title', null, lang)}
             </h2>
           </div>
-          <div className="crew-map-legend">
+          <div className="crew-panel-strip crew-map-legend">
             <span>
               <i className="is-location" aria-hidden />
               {t('crew.dashboard.map_legend.location', null, lang)}
@@ -1204,7 +1213,30 @@ export default function CrewPage() {
               </h2>
             </div>
             {selected ? (
-              <JobDetail ticket={selected} lang={lang} />
+              <>
+                {/*
+                  The blue band is this column's STRIP — the row
+                  under the heading that carries the job's location
+                  and status. The other two columns carry a strip of
+                  the same height (the scope note and the map
+                  legend), so all three bodies start on the same
+                  line. The band is rendered here rather than inside
+                  `JobDetail` for exactly that reason.
+                */}
+                <div className="crew-panel-strip crew-detail-header">
+                  <span className="crew-detail-loc" lang={lang}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z" />
+                      <circle cx="12" cy="10" r="2.5" />
+                    </svg>
+                    {locationText(selected, lang)}
+                  </span>
+                  <span className="crew-detail-chip" lang={lang}>
+                    {t(statusLabelKey(selected.status), null, lang)}
+                  </span>
+                </div>
+                <JobDetail ticket={selected} lang={lang} />
+              </>
             ) : (
               <div className="crew-panel-empty">
                 <p lang={lang} style={{ margin: 0 }}>
@@ -1448,23 +1480,12 @@ function JobDetail({ ticket, lang }: { ticket: CrewTicket; lang: Language }) {
   return (
     <div className="crew-detail-card">
       {/*
-        The design's blue header band: the job's LOCATION on the left,
-        the status chip on the right. The crew reads the location first
-        — it is the one fact that says "which stop is this".
+        The blue header band (the job's location + status chip) is
+        rendered by the panel as its STRIP, so all three columns of
+        the main grid line up. It used to live here, which pushed
+        the detail column's content down a whole row relative to
+        the other two.
       */}
-      <div className="crew-detail-header">
-        <span className="crew-detail-loc" lang={lang}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z" />
-            <circle cx="12" cy="10" r="2.5" />
-          </svg>
-          {locationText(ticket, lang)}
-        </span>
-        <span className="crew-detail-chip" lang={lang}>
-          {t(statusLabelKey(ticket.status), null, lang)}
-        </span>
-      </div>
-
       <h3 lang={lang}>{categoryText(ticket, lang)}</h3>
 
       {/*
