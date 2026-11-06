@@ -335,7 +335,7 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
 .home-overview-metric.tone-blue > span { color: #5c9dff; background: #1c3760; }
 .home-overview-metric.tone-green > span { color: #53d692; background: #173e32; }
 .home-overview-metric.tone-amber > span { color: #ffc45b; background: #46371f; }
-.home-grid { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); grid-template-rows: minmax(370px, 420px); grid-template-areas: 'recent map'; gap: 14px; }
+.home-grid { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); grid-template-rows: minmax(370px, 480px); grid-template-areas: 'recent map'; grid-auto-flow: initial; gap: 14px; flex: 0 0 auto; }
 .home-map-panel { grid-area: map; min-height: 370px !important; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; }
 .home-recent-panel { grid-area: recent; min-height: 370px !important; overflow: hidden; border: 1px solid var(--color-border); border-left: 1px solid var(--color-border) !important; border-radius: 12px; }
 .home-dashboard-bottom { display: grid; grid-template-columns: minmax(0,1.12fr) minmax(0,1fr) minmax(0,.9fr); gap: 14px; }
@@ -360,6 +360,15 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
 .home-help-panel a, .home-community-panel a { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 11px; font-weight: 650; text-decoration: none; }
 .home-help-panel a:hover, .home-community-panel a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+/*
+ * Tablet (≤1024px): the two regions stack — map on top, activity feed
+ * below. At this width the side-by-side split left both columns too
+ * narrow to read, so the feed gets the full width instead.
+ */
+@media (max-width: 1024px) {
+  .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; flex: 0 0 auto; }
+}
+
 @media (max-width: 760px) {
   .role-app-shell { grid-template-columns: minmax(0, 1fr); }
   .role-sidebar { position: fixed; inset: 0 auto 0 0; width: min(280px, calc(100vw - 48px)); transform: translateX(-105%); transition: transform 180ms ease; box-shadow: none; }
@@ -376,7 +385,7 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .home-report-action { grid-column: 1 / -1; }
   .home-dashboard-bottom { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .home-dashboard-chart { grid-column: 1 / -1; }
-  .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; }
+  .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; flex: 0 0 auto; }
 }
 @media (max-width: 480px) {
   .appheader-root[data-compact="true"] { height: 62px !important; min-height: 62px; padding-inline: 10px !important; }
@@ -525,27 +534,23 @@ h1, h2, h3, h4 {
 /*
  * Home / City Activity grid (app/home/page.tsx).
  *
- * Two-region layout: map on the left, side panel on the right at ≥1025px;
- * stacked (map top, side panel below) at narrower widths. Defined here
- * (rather than as an inline <style> block in the page) so the rule ships
- * with the global stylesheet and can't be out-prioritised by the page's
- * own inline `style` attribute on the same node.
+ * Two-region layout: the activity feed on the left, the live city map
+ * on the right at ≥1025px; stacked (map top, feed below) at narrower
+ * widths.
+ *
+ * This used to be declared in three separate places — a base rule
+ * here, a "Resident dashboard" rule above, and a re-assertion at the
+ * end of the file. The three disagreed on columns, rows and `flex`,
+ * and because CSS resolves by source order the LAST one won, which
+ * pinned the map to a fixed height and fought the grid-area names.
+ *
+ * The single authoritative definition lives in the "Resident dashboard"
+ * block above. This rule only supplies the properties that block
+ * cannot: the grid must fill the page's scroll region.
  */
 .home-grid {
   display: grid;
-  grid-template-rows: minmax(360px, 1fr) minmax(320px, 1fr);
   width: 100%;
-  min-height: 0;
-  flex: 1 1 0;
-}
-
-@media (min-width: 1025px) {
-  .home-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 480px;
-    grid-template-rows: 1fr;
-    grid-auto-flow: column;
-  }
 }
 
 /*
@@ -858,7 +863,7 @@ h1, h2, h3, h4 {
 .dispatcher-map-legend { display: flex; align-items: center; gap: 10px; color: var(--color-ink-secondary); font-size: 9px; white-space: nowrap; }
 .dispatcher-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .dispatcher-map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-status-submitted); }.dispatcher-map-legend i.is-assigned { background: var(--color-status-routed); }.dispatcher-map-legend i.is-progress { background: var(--color-status-in-progress); }.dispatcher-map-legend i.is-resolved { background: var(--color-status-resolved); }
-.dispatcher-dashboard-map { height: 300px; background: var(--color-map-bg); }.dispatcher-dashboard-map > div { width: 100%; height: 100%; }.dispatcher-map-loading { height: 100%; min-height: 300px; background: var(--color-surface-raised); }
+.dispatcher-dashboard-map { height: 300px; position: relative; overflow: hidden; background: var(--color-map-bg); }.dispatcher-dashboard-map > div { width: 100%; height: 100%; }.dispatcher-map-loading { height: 100%; min-height: 300px; background: var(--color-surface-raised); }
 .dispatcher-filter-row { min-height: 43px; display: flex; align-items: center; gap: 5px; padding: 3px 12px; border-bottom: 1px solid var(--color-border); }
 .dispatcher-filter-row button { min-height: 30px; padding: 4px 9px !important; border: 1px solid transparent !important; border-radius: 6px !important; color: var(--color-ink-secondary) !important; font-size: 10px !important; white-space: nowrap; }
 .dispatcher-filter-row button:hover { border-color: var(--color-border) !important; color: var(--color-primary) !important; background: var(--color-primary-soft) !important; }
@@ -886,18 +891,14 @@ h1, h2, h3, h4 {
 @media (max-width: 760px) { .dispatcher-portal { padding: 20px 18px 26px; }.dispatcher-kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.dispatcher-overview-grid, .dispatcher-lower-grid { grid-template-columns: minmax(0,1fr); }.dispatcher-trend-panel { grid-column: auto; }.dispatcher-map-legend { display: none; }.dispatcher-dashboard-map { height: 270px; } }
 @media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: 11px; }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-kpi-card { min-height: 100px; gap: 8px; padding: 11px 9px; }.dispatcher-kpi-card > span { width: 34px; height: 34px; flex-basis: 34px; }.dispatcher-kpi-card strong { font-size: 22px; }.dispatcher-mini-trend { width: 66px; right: 7px; bottom: 4px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: 11px; }.dispatcher-filter-row { overflow-x: auto; }.dispatcher-filter-row small { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; }.dispatcher-recent-list > a > span:last-child { display: none !important; } }
 
-/* Reassert resident dashboard grid after the legacy flow layout rules. */
-.home-grid { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); grid-template-rows: minmax(370px,420px); grid-template-areas: 'recent map'; grid-auto-flow: initial; gap: 14px; flex: 0 0 auto; }
-.home-map-panel { grid-area: map; }.home-recent-panel { grid-area: recent; }
-@media (max-width: 1024px) { .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; } }
-@media (max-width: 760px) { .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; } }
-@media (max-width: 760px) {
-  .home-overview-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  .home-report-action { grid-column: 1 / -1; }
-  .home-dashboard-bottom { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .home-dashboard-chart { grid-column: 1 / -1; }
-}
-@media (max-width: 480px) {
-  .home-dashboard-bottom { grid-template-columns: minmax(0,1fr); }
-  .home-dashboard-chart { grid-column: auto; }
-}
+/*
+ * The resident dashboard grid is defined once, in the "Resident
+ * dashboard" block above (`.home-grid`, `.home-map-panel`,
+ * `.home-recent-panel`) together with its responsive overrides.
+ *
+ * It used to be re-asserted at the end of this file to win against the
+ * legacy flow-layout rules. That duplicate carried `flex: 0 0 auto`,
+ * which pinned the map panel to a fixed 420px instead of letting it
+ * fill the available height. The canonical rules now carry the same
+ * declarations, so the trailing copy is gone.
+ */

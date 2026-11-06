@@ -413,8 +413,20 @@ export default function CityActivityMap({
       style={{
         width: '100%',
         height: '100%',
-        position: 'absolute',
-        inset: 0,
+        // This element IS the MapLibre container, so it must be the
+        // positioning context for the canvas MapLibre renders inside
+        // it. It must NOT be `position: absolute` itself: an
+        // absolutely-positioned element resolves `inset` against the
+        // nearest POSITIONED ancestor, and on the dispatcher dashboard
+        // no ancestor is positioned — so the map escaped its 300px
+        // panel and expanded to the full viewport, covering the KPIs,
+        // queue, crew and trend panels.
+        //
+        // Filling the parent with relative positioning keeps the map
+        // inside its container regardless of what the caller does,
+        // while still letting callers overlay their own chrome (the
+        // home page's location pill) via their own absolute children.
+        position: 'relative',
       }}
     />
   );
