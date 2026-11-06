@@ -224,7 +224,7 @@ export default function NotePage() {
             maxHeight: 200,
             padding: 'var(--space-3)',
             borderRadius: 'var(--radius-md)',
-            border: `1px solid ${isOver ? 'var(--color-destructive)' : 'var(--color-border)'}`,
+            border: `1px solid ${isOver ? 'var(--color-danger)' : 'var(--color-border)'}`,
             background: 'var(--color-surface-card)',
             color: 'var(--color-ink)',
             fontFamily: 'var(--font-body)',
@@ -240,7 +240,7 @@ export default function NotePage() {
           aria-live="polite"
           style={{
             fontSize: 'var(--text-caption)',
-            color: isOver ? 'var(--color-destructive)' : 'var(--color-ink-secondary)',
+            color: isOver ? 'var(--color-danger)' : 'var(--color-ink-secondary)',
             textAlign: 'right',
             fontVariantNumeric: 'tabular-nums',
             fontWeight: isOver ? 'var(--weight-semibold)' : 'var(--weight-regular)',
@@ -254,11 +254,9 @@ export default function NotePage() {
             role="alert"
             style={{
               padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-surface-card)',
-              borderLeft: '4px solid var(--color-destructive)',
+              background: 'var(--color-danger-soft)',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              borderLeftWidth: 4,
+              border: '1px solid var(--color-danger)',
               color: 'var(--color-ink)',
               fontSize: 'var(--text-body-sm)',
               boxShadow: 'var(--shadow-xs)',

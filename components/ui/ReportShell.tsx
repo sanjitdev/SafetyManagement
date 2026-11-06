@@ -209,7 +209,7 @@ export function ReportShell({
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-3)',
-            boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.04)',
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           {bottomAction}

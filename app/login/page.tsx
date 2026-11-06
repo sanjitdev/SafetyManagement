@@ -285,8 +285,8 @@ function LoginInner() {
               lang={lang}
               style={{
                 padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--color-warning-soft, #fdf2cf)',
-                border: '1px solid var(--color-warning, #b58410)',
+                background: 'var(--color-warning-soft)',
+                border: '1px solid var(--color-warning)',
                 borderRadius: 'var(--radius-md)',
                 color: 'var(--color-ink)',
                 fontSize: 'var(--text-body-sm)',
@@ -365,7 +365,7 @@ function LoginInner() {
                 role="alert"
                 style={{
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   margin: '0 0 var(--space-3)',
                 }}
               >
@@ -461,7 +461,7 @@ function inputStyle(invalid: boolean, hasAdornment: boolean): React.CSSPropertie
     width: '100%',
     height: 48,
     padding: hasAdornment ? '0 var(--space-7) 0 var(--space-3)' : '0 var(--space-3)',
-    border: `1px solid ${invalid ? 'var(--color-danger, #c92a2a)' : 'var(--color-border)'}`,
+    border: `1px solid ${invalid ? 'var(--color-danger)' : 'var(--color-border)'}`,
     borderRadius: 'var(--radius-md)',
     background: 'var(--color-surface-card)',
     color: 'var(--color-ink)',
@@ -521,7 +521,7 @@ function Field({
           role="alert"
           style={{
             fontSize: 'var(--text-caption)',
-            color: 'var(--color-danger, #c92a2a)',
+            color: 'var(--color-danger)',
             margin: 'var(--space-2) 0 0',
           }}
         >

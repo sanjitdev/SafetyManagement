@@ -170,15 +170,15 @@ function DevLoginInner() {
         style={{
           width: '100%',
           maxWidth: 480,
-          background: 'var(--color-surface-card, #ffffff)',
-          border: '1px solid var(--color-border, #e5e7eb)',
+          background: 'var(--color-surface-card)',
+          border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius-md, 8px)',
           padding: 'var(--space-5)',
         }}
       >
         <h1
           style={{
-            fontSize: 'var(--text-h3, 1.25rem)',
+            fontSize: 'var(--text-h3)',
             margin: '0 0 var(--space-2)',
             color: 'var(--color-ink)',
           }}
@@ -187,7 +187,7 @@ function DevLoginInner() {
         </h1>
         <p
           style={{
-            fontSize: 'var(--text-body-sm, 0.875rem)',
+            fontSize: 'var(--text-body-sm)',
             color: 'var(--color-ink-secondary)',
             margin: '0 0 var(--space-5)',
           }}
@@ -202,7 +202,7 @@ function DevLoginInner() {
             htmlFor="dev-login-secret"
             style={{
               display: 'block',
-              fontSize: 'var(--text-body-sm, 0.875rem)',
+              fontSize: 'var(--text-body-sm)',
               fontWeight: 'var(--weight-semibold, 600)',
               marginBottom: 'var(--space-1)',
               color: 'var(--color-ink)',
@@ -221,9 +221,9 @@ function DevLoginInner() {
             style={{
               width: '100%',
               padding: 'var(--space-2) var(--space-3)',
-              border: '1px solid var(--color-border, #d1d5db)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm, 6px)',
-              fontSize: 'var(--text-body, 1rem)',
+              fontSize: 'var(--text-body)',
               fontFamily: 'inherit',
               marginBottom: 'var(--space-4)',
               boxSizing: 'border-box',
@@ -236,7 +236,7 @@ function DevLoginInner() {
             htmlFor="dev-login-user"
             style={{
               display: 'block',
-              fontSize: 'var(--text-body-sm, 0.875rem)',
+              fontSize: 'var(--text-body-sm)',
               fontWeight: 'var(--weight-semibold, 600)',
               marginBottom: 'var(--space-1)',
               color: 'var(--color-ink)',
@@ -253,9 +253,9 @@ function DevLoginInner() {
             style={{
               width: '100%',
               padding: 'var(--space-2) var(--space-3)',
-              border: '1px solid var(--color-border, #d1d5db)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-sm, 6px)',
-              fontSize: 'var(--text-body, 1rem)',
+              fontSize: 'var(--text-body)',
               fontFamily: 'inherit',
               marginBottom: 'var(--space-2)',
               boxSizing: 'border-box',
@@ -289,8 +289,8 @@ function DevLoginInner() {
               role="alert"
               data-testid="dev-login-list-error"
               style={{
-                color: 'var(--color-status-cancelled, #b91c1c)',
-                fontSize: 'var(--text-body-sm, 0.875rem)',
+                color: 'var(--color-status-cancelled)',
+                fontSize: 'var(--text-body-sm)',
                 margin: 'var(--space-1) 0 var(--space-3)',
               }}
             >
@@ -315,7 +315,7 @@ function DevLoginInner() {
               color: 'var(--color-on-primary)',
               border: 'none',
               borderRadius: 'var(--radius-md, 8px)',
-              fontSize: 'var(--text-body, 1rem)',
+              fontSize: 'var(--text-body)',
               fontWeight: 'var(--weight-semibold, 600)',
               cursor: 'pointer',
               marginTop: 'var(--space-3)',
@@ -329,8 +329,8 @@ function DevLoginInner() {
               role="alert"
               data-testid="dev-login-submit-error"
               style={{
-                color: 'var(--color-status-cancelled, #b91c1c)',
-                fontSize: 'var(--text-body-sm, 0.875rem)',
+                color: 'var(--color-status-cancelled)',
+                fontSize: 'var(--text-body-sm)',
                 margin: 'var(--space-3) 0 0',
               }}
             >
@@ -343,8 +343,8 @@ function DevLoginInner() {
               role="status"
               data-testid="dev-login-submit-ok"
               style={{
-                color: 'var(--color-status-resolved, #1f7a3f)',
-                fontSize: 'var(--text-body-sm, 0.875rem)',
+                color: 'var(--color-status-resolved)',
+                fontSize: 'var(--text-body-sm)',
                 margin: 'var(--space-3) 0 0',
               }}
             >
@@ -357,7 +357,7 @@ function DevLoginInner() {
         <details style={{ marginTop: 'var(--space-5)' }}>
           <summary
             style={{
-              fontSize: 'var(--text-body-sm, 0.875rem)',
+              fontSize: 'var(--text-body-sm)',
               color: 'var(--color-ink-secondary)',
               cursor: 'pointer',
             }}
@@ -366,7 +366,7 @@ function DevLoginInner() {
           </summary>
           <ol
             style={{
-              fontSize: 'var(--text-body-sm, 0.875rem)',
+              fontSize: 'var(--text-body-sm)',
               color: 'var(--color-ink-secondary)',
               paddingLeft: 'var(--space-5)',
               margin: 'var(--space-3) 0 0',

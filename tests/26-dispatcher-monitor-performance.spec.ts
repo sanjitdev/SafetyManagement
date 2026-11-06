@@ -634,16 +634,24 @@ test('UI: /dispatcher/performance renders the header, hero cards, charts and tab
   await expect(heading).toContainText('Performance snapshot');
   await expect(heading).not.toContainText('Ward Ward');
 
-  // Three hero stat cards.
-  for (const id of [
-    'dispatcher-performance-hero-total',
-    'dispatcher-performance-hero-resolution',
-    'dispatcher-performance-hero-avg-time',
-  ]) {
-    await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible({
-      timeout: 10_000,
-    });
-  }
+  // The hero strip: one headline figure plus the two supporting
+  // figures that share its surface. The total report count is the
+  // headline; the resolution rate and the average resolution time
+  // are the two ways of reading it.
+  await expect(
+    page.locator('[data-testid="dispatcher-performance-metric-strip"]'),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.locator('[data-testid="dispatcher-performance-hero-total"]'),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // The two supporting figures are bound to their labels in a
+  // definition list, so the label text is present alongside the value.
+  const heroStrip = page.locator(
+    '[data-testid="dispatcher-performance-metric-strip"]',
+  );
+  await expect(heroStrip.locator('dt')).toHaveCount(2);
+  await expect(heroStrip.locator('dd')).toHaveCount(2);
 
   // Three charts, each with its accessible table sibling.
   for (const id of [

@@ -278,7 +278,7 @@ export default function MapView({
     el.style.width = '28px';
     el.style.height = '28px';
     el.style.borderRadius = '50%';
-    el.style.background = 'var(--color-primary, #1E40AF)';
+    el.style.background = 'var(--color-primary)';
     el.style.border = '3px solid #fff';
     el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.3)';
     el.style.cursor = draggable ? 'grab' : 'default';

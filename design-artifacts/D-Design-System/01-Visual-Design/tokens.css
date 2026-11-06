@@ -35,15 +35,31 @@
   --color-on-accent: #FFFFFF;
 
   /* Status semantic tokens — "success only, never CTA".
-   * Each foreground clears 4.5:1 on white AND on its own soft fill. */
+   * Each foreground clears 4.5:1 on white AND on its own soft fill.
+   *
+   * The `*-on-*` pair is the text colour for text sitting ON the solid
+   * fill, and it is a separate token because the fill is not always
+   * dark. In the light theme `--color-danger` is a deep red and takes
+   * white; in the dark theme it is a light red and takes near-black.
+   * Hardcoding `#fff` on the fill is what made the crew and report
+   * surfaces unreadable — see `tests/unit/ui/tokens-contrast.test.ts`. */
   --color-success: #15803D;
   --color-success-soft: #DCFCE7;
+  --color-on-success: #FFFFFF;
   --color-warning: #B45309;
   --color-warning-soft: #FEF3C7;
+  --color-on-warning: #FFFFFF;
   --color-danger: #C81E1E;
   --color-danger-soft: #FEE2E2;
+  --color-on-danger: #FFFFFF;
   --color-info: #0369A1;
+  /* Text on the info soft fill. In light the solid info hue already
+   * clears AA here (5.17:1), so this is the same value — the token
+   * exists so the dark theme has somewhere to put its lighter text
+   * variant without every badge having to know which theme it is in. */
+  --color-info-text: #0369A1;
   --color-info-soft: #E0F2FE;
+  --color-on-info: #FFFFFF;
 
   /* Ink — text. The ramp is the whole point of the Swiss direction:
    * one near-black for primary text, two greys for hierarchy. */
@@ -61,6 +77,21 @@
   --color-surface-raised: #F1F5F9;  /* fills, dividers, inputs */
   --color-surface-sunken: #E8ECF1;  /* subtle sunken regions */
   --color-surface-inverse: #0F172A; /* dark surfaces (monitor, outdoor) */
+
+  /* Role rail — the fixed sidebar on the dispatcher, crew and admin
+   * consoles. It is a DARK OPERATIONS SURFACE in every theme: the
+   * reference designs put the navigation rail on a deep navy so the
+   * working area stays the brightest thing on screen. These tokens
+   * exist so the rail is themed rather than hardcoded — the dark
+   * theme deepens the navy instead of leaving it untouched, which is
+   * what a raw hex does. */
+  --color-rail: #111C34;            /* the rail's own surface */
+  --color-rail-hover: #1C2A45;     /* a rail link on hover */
+  --color-rail-active: #2859B4;    /* the active rail link */
+  --color-rail-ink: #F7F9FF;       /* the rail's primary text */
+  --color-rail-ink-muted: #B8C4D9; /* the rail's secondary text */
+  --color-rail-border: #2C3850;    /* the rail's hairline dividers */
+  --color-rail-accent: #79A8FF;    /* the active rail link's edge mark */
 
   /* Border — `--color-border` is a hairline divider (decorative);
    * `--color-border-strong` separates interactive controls from the
@@ -180,7 +211,7 @@
   --shadow-sm: 0 2px 4px rgba(2, 6, 23, 0.05), 0 1px 2px rgba(2, 6, 23, 0.03);
   --shadow-md: 0 4px 12px rgba(2, 6, 23, 0.07), 0 1px 3px rgba(2, 6, 23, 0.04);
   --shadow-lg: 0 12px 32px rgba(2, 6, 23, 0.10), 0 2px 6px rgba(2, 6, 23, 0.05);
-  --shadow-modal: 0 24px 48px rgba(2, 6, 23, 0.16), 0 4px 12px rgba(2, 6, 23, 0.08);
+  --shadow-modal: 0 16px 32px rgba(2, 6, 23, 0.16), 0 4px 12px rgba(2, 6, 23, 0.08);
   --shadow-popover: 0 8px 24px rgba(2, 6, 23, 0.12), 0 2px 6px rgba(2, 6, 23, 0.06);
 
   /* The focus ring as a shadow, so a component can draw a focus state
@@ -263,8 +294,11 @@
   --color-on-primary: #FFFFFF;
   --color-on-accent: #FFFFFF;
   --color-success: #006B2D;
+  --color-on-success: #FFFFFF;
   --color-danger: #B30000;
+  --color-on-danger: #FFFFFF;
   --color-warning: #7A3E00;
+  --color-on-warning: #FFFFFF;
   --shadow-none: none;
   --shadow-xs: none;
   --shadow-sm: none;
@@ -284,6 +318,16 @@
   --color-surface-sunken: #0F172A;
   --color-surface-inverse: #F7FAFC;
 
+  /* Role rail — the rail deepens in dark mode so it recedes behind
+   * the working area instead of reading as a light-mode leftover. */
+  --color-rail: #0B1428;
+  --color-rail-hover: #16233D;
+  --color-rail-active: #1E4FB0;
+  --color-rail-ink: #F7F9FF;
+  --color-rail-ink-muted: #A9B7D0;
+  --color-rail-border: #22304A;
+  --color-rail-accent: #8AB4FF;
+
   /* Ink */
   --color-ink: #F9FAFB;
   --color-ink-secondary: #CBD5E0;
@@ -301,27 +345,48 @@
 
   /* Brand — lighter blue for AA contrast on dark surfaces. The old
    * teal (#14B8A6) was replaced: it clashed with the civic blue and
-   * read as a different product. */
+   * read as a different product.
+   *
+   * The `*-soft` fills are DEEPER than the light theme's. #1E3A8A
+   * carried #60A5FA at only 4.07:1 — below the AA body-text floor —
+   * and the soft fill is exactly where brand text sits (an active
+   * nav pill, a selected chip, a callout). #172C6B carries it at
+   * 5.13:1. The accent pair had the same problem at 4.42:1. */
   --color-primary: #60A5FA;
   --color-primary-hover: #93C5FD;
   --color-primary-pressed: #BFDBFE;
-  --color-primary-soft: #1E3A8A;
+  --color-primary-soft: #172C6B;
   --color-on-primary: #020617;
 
   --color-accent: #38BDF8;
   --color-accent-hover: #7DD3FC;
-  --color-accent-soft: #0C4A6E;
+  --color-accent-soft: #093952;
   --color-on-accent: #020617;
 
   /* Status semantic tokens */
   --color-success: #22C55E;
   --color-success-soft: #052E16;
+  --color-on-success: #020617;
   --color-warning: #F59E0B;
   --color-warning-soft: #422006;
+  --color-on-warning: #020617;
   --color-danger: #F87171;
   --color-danger-soft: #450A0A;
+  --color-on-danger: #020617;
+  /* The info pair had the same problem the brand pair above had: the
+   * solid #38BDF8 carries only 4.42:1 on the #0C4A6E soft fill, a
+   * hair under the 4.5:1 body-text floor, and the soft fill is exactly
+   * where the badge text sits.
+   *
+   * `--color-info` keeps #38BDF8 because it is ALSO the badge's border
+   * and the info icon's colour — a non-text role, where 3:1 is the bar
+   * and where a lighter fill would look washed. Text on the soft fill
+   * takes `--color-info-text` instead, which clears AA at 5.11:1 and
+   * still reads as the same sky blue at a glance. */
   --color-info: #38BDF8;
+  --color-info-text: #5FCBF5;
   --color-info-soft: #0C4A6E;
+  --color-on-info: #020617;
 
   /* Status pills (status trail) */
   --color-status-submitted: #9CA3AF;
@@ -364,7 +429,7 @@
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
-  --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 16px 32px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.60), 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.45);
 
@@ -386,6 +451,14 @@
     --color-surface-sunken: #0F172A;
     --color-surface-inverse: #F7FAFC;
 
+    --color-rail: #0B1428;
+    --color-rail-hover: #16233D;
+    --color-rail-active: #1E4FB0;
+    --color-rail-ink: #F7F9FF;
+    --color-rail-ink-muted: #A9B7D0;
+    --color-rail-border: #22304A;
+    --color-rail-accent: #8AB4FF;
+
     --color-ink: #F9FAFB;
     --color-ink-secondary: #CBD5E0;
     --color-ink-tertiary: #9CA3AF;
@@ -402,22 +475,27 @@
     --color-primary: #60A5FA;
     --color-primary-hover: #93C5FD;
     --color-primary-pressed: #BFDBFE;
-    --color-primary-soft: #1E3A8A;
+    --color-primary-soft: #172C6B;
     --color-on-primary: #020617;
 
     --color-accent: #38BDF8;
     --color-accent-hover: #7DD3FC;
-    --color-accent-soft: #0C4A6E;
+    --color-accent-soft: #093952;
     --color-on-accent: #020617;
 
     --color-success: #22C55E;
     --color-success-soft: #052E16;
+    --color-on-success: #020617;
     --color-warning: #F59E0B;
     --color-warning-soft: #422006;
+    --color-on-warning: #020617;
     --color-danger: #F87171;
     --color-danger-soft: #450A0A;
+    --color-on-danger: #020617;
     --color-info: #38BDF8;
+    --color-info-text: #5FCBF5;
     --color-info-soft: #0C4A6E;
+    --color-on-info: #020617;
 
     --color-status-submitted: #9CA3AF;
     --color-status-submitted-soft: #1F2937;
@@ -456,7 +534,7 @@
     --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.30);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50), 0 1px 3px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.40);
-    --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-modal: 0 16px 32px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.60), 0 2px 6px rgba(0, 0, 0, 0.45);
     --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.45);
 

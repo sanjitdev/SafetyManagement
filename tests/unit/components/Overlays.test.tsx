@@ -103,15 +103,20 @@ describe('KpiRow', () => {
   });
 
   it('shows the trend direction as an arrow and a value, not a colour alone', () => {
-    render(
+    const { container } = render(
       <KpiRow
         lang="bn"
         items={[{ key: 'open', label: 'চলমান', value: '৪২', trend: 'up', trendValue: '১২%', trendTone: 'danger' }]}
       />,
     );
 
+    // The arrow is a Phosphor SVG, not a Unicode text glyph — a text
+    // triangle renders differently on every platform and cannot take
+    // the theme's tone colour.
+    expect(container.querySelector('svg')).not.toBeNull();
+    // The value is always present beside the arrow, so the direction
+    // never depends on the shape alone.
     expect(screen.getByText('১২%')).toBeDefined();
-    expect(screen.getByText('▲')).toBeDefined();
   });
 
   it('exposes the region with a name', () => {

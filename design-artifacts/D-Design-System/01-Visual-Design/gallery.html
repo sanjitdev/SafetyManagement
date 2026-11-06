@@ -66,13 +66,14 @@
       margin-bottom: var(--space-2);
     }
 
-    .section-eyebrow {
-      font-size: var(--text-micro);
-      font-weight: var(--weight-semibold);
+    /* A section note, not a kicker. It sits BELOW the heading it
+     * describes and reads as a caption — the reverse of the eyebrow
+     * pattern, where a label floats above the heading and competes
+     * with it for the first glance. */
+    .section-note {
+      font-size: var(--text-body-sm);
       color: var(--color-ink-tertiary);
-      letter-spacing: var(--tracking-wide);
-      text-transform: uppercase;
-      margin-bottom: var(--space-2);
+      margin-bottom: var(--space-3);
     }
 
     /* Responsive iframe containers */
@@ -99,10 +100,12 @@
 
 <!-- Hero -->
 <div style="padding: var(--space-8) var(--space-5) var(--space-6); text-align: center;">
-  <div class="section-eyebrow">Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public</div>
   <h1 style="font-size: var(--text-display-xl); margin: 0 0 var(--space-3);">CityFix — Mockups</h1>
   <p style="font-size: var(--text-body-lg); color: var(--color-ink-secondary); max-width: 680px; margin: 0 auto; line-height: 1.55;">
-    Apple-like calm confidence. Bangla-first. Civic trust. 12 mockups re-skinned for the web — large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+    Apple-like calm confidence. Bangla-first. Civic trust. 12 mockups re-skinned for the web: large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+  </p>
+  <p style="font-size: var(--text-body-sm); color: var(--color-ink-tertiary); max-width: 680px; margin: var(--space-2) auto 0; line-height: 1.55;">
+    Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public
   </p>
   <div style="margin-top: var(--space-4);">
     <span class="viewport-tag">1440 × 900 · large</span>
@@ -117,7 +120,7 @@
     <div>
       <h2 style="margin: 0 0 var(--space-2); font-size: var(--text-display-md);">Component library</h2>
       <p style="margin: 0; color: var(--color-ink-secondary); font-size: var(--text-body);">
-        Every pattern, every state, applied to a single token set — buttons, inputs, cards,
+        Every pattern, every state, applied to a single token set: buttons, inputs, cards,
         status pills, the status trail, the chart kit, the data table, navigation, states and toasts.
       </p>
     </div>
@@ -130,7 +133,7 @@
 
 <!-- Mockups grid — each mockup shown at large viewport -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-8);">
-  <div class="section-eyebrow" style="margin-bottom: var(--space-5);">12 mockups — Wave 1 foundations + Wave 2 auth &amp; public</div>
+  <div class="section-note" style="margin-bottom: var(--space-5);">12 mockups, Wave 1 foundations + Wave 2 auth &amp; public</div>
 
   <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-5);">
 
@@ -140,7 +143,7 @@
         <iframe src="mockups/01-welcome.html" class="iframe-large" scrolling="auto" title="Mockup 01 — Welcome"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">01 — Welcome</div>
+        <div class="mockup-title">01 · Welcome</div>
         <div class="mockup-desc">First impression. Two-column hero: brand mark + tagline + CTA on the left, abstract city map on the right. At medium the illustration collapses. Defines brand voice for new citizens.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -155,7 +158,7 @@
         <iframe src="mockups/02-home-city-activity.html" class="iframe-large" scrolling="auto" title="Mockup 02 — Home / City Activity"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">02 — Home / City Activity (Rahim · web)</div>
+        <div class="mockup-title">02 · Home / City Activity (Rahim · web)</div>
         <div class="mockup-desc">Citizen hub. Persistent map + side-panel activity feed + top-bar Report CTA. At medium the side panel collapses below the map. The mobile FAB is replaced by a persistent top-bar action.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -170,7 +173,7 @@
         <iframe src="mockups/03-report-submitted.html" style="width: 700px; height: 800px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 03 — Report Submitted"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">03 — Report Submitted</div>
+        <div class="mockup-title">03 · Report Submitted</div>
         <div class="mockup-desc">First concrete answer. Centered card on neutral background: hero check, 4-step status trail, ticket ID, two CTAs. Defines status-trail pattern.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -185,7 +188,7 @@
         <iframe src="mockups/04-my-reports-detail.html" class="iframe-large" scrolling="auto" title="Mockup 04 — My Reports Detail"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">04 — My Reports Detail</div>
+        <div class="mockup-title">04 · My Reports Detail</div>
         <div class="mockup-desc">The trust moment. Two-column layout: before/after photos + status trail on the left, metadata + feedback prompt on the right. At medium the metadata stacks below the trail. Defines photo handling.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -200,7 +203,7 @@
         <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 05 — Daily Queue Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">05 — Daily Queue Dashboard (Habib · desktop)</div>
+        <div class="mockup-title">05 · Daily Queue Dashboard (Habib · desktop)</div>
         <div class="mockup-desc">Dispatcher's cockpit. 3-region layout: filter rail · ticket list · detail pane. Defines the desktop pattern. Web-only at large viewport.</div>
         <span class="viewport-tag">1440 × 900</span>
         <br/>
@@ -214,7 +217,7 @@
         <iframe src="mockups/06-field-app-home.html" class="iframe-large" scrolling="auto" title="Mockup 06 — Field App Home"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">06 — Field App Home (Rashid · web + phone)</div>
+        <div class="mockup-title">06 · Field App Home (Rashid · web + phone)</div>
         <div class="mockup-desc">Field crew's start of day. Top bar + 720px content column: greeting strip with one-shot location refresh, quick-stats panel, today's queue list, in-flow "Start next job" CTA. Reflows cleanly to 390px phone widths.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -230,8 +233,8 @@
         <iframe src="mockups/07-status-in-progress.html" class="iframe-large" scrolling="auto" title="Mockup 07 — Status: In Progress"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">07 — Status: In Progress (Rashid · hands-busy)</div>
-        <div class="mockup-desc">Hands-busy live work view. Full-bleed page (no chrome) in the .theme-outdoor high-contrast palette — near-white surfaces, pure-black ink, designed for direct-sunlight readability. Top strip with minimize + timer, hero block, step log, progress note composer, big "Fixed — take photo" CTA.</div>
+        <div class="mockup-title">07 · Status: In Progress (Rashid · hands-busy)</div>
+        <div class="mockup-desc">Hands-busy live work view. Full-bleed page (no chrome) in the .theme-outdoor high-contrast palette: near-white surfaces, pure-black ink, designed for direct-sunlight readability. Top strip with minimize + timer, hero block, step log, progress note composer, big "Fixed, take photo" CTA.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
         <span class="viewport-tag">390 × 844 · phone fallback</span>
@@ -246,7 +249,7 @@
         <iframe src="mockups/08-login.html" class="iframe-large" scrolling="auto" title="Mockup 08 — Log in"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">08 — Log in (Wave 2)</div>
+        <div class="mockup-title">08 · Log in (Wave 2)</div>
         <div class="mockup-desc">Two-region auth shell: the form on the left, the civic story on the right. A focusable error summary links to the offending field; the show/hide toggle and the recovery path are both present. At medium the story column collapses.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -261,7 +264,7 @@
         <iframe src="mockups/09-register.html" class="iframe-large" scrolling="auto" title="Mockup 09 — Create account"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">09 — Create account (Wave 2)</div>
+        <div class="mockup-title">09 · Create account (Wave 2)</div>
         <div class="mockup-desc">Three-stage signup rail (account → phone verification → start), live password requirements with a per-rule icon, and a consent checkbox that states what stays private.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -276,7 +279,7 @@
         <iframe src="mockups/10-verify-otp.html" style="width: 560px; height: 860px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 10 — Verify your phone"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">10 — Verify your phone (Wave 2)</div>
+        <div class="mockup-title">10 · Verify your phone (Wave 2)</div>
         <div class="mockup-desc">Six single-digit boxes with the wrong-code state, a named delivery channel (SMS), a live resend countdown, and a recovery card for when the code does not arrive. Anti-fraud footnote included.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -291,7 +294,7 @@
         <iframe src="mockups/11-public-landing.html" class="iframe-large" scrolling="auto" title="Mockup 11 — Public landing"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">11 — Public landing (Wave 2)</div>
+        <div class="mockup-title">11 · Public landing (Wave 2)</div>
         <div class="mockup-desc">Anonymous entry. Hero + live stats strip + status-coloured map card + trust row + PII-stripped activity feed. Numbers use tabular figures so the stats column aligns.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -306,7 +309,7 @@
         <iframe src="mockups/12-feed.html" style="width: 800px; height: 900px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 12 — City activity feed"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">12 — City activity feed (Wave 2)</div>
+        <div class="mockup-title">12 · City activity feed (Wave 2)</div>
         <div class="mockup-desc">Signed-in citizen view. Global app header with the active nav item, sticky filter chips with live counts, and a "new item" state that carries a badge as well as a tint.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
@@ -320,11 +323,11 @@
 
 <!-- Coverage matrix -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-7);">
-  <div class="section-eyebrow" style="margin-bottom: var(--space-4);">What's covered</div>
+  <div class="section-note" style="margin-bottom: var(--space-4);">What's covered</div>
   <div style="background: var(--color-surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5);">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-5);">
       <div>
-        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Surface</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Surface</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
           <li>Web entry (Welcome)</li>
           <li>Web hub (Home)</li>
@@ -336,7 +339,7 @@
         </ul>
       </div>
       <div>
-        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Components</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Components</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
           <li>Buttons (3 styles × states)</li>
           <li>Inputs (label, helper, error)</li>
@@ -346,7 +349,7 @@
         </ul>
       </div>
       <div>
-        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Components cont.</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Components cont.</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
           <li>Photo blocks (single, pair, multi)</li>
           <li>Banners (info, warning, error)</li>
@@ -360,7 +363,7 @@
         </ul>
       </div>
       <div>
-        <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-2);">Web patterns</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Web patterns</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
           <li>Two-column hero (welcome)</li>
           <li>Map + side panel (home)</li>

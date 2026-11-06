@@ -35,6 +35,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { categoryLabel } from '@/lib/identity/display-name';
+import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 
@@ -502,8 +503,23 @@ export default function DispatcherPerformancePage() {
       >
         {loading ? (
           <SkeletonStatus lang={lang} className="performance-loading" data-testid="dispatcher-performance-loading">
-            <div className="performance-loading-stats">
-              {[0, 1, 2].map((item) => <div key={item} className="performance-loading-card"><SkeletonBlock style={{ width: '44%', height: 12 }} /><SkeletonBlock style={{ width: '62%', height: 28 }} /><SkeletonBlock style={{ width: '34%', height: 11 }} /></div>)}
+            {/* The skeleton mirrors the strip's shape: a wide headline
+                block beside a row of figure blocks, not three identical
+                cards. A skeleton that does not match the loaded layout
+                makes the page jump on arrival. */}
+            <div className="metric-strip performance-loading-stats">
+              <div className="metric-strip-headline">
+                <SkeletonBlock style={{ width: '52%', height: 13 }} />
+                <SkeletonBlock style={{ width: '44%', height: 30 }} />
+              </div>
+              <div className="metric-strip-figures">
+                {[0, 1].map((item) => (
+                  <div key={item} className="metric-strip-figure">
+                    <SkeletonBlock style={{ width: '64%', height: 12 }} />
+                    <SkeletonBlock style={{ width: '42%', height: 22 }} />
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="performance-loading-chart"><SkeletonBlock style={{ width: 190, height: 17 }} /><SkeletonBlock style={{ width: '100%', height: 200, borderRadius: 'var(--radius-md)' }} /></div>
             <div className="performance-loading-table">
@@ -517,7 +533,7 @@ export default function DispatcherPerformancePage() {
             data-testid="dispatcher-performance-error"
             style={{
               fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-danger, #b91c1c)',
+              color: 'var(--color-danger)',
               textAlign: 'center',
               padding: 'var(--space-7)',
             }}
@@ -526,39 +542,43 @@ export default function DispatcherPerformancePage() {
           </p>
         ) : snapshot ? (
           <>
-            {/* Hero stats */}
+            {/* Hero stats. The total report count is the headline; the
+                resolution rate and the average resolution time are the
+                two ways of reading it, so they share one surface rather
+                than each getting an equal card. */}
             <section
               data-testid="dispatcher-performance-hero-stats"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 'var(--space-4)',
-                marginBottom: 'var(--space-5)',
-              }}
+              style={{ marginBottom: 'var(--space-5)' }}
             >
-              <HeroStatCard
-                label={t('dispatcher.performance.hero.total', null, lang)}
-                value={String(snapshot.hero.totalReports.value)}
-                delta={snapshot.hero.totalReports.delta}
-                deltaKind="count"
+              <MetricStrip
                 lang={lang}
-                testId="dispatcher-performance-hero-total"
-              />
-              <HeroStatCard
-                label={t('dispatcher.performance.hero.resolution_rate', null, lang)}
-                value={`${snapshot.hero.resolutionRate.value}%`}
-                delta={snapshot.hero.resolutionRate.delta}
-                deltaKind="percent"
-                lang={lang}
-                testId="dispatcher-performance-hero-resolution"
-              />
-              <HeroStatCard
-                label={t('dispatcher.performance.hero.avg_time', null, lang)}
-                value={formatDuration(snapshot.hero.avgTimeToResolve.valueMs, lang)}
-                delta={snapshot.hero.avgTimeToResolve.deltaMs}
-                deltaKind="duration"
-                lang={lang}
-                testId="dispatcher-performance-hero-avg-time"
+                className="dispatcher-performance-metric-strip"
+                ariaLabel={t('dispatcher.performance.hero.total', null, lang)}
+                headline={heroFigure(
+                  t('dispatcher.performance.hero.total', null, lang),
+                  String(snapshot.hero.totalReports.value),
+                  snapshot.hero.totalReports.delta,
+                  'count',
+                  lang,
+                )}
+                figures={[
+                  heroFigure(
+                    t('dispatcher.performance.hero.resolution_rate', null, lang),
+                    `${snapshot.hero.resolutionRate.value}%`,
+                    snapshot.hero.resolutionRate.delta,
+                    'percent',
+                    lang,
+                  ),
+                  heroFigure(
+                    t('dispatcher.performance.hero.avg_time', null, lang),
+                    formatDuration(snapshot.hero.avgTimeToResolve.valueMs, lang),
+                    snapshot.hero.avgTimeToResolve.deltaMs,
+                    'duration',
+                    lang,
+                  ),
+                ]}
+                data-testid="dispatcher-performance-metric-strip"
+                data-testid-headline="dispatcher-performance-hero-total"
               />
             </section>
 
@@ -708,8 +728,8 @@ export default function DispatcherPerformancePage() {
                                       style={{
                                         padding: '2px var(--space-2)',
                                         borderRadius: 'var(--radius-pill)',
-                                        background: 'var(--color-status-error-soft, #fff5f5)',
-                                        color: 'var(--color-status-error, #c53030)',
+                                        background: 'var(--color-status-error-soft)',
+                                        color: 'var(--color-status-error)',
                                         fontSize: 10,
                                         fontWeight: 'var(--weight-bold)',
                                       }}
@@ -789,7 +809,7 @@ export default function DispatcherPerformancePage() {
                                 color: 'var(--color-primary)',
                                 fontWeight: 'var(--weight-semibold)',
                                 textDecoration: 'none',
-                                fontFamily: 'var(--font-mono, monospace)',
+                                fontFamily: 'var(--font-mono)',
                                 fontSize: 'var(--text-caption)',
                               }}
                             >
@@ -898,98 +918,48 @@ export default function DispatcherPerformancePage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero stat card                                                      */
+/* Hero figures                                                        */
 /* ------------------------------------------------------------------ */
 
-function HeroStatCard({
-  label,
-  value,
-  delta,
-  deltaKind,
-  lang,
-  testId,
-}: {
-  label: string;
-  value: string;
-  delta: number;
-  deltaKind: 'count' | 'percent' | 'duration';
-  lang: Language;
-  testId: string;
-}) {
+/**
+ * Turn a hero metric into a MetricStrip figure.
+ *
+ * A negative delta on "avg time to resolve" is GOOD (faster), so the
+ * tone inverts for the duration kind. The direction is carried by the
+ * strip's arrow, never by the colour alone, and the "no change" case
+ * is stated in words rather than left blank — an absent delta reads
+ * as a rendering failure.
+ */
+function heroFigure(
+  label: string,
+  value: string,
+  delta: number,
+  deltaKind: 'count' | 'percent' | 'duration',
+  lang: Language,
+) {
   // A negative delta on "avg time to resolve" is GOOD (faster),
   // so the colour direction inverts for the duration kind.
-  const favorable =
-    deltaKind === 'duration' ? delta < 0 : delta > 0;
-  const unfavorable =
-    deltaKind === 'duration' ? delta > 0 : delta < 0;
+  const favorable = deltaKind === 'duration' ? delta < 0 : delta > 0;
+  const unfavorable = deltaKind === 'duration' ? delta > 0 : delta < 0;
   const deltaText =
     deltaKind === 'duration'
       ? formatDuration(Math.abs(delta), lang)
       : `${delta > 0 ? '+' : ''}${delta}${deltaKind === 'percent' ? 'pp' : ''}`;
-  return (
-    <div
-      data-testid={testId}
-      style={{
-        background: 'var(--color-surface-card)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
-        padding: 'var(--space-4)',
-      }}
-    >
-      <p
-        lang={lang}
-        style={{
-          fontSize: 'var(--text-caption)',
-          color: 'var(--color-ink-secondary)',
-          margin: '0 0 var(--space-2)',
-        }}
-      >
-        {label}
-      </p>
-      <p
-        lang={lang}
-        style={{
-          fontSize: 'var(--text-display-md)',
-          fontWeight: 'var(--weight-bold)',
-          color: 'var(--color-ink)',
-          margin: '0 0 var(--space-1)',
-          lineHeight: 1.1,
-        }}
-      >
-        {value}
-      </p>
-      {delta === 0 ? (
-        <p
-          lang={lang}
-          style={{
-            fontSize: 'var(--text-micro)',
-            color: 'var(--color-ink-tertiary)',
-            margin: 0,
-          }}
-        >
-          {t('dispatcher.performance.hero.no_delta', null, lang)}
-        </p>
-      ) : (
-        <p
-          lang={lang}
-          data-testid={`${testId}-delta`}
-          style={{
-            fontSize: 'var(--text-micro)',
-            fontWeight: 'var(--weight-semibold)',
-            color: favorable
-              ? 'var(--color-success, #15803d)'
-              : unfavorable
-                ? 'var(--color-danger, #b91c1c)'
-                : 'var(--color-ink-tertiary)',
-            margin: 0,
-          }}
-        >
-          {delta > 0 ? '▲' : '▼'} {deltaText}{' '}
-          {t('dispatcher.performance.hero.delta_vs_previous', null, lang)}
-        </p>
-      )}
-    </div>
-  );
+  const trend: MetricTrend = delta > 0 ? 'up' : 'down';
+  const trendTone: MetricTone = favorable ? 'success' : unfavorable ? 'danger' : 'neutral';
+  return {
+    key: label,
+    label,
+    value,
+    ...(delta === 0
+      ? { hint: t('dispatcher.performance.hero.no_delta', null, lang) }
+      : {
+          trend,
+          trendValue: deltaText,
+          trendTone,
+          hint: t('dispatcher.performance.hero.delta_vs_previous', null, lang),
+        }),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1049,14 +1019,14 @@ function SubmittedVsResolvedChart({
         <path
           d={submittedPath}
           fill="none"
-          stroke="var(--color-status-routed, #2c5282)"
+          stroke="var(--color-status-routed)"
           strokeWidth={2}
           strokeLinejoin="round"
         />
         <path
           d={resolvedPath}
           fill="none"
-          stroke="var(--color-status-resolved, #2f7a4f)"
+          stroke="var(--color-status-resolved)"
           strokeWidth={2}
           strokeLinejoin="round"
         />
@@ -1066,7 +1036,7 @@ function SubmittedVsResolvedChart({
               cx={padLeft + i * step}
               cy={8 + y(p.submitted)}
               r={3}
-              fill="var(--color-status-routed, #2c5282)"
+              fill="var(--color-status-routed)"
             >
               <title>{`${p.date}: ${p.submitted} submitted, ${p.resolved} resolved`}</title>
             </circle>
@@ -1074,7 +1044,7 @@ function SubmittedVsResolvedChart({
               cx={padLeft + i * step}
               cy={8 + y(p.resolved)}
               r={3}
-              fill="var(--color-status-resolved, #2f7a4f)"
+              fill="var(--color-status-resolved)"
             />
           </g>
         ))}
@@ -1175,12 +1145,12 @@ function CategoryBreakdownChart({
 }
 
 const DONUT_COLORS: Record<string, string> = {
-  submitted: 'var(--color-status-submitted, #718096)',
-  routed: 'var(--color-status-routed, #2c5282)',
-  in_progress: 'var(--color-status-in-progress, #b7791f)',
-  resolved: 'var(--color-status-resolved, #2f7a4f)',
-  closed: 'var(--color-ink-tertiary, #718096)',
-  cancelled: 'var(--color-border-strong, #cbd5e0)',
+  submitted: 'var(--color-status-submitted)',
+  routed: 'var(--color-status-routed)',
+  in_progress: 'var(--color-status-in-progress)',
+  resolved: 'var(--color-status-resolved)',
+  closed: 'var(--color-ink-tertiary)',
+  cancelled: 'var(--color-border-strong)',
 };
 
 function StatusDonutChart({

@@ -97,9 +97,9 @@ export function PageSubNav({ breadcrumb, links, right, lang = 'bn' }: PageSubNav
                         ? 'var(--color-ink)'
                         : 'var(--color-ink-secondary)',
                     background: active
-                      ? 'var(--color-primary-soft, #e6f2ee)'
+                      ? 'var(--color-primary-soft)'
                       : isWarning
-                        ? 'var(--color-warning-soft, #fdf2cf)'
+                        ? 'var(--color-warning-soft)'
                         : 'transparent',
                     textDecoration: 'none',
                     borderRadius: 'var(--radius-pill)',

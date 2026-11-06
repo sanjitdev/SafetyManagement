@@ -150,7 +150,7 @@ export function AdminAuditTable({
                   <td
                     style={{
                       ...tdStyle,
-                      fontFamily: 'var(--font-mono, monospace)',
+                      fontFamily: 'var(--font-mono)',
                       color: 'var(--color-ink-secondary)',
                     }}
                     title={row.entityId}

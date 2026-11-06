@@ -129,7 +129,7 @@ export default function FeedbackPrompt({
           <div
             style={{
               marginTop: 'var(--space-2)',
-              fontSize: 'var(--text-micro, 11px)',
+              fontSize: 'var(--text-micro)',
               color: 'var(--color-ink-tertiary)',
             }}
           >
@@ -150,7 +150,7 @@ export default function FeedbackPrompt({
                   border: `1px solid ${
                     rating === r
                       ? 'var(--color-primary)'
-                      : 'var(--color-border-strong, #aaa)'
+                      : 'var(--color-border-strong)'
                   }`,
                   background: 'var(--color-surface-card)',
                   color: rating === r ? 'var(--color-primary)' : 'var(--color-ink)',
@@ -168,7 +168,7 @@ export default function FeedbackPrompt({
         <>
           <div
             style={{
-              fontSize: 'var(--text-micro, 11px)',
+              fontSize: 'var(--text-micro)',
               fontWeight: 'var(--weight-semibold)',
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
@@ -208,7 +208,7 @@ export default function FeedbackPrompt({
                   height: 40,
                   padding: '0 var(--space-4)',
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-strong, #aaa)',
+                  border: '1px solid var(--color-border-strong)',
                   background: 'var(--color-surface-card)',
                   color: 'var(--color-ink)',
                   fontWeight: 'var(--weight-medium)',
@@ -227,7 +227,7 @@ export default function FeedbackPrompt({
           style={{
             marginTop: 'var(--space-3)',
             fontSize: 'var(--text-caption)',
-            color: 'var(--color-warning, #b58410)',
+            color: 'var(--color-warning)',
           }}
         >
           {error}

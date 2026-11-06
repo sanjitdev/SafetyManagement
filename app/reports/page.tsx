@@ -80,22 +80,22 @@ function pillStyle(status: TicketStatus) {
   switch (status) {
     case 'resolved':
       return {
-        bg: 'var(--color-status-resolved-soft, #d4edda)',
-        fg: 'var(--color-status-resolved, #1f7a3f)',
+        bg: 'var(--color-status-resolved-soft)',
+        fg: 'var(--color-status-resolved)',
       };
     case 'routed':
       return {
-        bg: 'var(--color-status-routed-soft, #cfe2ff)',
-        fg: 'var(--color-status-routed, #0b5ed7)',
+        bg: 'var(--color-status-routed-soft)',
+        fg: 'var(--color-status-routed)',
       };
     case 'in_progress':
       return {
-        bg: 'var(--color-status-in-progress-soft, #fff3cd)',
-        fg: 'var(--color-status-in-progress, #b58410)',
+        bg: 'var(--color-status-in-progress-soft)',
+        fg: 'var(--color-status-in-progress)',
       };
     case 'submitted':
       return {
-        bg: 'var(--color-primary-soft, #e6f2ee)',
+        bg: 'var(--color-primary-soft)',
         fg: 'var(--color-primary)',
       };
     case 'closed':

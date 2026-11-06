@@ -144,8 +144,8 @@ export default function SplashPage() {
             style={{
               marginTop: 'var(--space-3)',
               padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-warning-soft, #fdf2cf)',
-              border: '1px solid var(--color-warning, #b58410)',
+              background: 'var(--color-warning-soft)',
+              border: '1px solid var(--color-warning)',
               borderRadius: 'var(--radius-md)',
               display: 'flex',
               flexDirection: 'column',

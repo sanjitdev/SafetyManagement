@@ -35,6 +35,8 @@ import {
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { MetricStrip } from '@/components/ui/MetricStrip';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { useSession } from '@/components/SessionProvider';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
@@ -358,15 +360,42 @@ export default function HomePage() {
         {wardDisplay ? <span className="home-dashboard-ward"><ICONS.mapPin.icon size={15} aria-hidden />{wardDisplay}</span> : null}
       </section>
 
+      {/* The overview row. The report CTA is the primary action and
+          keeps its own brand-filled surface; the three figures beside
+          it are a read-only readout, so they share one surface and are
+          divided by hairlines rather than each getting its own card.
+          Four equal boxes would say "these four matter equally", which
+          is not true of a CTA and a set of counts. */}
       <section className="home-overview-grid" aria-label={t('home.dashboard.title', null, lang)}>
         <Link href="/report/location" className="home-report-action">
           <span className="home-report-action-icon"><ICONS.newReport.icon size={27} weight="bold" aria-hidden /></span>
           <span><strong>{t('home.dashboard.report', null, lang)}</strong><small>{t('home.dashboard.report_hint', null, lang)}</small></span>
           <ICONS.forward.icon className="home-report-action-arrow" size={21} aria-hidden />
         </Link>
-        <OverviewMetric icon="reports" value={tickets.filter((ticket) => ticket.isOwnReport).length} label={t('home.dashboard.metric.reports', null, lang)} tone="blue" />
-        <OverviewMetric icon="statusResolved" value={tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'resolved' || ticket.status === 'closed')).length} label={t('home.dashboard.metric.resolved', null, lang)} tone="green" />
-        <OverviewMetric icon="statusInProgress" value={tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'routed' || ticket.status === 'in_progress')).length} label={t('home.dashboard.metric.progress', null, lang)} tone="amber" />
+        <MetricStrip
+          lang={lang}
+          className="home-overview-metrics"
+          ariaLabel={t('home.dashboard.metric.reports', null, lang)}
+          headline={{
+            key: 'reports',
+            label: t('home.dashboard.metric.reports', null, lang),
+            value: tickets.filter((ticket) => ticket.isOwnReport).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+          }}
+          figures={[
+            {
+              key: 'resolved',
+              label: t('home.dashboard.metric.resolved', null, lang),
+              value: tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'resolved' || ticket.status === 'closed')).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+            },
+            {
+              key: 'progress',
+              label: t('home.dashboard.metric.progress', null, lang),
+              value: tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'routed' || ticket.status === 'in_progress')).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+            },
+          ]}
+          data-testid="home-metric-strip"
+          data-testid-headline="home-metric-reports"
+        />
       </section>
 
       {/* Recent reports and live city map */}
@@ -407,7 +436,7 @@ export default function HomePage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 'var(--space-2)',
-              boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+              boxShadow: 'var(--shadow-xs)',
             }}
           >
             <span
@@ -432,8 +461,8 @@ export default function HomePage() {
                 left: '50%',
                 transform: 'translateX(-50%)',
                 padding: 'var(--space-2) var(--space-3)',
-                background: 'var(--color-warning-soft, #fdf2cf)',
-                border: '1px solid var(--color-warning, #b58410)',
+                background: 'var(--color-warning-soft)',
+                border: '1px solid var(--color-warning)',
                 borderRadius: 'var(--radius-pill)',
                 fontSize: 'var(--text-caption)',
                 color: 'var(--color-ink)',
@@ -512,7 +541,7 @@ export default function HomePage() {
               <div
                 style={{
                   padding: 'var(--space-3) var(--space-4)',
-                  background: 'var(--color-primary-soft, #e6f2ee)',
+                  background: 'var(--color-primary-soft)',
                   border: '1px solid var(--color-primary)',
                   borderRadius: 'var(--radius-md)',
                   marginBottom: 'var(--space-3)',
@@ -579,7 +608,7 @@ export default function HomePage() {
                 role="alert"
                 style={{
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   padding: 'var(--space-4)',
                   textAlign: 'center',
                 }}
@@ -632,17 +661,6 @@ function PlusIcon() {
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
-  );
-}
-
-function OverviewMetric({ icon, value, label, tone }: { icon: keyof typeof ICONS; value: number; label: string; tone: 'blue' | 'green' | 'amber' }) {
-  const Icon = ICONS[icon].icon;
-  return (
-    <article className={`home-overview-metric tone-${tone}`}>
-      <span><Icon size={23} weight="bold" aria-hidden /></span>
-      <strong>{value.toLocaleString()}</strong>
-      <small>{label}</small>
-    </article>
   );
 }
 
@@ -735,7 +753,7 @@ function ActivityCard({
         display: 'flex',
         gap: 'var(--space-3)',
         padding: 'var(--space-3)',
-        background: isNew ? 'var(--color-primary-soft, #e6f2ee)' : 'var(--color-surface-page)',
+        background: isNew ? 'var(--color-primary-soft)' : 'var(--color-surface-page)',
         border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-md)',
         textDecoration: 'none',
@@ -838,39 +856,6 @@ function ActivityCard({
   );
 }
 
-function StatusPill({ status, lang }: { status: ActivityItem['status']; lang: Language }) {
-  // `*-soft` background + saturated `*-status` foreground. Using the
-  // saturated token as the background made `routed` (--color-status-routed
-  // === --color-primary) render as a solid blob with invisible text.
-  const map: Record<ActivityItem['status'], { bg: string; fg: string }> = {
-    submitted: { bg: 'var(--color-status-submitted-soft, #EDF2F7)', fg: 'var(--color-status-submitted, #718096)' },
-    routed: { bg: 'var(--color-status-routed-soft, #E6F2EE)', fg: 'var(--color-status-routed, #2C5282)' },
-    in_progress: { bg: 'var(--color-status-in-progress-soft, #FFFAF0)', fg: 'var(--color-status-in-progress, #B7791F)' },
-    resolved: { bg: 'var(--color-status-resolved-soft, #F0F8F4)', fg: 'var(--color-status-resolved, #2F7A4F)' },
-    closed: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
-    cancelled: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
-  };
-  const colors = map[status];
-  const key = `status.${status}`;
-  return (
-    <span
-      lang={lang}
-      style={{
-        padding: '2px var(--space-2)',
-        background: colors.bg,
-        color: colors.fg,
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 10,
-        fontWeight: 'var(--weight-bold)',
-        textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {t(key, null, lang)}
-    </span>
-  );
-}
-
 function EmptyState({ lang, onReport }: { lang: Language; onReport: () => void }) {
   return (
     <div
@@ -889,7 +874,7 @@ function EmptyState({ lang, onReport }: { lang: Language; onReport: () => void }
           width: 56,
           height: 56,
           borderRadius: '50%',
-          background: 'var(--color-primary-soft, #e6f2ee)',
+          background: 'var(--color-primary-soft)',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',

@@ -15,10 +15,10 @@
  *   - Big "Continue" primary button (full-width on mobile)
  *   - Small "Pick on map" text button below
  *
- * The geofence-reject path renders as an inline error card with
- * `--color-destructive` left border + X icon + one-sentence
- * explanation + "Adjust the pin" action that snaps the pin back
- * to the nearest in-bounds point.
+ * The geofence-reject path renders as an inline error card on the
+ * `--color-danger-soft` fill with a 1px `--color-danger` border + X
+ * icon + one-sentence explanation + "Adjust the pin" action that
+ * snaps the pin back to the nearest in-bounds point.
  *
  * Server component for the static shell; the draggable map is a
  * client component. The flow state (city, ward, lat/lng) is
@@ -247,9 +247,9 @@ export default function LocationPage() {
               left: 'var(--space-3)',
               right: 'var(--space-3)',
               padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-surface-card)',
-              borderLeft: '4px solid var(--color-destructive)',
+              background: 'var(--color-danger-soft)',
               borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-danger)',
               boxShadow: 'var(--shadow-md)',
               display: 'flex',
               gap: 'var(--space-3)',
@@ -260,7 +260,7 @@ export default function LocationPage() {
             <span
               aria-hidden
               style={{
-                color: 'var(--color-destructive)',
+                color: 'var(--color-danger)',
                 flexShrink: 0,
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -364,11 +364,9 @@ export default function LocationPage() {
             role="alert"
             style={{
               padding: 'var(--space-4)',
-              background: 'var(--color-surface-card)',
-              borderLeft: '4px solid var(--color-destructive)',
+              background: 'var(--color-danger-soft)',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              borderLeftWidth: 4,
+              border: '1px solid var(--color-danger)',
               color: 'var(--color-ink)',
             }}
           >
@@ -383,7 +381,7 @@ export default function LocationPage() {
               <span
                 aria-hidden
                 style={{
-                  color: 'var(--color-destructive)',
+                  color: 'var(--color-danger)',
                   display: 'inline-flex',
                   alignItems: 'center',
                 }}

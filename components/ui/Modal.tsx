@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useId, useRef, type ReactNode } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ICONS } from '@/lib/ui/icon-map';
 
 export interface ModalProps {
   /** Whether the dialog is open. */
@@ -93,7 +94,10 @@ export function Modal({
       style={{
         width: 'min(560px, calc(100vw - var(--space-6)))',
         padding: 0,
-        border: '1px solid var(--color-border)',
+        // No border: the modal's elevation comes from the shadow alone.
+        // A 1px outline wrapped around a wide soft shadow reads as a
+        // halo around a card rather than a surface lifted off the page,
+        // and the app's other overlays already work this way.
         borderRadius: 'var(--radius-card)',
         background: 'var(--color-surface-card)',
         color: 'var(--color-ink)',
@@ -141,7 +145,9 @@ export function Modal({
             lineHeight: 1,
           }}
         >
-          <span aria-hidden>×</span>
+          <span aria-hidden style={{ display: 'inline-flex' }}>
+            <ICONS.close.icon size={16} weight={ICONS.close.weight} />
+          </span>
         </button>
       </header>
 

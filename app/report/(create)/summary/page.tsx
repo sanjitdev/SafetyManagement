@@ -346,11 +346,9 @@ export default function SummaryPage() {
             role="alert"
             style={{
               padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-surface-card)',
-              borderLeft: '4px solid var(--color-destructive)',
+              background: 'var(--color-danger-soft)',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-border)',
-              borderLeftWidth: 4,
+              border: '1px solid var(--color-danger)',
               color: 'var(--color-ink)',
               fontSize: 'var(--text-body-sm)',
             }}

@@ -45,10 +45,6 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'welcome.lang.toggle': { bn: 'EN', en: 'বাংলা' },
 
   // v1.1 launch-polish — public landing (anonymous) at `/`
-  'public.eyebrow': {
-    bn: 'সরকারি প্ল্যাটফর্ম',
-    en: 'Government platform',
-  },
   'public.hero.eyebrow': {
     bn: 'আপনার শহর, আপনার কণ্ঠস্বর',
     en: 'Your city, your voice',

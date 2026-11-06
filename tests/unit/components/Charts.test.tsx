@@ -166,14 +166,24 @@ describe('StatCard', () => {
   });
 
   it('shows the trend as an arrow plus the change value', () => {
-    render(<StatCard label="মোট টিকিট" value="৫৮" trend="up" trendValue="১২%" lang="bn" />);
+    const { container } = render(
+      <StatCard label="মোট টিকিট" value="৫৮" trend="up" trendValue="১২%" lang="bn" />,
+    );
 
-    expect(screen.getByText('▲')).toBeDefined();
+    // The arrow is a Phosphor SVG, not a text glyph — a Unicode triangle
+    // renders differently on every platform and cannot be recoloured by
+    // the theme token, which is exactly what the trend tone needs.
+    const arrow = container.querySelector('svg');
+    expect(arrow).not.toBeNull();
+    // The change value is always present beside the arrow, so the
+    // direction never depends on the shape alone.
     expect(screen.getByText('১২%')).toBeDefined();
   });
 
   it('omits the trend row when there is no trend', () => {
-    render(<StatCard label="মোট টিকিট" value="৫৮" lang="bn" />);
-    expect(screen.queryByText('▲')).toBeNull();
+    const { container } = render(
+      <StatCard label="মোট টিকিট" value="৫৮" lang="bn" />,
+    );
+    expect(container.querySelector('svg')).toBeNull();
   });
 });

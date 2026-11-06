@@ -362,7 +362,7 @@ export default function DispatcherDedupReviewPage() {
             lang={lang}
             style={{
               fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-danger, #c92a2a)',
+              color: 'var(--color-danger)',
             }}
           >
             {t('dispatcher.dedup.error', null, lang)}
@@ -492,7 +492,7 @@ export default function DispatcherDedupReviewPage() {
                       lang={lang}
                       style={{
                         fontSize: 'var(--text-caption)',
-                        color: 'var(--color-danger, #c92a2a)',
+                        color: 'var(--color-danger)',
                       }}
                     >
                       {rowErrorMessage}
@@ -603,8 +603,8 @@ function TicketPanel({
           lang={lang}
           style={{
             padding: '2px var(--space-2)',
-            background: 'var(--color-status-routed-soft, #E6F2EE)',
-            color: 'var(--color-status-routed, #2C5282)',
+            background: 'var(--color-status-routed-soft)',
+            color: 'var(--color-status-routed)',
             borderRadius: 'var(--radius-pill)',
             fontSize: 10,
             fontWeight: 'var(--weight-bold)',

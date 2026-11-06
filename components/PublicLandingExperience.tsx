@@ -79,28 +79,28 @@ interface PublicTicket {
 // page legible if the token is missing.
 const STATUS_COLORS: Record<PublicStatus, { bg: string; fg: string }> = {
   submitted: {
-    bg: 'var(--color-primary-soft, #e6f2ee)',
-    fg: 'var(--color-primary, #0E5A4A)',
+    bg: 'var(--color-primary-soft)',
+    fg: 'var(--color-primary)',
   },
   routed: {
-    bg: 'var(--color-status-routed-soft, #cfe2ff)',
-    fg: 'var(--color-status-routed, #0b5ed7)',
+    bg: 'var(--color-status-routed-soft)',
+    fg: 'var(--color-status-routed)',
   },
   in_progress: {
-    bg: 'var(--color-status-in-progress-soft, #fff3cd)',
-    fg: 'var(--color-status-in-progress, #b58410)',
+    bg: 'var(--color-status-in-progress-soft)',
+    fg: 'var(--color-status-in-progress)',
   },
   resolved: {
-    bg: 'var(--color-status-resolved-soft, #d4edda)',
-    fg: 'var(--color-status-resolved, #1f7a3f)',
+    bg: 'var(--color-status-resolved-soft)',
+    fg: 'var(--color-status-resolved)',
   },
   closed: {
-    bg: 'var(--color-surface-raised, #f1f3f5)',
-    fg: 'var(--color-ink-secondary, #5b6770)',
+    bg: 'var(--color-surface-raised)',
+    fg: 'var(--color-ink-secondary)',
   },
   cancelled: {
-    bg: 'var(--color-status-error-soft, #ffe3e3)',
-    fg: 'var(--color-status-error, #9b2c2c)',
+    bg: 'var(--color-status-error-soft)',
+    fg: 'var(--color-status-error)',
   },
 };
 
@@ -321,32 +321,19 @@ export default function PublicLandingExperience() {
             maxWidth: 560,
           }}
         >
-          <span
+          <p
             lang={lang}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              padding: '4px var(--space-3)',
-              background: 'var(--color-primary-soft, #e6f2ee)',
-              color: 'var(--color-primary)',
-              borderRadius: 'var(--radius-pill)',
+              margin: 0,
+              color: 'var(--color-ink-tertiary)',
               fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              alignSelf: 'flex-start',
+              fontWeight: 'var(--weight-medium)',
+              letterSpacing: 'var(--tracking-wide)',
+              textTransform: 'uppercase',
             }}
           >
-            <span
-              aria-hidden
-              style={{
-                width: 6,
-                height: 6,
-                background: 'var(--color-primary)',
-                borderRadius: '50%',
-              }}
-            />
-            {t('public.eyebrow', null, lang)}
-          </span>
+            {t('public.hero.eyebrow', null, lang)}
+          </p>
           <h1
             lang={lang}
             style={{
@@ -424,7 +411,7 @@ export default function PublicLandingExperience() {
             overflow: 'hidden',
             minHeight: 380,
             height: '100%',
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
+            boxShadow: 'var(--shadow-xs)',
           }}
         >
           <CityActivityMap pins={pins} center={DHAKA_CENTER} />
@@ -546,8 +533,8 @@ export default function PublicLandingExperience() {
             role="alert"
             style={{
               padding: 'var(--space-5)',
-              background: 'var(--color-warning-soft, #fdf2cf)',
-              border: '1px solid var(--color-warning, #b58410)',
+              background: 'var(--color-warning-soft)',
+              border: '1px solid var(--color-warning)',
               borderRadius: 'var(--radius-md)',
               color: 'var(--color-ink)',
               fontSize: 'var(--text-body-sm)',
@@ -791,11 +778,11 @@ function PublicActivityCard({
               alignItems: 'center',
               gap: 4,
               padding: '2px var(--space-2)',
-              background: 'var(--color-primary-soft, #e6f2ee)',
-              border: '1px solid var(--color-border, #e2e8f0)',
+              background: 'var(--color-primary-soft)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-pill)',
               fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink, #0f172a)',
+              color: 'var(--color-ink)',
               fontWeight: 'var(--weight-semibold)',
             }}
           >

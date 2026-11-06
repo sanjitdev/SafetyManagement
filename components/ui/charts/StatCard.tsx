@@ -12,6 +12,7 @@
 
 import type { ReactNode } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ICONS, type IconEntry } from '@/lib/ui/icon-map';
 
 export type StatTrend = 'up' | 'down' | 'flat';
 export type StatTone = 'neutral' | 'success' | 'danger' | 'warning';
@@ -41,7 +42,25 @@ export interface StatCardProps {
   'data-testid'?: string;
 }
 
-const TREND_ARROW: Record<StatTrend, string> = { up: '▲', down: '▼', flat: '▬' };
+const TREND_ARROW: Record<StatTrend, IconEntry> = {
+  up: ICONS.trendUp,
+  down: ICONS.trendDown,
+  flat: ICONS.trendFlat,
+};
+
+/**
+ * The arrow that carries the direction of change.
+ *
+ * A shape, not a glyph: the arrow says "up" the way a bar says "more",
+ * and it recolours with the theme the way a text glyph cannot. The value
+ * it describes is always beside it, so the direction never depends on the
+ * arrow alone — and the tone is explicit because "up" is not always good.
+ */
+function TrendArrow({ trend }: { trend: StatTrend }) {
+  const entry = TREND_ARROW[trend];
+  const IconComponent = entry.icon;
+  return <IconComponent size={12} weight={entry.weight} />;
+}
 
 const TONE_COLOR: Record<StatTone, string> = {
   neutral: 'var(--color-ink-tertiary)',
@@ -124,7 +143,9 @@ export function StatCard({
             color: TONE_COLOR[trendTone],
           }}
         >
-          <span aria-hidden>{TREND_ARROW[trend]}</span>
+          <span aria-hidden style={{ display: 'inline-flex' }}>
+            <TrendArrow trend={trend} />
+          </span>
           <span className="tabular-nums">{trendValue}</span>
         </span>
       ) : null}

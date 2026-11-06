@@ -393,7 +393,7 @@ export default function FeedPage() {
               role="alert"
               style={{
                 fontSize: 'var(--text-body-sm)',
-                color: 'var(--color-danger, #c92a2a)',
+                color: 'var(--color-danger)',
                 padding: 'var(--space-4)',
                 textAlign: 'center',
               }}
@@ -519,7 +519,7 @@ function FeedRow({
         display: 'flex',
         gap: 'var(--space-3)',
         padding: 'var(--space-3)',
-        background: isNew ? 'var(--color-primary-soft, #e6f2ee)' : 'var(--color-surface-card)',
+        background: isNew ? 'var(--color-primary-soft)' : 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-md)',
         textDecoration: 'none',
@@ -629,10 +629,10 @@ function StatusPill({ status, lang }: { status: ActivityItem['status']; lang: La
   // saturated token as the background made `routed` (--color-status-routed
   // === --color-primary) render as a solid blob with invisible text.
   const map: Record<ActivityItem['status'], { bg: string; fg: string }> = {
-    submitted: { bg: 'var(--color-status-submitted-soft, #EDF2F7)', fg: 'var(--color-status-submitted, #718096)' },
-    routed: { bg: 'var(--color-status-routed-soft, #E6F2EE)', fg: 'var(--color-status-routed, #2C5282)' },
-    in_progress: { bg: 'var(--color-status-in-progress-soft, #FFFAF0)', fg: 'var(--color-status-in-progress, #B7791F)' },
-    resolved: { bg: 'var(--color-status-resolved-soft, #F0F8F4)', fg: 'var(--color-status-resolved, #2F7A4F)' },
+    submitted: { bg: 'var(--color-status-submitted-soft)', fg: 'var(--color-status-submitted)' },
+    routed: { bg: 'var(--color-status-routed-soft)', fg: 'var(--color-status-routed)' },
+    in_progress: { bg: 'var(--color-status-in-progress-soft)', fg: 'var(--color-status-in-progress)' },
+    resolved: { bg: 'var(--color-status-resolved-soft)', fg: 'var(--color-status-resolved)' },
     closed: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
     cancelled: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
   };

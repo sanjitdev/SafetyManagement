@@ -8,6 +8,7 @@ import { UserMenu } from '@/components/UserMenu';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { CityFixMark } from '@/components/CityFixMark';
 import { Button } from '@/components/ui/Button';
+import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { SessionProvider, useSession } from '@/components/SessionProvider';
@@ -109,52 +110,34 @@ async function fetchTicketWindow(cityId: string, from: Date, to: Date) {
   return tickets;
 }
 
-function Sparkline({ values, color }: { values: number[]; color: string }) {
-  const path = useMemo(() => {
-    if (!values.length) return 'M0 30 L100 30';
-    const max = Math.max(1, ...values);
-    const points = values.map((value, index) => {
-      const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
-      const y = 34 - (value / max) * 28;
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    });
-    return points.join(' ');
-  }, [values]);
-  return (
-    <svg viewBox="0 0 100 38" preserveAspectRatio="none" aria-hidden="true" className="admin-sparkline">
-      <path d={`${path} L100 38 L0 38 Z`} fill={color} opacity=".08" />
-      <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function MetricCard({ metric, lang, days }: { metric: MetricDefinition; lang: Language; days: number }) {
-  const Icon = ICONS[metric.icon].icon;
+/**
+ * Turn a metric definition into a MetricStrip figure.
+ *
+ * The delta against the previous period rides with the value, not
+ * below it in its own block: it is a qualifier on the number, and
+ * the strip's supporting cells are already busy with the label and
+ * the value. The sign is carried by an ARROW beside the percentage
+ * and never by the colour alone, because a rising ticket count is
+ * not a good thing.
+ */
+function metricFigure(metric: MetricDefinition, lang: Language) {
   const titleKey = `admin.dashboard.metric.${metric.key}` as const;
   const delta = metric.previous === 0
     ? null
     : Math.round(((metric.current - metric.previous) / metric.previous) * 100);
-  const rising = (delta ?? 0) >= 0;
-  const trend = metric.spark;
-  return (
-    <article className="admin-kpi-card" data-testid={`admin-dashboard-kpi-${metric.key}`}>
-      <span className="admin-kpi-icon" style={{ color: metric.color, background: metric.soft }}>
-        <Icon size={21} weight="bold" aria-hidden />
-      </span>
-      <div className="admin-kpi-copy">
-        <strong>{metric.current.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</strong>
-        <span lang={lang}>{t(titleKey, null, lang)}</span>
-      </div>
-      <div className="admin-kpi-foot">
-        <span className={delta === null ? 'admin-kpi-neutral' : rising ? 'admin-kpi-up' : 'admin-kpi-down'}>
-          {delta === null ? '—' : `${rising ? '↑' : '↓'} ${Math.abs(delta)}%`}
-        </span>
-        <span className="admin-kpi-compare">{t('admin.dashboard.metric.compare', null, lang)}</span>
-        <Sparkline values={trend.length ? trend : [0, 0, 0, 0, 0, 0, 0]} color={metric.color} />
-      </div>
-      <span className="sr-only">{t('admin.dashboard.range', null, lang)}: {days}</span>
-    </article>
-  );
+  const trend: MetricTrend = delta !== null && delta < 0 ? 'down' : 'up';
+  // A rising count is only good for "resolved"; everywhere else more
+  // tickets means more outstanding work.
+  const trendTone: MetricTone = metric.key === 'resolved'
+    ? (delta !== null && delta < 0 ? 'danger' : 'success')
+    : (delta !== null && delta < 0 ? 'success' : 'warning');
+  return {
+    key: metric.key,
+    label: t(titleKey, null, lang),
+    value: metric.current.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+    ...(delta === null ? {} : { trend, trendValue: `${Math.abs(delta)}%`, trendTone }),
+    hint: t('admin.dashboard.metric.compare', null, lang),
+  };
 }
 
 function TrendChart({ tickets, lang, days }: { tickets: SerializedTicket[]; lang: Language; days: number }) {
@@ -482,12 +465,45 @@ function AdminHomePageInner() {
             </div>
           ) : null}
 
+          {/* The total report count is the headline the admin opens the
+              dashboard for; the three status counts are its breakdown.
+              A MetricStrip says so. Four equal cards said "these four
+              numbers matter equally" and hid the breakdown inside a
+              wall of identical boxes. */}
           <section className="admin-kpi-grid" aria-label={t('admin.home.title', null, lang)}>
             {loading && !dashboard ? (
               <SkeletonStatus lang={lang} className="admin-dashboard-kpi-skeleton">
-                {metrics.map((metric) => <div key={metric.key} className="admin-kpi-card admin-kpi-skeleton"><SkeletonBlock style={{ width: '42%', height: 13 }} /><SkeletonBlock style={{ width: '58%', height: 28 }} /><SkeletonBlock style={{ width: '72%', height: 12 }} /></div>)}
+                {/* The skeleton mirrors the strip's shape: a wide
+                    headline block and a row of figure blocks, not four
+                    identical cards. A skeleton that does not match the
+                    loaded layout makes the page jump on arrival. */}
+                <div className="metric-strip">
+                  <div className="admin-kpi-skeleton admin-kpi-skeleton-headline">
+                    <SkeletonBlock style={{ width: '52%', height: 13 }} />
+                    <SkeletonBlock style={{ width: '58%', height: 28 }} />
+                    <SkeletonBlock style={{ width: '72%', height: 12 }} />
+                  </div>
+                  <div className="metric-strip-figures admin-kpi-skeleton">
+                    {metrics.slice(1).map((metric) => (
+                      <div key={metric.key} className="metric-strip-figure">
+                        <SkeletonBlock style={{ width: '62%', height: 12 }} />
+                        <SkeletonBlock style={{ width: '44%', height: 22 }} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </SkeletonStatus>
-            ) : metrics.map((metric) => <MetricCard key={metric.key} metric={metric} lang={lang} days={rangeDays} />)}
+            ) : (
+              <MetricStrip
+                lang={lang}
+                className="admin-metric-strip"
+                ariaLabel={t('admin.home.title', null, lang)}
+                headline={metricFigure(metrics[0], lang)}
+                figures={metrics.slice(1).map((metric) => metricFigure(metric, lang))}
+                data-testid="admin-metric-strip"
+                data-testid-headline="admin-dashboard-kpi-total"
+              />
+            )}
           </section>
 
           <section className="admin-dashboard-middle">
@@ -544,44 +560,6 @@ function AdminHomePageInner() {
           </details>
         </main>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media (max-width: 1024px) {
-          .admin-dashboard-middle { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-          .admin-dashboard-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .admin-actions-panel { grid-column: 1 / -1; }
-        }
-        @media (max-width: 760px) {
-          .admin-dashboard { grid-template-columns: minmax(0, 1fr); }
-          .admin-dashboard-sidebar { position: fixed; z-index: 110; inset: 0 auto 0 0; width: 250px; transform: translateX(-100%); transition: transform 180ms ease; }
-          .admin-dashboard--nav-open .admin-dashboard-sidebar { transform: translateX(0); }
-          .admin-dashboard--nav-open .admin-dashboard-scrim { display: block; }
-          .admin-mobile-menu { display: inline-flex !important; }
-          .admin-dashboard-middle, .admin-dashboard-bottom { grid-template-columns: minmax(0, 1fr); }
-          .admin-actions-panel { grid-column: auto; }
-        }
-        @media (max-width: 540px) {
-          .admin-dashboard-content { padding: 18px 14px 28px !important; }
-          .admin-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .admin-dashboard-topbar { gap: 6px; padding-inline: 10px !important; }
-          .admin-topbar-actions { gap: 3px; }
-          .admin-searchbox { min-width: 0 !important; flex: 1; }
-          .admin-searchbox input { width: 100%; }
-          .admin-range-select { gap: 4px; padding-inline: 7px; }
-          .admin-range-select > svg:first-child { display: none; }
-          .admin-range-select select { max-width: 76px; }
-          .admin-language-toggle { width: 44px; padding-inline: 6px; }
-          .admin-language-long { display: none; }
-          .admin-language-short { display: inline; }
-          .admin-kpi-card { min-height: 130px; }
-          .admin-report-age { display: none; }
-          .admin-status-chip { display: none; }
-          .admin-crew-content { justify-content: center; gap: 22px !important; }
-        }
-        @media (max-width: 380px) {
-          .admin-dashboard-topbar { height: auto; flex-wrap: wrap; padding-block: 8px; }
-          .admin-topbar-actions { flex: 1 0 100%; justify-content: flex-end; }
-        }
-      ` }} />
     </div>
   );
 }

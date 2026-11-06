@@ -71,6 +71,13 @@ export { Tabs, type TabsProps, type TabItem } from './Tabs';
 export { Modal, type ModalProps } from './Modal';
 export { Toast, type ToastProps, type ToastTone } from './Toast';
 export { KpiRow, type KpiRowProps, type KpiItem, type KpiTrend } from './KpiRow';
+export {
+  MetricStrip,
+  type MetricStripProps,
+  type MetricFigure,
+  type MetricTrend,
+  type MetricTone,
+} from './MetricStrip';
 export { Timeline, type TimelineProps, type TimelineItem, type TimelineState } from './Timeline';
 
 /* --- The chart kit -------------------------------------------------------- */

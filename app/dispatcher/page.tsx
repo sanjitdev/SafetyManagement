@@ -34,6 +34,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { MetricStrip } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
@@ -413,13 +414,62 @@ export default function DispatcherPage() {
         <span className="dispatcher-scope-badge">{scopeLabel(lang, scope)}</span>
       </header>
 
+      {/* The queue depth is the dispatcher's headline number — it is
+          what they open the page to see. The other three statuses are
+          the context around it, so they share one surface instead of
+          each getting an equal card. */}
       <section className="dispatcher-kpi-grid" aria-label={t('dispatcher.dashboard.title', null, lang)}>
-        {loading ? <SkeletonStatus lang={lang} className="dispatcher-kpi-skeleton">{[0, 1, 2, 3].map((item) => <div key={item}><SkeletonBlock style={{ width: '46%', height: 12 }} /><SkeletonBlock style={{ width: '36%', height: 26 }} /><SkeletonBlock style={{ width: '64%', height: 11 }} /></div>)}</SkeletonStatus> : <>
-          <DashboardMetric icon="newReport" tone="blue" label={t('dispatcher.dashboard.new', null, lang)} value={statusCount(['submitted'])} values={statusTrend(['submitted'])} />
-          <DashboardMetric icon="statusSubmitted" tone="amber" label={t('dispatcher.dashboard.review', null, lang)} value={statusCount(['routed'])} values={statusTrend(['routed'])} />
-          <DashboardMetric icon="statusInProgress" tone="green" label={t('dispatcher.dashboard.progress', null, lang)} value={statusCount(['in_progress'])} values={statusTrend(['in_progress'])} />
-          <DashboardMetric icon="statusResolved" tone="purple" label={t('dispatcher.dashboard.resolved', null, lang)} value={statusCount(['resolved', 'closed'])} values={statusTrend(['resolved', 'closed'])} />
-        </>}
+        {/* The skeleton mirrors the strip's shape: a wide headline
+            block beside a row of figure blocks. A skeleton that does
+            not match the loaded layout makes the page jump. */}
+        {loading ? (
+          <SkeletonStatus lang={lang} className="dispatcher-kpi-skeleton">
+            <div className="metric-strip">
+              <div className="metric-strip-headline">
+                <SkeletonBlock style={{ width: '52%', height: 13 }} />
+                <SkeletonBlock style={{ width: '44%', height: 30 }} />
+              </div>
+              <div className="metric-strip-figures">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className="metric-strip-figure">
+                    <SkeletonBlock style={{ width: '64%', height: 12 }} />
+                    <SkeletonBlock style={{ width: '42%', height: 22 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SkeletonStatus>
+        ) : (
+          <MetricStrip
+            lang={lang}
+            className="dispatcher-metric-strip"
+            ariaLabel={t('dispatcher.dashboard.title', null, lang)}
+            headline={{
+              key: 'new',
+              label: t('dispatcher.dashboard.new', null, lang),
+              value: statusCount(['submitted']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+            }}
+            figures={[
+              {
+                key: 'review',
+                label: t('dispatcher.dashboard.review', null, lang),
+                value: statusCount(['routed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+              },
+              {
+                key: 'progress',
+                label: t('dispatcher.dashboard.progress', null, lang),
+                value: statusCount(['in_progress']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+              },
+              {
+                key: 'resolved',
+                label: t('dispatcher.dashboard.resolved', null, lang),
+                value: statusCount(['resolved', 'closed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+              },
+            ]}
+            data-testid="dispatcher-metric-strip"
+            data-testid-headline="dispatcher-metric-new"
+          />
+        )}
       </section>
 
       <section className="dispatcher-overview-grid">
@@ -472,17 +522,6 @@ export default function DispatcherPage() {
       </section>
     </div>
   );
-}
-
-function DashboardMetric({ icon, tone, label, value, values }: { icon: keyof typeof ICONS; tone: 'blue' | 'amber' | 'green' | 'purple'; label: string; value: number; values: number[] }) {
-  const Icon = ICONS[icon].icon;
-  return <article className={`dispatcher-kpi-card tone-${tone}`}><span><Icon size={22} weight="bold" aria-hidden /></span><div><small>{label}</small><strong>{value.toLocaleString()}</strong></div><MiniTrend tone={tone} values={values} /></article>;
-}
-
-function MiniTrend({ tone, values }: { tone: string; values: number[] }) {
-  const max = Math.max(1, ...values);
-  const line = values.map((value, index) => `${index ? 'L' : 'M'}${2 + (index / Math.max(1, values.length - 1)) * 84} ${34 - (value / max) * 28}`).join(' ');
-  return values.some((value) => value > 0) ? <svg className={`dispatcher-mini-trend tone-${tone}`} viewBox="0 0 88 38" aria-hidden="true"><path d={`${line} L86 38 L2 38 Z`} className="trend-fill" /><path d={line} className="trend-line" /></svg> : null;
 }
 
 function DispatcherTrend({ points, lang }: { points: PerfSnapshot['submittedVsResolved']; lang: Language }) {
@@ -644,23 +683,23 @@ function StatusPill({ status, lang }: { status: TicketStatus; lang: Language }) 
   // a solid blue blob with invisible text.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
-      fg: 'var(--color-status-submitted, #718096)',
+      bg: 'var(--color-status-submitted-soft)',
+      fg: 'var(--color-status-submitted)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed-soft, #E6F2EE)',
-      fg: 'var(--color-status-routed, #2C5282)',
+      bg: 'var(--color-status-routed-soft)',
+      fg: 'var(--color-status-routed)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
-      fg: 'var(--color-status-in-progress, #B7791F)',
+      bg: 'var(--color-status-in-progress-soft)',
+      fg: 'var(--color-status-in-progress)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
-      fg: 'var(--color-status-resolved, #2F7A4F)',
+      bg: 'var(--color-status-resolved-soft)',
+      fg: 'var(--color-status-resolved)',
       label: 'status.resolved',
     },
     closed: {
@@ -712,7 +751,7 @@ function EmptyState({ lang }: { lang: Language }) {
           width: 56,
           height: 56,
           borderRadius: '50%',
-          background: 'var(--color-primary-soft, #e6f2ee)',
+          background: 'var(--color-primary-soft)',
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',

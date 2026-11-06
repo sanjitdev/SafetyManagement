@@ -13,6 +13,7 @@
         --page: #f7f8fa;
         --border: #e4e7ec;
         --primary: #1a56db;
+        --on-primary: #ffffff;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -22,6 +23,10 @@
           --page: #101012;
           --border: #2e2e33;
           --primary: #7aa2f7;
+          /* The dark primary is a LIGHT blue, so white text on it sits
+             at 2.5:1 — well under AA. The button label takes near-black
+             instead, which clears 4.5:1 on this fill. */
+          --on-primary: #101828;
         }
       }
       body {
@@ -59,7 +64,7 @@
         display: inline-block;
         padding: 0.625rem 1rem;
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
         border-radius: 8px;
         font-size: 0.9375rem;
         font-weight: 600;

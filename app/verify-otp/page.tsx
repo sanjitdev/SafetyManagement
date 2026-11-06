@@ -436,8 +436,8 @@ function VerifyOtpInner() {
               data-testid="dev-otp-hint"
               style={{
                 padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--color-warning-soft, #fdf2cf)',
-                border: '1px solid var(--color-warning, #b58410)',
+                background: 'var(--color-warning-soft)',
+                border: '1px solid var(--color-warning)',
                 borderRadius: 'var(--radius-md)',
                 fontSize: 'var(--text-body-sm)',
                 color: 'var(--color-ink)',
@@ -483,7 +483,7 @@ function VerifyOtpInner() {
                     textAlign: 'center',
                     fontSize: 'var(--text-h2)',
                     fontWeight: 'var(--weight-semibold)',
-                    border: `1px solid ${error?.kind === 'wrong_code' || error?.kind === 'expired' ? 'var(--color-danger, #c92a2a)' : 'var(--color-border)'}`,
+                    border: `1px solid ${error?.kind === 'wrong_code' || error?.kind === 'expired' ? 'var(--color-danger)' : 'var(--color-border)'}`,
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--color-surface-card)',
                     color: 'var(--color-ink)',
@@ -501,7 +501,7 @@ function VerifyOtpInner() {
                 role="alert"
                 style={{
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   margin: '0 0 var(--space-3)',
                   textAlign: 'center',
                 }}
@@ -515,7 +515,7 @@ function VerifyOtpInner() {
                 role="alert"
                 style={{
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-warning, #b58410)',
+                  color: 'var(--color-warning)',
                   margin: '0 0 var(--space-3)',
                   textAlign: 'center',
                 }}
@@ -636,7 +636,7 @@ function VerifyOtpInner() {
               padding: 'var(--space-6)',
               maxWidth: 360,
               width: '100%',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+              boxShadow: 'var(--shadow-modal)',
             }}
           >
             <h2
@@ -676,8 +676,8 @@ function VerifyOtpInner() {
                 style={{
                   flex: 1,
                   height: 48,
-                  background: 'var(--color-danger, #c92a2a)',
-                  color: 'white',
+                  background: 'var(--color-danger)',
+                  color: 'var(--color-on-danger)',
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
                   fontSize: 'var(--text-body)',

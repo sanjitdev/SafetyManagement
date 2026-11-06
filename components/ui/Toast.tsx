@@ -36,7 +36,7 @@ export interface ToastProps {
 }
 
 const TONE_STYLE: Record<ToastTone, { fg: string; bg: string; border: string }> = {
-  info: { fg: 'var(--color-info)', bg: 'var(--color-info-soft)', border: 'var(--color-info)' },
+  info: { fg: 'var(--color-info-text)', bg: 'var(--color-info-soft)', border: 'var(--color-info)' },
   success: { fg: 'var(--color-success)', bg: 'var(--color-success-soft)', border: 'var(--color-success)' },
   warning: { fg: 'var(--color-warning)', bg: 'var(--color-warning-soft)', border: 'var(--color-warning)' },
   danger: { fg: 'var(--color-danger)', bg: 'var(--color-danger-soft)', border: 'var(--color-danger)' },

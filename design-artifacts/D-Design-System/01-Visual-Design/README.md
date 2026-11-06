@@ -149,7 +149,7 @@ The remaining pages are spec'd well enough that engineering can build them from 
 | States | `EmptyState`, `ErrorState`, `LoadingState` |
 | Navigation | `Breadcrumb`, `SideNav`, `Tabs` |
 | Overlays | `Modal`, `Toast` |
-| Data display | `KpiRow`, `Timeline` |
+| Data display | `KpiRow`, `MetricStrip`, `Timeline` |
 | Charts | `ChartFrame`, `TrendLine`, `CategoryBar`, `SlaBullet`, `StatCard` |
 
 Each primitive carries its own accessibility contract, and each contract has a unit test in `tests/unit/components/`.

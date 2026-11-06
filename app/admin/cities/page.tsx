@@ -267,9 +267,9 @@ export default function AdminCitiesPage() {
                       style={{
                         background:
                           c.status === 'live'
-                            ? 'var(--color-success-soft, var(--color-surface-sunken))'
+                            ? 'var(--color-success-soft)'
                             : c.status === 'setup'
-                              ? 'var(--color-warning-soft, var(--color-surface-sunken))'
+                              ? 'var(--color-warning-soft)'
                               : 'var(--color-surface-sunken)',
                         color:
                           c.status === 'live'

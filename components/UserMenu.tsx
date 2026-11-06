@@ -149,7 +149,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         </span>
         <span className="usermenu-label" style={{ minWidth: 0, maxWidth: sidebar ? 150 : 112, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: sidebar ? 'normal' : 'nowrap', display: sidebar ? 'flex' : undefined, flexDirection: sidebar ? 'column' : undefined, alignItems: sidebar ? 'flex-start' : undefined, gap: sidebar ? 3 : undefined, marginInlineStart: sidebar ? 'var(--space-2)' : undefined, flex: sidebar ? 1 : undefined, fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{name ?? t('user.menu.open_menu', null, lang)}</span>
-          {sidebar && user?.role ? <span style={{ color: '#b9c5db', fontSize: 11, fontWeight: 'var(--weight-regular)' }}>{t(ROLE_KEY[user.role], null, lang)}</span> : null}
+          {sidebar && user?.role ? <span style={{ color: 'var(--color-rail-ink-muted)', fontSize: 11, fontWeight: 'var(--weight-regular)' }}>{t(ROLE_KEY[user.role], null, lang)}</span> : null}
         </span>
         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: sidebar ? 'auto' : undefined }}>
           <path d={open ? 'm5 12 5-5 5 5' : 'm5 8 5 5 5-5'} strokeLinecap="round" strokeLinejoin="round" />
@@ -172,7 +172,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
             background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-card)',
-            boxShadow: 'var(--shadow-popover, 0 8px 24px rgba(15, 23, 42, 0.14))',
+            boxShadow: 'var(--shadow-popover)',
             padding: 'var(--space-2)',
             zIndex: 80,
             display: 'flex',

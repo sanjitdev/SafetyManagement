@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { ICONS } from '@/lib/ui/icon-map';
 import {
   displayNameFor,
   categoryLabel,
@@ -743,17 +744,19 @@ export default function CrewTicketPage() {
           lang={lang}
           style={{
             padding: 'var(--space-2) var(--space-3)',
-            background: 'var(--color-warning-bg, #fff4e6)',
-            borderBottom: '1px solid var(--color-warning-border, #f59f00)',
+            background: 'var(--color-warning-soft)',
+            borderBottom: '1px solid var(--color-warning)',
             fontSize: 'var(--text-caption)',
-            color: 'var(--color-warning-ink, #663c00)',
+            color: 'var(--color-warning)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
             flexShrink: 0,
           }}
         >
-          <span aria-hidden style={{ fontSize: 16 }}>⚠️</span>
+          <span aria-hidden style={{ display: 'inline-flex', color: 'var(--color-warning)' }}>
+            <ICONS.statusWarning.icon size={16} weight={ICONS.statusWarning.weight} />
+          </span>
           <span style={{ flex: 1 }}>
             {t(
               'crew.cache.last_updated',
@@ -776,8 +779,8 @@ export default function CrewTicketPage() {
             lang={lang}
             style={{
               padding: 'var(--space-1) var(--space-3)',
-              background: 'var(--color-warning-ink, #663c00)',
-              color: 'var(--color-on-primary, #fff)',
+              background: 'var(--color-warning)',
+              color: 'var(--color-on-primary)',
               border: 'none',
               borderRadius: 'var(--radius-pill)',
               fontSize: 'var(--text-caption)',
@@ -803,10 +806,10 @@ export default function CrewTicketPage() {
           lang={lang}
           style={{
             padding: 'var(--space-2) var(--space-3)',
-            background: 'var(--color-primary-soft, #e8f1ff)',
-            borderBottom: '1px solid var(--color-primary, #1a56db)',
+            background: 'var(--color-primary-soft)',
+            borderBottom: '1px solid var(--color-primary)',
             fontSize: 'var(--text-caption)',
-            color: 'var(--color-primary, #1a56db)',
+            color: 'var(--color-primary)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
@@ -1245,7 +1248,7 @@ export default function CrewTicketPage() {
                 lang={lang}
                 style={{
                   fontSize: 'var(--text-caption)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   margin: 0,
                 }}
               >
@@ -1396,7 +1399,7 @@ export default function CrewTicketPage() {
                     {t('crew.resolution_note.label', null, lang)}
                     <span
                       style={{
-                        color: 'var(--color-danger, #c92a2a)',
+                        color: 'var(--color-danger)',
                         marginLeft: 4,
                       }}
                     >
@@ -1442,7 +1445,7 @@ export default function CrewTicketPage() {
                       background:
                         transitioningTo !== null || resolvedDisabled
                           ? 'var(--color-surface-raised)'
-                          : 'var(--color-success, #1f7a3f)',
+                          : 'var(--color-success)',
                       color:
                         transitioningTo !== null || resolvedDisabled
                           ? 'var(--color-ink-tertiary)'
@@ -1471,7 +1474,7 @@ export default function CrewTicketPage() {
                   lang={lang}
                   style={{
                     fontSize: 'var(--text-caption)',
-                    color: 'var(--color-danger, #c92a2a)',
+                    color: 'var(--color-danger)',
                     margin: 0,
                   }}
                 >
@@ -1586,23 +1589,23 @@ function StatusPill({
   // not be used as the background.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
-      fg: 'var(--color-status-submitted, #718096)',
+      bg: 'var(--color-status-submitted-soft)',
+      fg: 'var(--color-status-submitted)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed-soft, #E6F2EE)',
-      fg: 'var(--color-status-routed, #2C5282)',
+      bg: 'var(--color-status-routed-soft)',
+      fg: 'var(--color-status-routed)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
-      fg: 'var(--color-status-in-progress, #B7791F)',
+      bg: 'var(--color-status-in-progress-soft)',
+      fg: 'var(--color-status-in-progress)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
-      fg: 'var(--color-status-resolved, #2F7A4F)',
+      bg: 'var(--color-status-resolved-soft)',
+      fg: 'var(--color-status-resolved)',
       label: 'status.resolved',
     },
     closed: {

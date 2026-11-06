@@ -195,7 +195,7 @@ export default function CrewActivityPage() {
             lang={lang}
             style={{
               padding: 'var(--space-6)',
-              color: 'var(--color-danger, #c92a2a)',
+              color: 'var(--color-danger)',
               textAlign: 'center',
             }}
           >

@@ -299,7 +299,7 @@ export default function DispatcherMapPage() {
               border: '1px solid var(--color-border)',
               background:
                 dedupPendingCount > 0
-                  ? 'var(--color-warning-soft, #fdf2cf)'
+                  ? 'var(--color-warning-soft)'
                   : 'transparent',
             }}
           >
@@ -482,7 +482,7 @@ export default function DispatcherMapPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   padding: 'var(--space-4)',
                   textAlign: 'center',
                 }}
@@ -602,7 +602,7 @@ function SidePanel({
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-md)',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+        boxShadow: 'var(--shadow-popover)',
         padding: 'var(--space-4)',
         display: 'flex',
         flexDirection: 'column',
@@ -768,18 +768,18 @@ function StatusPill({ status, lang }: { status: MapStatus; lang: Language }) {
   // not be used as the background.
   const map: Record<MapStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
-      fg: 'var(--color-status-submitted, #718096)',
+      bg: 'var(--color-status-submitted-soft)',
+      fg: 'var(--color-status-submitted)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed-soft, #E6F2EE)',
-      fg: 'var(--color-status-routed, #2C5282)',
+      bg: 'var(--color-status-routed-soft)',
+      fg: 'var(--color-status-routed)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
-      fg: 'var(--color-status-in-progress, #B7791F)',
+      bg: 'var(--color-status-in-progress-soft)',
+      fg: 'var(--color-status-in-progress)',
       label: 'status.in_progress',
     },
   };

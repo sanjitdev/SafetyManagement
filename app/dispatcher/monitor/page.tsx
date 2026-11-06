@@ -397,8 +397,8 @@ export default function DispatcherMonitorPage() {
           lang={lang}
           style={{
             padding: 'var(--space-2) var(--space-4)',
-            background: 'var(--color-warning-soft, #fef3c7)',
-            color: 'var(--color-warning, #b45309)',
+            background: 'var(--color-warning-soft)',
+            color: 'var(--color-warning)',
             fontSize: 'var(--text-caption)',
             textAlign: 'center',
           }}
@@ -793,10 +793,10 @@ function MonitorRowItem({
               borderRadius: '50%',
               border: '1px solid var(--color-border)',
               background: acknowledged
-                ? 'var(--color-status-resolved-soft, #f0f8f4)'
+                ? 'var(--color-status-resolved-soft)'
                 : 'var(--color-surface-card)',
               color: acknowledged
-                ? 'var(--color-status-resolved, #2f7a4f)'
+                ? 'var(--color-status-resolved)'
                 : 'var(--color-ink-secondary)',
               cursor: 'pointer',
               fontSize: 12,
@@ -1094,7 +1094,7 @@ function CrewLoadChart({
                   width={Math.max(2, w)}
                   height={barHeight}
                   rx={3}
-                  fill="var(--color-status-in-progress, #b7791f)"
+                  fill="var(--color-status-in-progress)"
                 >
                   <title>{`${c.crewName}: ${c.openCount}`}</title>
                 </rect>

@@ -38,6 +38,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { MetricStrip } from '@/components/ui/MetricStrip';
+import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
   type CityActivityPin,
   type CityActivityStatus,
@@ -947,17 +949,19 @@ export default function CrewPage() {
           lang={lang}
           style={{
             padding: 'var(--space-2) var(--space-3)',
-            background: 'var(--color-warning-bg, #fff4e6)',
-            border: '1px solid var(--color-warning-border, #f59f00)',
+            background: 'var(--color-warning-soft)',
+            border: '1px solid var(--color-warning)',
             borderRadius: 'var(--radius-sm)',
             fontSize: 'var(--text-caption)',
-            color: 'var(--color-warning-ink, #663c00)',
+            color: 'var(--color-warning)',
             display: 'flex',
             alignItems: 'center',
             gap: 'var(--space-2)',
           }}
         >
-          <span aria-hidden style={{ fontSize: 16 }}>⚠️</span>
+          <span aria-hidden style={{ display: 'inline-flex', color: 'var(--color-warning)' }}>
+            <ICONS.statusWarning.icon size={16} weight={ICONS.statusWarning.weight} />
+          </span>
           <span style={{ flex: 1 }}>
             {t(
               'crew.cache.last_updated',
@@ -976,8 +980,8 @@ export default function CrewPage() {
             lang={lang}
             style={{
               padding: 'var(--space-1) var(--space-3)',
-              background: 'var(--color-warning-ink, #663c00)',
-              color: 'var(--color-on-primary, #fff)',
+              background: 'var(--color-warning)',
+              color: 'var(--color-on-primary)',
               border: 'none',
               borderRadius: 'var(--radius-pill)',
               fontSize: 'var(--text-caption)',
@@ -990,51 +994,48 @@ export default function CrewPage() {
         </div>
       )}
 
-      {/* KPI row — four equal cards. */}
+      {/* KPI row. The assigned-job count is what the crew opens the
+          page to see, so it is the headline; the other three figures
+          are the context around it and share one surface. */}
       <div className="crew-kpi-grid" data-testid="crew-kpi-grid">
-        <KpiCard
-          tone="blue"
-          icon={<ClipboardIcon />}
-          value={String(kpis.assigned)}
-          label={t('crew.dashboard.metric.assigned', null, lang)}
-          hint={t(
-            'crew.dashboard.metric.assigned_hint',
-            { count: kpis.assigned },
-            lang,
-          )}
+        <MetricStrip
           lang={lang}
-          testId="crew-kpi-assigned"
-        />
-        <KpiCard
-          tone="green"
-          icon={<CheckCircleIcon />}
-          value={String(kpis.completedToday)}
-          label={t('crew.dashboard.metric.in_progress', null, lang)}
-          hint={t('crew.dashboard.metric.in_progress_hint', null, lang)}
-          lang={lang}
-          testId="crew-kpi-completed-today"
-        />
-        <KpiCard
-          tone="amber"
-          icon={<ClockIcon />}
-          value={String(kpis.pending)}
-          label={t('crew.dashboard.metric.pending', null, lang)}
-          hint={t('crew.dashboard.metric.pending_hint', null, lang)}
-          lang={lang}
-          testId="crew-kpi-pending"
-        />
-        <KpiCard
-          tone="blue"
-          icon={<TimerIcon />}
-          value={kpis.avg.text}
-          label={t('crew.dashboard.metric.avg_resolution', null, lang)}
-          hint={
-            kpis.avg.hasData
-              ? t('crew.dashboard.metric.avg_resolution_hint', null, lang)
-              : t('crew.dashboard.metric.no_resolution_data', null, lang)
-          }
-          lang={lang}
-          testId="crew-kpi-avg-resolution"
+          className="crew-metric-strip"
+          ariaLabel={t('crew.dashboard.metric.assigned', null, lang)}
+          headline={{
+            key: 'assigned',
+            label: t('crew.dashboard.metric.assigned', null, lang),
+            value: String(kpis.assigned),
+            hint: t(
+              'crew.dashboard.metric.assigned_hint',
+              { count: kpis.assigned },
+              lang,
+            ),
+          }}
+          figures={[
+            {
+              key: 'completed-today',
+              label: t('crew.dashboard.metric.in_progress', null, lang),
+              value: String(kpis.completedToday),
+              hint: t('crew.dashboard.metric.in_progress_hint', null, lang),
+            },
+            {
+              key: 'pending',
+              label: t('crew.dashboard.metric.pending', null, lang),
+              value: String(kpis.pending),
+              hint: t('crew.dashboard.metric.pending_hint', null, lang),
+            },
+            {
+              key: 'avg-resolution',
+              label: t('crew.dashboard.metric.avg_resolution', null, lang),
+              value: kpis.avg.text,
+              hint: kpis.avg.hasData
+                ? t('crew.dashboard.metric.avg_resolution_hint', null, lang)
+                : t('crew.dashboard.metric.no_resolution_data', null, lang),
+            },
+          ]}
+          data-testid="crew-metric-strip"
+          data-testid-headline="crew-kpi-assigned"
         />
       </div>
 
@@ -1125,7 +1126,7 @@ export default function CrewPage() {
                 role="alert"
                 style={{
                   fontSize: 'var(--text-body-sm)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   padding: 'var(--space-4)',
                   textAlign: 'center',
                 }}
@@ -1295,7 +1296,13 @@ export default function CrewPage() {
                   }`}
                 >
                   <span aria-hidden>
-                    {item.tone === 'done' ? '✓' : item.tone === 'active' ? '◐' : '●'}
+                    {item.tone === 'done' ? (
+                      <ICONS.check.icon size={12} weight={ICONS.check.weight} />
+                    ) : item.tone === 'active' ? (
+                      <ICONS.statusInProgress.icon size={12} weight={ICONS.statusInProgress.weight} />
+                    ) : (
+                      <ICONS.statusSubmitted.icon size={12} weight={ICONS.statusSubmitted.weight} />
+                    )}
                   </span>
                   <p lang={lang}>{item.text}</p>
                   <time dateTime={item.at} lang={lang}>
@@ -1337,47 +1344,6 @@ export default function CrewPage() {
  */
 function shortTicketId(id: string): string {
   return ticketReference(id);
-}
-
-function KpiCard({
-  tone,
-  icon,
-  value,
-  label,
-  hint,
-  lang,
-  testId,
-}: {
-  tone: 'blue' | 'green' | 'amber' | 'violet';
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  hint: string;
-  lang: Language;
-  testId: string;
-}) {
-  return (
-    <div className={`crew-kpi-card tone-${tone}`} data-testid={testId}>
-      <span aria-hidden>{icon}</span>
-      <strong lang={lang}>{value}</strong>
-      <small lang={lang}>{label}</small>
-      <em lang={lang}>{hint}</em>
-      <svg
-        className="crew-kpi-chevron"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M9 5l7 7-7 7" />
-      </svg>
-    </div>
-  );
 }
 
 function CrewJobRow({
@@ -1546,7 +1512,15 @@ function JobDetail({ ticket, lang }: { ticket: CrewTicket; lang: Language }) {
                 reached ? 'is-done' : isActive ? 'is-active' : ''
               }
             >
-              <span aria-hidden>{reached ? '✓' : isActive ? '◐' : '○'}</span>
+              <span aria-hidden>
+                {reached ? (
+                  <ICONS.check.icon size={11} weight={ICONS.check.weight} />
+                ) : isActive ? (
+                  <ICONS.statusInProgress.icon size={11} weight={ICONS.statusInProgress.weight} />
+                ) : (
+                  <ICONS.statusSubmitted.icon size={11} weight={ICONS.statusSubmitted.weight} />
+                )}
+              </span>
               <div>
                 <strong lang={lang}>{t(step.labelKey, null, lang)}</strong>
                 <small lang={lang}>
@@ -1625,23 +1599,23 @@ function StatusPill({ status, lang }: { status: TicketStatus; lang: Language }) 
   // not be used as the background.
   const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
     submitted: {
-      bg: 'var(--color-status-submitted-soft, #EDF2F7)',
-      fg: 'var(--color-status-submitted, #718096)',
+      bg: 'var(--color-status-submitted-soft)',
+      fg: 'var(--color-status-submitted)',
       label: 'status.submitted',
     },
     routed: {
-      bg: 'var(--color-status-routed-soft, #E6F2EE)',
-      fg: 'var(--color-status-routed, #2C5282)',
+      bg: 'var(--color-status-routed-soft)',
+      fg: 'var(--color-status-routed)',
       label: 'status.routed',
     },
     in_progress: {
-      bg: 'var(--color-status-in-progress-soft, #FFFAF0)',
-      fg: 'var(--color-status-in-progress, #B7791F)',
+      bg: 'var(--color-status-in-progress-soft)',
+      fg: 'var(--color-status-in-progress)',
       label: 'status.in_progress',
     },
     resolved: {
-      bg: 'var(--color-status-resolved-soft, #F0F8F4)',
-      fg: 'var(--color-status-resolved, #2F7A4F)',
+      bg: 'var(--color-status-resolved-soft)',
+      fg: 'var(--color-status-resolved)',
       label: 'status.resolved',
     },
     closed: {
@@ -1692,39 +1666,5 @@ function ListSkeleton() {
   );
 }
 
-function ClipboardIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 4h6v3H9z" />
-      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-      <path d="M9 12h6M9 16h4" />
-    </svg>
-  );
-}
 
-function ClockIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
-}
 
-function CheckCircleIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M8 12.5l2.7 2.7L16 9.5" />
-    </svg>
-  );
-}
-
-function TimerIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="13" r="8" />
-      <path d="M12 9v4l2.5 2.5M9 2h6" />
-    </svg>
-  );
-}

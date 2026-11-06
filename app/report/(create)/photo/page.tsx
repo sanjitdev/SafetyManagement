@@ -324,7 +324,7 @@ export default function PhotoPage() {
               height: 8,
               borderRadius: '50%',
               background: capReached
-                ? 'var(--color-status-resolved, var(--color-success))'
+                ? 'var(--color-status-resolved)'
                 : 'var(--color-accent)',
             }}
           />

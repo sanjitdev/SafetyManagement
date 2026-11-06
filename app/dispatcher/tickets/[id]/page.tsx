@@ -634,7 +634,7 @@ export default function DispatcherTicketDetailPage() {
                           // as blank gradient squares.
                           background:
                             thumbnailBackground(url) ??
-                            'linear-gradient(135deg, var(--color-primary-soft, #e6f2ee) 0%, var(--color-surface-raised) 100%)',
+                            'linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-surface-raised) 100%)',
                           border: '1px solid var(--color-border)',
                         }}
                       />
@@ -672,7 +672,7 @@ export default function DispatcherTicketDetailPage() {
                           borderRadius: 'var(--radius-md)',
                           background:
                             thumbnailBackground(url) ??
-                            'linear-gradient(135deg, var(--color-status-resolved-soft, #e6fcf5) 0%, var(--color-surface-raised) 100%)',
+                            'linear-gradient(135deg, var(--color-status-resolved-soft) 0%, var(--color-surface-raised) 100%)',
                           border: '1px solid var(--color-border)',
                         }}
                       />
@@ -827,8 +827,8 @@ export default function DispatcherTicketDetailPage() {
                         lang={lang}
                         style={{
                           padding: '2px var(--space-2)',
-                          background: 'var(--color-status-routed-soft, #E6F2EE)',
-                          color: 'var(--color-status-routed, #2C5282)',
+                          background: 'var(--color-status-routed-soft)',
+                          color: 'var(--color-status-routed)',
                           borderRadius: 'var(--radius-pill)',
                           fontSize: 10,
                           fontWeight: 'var(--weight-bold)',
@@ -931,7 +931,7 @@ export default function DispatcherTicketDetailPage() {
                   role="alert"
                   style={{
                     fontSize: 'var(--text-caption)',
-                    color: 'var(--color-danger, #c92a2a)',
+                    color: 'var(--color-danger)',
                   }}
                 >
                   {internalNoteError}
@@ -1048,7 +1048,7 @@ export default function DispatcherTicketDetailPage() {
                 lang={lang}
                 style={{
                   fontSize: 'var(--text-caption)',
-                  color: 'var(--color-danger, #c92a2a)',
+                  color: 'var(--color-danger)',
                   marginBottom: 'var(--space-2)',
                 }}
               >
@@ -1062,7 +1062,7 @@ export default function DispatcherTicketDetailPage() {
                 data-testid="dispatcher-assign-success"
                 style={{
                   fontSize: 'var(--text-caption)',
-                  color: 'var(--color-status-resolved, #1f7a3f)',
+                  color: 'var(--color-status-resolved)',
                   marginBottom: 'var(--space-2)',
                 }}
               >
@@ -1156,7 +1156,7 @@ export default function DispatcherTicketDetailPage() {
                     lang={lang}
                     style={{
                       fontSize: 'var(--text-caption)',
-                      color: 'var(--color-danger, #c92a2a)',
+                      color: 'var(--color-danger)',
                     }}
                   >
                     {transitionError}
@@ -1257,7 +1257,7 @@ export default function DispatcherTicketDetailPage() {
                     lang={lang}
                     style={{
                       fontSize: 'var(--text-caption)',
-                      color: 'var(--color-danger, #c92a2a)',
+                      color: 'var(--color-danger)',
                     }}
                   >
                     {reassignError}

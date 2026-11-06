@@ -99,7 +99,11 @@
     .pill-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
     .pill-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
     .pill-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
-    .pill-bulk { background: var(--color-surface-raised); color: var(--color-ink-secondary); }
+    /* The bulk chip is a COUNT, not a status — it says how many people
+     * are on a ticket. It steps up a size from the status pills because
+     * it is read first in the row, and because 11px is the floor of
+     * what a phone user can read at arm's length. */
+    .pill-bulk { background: var(--color-surface-raised); color: var(--color-ink-secondary); font-size: var(--text-micro); }
 
     /* Detail pane */
     .detail-pane {
@@ -155,11 +159,11 @@
       </div>
 
       <div style="display: flex; flex-direction: column; gap: var(--space-1);">
-        <button class="filter-pill active" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">সব <span style="background: var(--color-ink-on-dark); color: var(--color-ink); padding: 1px 6px; border-radius: 8px; font-size: 10px;">১৭</span></button>
-        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">নতুন <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৫</span></button>
-        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">বরাদ্দ হয়নি <span style="background: var(--color-status-error-soft); color: var(--color-status-error); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৩</span></button>
-        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">চলমান <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: 10px;">৮</span></button>
-        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">আজকের সমাধান <span style="background: var(--color-status-resolved-soft); color: var(--color-status-resolved); padding: 1px 6px; border-radius: 8px; font-size: 10px;">১</span></button>
+        <button class="filter-pill active" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">সব <span style="background: var(--color-ink-on-dark); color: var(--color-ink); padding: 1px 6px; border-radius: 8px; font-size: var(--text-micro);">১৭</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">নতুন <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: var(--text-micro);">৫</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">বরাদ্দ হয়নি <span style="background: var(--color-status-error-soft); color: var(--color-status-error); padding: 1px 6px; border-radius: 8px; font-size: var(--text-micro);">৩</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">চলমান <span style="background: var(--color-surface-raised); color: var(--color-ink-secondary); padding: 1px 6px; border-radius: 8px; font-size: var(--text-micro);">৮</span></button>
+        <button class="filter-pill" style="justify-content: space-between; padding: var(--space-2) var(--space-3);">আজকের সমাধান <span style="background: var(--color-status-resolved-soft); color: var(--color-status-resolved); padding: 1px 6px; border-radius: 8px; font-size: var(--text-micro);">১</span></button>
       </div>
 
       <div style="margin-top: var(--space-6); font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--space-3);">
@@ -221,7 +225,7 @@
               <span>ওয়ার্ড ১৪</span>
               <span>·</span>
               <span>২৩ মিনিট আগে</span>
-              <span class="pill pill-bulk" style="font-size: 10px;">৪ জন</span>
+              <span class="pill pill-bulk">৪ জন</span>
             </div>
           </div>
           <div style="width: 8px; height: 8px; background: var(--color-status-error); border-radius: 50%; align-self: center;"></div>
@@ -310,7 +314,7 @@
           <h2 style="margin: 0 0 var(--space-1); font-size: var(--text-display-sm);">রাস্তার আলো নেই</h2>
           <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2);">
             <span class="pill pill-routed">রাউট</span>
-            <span class="pill pill-bulk" style="font-size: 11px;">৪ জন রিপোর্টার</span>
+            <span class="pill pill-bulk">৪ জন রিপোর্টার</span>
           </div>
           <div style="font-size: var(--text-caption); color: var(--color-ink-secondary);">
             ওয়ার্ড ১৪, মিরপুর · #TIX-1234
@@ -339,7 +343,7 @@
       </div>
 
       <!-- Dispatcher note -->
-      <div style="background: var(--color-primary-soft); border-left: 3px solid var(--color-primary); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); margin-bottom: var(--space-5);">
+      <div style="background: var(--color-primary-soft); border: 1px solid var(--color-primary); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); margin-bottom: var(--space-5);">
         <div style="font-size: var(--text-micro); color: var(--color-primary); font-weight: var(--weight-semibold); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px;">
           নোট যোগ করুন
         </div>

@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ICONS, type IconEntry } from '@/lib/ui/icon-map';
 
 export type KpiTrend = 'up' | 'down' | 'flat';
 
@@ -46,7 +47,25 @@ export interface KpiRowProps {
   'data-testid'?: string;
 }
 
-const TREND_ARROW: Record<KpiTrend, string> = { up: '▲', down: '▼', flat: '▬' };
+const TREND_ARROW: Record<KpiTrend, IconEntry> = {
+  up: ICONS.trendUp,
+  down: ICONS.trendDown,
+  flat: ICONS.trendFlat,
+};
+
+/**
+ * The arrow that carries the direction of change.
+ *
+ * A shape, not a glyph: the arrow says "up" the way a bar says "more",
+ * and it recolours with the theme the way a text glyph cannot. The word
+ * ("+12%") is always beside it, so the direction never depends on the
+ * arrow alone.
+ */
+function TrendArrow({ trend }: { trend: KpiTrend }) {
+  const entry = TREND_ARROW[trend];
+  const IconComponent = entry.icon;
+  return <IconComponent size={12} weight={entry.weight} />;
+}
 
 export function KpiRow({ items, ariaLabel, lang, 'data-testid': testId }: KpiRowProps) {
   return (
@@ -125,7 +144,9 @@ export function KpiRow({ items, ariaLabel, lang, 'data-testid': testId }: KpiRow
               >
                 {item.trend && item.trendValue ? (
                   <>
-                    <span aria-hidden>{TREND_ARROW[item.trend]}</span>
+                    <span aria-hidden style={{ display: 'inline-flex' }}>
+                      <TrendArrow trend={item.trend} />
+                    </span>
                     <span className="tabular-nums">{item.trendValue}</span>
                   </>
                 ) : null}

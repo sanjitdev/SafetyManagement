@@ -203,13 +203,13 @@ export default function SubmittedPage() {
             style={{
               width: 96,
               height: 96,
-              background: 'var(--color-status-resolved-soft, #F0F8F4)',
+              background: 'var(--color-status-resolved-soft)',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto var(--space-4)',
-              color: 'var(--color-status-resolved, var(--color-success))',
+              color: 'var(--color-status-resolved)',
             }}
           >
             <svg
@@ -364,7 +364,7 @@ export default function SubmittedPage() {
                       bottom: -12,
                       width: 2,
                       background: isDone
-                        ? 'var(--color-status-resolved, var(--color-success))'
+                        ? 'var(--color-status-resolved)'
                         : 'var(--color-border)',
                     }}
                   />
@@ -379,7 +379,7 @@ export default function SubmittedPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     background: isDone
-                      ? 'var(--color-status-resolved, var(--color-success))'
+                      ? 'var(--color-status-resolved)'
                       : isCurrent
                         ? 'var(--color-primary)'
                         : 'var(--color-surface-raised)',

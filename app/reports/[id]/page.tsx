@@ -78,13 +78,13 @@ const STATUS_TITLES_KEY: Record<SerializedTicket['status'], string> = {
 function pillClass(status: SerializedTicket['status']) {
   switch (status) {
     case 'resolved':
-      return { bg: 'var(--color-status-resolved-soft, #d4edda)', fg: 'var(--color-status-resolved, #1f7a3f)' };
+      return { bg: 'var(--color-status-resolved-soft)', fg: 'var(--color-status-resolved)' };
     case 'routed':
-      return { bg: 'var(--color-status-routed-soft, #cfe2ff)', fg: 'var(--color-status-routed, #0b5ed7)' };
+      return { bg: 'var(--color-status-routed-soft)', fg: 'var(--color-status-routed)' };
     case 'in_progress':
-      return { bg: 'var(--color-status-in-progress-soft, #fff3cd)', fg: 'var(--color-status-in-progress, #b58410)' };
+      return { bg: 'var(--color-status-in-progress-soft)', fg: 'var(--color-status-in-progress)' };
     case 'submitted':
-      return { bg: 'var(--color-primary-soft, #e6f2ee)', fg: 'var(--color-primary)' };
+      return { bg: 'var(--color-primary-soft)', fg: 'var(--color-primary)' };
     default:
       return { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-secondary)' };
   }
@@ -409,7 +409,7 @@ export default function MyReportDetailPage() {
             <div
               data-testid="report-detail-description"
               style={{
-                background: 'var(--color-surface-card, #fff)',
+                background: 'var(--color-surface-card)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-md)',
                 padding: 'var(--space-4)',
@@ -418,7 +418,7 @@ export default function MyReportDetailPage() {
             >
               <div
                 style={{
-                  fontSize: 'var(--text-micro, 11px)',
+                  fontSize: 'var(--text-micro)',
                   color: 'var(--color-ink-tertiary)',
                   fontWeight: 'var(--weight-semibold)',
                   letterSpacing: '0.05em',
@@ -458,7 +458,7 @@ export default function MyReportDetailPage() {
                   resolves against `uploadedByRole = 'citizen'`). */}
               <div
                 style={{
-                  fontSize: 'var(--text-micro, 11px)',
+                  fontSize: 'var(--text-micro)',
                   color: 'var(--color-ink-tertiary)',
                   fontWeight: 'var(--weight-semibold)',
                   letterSpacing: '0.05em',
@@ -537,7 +537,7 @@ export default function MyReportDetailPage() {
                 <div style={{ marginTop: 'var(--space-4)' }}>
                   <div
                     style={{
-                      fontSize: 'var(--text-micro, 11px)',
+                      fontSize: 'var(--text-micro)',
                       color: 'var(--color-ink-tertiary)',
                       fontWeight: 'var(--weight-semibold)',
                       letterSpacing: '0.05em',
@@ -581,8 +581,8 @@ export default function MyReportDetailPage() {
                   style={{
                     marginTop: 'var(--space-3)',
                     padding: 'var(--space-3)',
-                    background: 'var(--color-warning-soft, #fdf2cf)',
-                    border: '1px solid var(--color-warning, #b58410)',
+                    background: 'var(--color-warning-soft)',
+                    border: '1px solid var(--color-warning)',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--color-ink)',
                     fontSize: 'var(--text-caption)',
@@ -597,7 +597,7 @@ export default function MyReportDetailPage() {
           {/* Status trail */}
           <div
             style={{
-              background: 'var(--color-surface-card, #fff)',
+              background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-md)',
               padding: 'var(--space-4)',
@@ -654,7 +654,7 @@ export default function MyReportDetailPage() {
                           width: 2,
                           background:
                             stepClass === 'done'
-                              ? 'var(--color-status-resolved, #1f7a3f)'
+                              ? 'var(--color-status-resolved)'
                               : 'var(--color-border)',
                         }}
                       />
@@ -670,15 +670,15 @@ export default function MyReportDetailPage() {
                         justifyContent: 'center',
                         background:
                           stepClass === 'done'
-                            ? 'var(--color-status-resolved, #1f7a3f)'
+                            ? 'var(--color-status-resolved)'
                             : stepClass === 'current'
                               ? 'var(--color-primary)'
                               : 'var(--color-surface-raised)',
                         color:
                           stepClass !== 'pending'
-                            ? 'var(--color-on-primary, #fff)'
+                            ? 'var(--color-on-primary)'
                             : 'var(--color-ink-tertiary)',
-                        fontSize: 'var(--text-micro, 11px)',
+                        fontSize: 'var(--text-micro)',
                         fontWeight: 'var(--weight-semibold)',
                       }}
                       aria-hidden
@@ -742,7 +742,7 @@ export default function MyReportDetailPage() {
         <aside>
           <div
             style={{
-              background: 'var(--color-surface-card, #fff)',
+              background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-md)',
               padding: 'var(--space-5)',
@@ -775,7 +775,7 @@ export default function MyReportDetailPage() {
           {ticket.status === 'resolved' && (
             <div
               style={{
-                background: 'var(--color-primary-soft, #e6f2ee)',
+                background: 'var(--color-primary-soft)',
                 border: '1px solid var(--color-border)',
                 padding: 'var(--space-4)',
                 borderRadius: 'var(--radius-sm)',
@@ -814,7 +814,7 @@ export default function MyReportDetailPage() {
                 <div
                   style={{
                     marginTop: 'var(--space-3)',
-                    fontSize: 'var(--text-micro, 11px)',
+                    fontSize: 'var(--text-micro)',
                     color: 'var(--color-ink-tertiary)',
                   }}
                 >
@@ -845,12 +845,12 @@ export default function MyReportDetailPage() {
         >
           <div
             style={{
-              background: 'var(--color-surface-card, #fff)',
+              background: 'var(--color-surface-card)',
               borderRadius: 'var(--radius-md)',
               padding: 'var(--space-5)',
               maxWidth: 400,
               width: '90%',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+              boxShadow: 'var(--shadow-modal)',
             }}
           >
             <h2
@@ -895,8 +895,8 @@ export default function MyReportDetailPage() {
                   padding: '0 var(--space-4)',
                   borderRadius: 'var(--radius-sm)',
                   border: 'none',
-                  background: 'var(--color-warning, #b58410)',
-                  color: '#fff',
+                  background: 'var(--color-danger)',
+                  color: 'var(--color-on-danger)',
                   fontWeight: 'var(--weight-semibold)',
                   cursor: 'pointer',
                 }}
@@ -916,7 +916,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
     <div>
       <div
         style={{
-          fontSize: 'var(--text-micro, 11px)',
+          fontSize: 'var(--text-micro)',
           color: 'var(--color-ink-tertiary)',
           fontWeight: 'var(--weight-semibold)',
           letterSpacing: '0.05em',

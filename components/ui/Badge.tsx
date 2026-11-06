@@ -38,7 +38,7 @@ const TONE_STYLE: Record<BadgeTone, { fg: string; bg: string }> = {
   success: { fg: 'var(--color-success)', bg: 'var(--color-success-soft)' },
   warning: { fg: 'var(--color-warning)', bg: 'var(--color-warning-soft)' },
   danger: { fg: 'var(--color-danger)', bg: 'var(--color-danger-soft)' },
-  info: { fg: 'var(--color-info)', bg: 'var(--color-info-soft)' },
+  info: { fg: 'var(--color-info-text)', bg: 'var(--color-info-soft)' },
 };
 
 export function Badge({

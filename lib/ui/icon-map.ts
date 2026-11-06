@@ -26,9 +26,11 @@
 import type { Icon, IconWeight } from '@phosphor-icons/react';
 import {
   ArrowClockwise,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowSquareOut,
+  ArrowUp,
   Buildings,
   Bell,
   Camera,
@@ -151,6 +153,14 @@ export const ICONS = {
   statusWarning: entry(WarningCircle),
   info: entry(Info),
   loading: entry(CircleNotch),
+
+  /* Trend direction — the arrow that carries a KPI's direction of change.
+     A shape, not a glyph: the arrow means "up" the way a bar means
+     "more", and it recolours with the theme the way a text glyph
+     cannot. */
+  trendUp: entry(ArrowUp),
+  trendDown: entry(ArrowDown),
+  trendFlat: entry(CaretRight),
 
   /* Auth */
   signIn: entry(SignIn),

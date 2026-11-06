@@ -178,7 +178,7 @@
   <!-- Right: illustration (hidden at medium) -->
   <aside class="illustration">
     <div class="city-art">
-      <svg viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+      <svg viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;" aria-hidden="true" focusable="false">
         <!-- Background gradient -->
         <defs>
           <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
@@ -206,36 +206,22 @@
         <rect x="20" y="430" width="160" height="60" fill="var(--color-map-water)" rx="8"/>
 
         <!-- Pins -->
-        <!-- Pin 1 — open (red) -->
-        <g transform="translate(110, 130)">
-          <circle r="14" fill="var(--color-map-pin-open)" opacity="0.18"/>
-          <circle r="9" fill="var(--color-map-pin-open)"/>
-          <circle r="3.5" fill="white"/>
-        </g>
+        <!--
+          The pin is ONE authored teardrop path — a circular head that
+          tapers to a point at the ticket's coordinates — not a stack of
+          concentric circles. The tail is what makes it read as "a place
+          to go"; the circle alone reads as a status dot. This is the
+          same shape the live map draws in `components/CityActivityMap.tsx`.
+        -->
+        <g transform="translate(110, 130)"><path d="M0 16c0 8.5-9 15-9 15s-9-6.5-9-15a9 9 0 1 1 18 0Z" fill="var(--color-map-pin-open)"/><circle cx="-9" cy="-1" r="3.2" fill="white"/></g>
         <!-- Pin 2 — in progress (amber) -->
-        <g transform="translate(280, 250)">
-          <circle r="14" fill="var(--color-map-pin-progress)" opacity="0.18"/>
-          <circle r="9" fill="var(--color-map-pin-progress)"/>
-          <circle r="3.5" fill="white"/>
-        </g>
+        <g transform="translate(280, 250)"><path d="M0 16c0 8.5-9 15-9 15s-9-6.5-9-15a9 9 0 1 1 18 0Z" fill="var(--color-map-pin-progress)"/><circle cx="-9" cy="-1" r="3.2" fill="white"/></g>
         <!-- Pin 3 — resolved (green) -->
-        <g transform="translate(420, 110)">
-          <circle r="14" fill="var(--color-map-pin-resolved)" opacity="0.18"/>
-          <circle r="9" fill="var(--color-map-pin-resolved)"/>
-          <circle r="3.5" fill="white"/>
-        </g>
+        <g transform="translate(420, 110)"><path d="M0 16c0 8.5-9 15-9 15s-9-6.5-9-15a9 9 0 1 1 18 0Z" fill="var(--color-map-pin-resolved)"/><circle cx="-9" cy="-1" r="3.2" fill="white"/></g>
         <!-- Pin 4 — open (red) -->
-        <g transform="translate(180, 400)">
-          <circle r="14" fill="var(--color-map-pin-open)" opacity="0.18"/>
-          <circle r="9" fill="var(--color-map-pin-open)"/>
-          <circle r="3.5" fill="white"/>
-        </g>
+        <g transform="translate(180, 400)"><path d="M0 16c0 8.5-9 15-9 15s-9-6.5-9-15a9 9 0 1 1 18 0Z" fill="var(--color-map-pin-open)"/><circle cx="-9" cy="-1" r="3.2" fill="white"/></g>
         <!-- Pin 5 — in progress -->
-        <g transform="translate(440, 330)">
-          <circle r="14" fill="var(--color-map-pin-progress)" opacity="0.18"/>
-          <circle r="9" fill="var(--color-map-pin-progress)"/>
-          <circle r="3.5" fill="white"/>
-        </g>
+        <g transform="translate(440, 330)"><path d="M0 16c0 8.5-9 15-9 15s-9-6.5-9-15a9 9 0 1 1 18 0Z" fill="var(--color-map-pin-progress)"/><circle cx="-9" cy="-1" r="3.2" fill="white"/></g>
       </svg>
     </div>
   </aside>

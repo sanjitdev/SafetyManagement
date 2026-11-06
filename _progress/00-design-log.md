@@ -5395,3 +5395,54 @@ npm run lint            0 errors / 56 warnings (all pre-existing)
 npm run check:i18n      ok — 770 keys
 npm run build           green
 ```
+
+### 2026-11-06 — The KPI cards all shouted at once
+
+Every dashboard in CityFix opened with a row of identical cards. Home had three. Dispatcher had four. Crew had four. Admin had four. The dispatcher performance page had three. Each card was the same size, the same shape, the same hairline border, the same radius, and each held a big number, a small label underneath, and — often — a coloured icon tile in a corner.
+
+Twenty-two cards across five screens, and not one of them said which number mattered.
+
+That is the **hero-metric template** the impeccable craft-floor list puts in its Refuse column: *"big number, small label, supporting stats, accent."* The problem is not that the numbers were wrong. The problem is that a row of equal cards asserts that the four numbers matter equally, which was almost never true. On the dispatcher's queue, the depth of new submissions is the number they open the page to see; the routed, in-progress and resolved counts are context around it. Four equal cards flattened that hierarchy into a wall of identical boxes and made the reader do the ranking themselves.
+
+The replacement is a single component, `components/ui/MetricStrip.tsx`:
+
+```
+┌─────────────────────┐  ┌──────────┬──────────┬──────────┐
+│ 42                  │  │  ১৮০    │   ১১     │   ৭      │
+│ নতুন রিপোর্ট         │  │ সমাধান   │ চলমান    │  অপেক্ষমাণ │
+│ ▲ ১২% · গত সপ্তাহে    │  │ ──────── │ ──────── │ ──────── │
+└─────────────────────┘  └──────────┴──────────┴──────────┘
+  the headline figure      the supporting figures, one row
+```
+
+The headline gets its own surface and the display type. The supporting figures share a surface, separated by a 1px hairline rather than by eleven boxes. The hierarchy is **semantic, not only visual**: the supporting figures are a real `<dl>`, so each label is a `<dt>` bound to its value as a `<dd>` — a screen reader hears *"সমাধান, ১৮০"* rather than two unrelated strings. The headline is deliberately *not* a `<dt>`/`<dd>` pair and not a `.metric-strip-figure`; `tests/unit/components/MetricStrip.test.tsx` asserts that, because the day the headline becomes a peer of the other figures, the hierarchy the component exists to create is gone.
+
+Which figure is the headline is a per-dashboard decision, not a template: home leads with *my reports*, dispatcher with *new submissions* (the queue depth), crew with *assigned jobs*, admin with *total reports*, and the performance page with *total reports* — the number the resolution rate and average resolution time are two ways of reading.
+
+**The sparklines went with the cards.** The dispatcher's `MiniTrend` and the admin's `MetricCard` sparkline were deleted rather than carried over into the strip. The craft-floor list refuses sparklines standing in for content; a metric strip's job is to be a readout, not a chart. The dispatcher already has a dedicated performance screen for trends.
+
+**Delta colour is metric-dependent, and honesty matters more than consistency.** In the admin strip, a rising count is only good news for *resolved* — everywhere else, more tickets means more outstanding work, so a rise is a warning. On the performance page the direction inverts for duration: a fall in average resolution time is *good*, so a fall there is green. The direction is always carried by an arrow plus the value, never by colour alone — the same rule the rest of the system already follows for status pills.
+
+**The skeletons were rewritten too, and this is the part worth remembering.** A skeleton that does not match the loaded layout makes the page jump on arrival, which reads as a rendering bug rather than as loading. The dispatcher and admin KPI skeletons were already reshaped; the performance page's was still three identical cards and had to be rebuilt as a wide headline block beside a row of figure blocks, and its orphaned `.performance-loading-card` CSS rule removed.
+
+Also removed: the dead CSS for every deleted card class (`.home-overview-metric`, `.dispatcher-kpi-card`, `.crew-kpi-card`, `.admin-kpi-card`, `.admin-kpi-icon`, `.admin-sparkline` and friends) — all checked to zero references before deletion, so nothing was left pointing at a class that no longer exists.
+
+**The shared `Sparkline` component went too.** `components/ui/charts/Sparkline.tsx` was a new, untracked file whose own docblock said it was "furniture" for a KPI card — "a shape that tells you which way the number moved while you were looking at the card". Its only two consumers were the dispatcher and admin cards this pass deleted, so it was deleted with them rather than left as an orphan. The dispatcher's `ResponseSparkline` on `/dispatcher/monitor` is a different thing entirely — a real chart with axes and a data-table fallback — and it stays.
+
+`KpiRow` stays too, and the distinction is worth recording. It is the flat, equal-row primitive named in the ui-redesign requirements with a mandated unit test and a barrel export; `MetricStrip` is the hierarchical one. Two primitives, two shapes, and the choice between them is now a real decision instead of a default.
+
+The design-system reference (`components.html`) grew a **মেট্রিক স্ট্রিপ** section so the visual reference and the implementation stay in step, and `README.md`'s primitive table now lists `MetricStrip`.
+
+Verification at the close of the KPI-hierarchy pass:
+
+```
+npx tsc --noEmit                    clean
+npm run test:unit                   101 files / 1835 passed
+npm run test:mockups                25/25 baselines passed
+npm run lint                        0 errors / 55 warnings (all pre-existing)
+npm run check:i18n                  ok — 957 keys
+npm run build                       green
+impeccable detect app components lib   0 findings
+```
+
+**No audit row was written for this change.** The audit log is the platform's record of state-changing operations — every `writeAudit(...)` call in the codebase is a real data mutation by a real actor, with an `actorId` foreign key to `User`. A UI refactor changes no ticket, no city and no user; there is no entity, no actor and no before/after state to record. Writing a row here would mean inventing a user id and filing a code change as a data operation, which is the one thing an append-only audit log must not do. The change is recorded here instead.
