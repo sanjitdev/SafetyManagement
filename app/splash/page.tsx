@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { roleHome } from '@/lib/role-home';
 import { CityFixMark } from '@/components/CityFixMark';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG: Language = 'bn';
 const SLOW_LOAD_THRESHOLD_MS = 2000;
@@ -31,6 +32,10 @@ export default function SplashPage() {
   const [showSlowLoad, setShowSlowLoad] = useState(false);
   const [bundleFailed, setBundleFailed] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  // The shared session — the splash layout's `AppShell` owns it, so the
+  // routing decision below reuses that request instead of issuing its
+  // own `/api/auth/status` call.
+  const { authenticated, session } = useSession();
 
   useEffect(() => {
     let cancelled = false;
@@ -59,21 +64,18 @@ export default function SplashPage() {
           }
         }
 
-        const res = await fetch('/api/auth/status', { credentials: 'include' });
+        // The auth state comes from the shared `SessionProvider` — the
+        // splash layout's `AppShell` already fetched it, so this page
+        // does not issue a second `/api/auth/status` request. We wait
+        // for it to resolve before routing.
+        if (authenticated === null) return; // still loading — the
+        // routing decision waits for the shared session to land.
         if (cancelled) return;
-        if (!res.ok) {
-          // Treat as anonymous; route to the public landing.
-          router.replace('/');
-          return;
-        }
-        const data = (await res.json()) as {
-          authenticated: boolean;
-          session?: { role?: string } | null;
-        };
+
         // Route each role to its own surface — a dispatcher opening the
         // app should land on the triage queue, not the citizen feed.
         router.replace(
-          data.authenticated ? roleHome(data.session?.role) : '/',
+          authenticated ? roleHome(session?.role) : '/',
         );
       } catch {
         if (!cancelled) setBundleFailed(true);
@@ -88,7 +90,7 @@ export default function SplashPage() {
       window.clearTimeout(slowLoadTimer);
       window.clearTimeout(failTimer);
     };
-  }, [retryNonce, router]);
+  }, [retryNonce, router, authenticated, session]);
 
   return (
     <div

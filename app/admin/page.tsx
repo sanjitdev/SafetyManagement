@@ -10,6 +10,7 @@ import { CityFixMark } from '@/components/CityFixMark';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { SessionProvider, useSession } from '@/components/SessionProvider';
 import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
@@ -250,6 +251,24 @@ function formatAge(value: string, lang: Language) {
 }
 
 export default function AdminHomePage() {
+  /*
+   * The /admin dashboard is the one surface that does NOT use
+   * `<AppShell>` — it renders its own header. It still needs the shared
+   * session, because its header mounts a `<UserMenu>` (which used to
+   * fetch `/api/auth/status` on its own) and the page's own gate
+   * fetched it a second time.
+   *
+   * Wrapping it in the same `SessionProvider` collapses those two
+   * requests into one.
+   */
+  return (
+    <SessionProvider>
+      <AdminHomePageInner />
+    </SessionProvider>
+  );
+}
+
+function AdminHomePageInner() {
   const [lang, setLang] = useState<Language>('en');
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -261,6 +280,8 @@ export default function AdminHomePage() {
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
 
   const toggleLanguage = useCallback(() => {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -288,31 +309,22 @@ export default function AdminHomePage() {
     return () => window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
   }, []);
 
+  // Auth check — reads the shared session. The admin dashboard used to
+  // fetch `/api/auth/status` itself AND the header's `<UserMenu>` (and
+  // the `ThemeToggle` sibling) fetched it again.
   useEffect(() => {
-    let cancelled = false;
-    void fetch('/api/auth/status', { credentials: 'same-origin' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('auth_status');
-        return (await response.json()) as { authenticated: boolean; session: { role: string; cityId: string; name: string | null } | null };
-      })
-      .then((status) => {
-        if (cancelled) return;
-        if (!status.authenticated) {
-          window.location.href = '/login?next=%2Fadmin';
-          return;
-        }
-        if (status.session?.role !== 'admin') {
-          window.location.href = '/';
-          return;
-        }
-        setIdentity({ cityId: status.session.cityId, name: status.session.name });
-        setSignedIn(true);
-      })
-      .catch(() => {
-        if (!cancelled) window.location.href = '/login?next=%2Fadmin';
-      });
-    return () => { cancelled = true; };
-  }, []);
+    if (authenticated === null) return; // still loading
+    if (!authenticated) {
+      window.location.href = '/login?next=%2Fadmin';
+      return;
+    }
+    if (session?.role !== 'admin') {
+      window.location.href = '/';
+      return;
+    }
+    setIdentity({ cityId: session.cityId, name: session.name });
+    setSignedIn(true);
+  }, [authenticated, session]);
 
   const loadDashboard = useCallback(async () => {
     if (!identity) return;

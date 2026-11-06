@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -42,6 +43,8 @@ export default function CitySetupPage() {
   const id = params.id;
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [city, setCity] = useState<City | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -62,22 +65,15 @@ export default function CitySetupPage() {
   }, [lang]);
 
   useEffect(() => {
+    if (authenticated === null) return; // still loading
     let cancelled = false;
     (async () => {
-      const statusRes = await fetch('/api/auth/status', {
-        credentials: 'include',
-      });
-      const status = (await statusRes.json()) as {
-        authenticated: boolean;
-        session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-      };
-      if (cancelled) return;
-      if (!status.authenticated) {
+      if (!authenticated) {
         window.location.href =
           '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
         return;
       }
-      if (status.session?.role !== 'admin') {
+      if (session?.role !== 'admin') {
         window.location.href = '/';
         return;
       }
@@ -95,7 +91,7 @@ export default function CitySetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [authenticated, session, pathname, id]);
 
   const handleSave = useCallback(async () => {
     if (!city) return;

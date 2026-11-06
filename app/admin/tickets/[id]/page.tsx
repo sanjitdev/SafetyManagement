@@ -37,6 +37,7 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -55,6 +56,8 @@ export default function AdminTicketDetailPage() {
 
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [ticket, setTicket] = useState<SerializedTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
@@ -85,38 +88,19 @@ export default function AdminTicketDetailPage() {
   // non-admins to `/` (the splash / role-aware router) so the UX
   // matches the dispatcher's and crew's pages.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
-          window.location.href =
-            '/login?next=' + encodeURIComponent('/admin/tickets/' + id);
-          return;
-        }
-        if (status.session?.role !== 'admin') {
-          window.location.href = '/';
-          return;
-        }
-        setSignedIn(true);
-      } catch {
-        if (cancelled) return;
-        setSignedIn(false);
-        window.location.href =
-          '/login?next=' + encodeURIComponent('/admin/tickets/' + id);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+    if (authenticated === null) return; // still loading
+    if (!authenticated) {
+      setSignedIn(false);
+      window.location.href =
+        '/login?next=' + encodeURIComponent('/admin/tickets/' + id);
+      return;
+    }
+    if (session?.role !== 'admin') {
+      window.location.href = '/';
+      return;
+    }
+    setSignedIn(true);
+  }, [authenticated, session, id]);
 
   const refetch = useCallback(async () => {
     if (!id) return;

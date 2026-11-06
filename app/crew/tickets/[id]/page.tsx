@@ -76,6 +76,7 @@ import { pendingSyncLabel } from '@/lib/crew/queue-copy';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { isRenderablePhotoUrl } from '@/lib/format/photo-url';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 import { registerServiceWorker } from '@/lib/crew/service-worker';
 import {
   formatCachedAge,
@@ -218,6 +219,8 @@ export default function CrewTicketPage() {
   const id = params?.id ?? '';
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -366,27 +369,12 @@ export default function CrewTicketPage() {
     }
   }, [id, userId]);
 
-  // Auth check
+  // Auth check — reads the shared session.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          userId?: string;
-        };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-        if (status.authenticated && status.userId) setUserId(status.userId);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+    if (authenticated && session?.userId) setUserId(session.userId);
+  }, [authenticated, session]);
 
   // CREW-006 — read the per-ticket cache on mount
   // BEFORE the network request lands, so the page

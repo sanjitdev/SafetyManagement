@@ -20,6 +20,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { AppHeader } from './AppHeader';
+import { SessionProvider } from './SessionProvider';
 import type { Language } from '@/lib/i18n/keys';
 import { RoleSidebar } from './RoleSidebar';
 
@@ -45,6 +46,40 @@ export function AppShell({
   children,
   lang,
   role = 'public',
+  signedIn,
+  subHeader,
+}: AppShellProps) {
+  return (
+    /*
+     * `SessionProvider` owns the single `/api/auth/status` request for
+     * the whole page. The header, the role sidebar, the user menu and
+     * the page's own auth gate all read the shared payload from it.
+     *
+     * Before this, each of those consumers fetched the session
+     * independently — measured at 8 requests per page load (4 sources ×
+     * React 18 StrictMode's double-invoked mount effects), each costing
+     * up to 6 sequential DB round-trips. Now it is 1 request.
+     *
+     * `signedIn` short-circuits the probe entirely for callers that
+     * already resolved the session on the server (e.g. /profile).
+     */
+    <SessionProvider enabled={signedIn !== true}>
+      <AppShellInner
+        lang={lang}
+        role={role}
+        signedIn={signedIn}
+        subHeader={subHeader}
+      >
+        {children}
+      </AppShellInner>
+    </SessionProvider>
+  );
+}
+
+function AppShellInner({
+  children,
+  lang,
+  role,
   signedIn,
   subHeader,
 }: AppShellProps) {

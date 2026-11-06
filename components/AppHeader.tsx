@@ -37,6 +37,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 import { CityFixMark } from './CityFixMark';
+import { useSession } from './SessionProvider';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ICONS } from '@/lib/ui/icon-map';
 
@@ -52,7 +53,12 @@ interface AppHeaderProps {
   /**
    * Whether the user is signed in. Controls whether the right
    * cluster shows the UserMenu or a sign-in / register pair.
-   * When omitted, the header probes /api/auth/status itself.
+   *
+   * When omitted, the header reads the shared session from
+   * `SessionProvider` — which owns the single `/api/auth/status`
+   * probe. The header no longer fetches the session itself: doing so
+   * meant a second request on every page load (the header, the role
+   * sidebar and the user menu each probed independently).
    */
   signedIn?: boolean | null;
   /** Compact operational top bar used beside the role sidebar. */
@@ -68,11 +74,18 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
   const router = useRouter();
   const pathname = usePathname() ?? '/';
   const [lang, setLang] = useState<Language>(langProp ?? 'bn');
-  const [signedIn, setSignedIn] = useState<boolean | null>(signedInProp ?? null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const menuId = useId();
+
+  // The session comes from the shared provider (one request per page
+  // load, shared by the header, the role sidebar and the user menu).
+  // `signedInProp` still wins when a caller passes it — that is the
+  // escape hatch for surfaces that already resolved the session
+  // server-side and want to skip the probe entirely.
+  const { authenticated } = useSession();
+  const signedIn = signedInProp ?? authenticated;
 
   // Hydrate language + auth from localStorage / status endpoint.
   // We do this in the header rather than the page so the chrome
@@ -88,24 +101,6 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
       }
     }
   }, [langProp]);
-
-  useEffect(() => {
-    if (signedInProp != null) return; // caller already knows
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { authenticated: boolean };
-        if (!cancelled) setSignedIn(Boolean(data.authenticated));
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [signedInProp]);
 
   // Close the mobile menu on route change and on Escape / outside click.
   useEffect(() => {

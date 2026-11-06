@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { categoryLabel, displayNameFor } from '@/lib/identity/display-name';
 import { thumbnailBackground } from '@/lib/format/photo-url';
@@ -132,6 +133,8 @@ function formatDuration(ms: number, lang: Language): string {
 export default function DispatcherMonitorPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated } = useSession();
   const [rows, setRows] = useState<MonitorRow[]>([]);
   const [charts, setCharts] = useState<MonitorCharts | null>(null);
   const [filter, setFilter] = useState<MonitorFilter>('all');
@@ -206,25 +209,11 @@ export default function DispatcherMonitorPage() {
     }
   }, [filter]);
 
-  // Auth check
+  // Auth check — reads the shared session.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as { authenticated: boolean };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+  }, [authenticated]);
 
   // Polling — every 5 seconds per the spec.
   useEffect(() => {

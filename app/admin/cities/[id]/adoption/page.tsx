@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -114,6 +115,8 @@ export default function AdminCityAdoptionPage() {
   const cityId = params?.id ?? '';
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [dash, setDash] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,35 +182,18 @@ export default function AdminCityAdoptionPage() {
 
   // Auth + role gate.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
-          window.location.href =
-            '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
-          return;
-        }
-        if (status.session?.role !== 'admin') {
-          window.location.href = '/';
-          return;
-        }
-        setSignedIn(true);
-      } catch {
-        if (!cancelled) setError('network');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+    if (authenticated === null) return; // still loading
+    if (!authenticated) {
+      window.location.href =
+        '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
+      return;
+    }
+    if (session?.role !== 'admin') {
+      window.location.href = '/';
+      return;
+    }
+    setSignedIn(true);
+  }, [authenticated, session, pathname]);
 
   useEffect(() => {
     if (signedIn) void load();

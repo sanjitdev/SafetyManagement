@@ -27,6 +27,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -132,6 +133,9 @@ export default function ReportsListPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The session comes from the shared `SessionProvider` — the page no
+  // longer issues its own `/api/auth/status` request.
+  const { authenticated, session } = useSession();
 
   useEffect(() => {
     try {
@@ -147,23 +151,21 @@ export default function ReportsListPage() {
   }, []);
 
   // Auth + bootstrap + ticket fetch
+  //
+  // The session comes from the shared `SessionProvider`; this page
+  // reads it instead of issuing its own `/api/auth/status` request.
   useEffect(() => {
+    if (authenticated === null) return; // still loading
     let cancelled = false;
     (async () => {
       try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { userId: string; role: 'citizen' | 'dispatcher' | 'crew' | 'admin' };
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
+        if (!authenticated) {
           setSignedIn(false);
           return;
         }
         setSignedIn(true);
-        setUserId(status.session?.userId ?? null);
-        setRole(status.session?.role ?? null);
+        setUserId(session?.userId ?? null);
+        setRole(session?.role ?? null);
 
         const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
         if (!bootRes.ok) {
@@ -236,7 +238,7 @@ export default function ReportsListPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authenticated, session]);
 
   // Citizens see only their own reports; staff (admin / dispatcher /
   // crew) see every report filed in the session's city — the API

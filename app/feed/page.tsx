@@ -41,6 +41,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 15_000;
@@ -123,6 +124,9 @@ export default function FeedPage() {
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const previousIdsRef = useRef<Set<string>>(new Set());
+  // The session comes from the shared `SessionProvider` — the page no
+  // longer issues its own `/api/auth/status` request.
+  const { authenticated } = useSession();
 
   useEffect(() => {
     try {
@@ -133,24 +137,19 @@ export default function FeedPage() {
     }
   }, []);
 
-  // Auth check (Bolt 008-012): the /api/auth/status endpoint is the
-  // only auth check on this page now. The /api/v1/activity/public
-  // endpoint that powers the list is auth-agnostic — it works for
-  // unauthenticated visitors too, but we still gate the page on sign-in
-  // because the /feed surface is positioned as "your city's activity",
-  // not as the public landing.
+  // Auth check (Bolt 008-012): the shared session is the only auth
+  // check on this page now. The /api/v1/activity/public endpoint that
+  // powers the list is auth-agnostic — it works for unauthenticated
+  // visitors too, but we still gate the page on sign-in because the
+  // /feed surface is positioned as "your city's activity", not as the
+  // public landing.
+  //
+  // The session itself comes from `SessionProvider`, so this page does
+  // not issue its own `/api/auth/status` request.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-      const status = (await statusRes.json()) as { authenticated: boolean };
-      if (cancelled) return;
-      setSignedIn(status.authenticated);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+  }, [authenticated]);
 
   // Polling — Bolt 008-012: switched from the auth-required
   // /api/v1/activity to the role-agnostic /api/v1/activity/public.

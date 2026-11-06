@@ -23,6 +23,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -114,6 +115,8 @@ export default function AdminCityUsersPage() {
   const cityId = params?.id ?? '';
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [data, setData] = useState<UsersListResult | null>(null);
   const [tab, setTab] = useState<Tab>('all');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -171,23 +174,16 @@ export default function AdminCityUsersPage() {
 
   // Auth + role gate.
   useEffect(() => {
+    if (authenticated === null) return; // still loading
     let cancelled = false;
     (async () => {
       try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
+        if (!authenticated) {
           window.location.href =
             '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
           return;
         }
-        if (status.session?.role !== 'admin') {
+        if (session?.role !== 'admin') {
           window.location.href = '/';
           return;
         }
@@ -200,7 +196,7 @@ export default function AdminCityUsersPage() {
     return () => {
       cancelled = true;
     };
-  }, [pathname, load]);
+  }, [authenticated, session, pathname, load]);
 
   const visibleUsers = useMemo(() => {
     if (!data) return [];

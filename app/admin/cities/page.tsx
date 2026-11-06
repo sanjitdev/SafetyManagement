@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -46,6 +47,8 @@ export default function AdminCitiesPage() {
   const pathname = usePathname();
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [cities, setCities] = useState<AdminCity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,18 +76,11 @@ export default function AdminCitiesPage() {
   // non-admins to `/` (the splash / role-aware router) so the UX
   // matches the dispatcher's and crew's pages.
   useEffect(() => {
+    if (authenticated === null) return; // still loading
     let cancelled = false;
     (async () => {
       try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
+        if (!authenticated) {
           // Forward `?next=/admin/cities` so the admin can resume after
           // sign-in. (Admin accounts sign in via WebAuthn, but if a
           // session has expired mid-page-load we want the same UX.)
@@ -92,7 +88,7 @@ export default function AdminCitiesPage() {
             '/login?next=' + encodeURIComponent(pathname || '/admin/cities');
           return;
         }
-        if (status.session?.role !== 'admin') {
+        if (session?.role !== 'admin') {
           window.location.href = '/';
           return;
         }
@@ -114,7 +110,7 @@ export default function AdminCitiesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authenticated, session, pathname]);
 
   const handleNewCity = useCallback(async () => {
     const slug = window.prompt(

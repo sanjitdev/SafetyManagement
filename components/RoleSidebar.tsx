@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CityFixMark } from '@/components/CityFixMark';
 import { UserMenu } from '@/components/UserMenu';
+import { useSession } from '@/components/SessionProvider';
 import { ICONS } from '@/lib/ui/icon-map';
 import { t, type Language } from '@/lib/i18n/keys';
 
@@ -16,9 +17,14 @@ const LANG_KEY = 'cityfix.preferred_language.v1';
 export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole; onNavigate: () => void }) {
   const pathname = usePathname() ?? '/';
   const [lang, setLang] = useState<Language>('bn');
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [cityId, setCityId] = useState<string | null>(null);
   const [userListFilter, setUserListFilter] = useState<string | null>(null);
+  // The sidebar used to fetch `/api/auth/status` on mount to learn the
+  // session's role and cityId. It now reads the shared session, which
+  // the AppShell's `SessionProvider` already resolved with a single
+  // request — one fewer redundant round-trip per page load.
+  const { session } = useSession();
+  const userRole = session?.role ?? null;
+  const cityId = session?.cityId ?? null;
   const surface = pathname.startsWith('/admin') ? 'admin' : pathname.startsWith('/dispatcher') ? 'dispatcher' : pathname.startsWith('/crew') ? 'crew' : (pathname.startsWith('/reports') || pathname.startsWith('/profile') || pathname.startsWith('/feed')) && userRole && userRole !== 'citizen' ? userRole : role === 'staff' && userRole ? userRole : 'citizen';
 
   useEffect(() => {
@@ -39,10 +45,6 @@ export function RoleSidebar({ role = 'citizen', onNavigate }: { role?: ShellRole
     syncUserListFilter();
     window.addEventListener('popstate', syncUserListFilter);
     window.addEventListener('cityfix:admin-users-filter-updated', onUserListFilterUpdated);
-    void fetch('/api/auth/status', { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => { setUserRole(data?.session?.role ?? null); setCityId(data?.session?.cityId ?? null); })
-      .catch(() => { setUserRole(null); setCityId(null); });
     return () => {
       window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
       window.removeEventListener('popstate', syncUserListFilter);

@@ -45,6 +45,7 @@ import {
 } from '@/lib/crew/cache';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
@@ -229,6 +230,9 @@ export default function CrewPage() {
     | { state: 'denied' }
     | null
   >(null);
+  // The shared session — one request for the whole page, shared by the
+  // header, the sidebar, the user menu and this page.
+  const { authenticated, session } = useSession();
 
   useEffect(() => {
     function syncLang() {
@@ -250,42 +254,19 @@ export default function CrewPage() {
     };
   }, []);
 
-  // Fetch the session's userId on mount so the
-  // cache keys are scoped correctly. (The page
-  // also has a signedIn check; userId is
-  // available only after the auth check lands.)
+  // Session-driven state: the crew's userId (which scopes the cache
+  // keys) and the session's scope labels (ward / department display
+  // names) for the scope bar under the header.
   //
-  // The same response carries the session's scope labels
-  // (ward / department display names) for the scope bar
-  // under the header.
+  // This used to be its own `/api/auth/status` fetch — and the page
+  // had a SECOND one further down for the signedIn gate, so the crew
+  // dashboard issued two identical requests per load. Both now read the
+  // shared `SessionProvider` payload.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/status', { credentials: 'include' });
-        if (cancelled) return;
-        const data = (await res.json()) as {
-          authenticated: boolean;
-          userId?: string;
-          session?: {
-            wardId?: string | null;
-            wardName?: string | null;
-            wardNameBn?: string | null;
-            departmentId?: string | null;
-            departmentName?: string | null;
-            departmentNameBn?: string | null;
-          };
-        };
-        if (data.authenticated && data.userId) setUserId(data.userId);
-        if (data.session) setScope(data.session);
-      } catch {
-        // ignore
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (!session) return;
+    setUserId(session.userId);
+    setScope(session);
+  }, [session]);
 
   // CREW-006 — read the cache on mount BEFORE
   // the network request lands, so the page is
@@ -418,23 +399,11 @@ export default function CrewPage() {
     }
   }, [filter, userId]);
 
-  // Auth check
+  // Auth check — reads the shared session.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as { authenticated: boolean };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+  }, [authenticated]);
 
   // Polling
   useEffect(() => {

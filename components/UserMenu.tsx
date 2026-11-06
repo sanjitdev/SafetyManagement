@@ -2,23 +2,14 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSession, type SessionRole } from './SessionProvider';
 import { t, type Language } from '@/lib/i18n/keys';
 
-type Role = 'citizen' | 'dispatcher' | 'crew' | 'admin';
+type Role = SessionRole;
 
 interface UserMenuProps {
   lang?: Language;
   variant?: 'header' | 'sidebar';
-}
-
-interface StatusPayload {
-  authenticated: boolean;
-  session: {
-    userId: string;
-    role: Role;
-    name: string | null;
-    nameBn?: string | null;
-  } | null;
 }
 
 const ROLE_KEY: Record<Role, keyof typeof import('@/lib/i18n/keys').TRANSLATIONS> = {
@@ -56,24 +47,19 @@ function LogoutIcon() {
 
 export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
   const sidebar = variant === 'sidebar';
-  const [status, setStatus] = useState<StatusPayload | null>(null);
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuId = useId();
 
-  const refreshStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
-      if (res.ok) setStatus((await res.json()) as StatusPayload);
-    } catch {
-      // Keep the last known account identity while offline.
-    }
-  }, []);
+  // The session is owned by `SessionProvider`. This menu used to fetch
+  // `/api/auth/status` on mount AND on every menu open — a third
+  // redundant request per page load. It now reads the shared payload
+  // and only asks for a refresh when the profile actually changed.
+  const { session, refresh: refreshStatus } = useSession();
 
   useEffect(() => {
-    void refreshStatus();
     const onProfileUpdated = () => void refreshStatus();
     window.addEventListener('cityfix:profile-updated', onProfileUpdated);
     return () => window.removeEventListener('cityfix:profile-updated', onProfileUpdated);
@@ -111,7 +97,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
     window.location.href = '/';
   }, [signingOut]);
 
-  const user = status?.session;
+  const user = session;
   const name = lang === 'bn' ? user?.nameBn || user?.name : user?.name || user?.nameBn;
 
   return (
@@ -125,7 +111,6 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         aria-controls={menuId}
         onClick={() => {
           setOpen((wasOpen) => !wasOpen);
-          if (!open) void refreshStatus();
         }}
         style={{
           minWidth: sidebar ? 0 : 44,

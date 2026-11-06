@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { MapPin, MapStatus } from '@/components/DispatcherMap';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
+import { useSession } from '@/components/SessionProvider';
 
 // MapLibre is browser-only; load the page's map component on
 // the client only. The page's own state (auth gate, filters,
@@ -61,6 +62,8 @@ interface PinsResponse {
 export default function DispatcherMapPage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated } = useSession();
   const [pins, setPins] = useState<MapPin[]>([]);
   const [filter, setFilter] = useState<MapFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -124,23 +127,11 @@ export default function DispatcherMapPage() {
   const selectedPinRef = useRef(selectedPin);
   selectedPinRef.current = selectedPin;
 
-  // Auth check
+  // Auth check — reads the shared session.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as { authenticated: boolean };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+  }, [authenticated]);
 
   // Polling
   useEffect(() => {

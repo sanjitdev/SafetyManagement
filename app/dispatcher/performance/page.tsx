@@ -36,6 +36,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { categoryLabel } from '@/lib/identity/display-name';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -133,6 +134,8 @@ function formatTimestamp(iso: string, lang: Language): string {
 export default function DispatcherPerformancePage() {
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated } = useSession();
   const [snapshot, setSnapshot] = useState<PerfSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,25 +212,11 @@ export default function DispatcherPerformancePage() {
     }
   }, [rangeParams.from, rangeParams.to]);
 
-  // Auth check
+  // Auth check — reads the shared session.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as { authenticated: boolean };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+  }, [authenticated]);
 
   // Snapshot — NOT polled. Refetched when the date range changes.
   useEffect(() => {

@@ -35,6 +35,7 @@ import {
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { useSession } from '@/components/SessionProvider';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
   type CityActivityPin,
@@ -116,6 +117,7 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const previousIdsRef = useRef<Set<string>>(new Set());
+  const { authenticated, session } = useSession();
 
   useEffect(() => {
     try {
@@ -131,20 +133,24 @@ export default function HomePage() {
   }, []);
 
   // Auth check + bootstrap
+  //
+  // The session comes from the shared `SessionProvider` (the AppShell
+  // layout owns it), so this page does NOT issue its own
+  // `/api/auth/status` request. It used to — which meant a second
+  // identical request on every /home load, on top of the header's,
+  // the sidebar's and the user menu's.
   useEffect(() => {
+    if (authenticated === null) return; // still loading
     let cancelled = false;
     (async () => {
       try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as { authenticated: boolean; session?: { userId: string; name?: string | null } };
-        if (cancelled) return;
-        if (!status.authenticated) {
+        if (!authenticated) {
           setSignedIn(false);
           return;
         }
         setSignedIn(true);
-        setUserId(status.session?.userId ?? null);
-        setUserName(status.session?.name ?? null);
+        setUserId(session?.userId ?? null);
+        setUserName(session?.name ?? null);
 
         const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
         if (!bootRes.ok) {
@@ -163,7 +169,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authenticated, session]);
 
   // Activity polling
   useEffect(() => {
@@ -320,6 +326,14 @@ export default function HomePage() {
 
   return (
     <div
+      /*
+       * `home-page` carries the dashboard's outer gutter
+       * (padding + the 16px rhythm gap between regions). Without it
+       * the signed-in dashboard rendered flush against the role
+       * sidebar and the app header — every section started at the
+       * container's content edge with zero breathing room.
+       */
+      className="home-page"
       style={{
         minHeight: '100%',
         background: 'var(--color-surface-page)',

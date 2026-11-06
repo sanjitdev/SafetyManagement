@@ -25,6 +25,7 @@ import type {
   AuditQueryFilters,
   AuditQueryResult,
 } from '@/lib/admin/audit-query';
+import { useSession } from '@/components/SessionProvider';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -68,6 +69,8 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
 
   // Hydrate lang from localStorage.
   useEffect(() => {
@@ -103,38 +106,19 @@ export default function AdminAuditPage() {
   // non-admins to `/` (the splash / role-aware router) so the UX
   // matches the dispatcher's and crew's pages.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
-          window.location.href =
-            '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
-          return;
-        }
-        if (status.session?.role !== 'admin') {
-          window.location.href = '/';
-          return;
-        }
-        setSignedIn(true);
-      } catch {
-        if (cancelled) return;
-        setSignedIn(false);
-        window.location.href =
-          '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    if (!authenticated) {
+      setSignedIn(false);
+      window.location.href =
+        '/login?next=' + encodeURIComponent(pathname || '/admin/audit');
+      return;
+    }
+    if (session?.role !== 'admin') {
+      window.location.href = '/';
+      return;
+    }
+    setSignedIn(true);
+  }, [authenticated, session, pathname]);
 
   const fetchPage = useCallback(
     async (

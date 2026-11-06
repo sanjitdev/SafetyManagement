@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from '@/components/SessionProvider';
 import { AdminTicketsFilters } from '@/components/AdminTicketsFilters';
 import { AdminTicketsTable } from '@/components/AdminTicketsTable';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -70,6 +71,8 @@ export default function AdminTicketsPage() {
   const pathname = usePathname();
   const [lang, setLang] = useState<Language>('bn');
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [filters, setFilters] = useState<Filters>({});
   const [cursor, setCursor] = useState<string | null>(null);
   const [rows, setRows] = useState<SerializedTicket[] | null>(null);
@@ -107,38 +110,19 @@ export default function AdminTicketsPage() {
   // non-admins to `/` (the splash / role-aware router) so the UX
   // matches the dispatcher's and crew's pages.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', {
-          credentials: 'include',
-        });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: { role: 'citizen' | 'dispatcher' | 'crew' | 'admin' } | null;
-        };
-        if (cancelled) return;
-        if (!status.authenticated) {
-          window.location.href =
-            '/login?next=' + encodeURIComponent(pathname || '/admin/tickets');
-          return;
-        }
-        if (status.session?.role !== 'admin') {
-          window.location.href = '/';
-          return;
-        }
-        setSignedIn(true);
-      } catch {
-        if (cancelled) return;
-        setSignedIn(false);
-        window.location.href =
-          '/login?next=' + encodeURIComponent(pathname || '/admin/tickets');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    if (!authenticated) {
+      setSignedIn(false);
+      window.location.href =
+        '/login?next=' + encodeURIComponent(pathname || '/admin/tickets');
+      return;
+    }
+    if (session?.role !== 'admin') {
+      window.location.href = '/';
+      return;
+    }
+    setSignedIn(true);
+  }, [authenticated, session, pathname]);
 
   const fetchPage = useCallback(
     async (

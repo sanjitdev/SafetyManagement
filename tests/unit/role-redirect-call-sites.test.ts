@@ -169,7 +169,11 @@ describe('the role→surface redirect is applied at every entry point', () => {
 
   it('app/splash/page.tsx routes by the session role', () => {
     const src = readFileSync(join(REPO_ROOT, 'app/splash/page.tsx'), 'utf8');
-    expect(src).toMatch(/roleHome\(data\.session\?\.role\)/);
+    // The splash reads the role from the shared `SessionProvider`
+    // (`session?.role`) rather than from its own `/api/auth/status`
+    // response body (`data.session?.role`) — one shared request for
+    // the whole page instead of one per call site.
+    expect(src).toMatch(/roleHome\(\s*session\?\.role\s*\)/);
   });
 
   it.each(DEV_ENTRY_POINTS)('%s sends each staff persona to its own surface', (rel) => {

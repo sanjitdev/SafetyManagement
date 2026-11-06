@@ -35,6 +35,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useSession } from '@/components/SessionProvider';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { ICONS } from '@/lib/ui/icon-map';
 import type { PerfSnapshot } from '@/lib/dispatcher/performance';
@@ -162,6 +163,8 @@ export default function DispatcherPage() {
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The shared session — one request for the whole page.
+  const { authenticated, session } = useSession();
   const [lastPollAt, setLastPollAt] = useState<string | null>(null);
   const [dedupPendingCount, setDedupPendingCount] = useState<number>(0);
   const previousIdsRef = useRef<Set<string>>(new Set());
@@ -282,32 +285,13 @@ export default function DispatcherPage() {
     }
   }, [filter]);
 
-  // Auth check
+  // Auth check — reads the shared session instead of issuing its own
+  // `/api/auth/status` request.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const statusRes = await fetch('/api/auth/status', { credentials: 'include' });
-        const status = (await statusRes.json()) as {
-          authenticated: boolean;
-          session?: {
-            wardName?: string | null;
-            wardNameBn?: string | null;
-            departmentName?: string | null;
-            departmentNameBn?: string | null;
-          } | null;
-        };
-        if (cancelled) return;
-        setSignedIn(status.authenticated);
-        setScope(status.session ?? null);
-      } catch {
-        if (!cancelled) setSignedIn(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (authenticated === null) return; // still loading
+    setSignedIn(authenticated);
+    setScope(session ?? null);
+  }, [authenticated, session]);
 
   // Polling
   useEffect(() => {
