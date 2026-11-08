@@ -328,7 +328,7 @@ production posture).
 **Verification gates** (per `team.md` Mandated):
 
 - `npx tsc --noEmit` — clean, 0 errors.
-- `npm run test:unit` — 109 files / 1939 tests pass.
+- `npm run test:unit` — 111 files / 1960 tests pass.
 - `npm run test:unit:coverage` — 92.59% lines / 83.08% branches /
   93.66% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.

@@ -158,7 +158,7 @@ All scripts are defined in `package.json`.
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |
 | `npm test` | `playwright test` | Playwright route specs (34 files) |
-| `npm run test:unit` | `vitest run` | 1,939 unit tests across 109 files |
+| `npm run test:unit` | `vitest run` | 1,960 unit tests across 111 files |
 | `npm run test:unit:watch` | `vitest` | Vitest watch mode |
 | `npm run test:unit:coverage` | `vitest run --coverage` | Coverage + the 80% floor gate |
 | `npm run test:mockups` | `playwright test tests/01-mockups.spec.ts` | 25 visual baselines (gating) |
@@ -186,7 +186,7 @@ All scripts are defined in `package.json`.
 
 ### Running the route specs
 
-`npm test` runs **34 files** — 33 route-spec files (333 specs) plus the
+`npm test` runs **34 files** — 33 route-spec files (358 specs) plus the
 mockup family. It boots its own dev server when nothing is listening on
 port 3000.
 
@@ -365,7 +365,7 @@ If all four pass, the project is healthy.
 | Step | Verifies |
 |---|---|
 | `npx tsc --noEmit` | TypeScript strict compile clean |
-| `npm run test:unit` | 1,939 unit tests pass (109 files) |
+| `npm run test:unit` | 1,960 unit tests pass (111 files) |
 | `npm run test:mockups` | 25 visual baselines match (gating) |
 | `curl -fs http://localhost:3000/` | Server returns 2xx on `/` |
 

@@ -26,14 +26,14 @@ Run these after every change. The first three are already green in the current t
 
 ```bash
 npx tsc --noEmit      # typecheck — must be clean
-npm run test:unit     # Vitest — 101 files / 1835 tests
+npm run test:unit     # Vitest — 111 files / 1960 tests
 npm run test:mockups  # Playwright visual regression baselines (needs the dev server)
 npm run check:i18n    # i18n key registry consistency
 npm run lint          # ESLint
 npm run build         # prisma generate && next build
 ```
 
-The full lifecycle requires a running app: `npm run dev` (or `npm run dev:feat` for the in-memory dev store), then `npx playwright test` for the 32 route specs.
+The full lifecycle requires a running app: `npm run dev` (or `npm run dev:feat` for the in-memory dev store), then `npx playwright test` for the 34 route-spec files (358 specs). The route specs are also run in CI — see `PRODUCTION_READINESS_CHECKLIST.md` row 9.7.
 
 **Branching:** the team's trunk is `prd-development` per `aidlc/spaces/default/memory/team.md`; the current checkout is `main`. Reconcile before branching or opening a PR.
 
@@ -118,9 +118,9 @@ The application is **substantially built**. Treat these as leads to verify, not 
 - **65 API route handlers** under `app/api/**/route.ts`.
 - **17 Prisma models** + 3 enums: `City`, `Ward`, `Department`, `Crew`, `SlaPolicy`, `Category`, `User`, `OtpCode`, `WebAuthnChallenge`, `Session`, `PushSubscription`, `Ticket`, `TicketTrailEntry`, `TicketPhoto`, `AuditEntry`, `DedupFlag`; enums `Role`, `TicketStatus`, `DedupFlagStatus`.
 - **3 migrations** in `prisma/migrations/`.
-- **Vitest**: 101 test files / 1835 tests under `tests/unit/`.
-- **Playwright**: 32 route specs under `tests/` plus mockup visual baselines.
-- **CI**: `.github/workflows/ci.yml` runs lint, typecheck, unit, coverage, visual, and build.
+- **Vitest**: 111 test files / 1960 tests under `tests/unit/`.
+- **Playwright**: 34 route-spec files / 358 specs under `tests/` plus mockup visual baselines.
+- **CI**: `.github/workflows/ci.yml` runs lint, typecheck, unit, coverage, visual, build, and the route specs.
 - **Security headers** (CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) are configured in `next.config.js`.
 - **Platform services already exist** in `lib/platform/`: `audit.ts`, `dedup.ts`, `rate-limit.ts`, `transitions.ts`, `push.ts`, `db-guard.ts`; serializers in `lib/serializers/`.
 
@@ -752,7 +752,7 @@ Test with:
 
 # PHASE 14: Testing & Quality Assurance
 
-**Existing infrastructure:** Vitest unit suite under `tests/unit/` (101 files / 1835 tests, currently green). Playwright route specs under `tests/` (32 specs, `testMatch: '*.spec.ts'` so the Vitest files are not swept in). Visual baselines for the design mockups. CI in `.github/workflows/ci.yml`.
+**Existing infrastructure:** Vitest unit suite under `tests/unit/` (111 files / 1960 tests, currently green). Playwright route specs under `tests/` (34 spec files / 358 specs, `testMatch: '*.spec.ts'` so the Vitest files are not swept in). Visual baselines for the design mockups. CI in `.github/workflows/ci.yml`.
 
 **Audit the tests themselves** — a green suite that asserts nothing is a false PASS. Check that assertions are meaningful, that they would fail on a regression, and that no test is a tautology.
 

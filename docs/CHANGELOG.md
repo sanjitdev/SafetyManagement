@@ -50,6 +50,18 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 
 ### Fixed
 
+**The rendered clock moved, so no visual baseline could ever hold — 2026-11-08.**
+
+Three defects, each masking the next. The symptom in every case was a visual-baseline failure that "regenerate the baseline" appeared to fix, for exactly as long as nobody looked at it again.
+
+1. **The seed clock was the wall clock.** Every seeded ticket, trail entry and audit row derived its timestamp from `Date.now()`, so a screenshot taken now could never match one captured earlier. `lib/format/clock.ts` — **new** — is the shared pinned clock: `CITYFIX_SEED_NOW` freezes the epoch, `nowMs()`/`nowIso()` read it, `todayInProductZone()` reads the calendar day in `Asia/Dhaka`, and `slotInProductZone()` builds a Dhaka wall-clock slot. A malformed pin **warns loudly** rather than silently falling back, because a silently-live clock looks pinned and is not.
+
+2. **The rendered timezone was the runtime's, not the product's.** `toLocaleString` resolves the timezone from the runtime, so the same instant rendered six hours apart on a Dhaka server than on a UTC one. `lib/format/datetime.ts` now pins the **timezone** as well as the locale — a **product** fix, not a test fix: a ticket filed at 15:00 in Dhaka must show 15:00 to a Dhaka resident. Four surfaces each carried their own copy of a formatter; they now share one.
+
+3. **The pin never reached the browser.** `process.env` is server-only, so the client bundle fell back to the wall clock while the server read the pinned one. The `/home` trend chart rendered its axis **three days apart** on the two sides and React failed the hydration — *"Text content did not match. Server: ৩১ অক্টো ৩ নভে, Client: ১ নভে"*. The clock now reads `NEXT_PUBLIC_CITYFIX_SEED_NOW` first, because `NEXT_PUBLIC_` values are inlined into the client bundle at build time and both sides therefore read the same literal.
+
+Also: the dev store, the admin query windows and the chart axes all read the pinned clock (the window decides **which rows appear**, so it matters as much as the row timestamps); `updatedAt` is now strictly monotonic rather than merely "now", because under a frozen clock a same-millisecond update would have made the change invisible; and five unit tests that measured a window against `Date.now()` now measure against the same clock the code reads.
+
 **The slow-motion demo could not run headless — 2026-11-08.**
 
 `tests/22-slow-motion-e2e-demo.spec.ts` hardcoded `headless: false` in its `test.use` override. A headed Chromium needs an X server, and a GitHub runner has none, so the spec died with *"Missing X server or $DISPLAY"*. Because it is the last spec in the 358-test sweep, it failed the baseline-regeneration workflow and took the whole regenerated-baseline upload down with it — 350 regenerated PNGs discarded on the runner's disk.
