@@ -33,6 +33,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { formatWeekday } from '@/lib/format/datetime';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
@@ -529,7 +530,7 @@ function DispatcherTrend({ points, lang }: { points: PerfSnapshot['submittedVsRe
   const coord = (value: number, index: number) => `${points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))},${136 - (value / max) * 110}`;
   const submitted = points.map((point, index) => `${index ? 'L' : 'M'}${coord(point.submitted, index)}`).join(' ');
   const resolved = points.map((point, index) => `${index ? 'L' : 'M'}${coord(point.resolved, index)}`).join(' ');
-  return <div className="dispatcher-trend-content"><div className="dispatcher-trend-legend"><span className="is-created">{t('dispatcher.dashboard.new', null, lang)}</span><span className="is-done">{t('dispatcher.dashboard.resolved', null, lang)}</span></div><svg viewBox="0 0 540 174" role="img" aria-label={t('dispatcher.dashboard.trends', null, lang)}>{[26,53,80,107,136].map((y) => <line key={y} x1="24" x2="526" y1={y} y2={y} />)}<path d={submitted} className="trend-created" /><path d={resolved} className="trend-resolved" />{points.map((point, index) => <text key={point.date} x={points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))} y="164" textAnchor="middle">{new Date(point.date).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { weekday: 'short' })}</text>)}</svg></div>;
+  return <div className="dispatcher-trend-content"><div className="dispatcher-trend-legend"><span className="is-created">{t('dispatcher.dashboard.new', null, lang)}</span><span className="is-done">{t('dispatcher.dashboard.resolved', null, lang)}</span></div><svg viewBox="0 0 540 174" role="img" aria-label={t('dispatcher.dashboard.trends', null, lang)}>{[26,53,80,107,136].map((y) => <line key={y} x1="24" x2="526" y1={y} y2={y} />)}<path d={submitted} className="trend-created" /><path d={resolved} className="trend-resolved" />{points.map((point, index) => <text key={point.date} x={points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))} y="164" textAnchor="middle">{formatWeekday(point.date, lang)}</text>)}</svg></div>;
 }
 
 function FilterRow({

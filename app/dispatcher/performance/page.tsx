@@ -34,6 +34,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { categoryLabel } from '@/lib/identity/display-name';
 import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
@@ -115,21 +116,6 @@ function formatDuration(ms: number, lang: Language): string {
   }
   const days = Math.floor(hours / 24);
   return t('dispatcher.performance.duration.days', { n: days }, lang);
-}
-
-/** Format a timestamp as a locale date + time. */
-function formatTimestamp(iso: string, lang: Language): string {
-  try {
-    return new Date(iso).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-GB', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
 }
 
 export default function DispatcherPerformancePage() {

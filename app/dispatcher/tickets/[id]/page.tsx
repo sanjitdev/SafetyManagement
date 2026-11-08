@@ -45,6 +45,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
@@ -130,11 +131,6 @@ const CATEGORY_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'cat_drainage', label: 'Drainage blocked' },
   { id: 'cat_garbage', label: 'Garbage not collected' },
 ];
-
-function formatTimestamp(iso: string, lang: Language): string {
-  const d = new Date(iso);
-  return d.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-GB');
-}
 
 export default function DispatcherTicketDetailPage() {
   const router = useRouter();

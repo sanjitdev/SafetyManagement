@@ -28,6 +28,7 @@
 import { randomUUID } from 'node:crypto';
 import { DHAKA_CENTER } from './geo/constants';
 import { seedPhotoUrl } from './dev-store/seed-photo';
+import { nowIso, nowMs, slotInProductZone } from './format/clock';
 
 export { DHAKA_CENTER };
 
@@ -610,7 +611,29 @@ function seed(): Store {
   // `serializeTicketForRole`, so `cat_other` is a deliberate,
   // visible choice for the citizen ("Other" / "অন্যান্য") and not
   // a debug-only marker.
-  const now = Date.now();
+  /*
+   * The seed clock.
+   *
+   * Every seeded ticket, trail entry and audit row carries a timestamp
+   * derived from the moment the store was seeded. That is fine for
+   * behaviour and fatal for VISUAL REGRESSION: the rendered page shows
+   * an absolute local time ("০৬ নভে, ২০২৬, ০৩:৪৪ PM"), so a screenshot
+   * taken now can never match a baseline captured earlier — or later.
+   *
+   * The symptom is a visual-baseline test that fails no matter how many
+   * times the baseline is regenerated. The route-spec suite hit exactly
+   * this: `18-admin-audit-light` and `19-admin-tickets-light` failed
+   * because every row's timestamp differed, and the pixel diff grew and
+   * shrank with the wall clock. Regenerating the baseline "fixes" it for
+   * exactly as long as nobody looks at it again.
+   *
+   * `nowMs()` is the shared pinned clock (`lib/format/clock.ts`):
+   * `CITYFIX_SEED_NOW` pins the epoch the seed is built from, so the
+   * store seeds the SAME absolute timestamps on every run, on every
+   * machine, in every timezone — and the rendered page is
+   * byte-identical.
+   */
+  const now = nowMs();
   const day = 24 * 60 * 60 * 1000;
   /**
    * A wall-clock time TODAY at the given hour/minute.
@@ -625,13 +648,18 @@ function seed(): Store {
    * If the requested slot has already passed today, the time is
    * rolled back to yesterday at the same hour — a slot in the past
    * is still a valid dispatch record.
+   *
+   * THE SLOT IS A DHAKA WALL-CLOCK TIME
+   * -----------------------------------
+   * `setHours` sets the hour in the RUNTIME's timezone. On a UTC
+   * server "10:00" became 16:00 Dhaka time, so the seeded rows showed
+   * a different slot on every machine and the visual baseline could
+   * never hold. `slotInProductZone` computes the slot in the
+   * product's zone (Asia/Dhaka) and converts back to an instant —
+   * which is the same instant on every machine.
    */
-  const slotTime = (base: number, hour: number, minute: number): Date => {
-    const d = new Date(base);
-    d.setHours(hour, minute, 0, 0);
-    if (d.getTime() > base) d.setDate(d.getDate() - 1);
-    return d;
-  };
+  const slotTime = (base: number, hour: number, minute: number): Date =>
+    slotInProductZone(new Date(base), hour, minute);
   const tickets = new Map<string, DevTicket>();
   const trail: DevTrailEntry[] = [];
   // Bolt 007-001: pre-seeded with the same five `seedTickets`. The
@@ -1666,7 +1694,7 @@ export const devDb = {
       };
     }): DevTicket {
       const id = `tkt_${randomUUID().slice(0, 8)}`;
-      const now = new Date().toISOString();
+      const now = nowIso();
       const t: DevTicket = {
         ...args.data,
         duplicateOfId: args.data.duplicateOfId ?? null,
@@ -1726,7 +1754,7 @@ export const devDb = {
       const next: DevTicket = {
         ...cur,
         ...args.data,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso(),
       };
       getStore().tickets.set(args.where.id, next);
       return next;
@@ -1773,7 +1801,7 @@ export const devDb = {
       const next: DevTicket = {
         ...cur,
         ...args.data,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso(),
       };
       getStore().tickets.set(args.where.id, next);
       return 1;
@@ -1788,7 +1816,7 @@ export const devDb = {
       getStore().tickets.set(args.where.id, {
         ...cur,
         version: (cur.version ?? 0) + 1,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso(),
       });
     },
   },
@@ -1807,7 +1835,7 @@ export const devDb = {
       const row: DevTicketPhoto = {
         ...args.data,
         id,
-        uploadedAt: args.data.uploadedAt ?? new Date().toISOString(),
+        uploadedAt: args.data.uploadedAt ?? nowIso(),
       };
       const store = getStore();
       const list = store.ticketPhotos.get(args.data.ticketId) ?? [];
@@ -1856,7 +1884,7 @@ export const devDb = {
       const entry: DevTrailEntry = {
         ...args.data,
         id: `trl_${randomUUID().slice(0, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso(),
       };
       getStore().trail.push(entry);
       return entry;
@@ -1869,7 +1897,7 @@ export const devDb = {
       const entry: DevAuditEntry = {
         ...args.data,
         id: `aud_${randomUUID().slice(0, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso(),
       };
       getStore().audit.push(entry);
       return entry;
@@ -1946,7 +1974,7 @@ export const devDb = {
       data: Omit<DevSession, 'id' | 'createdAt' | 'lastSeenAt'>;
     }): DevSession {
       const id = `ses_${randomUUID().slice(0, 24)}`;
-      const now = new Date().toISOString();
+      const now = nowIso();
       const session: DevSession = {
         ...args.data,
         id,
@@ -1983,7 +2011,7 @@ export const devDb = {
         id,
         usedAt: null,
         attempts: 0,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso(),
       };
       getStore().otps.set(id, entry);
       return entry;
@@ -2059,7 +2087,7 @@ export const devDb = {
         ...args.data,
         id,
         status: args.data.status ?? 'pending',
-        flaggedAt: new Date().toISOString(),
+        flaggedAt: nowIso(),
         resolvedById: args.data.resolvedById ?? null,
         resolvedAt: args.data.resolvedAt ?? null,
       };
@@ -2090,7 +2118,7 @@ export const devDb = {
         userId: args.userId,
         challenge: args.challenge,
         expiresAt: args.expiresAt,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso(),
       };
       getStore().webAuthnChallenges.set(id, row);
       return row;

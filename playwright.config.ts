@@ -120,6 +120,21 @@ export default defineConfig({
   // a session, and the route's `requireRole(session, 'admin')` guard
   // runs BEFORE it — so a non-admin still gets 403. Production never
   // reads this variable.
+  //
+  // `CITYFIX_SEED_NOW` freezes the dev server's clock. Without it every
+  // seeded timestamp moves with the wall clock, so the rendered pages
+  // change minute by minute and a committed visual baseline can never
+  // hold — the route-spec suite proved it, with `18-admin-audit-light`
+  // and `19-admin-tickets-light` failing on every run.
+  //
+  // `TZ=Asia/Dhaka` pins the process timezone as well. The formatters
+  // in `lib/format/datetime.ts` already render in Asia/Dhaka
+  // explicitly, but pinning the process timezone closes the remaining
+  // gap: any code that reads the runtime's local calendar (rather
+  // than going through the shared helpers) now agrees with it.
+  //
+  // The baseline-regeneration workflow exports the SAME `CITYFIX_SEED_NOW`
+  // value, so the two sides agree by construction rather than by luck.
   webServer: {
     command: 'npm run dev:feat',
     url: 'http://localhost:3000',
@@ -128,6 +143,8 @@ export default defineConfig({
     env: {
       CITYFIX_DEV_STORE: '1',
       DEV_SKIP_WEBAUTHN: '1',
+      CITYFIX_SEED_NOW: process.env.CITYFIX_SEED_NOW ?? '2026-11-06T09:44:00.000Z',
+      TZ: 'Asia/Dhaka',
     },
   },
 

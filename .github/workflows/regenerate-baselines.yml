@@ -101,10 +101,22 @@ jobs:
         # `snapshotPathTemplate` in playwright.config.ts puts them
         # under `tests-mockups/baselines/<spec-file>/`, which is
         # exactly where the committed baselines live.
+        #
+        # `CITYFIX_SEED_NOW` freezes the dev server's clock. Without it
+        # every seeded timestamp moves with the wall clock, so the
+        # captured PNGs would embed the moment they were taken and the
+        # NEXT run would fail against them. The value here MUST match
+        # the one in `playwright.config.ts` — that is what makes a
+        # baseline reproducible rather than merely current.
+        #
+        # `TZ=Asia/Dhaka` pins the process timezone to the product's
+        # zone, so the clock and the render agree.
         if: inputs.scope == 'all' || inputs.scope == 'route-specs'
         env:
           CITYFIX_DEV_STORE: '1'
           DEV_SKIP_WEBAUTHN: '1'
+          CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
+          TZ: 'Asia/Dhaka'
           DATABASE_URL: 'postgresql://cityfix:cityfix@localhost:5432/cityfix'
           SESSION_SECRET: 'ci-placeholder-session-secret-not-a-real-credential'
           WEBAUTHN_RP_ID: 'localhost'

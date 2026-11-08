@@ -18,7 +18,15 @@ jobs:
   verify:
     name: Verify (lint, typecheck, unit, coverage, visual, build)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 25 minutes was enough for lint + typecheck + unit + coverage +
+    # the static mockup family + build. It is NOT enough now that the
+    # route specs run in CI: the 333 route specs take ~11 minutes on
+    # their own (they drive a live dev server, serially — `workers: 1`
+    # in playwright.config.ts — and each one screenshots a full page).
+    #
+    # 45 minutes leaves room for the build step and the slowest spec
+    # without turning a genuinely slow run into a hard timeout.
+    timeout-minutes: 45
 
     env:
       # The unit suite and the mockup suite both run against the
@@ -37,6 +45,24 @@ jobs:
       # the build step. `next build` sets its own NODE_ENV=production,
       # which is why the WebAuthn guard needs the https origin above.
       NEXT_TELEMETRY_DISABLED: '1'
+      # The route-spec suite drives the REAL app against the in-memory
+      # dev store, so it needs the same dev-store env vars the local
+      # `npm run dev:feat` uses, plus the dev-only WebAuthn seam
+      # (ADR-007 — the runner has no virtual authenticator).
+      #
+      # `CITYFIX_SEED_NOW` freezes the dev server's clock. Every
+      # seeded timestamp is derived from it, so the rendered pages are
+      # identical on every run and the committed visual baselines hold.
+      # Without the pin, the route specs could never pass: the baseline
+      # captured at 09:44 would be compared against a page rendered at
+      # 14:22, and the timestamp column alone would fail the diff.
+      # The value MUST match the one in
+      # `.github/workflows/regenerate-baselines.yml`.
+      #
+      # `TZ=Asia/Dhaka` pins the process timezone to the product's
+      # zone so the clock and the render agree.
+      CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
+      TZ: 'Asia/Dhaka'
 
     steps:
       - uses: actions/checkout@v4
@@ -93,6 +119,23 @@ jobs:
 
       - name: Visual regression (mockup baselines)
         run: npm run test:mockups
+
+      - name: Route specs
+        # The per-WO route specs drive the REAL app through a live dev
+        # server and assert the committed per-WO visual baselines.
+        #
+        # These were NOT running in CI before 2026-11-08 — the workflow
+        # only exercised the static mockup family — so 333 route specs
+        # (33 files) had never been executed by CI at all. That is how
+        # 61 stale assertions and a broken native-binding path went
+        # unnoticed. The step now runs them, and the env block above
+        # supplies the dev-store, WebAuthn-seam and pinned-clock vars
+        # they need.
+        #
+        # The mockup family is excluded because the step above already
+        # ran it (`test:mockups`) — running it twice would double the
+        # suite's wall time for no extra coverage.
+        run: npx playwright test --grep-invert 'CityFix mockup baselines'
 
       - name: Build
         run: npm run build

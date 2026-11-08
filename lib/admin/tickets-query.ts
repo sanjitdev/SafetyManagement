@@ -28,6 +28,7 @@
  */
 
 import { db, getTicketWithTrail } from '@/lib/db-switch';
+import { nowIso, nowMs } from '@/lib/format/clock';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import {
@@ -73,10 +74,19 @@ export function buildWhere(input: AdminTicketsQueryInput): {
   fromIso: string;
   toIso: string;
 } {
-  const toIso = input.to ?? new Date().toISOString();
+  /*
+   * The default window is computed from the PINNED clock, not the wall
+   * clock.
+   *
+   * This window decides WHICH ROWS APPEAR. The seed writes rows at
+   * fixed offsets from the pinned epoch, so a wall-clock window can
+   * include a different set of them on each run — and the rendered
+   * table, and any screenshot of it, changes with the clock.
+   */
+  const toIso = input.to ?? nowIso();
   const fromMs = input.from
     ? Date.parse(input.from)
-    : Date.now() - DEFAULT_FROM_DAYS * 86_400_000;
+    : nowMs() - DEFAULT_FROM_DAYS * 86_400_000;
   const fromIso = input.from ?? new Date(fromMs).toISOString();
 
   const where: WhereShape = {

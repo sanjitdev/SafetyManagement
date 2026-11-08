@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
@@ -61,11 +62,6 @@ interface DedupFlagRow {
   status: 'pending' | 'confirmed' | 'dismissed';
   ticket: TicketSummary | null;
   originalTicket: TicketSummary | null;
-}
-
-function formatTimestamp(iso: string, lang: Language): string {
-  const d = new Date(iso);
-  return d.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-GB');
 }
 
 function haversineMeters(

@@ -17,6 +17,7 @@ import { Fragment, useId } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { AuditEntryView } from '@/lib/admin/audit-query';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { formatTimestamp } from '@/lib/format/datetime';
 
 interface AdminAuditTableProps {
   entries: AuditEntryView[];
@@ -303,27 +304,11 @@ const tdStyle: React.CSSProperties = {
   verticalAlign: 'middle',
 };
 
-function formatTimestamp(iso: string, lang: Language): string {
-  try {
-    const d = new Date(iso);
-    if (lang === 'bn') {
-      // Use Bangla locale for month names; keep numeric date/time
-      return d.toLocaleString('bn-BD', {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    }
-    return d.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
+/*
+ * NOTE: this file used to define its OWN local `formatTimestamp`,
+ * duplicating `@/lib/format/datetime`. The local copy pinned the LOCALE
+ * but not the TIMEZONE, so the same instant rendered as a different
+ * clock time on a Dhaka server than on a UTC one — six hours apart. The
+ * shared helper pins both, so the audit table renders the city's clock
+ * everywhere and the visual baseline is reproducible across machines.
+ */

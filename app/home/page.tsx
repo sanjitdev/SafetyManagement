@@ -34,6 +34,8 @@ import {
   type StatusFilter,
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { formatDayLabel } from '@/lib/format/datetime';
+import { calendarDayInProductZone, todayInProductZone } from '@/lib/format/clock';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { StatusPill } from '@/components/ui/StatusPill';
@@ -666,13 +668,39 @@ function PlusIcon() {
 
 function HomeReportTrend({ tickets, lang }: { tickets: ActivityItem[]; lang: Language }) {
   const count = 7;
-  const today = new Date();
+  /*
+   * "Today" is read from the PINNED clock and in the PRODUCT timezone.
+   *
+   * Two things were wrong with `new Date()`:
+   *
+   *   1. The instant slides with the wall clock, so the axis labels
+   *      move every day and the visual baseline can never hold.
+   *   2. `new Date(y, m, d)` builds the day in the RUNTIME's local
+   *      calendar. On a UTC server "today in Dhaka" can be yesterday,
+   *      which shifts the whole window by one day and mis-buckets the
+   *      tickets that fall into it.
+   *
+   * `todayInProductZone()` reads the calendar day in Asia/Dhaka — the
+   * same zone the labels are rendered in — and `nowMs()` is the pinned
+   * clock, so the window is identical on every run and every machine.
+   */
+  const today = todayInProductZone();
   const days = Array.from({ length: count }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (count - index - 1));
-    return { date, total: 0, resolved: 0 };
+    const offset = count - index - 1;
+    const day = new Date(Date.UTC(today.year, today.month, today.day - offset, 12, 0, 0));
+    return { date: day, total: 0, resolved: 0 };
   });
   for (const ticket of tickets) {
-    const day = days.find((entry) => entry.date.toDateString() === new Date(ticket.createdAt).toDateString());
+    /*
+     * A ticket is bucketed by the DHAKA calendar day it was created
+     * on — the same frame of reference the axis labels use. Comparing
+     * raw UTC dates would put a ticket created at 18:30Z (which is
+     * already the NEXT day in Dhaka) into the wrong bucket.
+     */
+    const ticketDay = calendarDayInProductZone(ticket.createdAt);
+    const day = days.find(
+      (entry) => entry.date.toISOString().slice(0, 10) === ticketDay,
+    );
     if (day) {
       day.total += 1;
       if (ticket.status === 'resolved' || ticket.status === 'closed') day.resolved += 1;
@@ -689,7 +717,7 @@ function HomeReportTrend({ tickets, lang }: { tickets: ActivityItem[]; lang: Lan
         <path d={points} className="home-trend-line" />
         <path d={resolvedPoints} className="home-trend-line is-resolved" />
         {days.map((day, index) => <circle key={day.date.toISOString()} cx={30 + index * 80} cy={126 - (day.total / max) * 100} r="3.5" />)}
-        {days.map((day, index) => <text key={`label-${index}`} x={30 + index * 80} y="151" textAnchor="middle">{day.date.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', day: 'numeric' })}</text>)}
+        {days.map((day, index) => <text key={`label-${index}`} x={30 + index * 80} y="151" textAnchor="middle">{formatDayLabel(day.date.getUTCFullYear(), day.date.getUTCMonth(), day.date.getUTCDate(), lang)}</text>)}
       </svg>
     </div>
   );

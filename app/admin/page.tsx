@@ -16,6 +16,8 @@ import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatDayLabel } from '@/lib/format/datetime';
+import { todayInProductZone } from '@/lib/format/clock';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 
 const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), {
@@ -141,12 +143,22 @@ function metricFigure(metric: MetricDefinition, lang: Language) {
 }
 
 function TrendChart({ tickets, lang, days }: { tickets: SerializedTicket[]; lang: Language; days: number }) {
+  /*
+   * The axis window is read from the PINNED clock and the PRODUCT
+   * timezone.
+   *
+   * `new Date()` slid the window with the wall clock, so the labels
+   * moved every day and the visual baseline could never hold. And
+   * `new Date(y, m, d)` builds the day in the RUNTIME's calendar, so a
+   * UTC server could label "today in Dhaka" as yesterday — shifting the
+   * whole window by one day and mis-bucketing the tickets in it.
+   */
   const labels = useMemo(() => {
     const count = Math.min(days, 7);
-    const today = new Date();
+    const today = todayInProductZone();
     return Array.from({ length: count }, (_, index) => {
-      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - count + index + 1);
-      return date.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', day: 'numeric' });
+      const date = new Date(Date.UTC(today.year, today.month, today.day - count + index + 1, 12, 0, 0));
+      return formatDayLabel(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), lang);
     });
   }, [days, lang]);
   const series = [

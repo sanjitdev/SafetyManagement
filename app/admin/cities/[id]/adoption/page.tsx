@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { nowMs } from '@/lib/format/clock';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 
@@ -140,7 +141,12 @@ export default function AdminCityAdoptionPage() {
   }, [lang]);
 
   const rangeParams = useCallback((): string => {
-    const now = new Date();
+    /*
+     * "Now" comes from the PINNED clock, so the query window is the
+     * same on every run. With the wall clock the window slides and the
+     * adoption figures — and any screenshot of them — change with it.
+     */
+    const now = new Date(nowMs());
     const to = now.toISOString();
     if (range === 'custom') {
       const params = new URLSearchParams();
