@@ -259,7 +259,7 @@ ADR-007:229-234 said so itself:
 
 The durable fix is structural, not more rules: a `middleware.ts` baseline, a route-level checklist that runs in CI, and concurrency semantics the dev store actually models. A rule enforced by convention is a rule that decays.
 
-**As of 2026-11-08 that fix has been applied to the transition path**, and it is worth noting what the implementation turned out to require. A conditional write alone was not enough: the audit write had to be re-pointed at the transaction handle, the dev store's rollback had to be rewritten so it stopped erasing a concurrent winner's trail row, and the compare-and-swap had to be implemented in the dev store so CI could actually exercise it. Each of those is the same lesson — **the fix has to be structural, or it decays.** The concurrent ticket-field writes were fixed the same way later the same day, and the pattern to copy is now written down, tested and CI-enforced rather than described.
+**As of 2026-11-08 that fix has been applied to all five named scenarios**, and it is worth noting what the implementation turned out to require. A conditional write alone was not enough: the audit write had to be re-pointed at the transaction handle, the dev store's rollback had to be rewritten so it stopped erasing a concurrent winner's trail row, and the compare-and-swap had to be implemented in the dev store so CI could actually exercise it. Each of those is the same lesson — **the fix has to be structural, or it decays.** The concurrent ticket-field writes were fixed the same way later the same day, the duplicate-submission race by a nullable unique key, and the crew-capacity rule by a counting function the dev store could actually count against. The pattern to copy is now written down, tested and CI-enforced rather than described.
 
 ---
 
@@ -319,9 +319,9 @@ Four layers, each adding specialisation:
 
 **2. What is the production env?** `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` decide whether three Critical findings are theoretical or live. This is a one-minute check against the hosting dashboard, and it is the first thing to do.
 
-**3. What is the launch bar?** [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) records 172 items with a PASS / FAIL / NOT VERIFIED / NOT APPLICABLE status. On today's evidence it does not read "ready" — four Critical findings, a ticket-state integrity defect, and a blocked real-mode run stand in the way.
+**3. What is the launch bar?** [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) records 172 items with a PASS / FAIL / NOT VERIFIED / NOT APPLICABLE status. On today's evidence it does not read "ready" — four Critical findings and a blocked real-mode run stand in the way. The ticket-state integrity defect that this audit identified was the other blocker, and it was closed on 2026-11-08: all five named concurrency scenarios now have a guard and a CI-enforced regression test.
 
-**And one thing that is not a decision but an obligation.** The concurrency defect in `lib/platform/transitions.ts:48-86` requires no decision, no credentials and no rare condition — it needs two dispatchers doing their jobs at the same time, which the dashboard exists to make happen. It is also the cheapest thing on the list to fix, and the only one whose failure mode is a citizen being told something untrue about their own report.
+**And one thing that was not a decision but an obligation — now discharged.** The concurrency defect in `lib/platform/transitions.ts:48-86` required no decision, no credentials and no rare condition — it needed two dispatchers doing their jobs at the same time, which the dashboard exists to make happen. It was also the cheapest thing on the list to fix, and the only one whose failure mode was a citizen being told something untrue about their own report. It was closed on 2026-11-08, along with the other four named scenarios.
 
 ---
 

@@ -610,7 +610,7 @@ Two rendering caveats that can mislead, though neither is a placeholder:
 | **Whether the metric numbers are correct in production** | The computation paths were read and traced to their DB columns. No production dataset was available to sanity-check the arithmetic against |
 | **Metric query performance at city scale** | Trail-derived aggregates are per-ticket and unindexed by `toStatus`. At pilot volume this is fine; at city scale it is untested |
 | **Whether the seeded data biases the numbers** | The dev store seeds data with real timestamps, so the metrics are structurally correct — but their *values* on seeded data are not representative of real usage |
-| **The accuracy of the `routed`-to-`in_progress` median** | Derived from trail timestamps, which are written after the status update in a separate statement. Under the concurrency defects in Part A, a trail timestamp can postdate a status that was immediately overwritten — so this median is exposed to Part A's defect |
+| **The accuracy of the `routed`-to-`in_progress` median** | Derived from trail timestamps, which were written after the status update in a separate statement. **Under the concurrency defects in Part A, a trail timestamp could postdate a status that was immediately overwritten — so this median was exposed to Part A's defect.** That exposure is now closed: the status update, the trail insert and the audit write share one transaction, and a lost race rolls its own trail row back (see [A.2.1](#a21-scenario-2--resolved-2026-11-08)). The median is still unverified against production data, but it is no longer exposed to a corrupted trail |
 
 ---
 

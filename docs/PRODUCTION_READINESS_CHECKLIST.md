@@ -1,8 +1,8 @@
 # CityFix — Production Readiness Checklist
 
 **Audit date:** 2026-11-08
-**Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+; the concurrency rows re-verified at `8c0c04e`+
-**Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 5 High blockers, plus a ticket-state integrity defect that can make the citizen-facing status trail contradict reality.
+**Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+; the concurrency rows re-verified at `da9f542`+
+**Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 4 High blockers. The ticket-state integrity defect that could make the citizen-facing status trail contradict reality is **closed**; the remaining blockers are configuration-reachable auth defects and operations that have never been exercised against real infrastructure.
 
 **Status legend**
 
@@ -81,7 +81,7 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 
 ### Tests executed and results
 
-**All executed locally on 2026-11-08.** The most recent green CI run is `42477753107` on `8c0c04e` (12/12 steps).
+**All executed locally on 2026-11-08.** The most recent green CI run is `42480698041` on `da9f542` (12/12 steps).
 
 | Check | Command | Result |
 |---|---|---|
@@ -90,8 +90,8 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 | Unit tests | `npm run test:unit` | ✅ **109 files / 1,939 tests passed**, ~28 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 83.08% branches / 93.66% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
-| Visual regression | CI run `42477753107` | ✅ 25/25 baselines |
-| Full pipeline | CI run `42477753107` | ✅ 12/12 steps green |
+| Visual regression | CI run `42480698041` | ✅ 25/25 baselines |
+| Full pipeline | CI run `42480698041` | ✅ 12/12 steps green |
 
 **Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write, dedup and crew-capacity suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
 
@@ -340,7 +340,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
 | 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
 | 9.3 | Coverage exceeds the floor | ✅ | 92.59% lines / 83.08% branches / 93.66% functions — **re-measured** after the crew-capacity work |
-| 9.4 | The CI pipeline is green | ✅ | Run `42477753107` on `8c0c04e` — 12/12 steps |
+| 9.4 | The CI pipeline is green | ✅ | Run `42480698041` on `da9f542` — 12/12 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | 34 specs — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
 | 9.7 | The route specs run in CI | ❌ | CI runs the unit suite and the mockup baselines, **not** the route specs |
@@ -348,7 +348,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.10 | A test exists for the OTP attempt limit | ❌ | The limit is dead code, so there is nothing to test — **but a test should exist and fail** |
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
-| 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write and submit paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, and `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct). Three concurrency suites exercise them in CI. Crew capacity still has no dev-store guard to exercise, and `ticketPhoto.create`'s push-then-sort is still unsafe |
+| 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write, submit and crew-capacity paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct), and `devDb.ticket.findMany` filters on `assignedCrewId` with Prisma's NULL semantics so the capacity count is real. Four concurrency suites exercise them in CI. `ticketPhoto.create`'s push-then-sort is still unsafe — that one is a photo-ordering question, not a race guard |
 | 9.14 | The test suite runs against a live database | ❠️ | No database-backed CI job |
 | 9.15 | Load testing has been performed | ⚠️ | No load test was run or is defined |
 | 9.16 | WebAuthn is exercised against real hardware | ⚠️ | No authenticator was available; attestation, assertion and counter-clone detection were read, not executed |
