@@ -16,13 +16,16 @@
 | Coverage — branches | **83.08%** | 80% | ✅ |
 | Coverage — functions | **93.66%** | 80% | ✅ |
 | Coverage — statements | **92.59%** | 80% | ✅ |
-| Playwright route specs | 34 | — | — |
+| Playwright route specs | 33 files / **333 specs** | — | ✅ |
+| Mockup visual baselines | 25 | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
 | ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
 | CI pipeline | 12/12 steps green | all green | ✅ |
 
 **All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42480698041` on commit `da9f542`.
+
+**The route specs were executed for the first time on 2026-11-08.** They had never been run as a suite — the pipeline did not include them, and the audit recorded them as *"not executed"*. See §2.2 for the result and §6 for what the run exposed.
 
 ---
 
@@ -58,21 +61,53 @@ All six were **verified non-vacuous**. Neutering the compare-and-swap — forcin
 
 **Command:** `npm test`
 **Config:** `playwright.config.ts`
-**Location:** `tests/*.spec.ts` (34 files)
+**Location:** `tests/*.spec.ts` — **33 route-spec files / 333 specs**, plus `tests/01-mockups.spec.ts` (the mockup family, §2.3), for **34 files** under `npm test`
 **Web server:** `npm run dev:feat` on `http://localhost:3000`, with `CITYFIX_DEV_STORE=1` and `DEV_SKIP_WEBAUTHN=1`
+**Result:** **321 passed / 35 failed / 2 skipped**, 14.4 min, `workers: 1`, `fullyParallel: false`
 
 The route specs walk the four personas through the real app: `02-live-audit`, `03-authenticated-flow`, `04-e2e-human-tester`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough`, `30-role-redirect`, `31-post-auth-target`.
 
 `testMatch: '*.spec.ts'` scopes the sweep to the top-level route specs. Without it, Playwright would try to run the Vitest files one directory deeper and fail with *"Vitest cannot be imported in a CommonJS module using require()"* — this is a live trap, not a hypothetical.
 
-### 2.3 Visual regression — Playwright mockup baselines
+#### The first execution, and what it exposed
 
-**Command:** `npm run test:mockups`
-**Location:** `tests-mockups/baselines/01-mockups.spec.ts/` (25 committed PNGs)
-**Tolerance:** `maxDiffPixelRatio: 0.01`
+The suite had never been run as a whole. The first full execution produced **61 failures**. Every one was triaged, and the causes fell into six classes — **two of them were product defects**, not test defects:
+
+| # | Root cause | Kind | Fix |
+|---|---|---|---|
+| 1 | The dev store is **one in-memory DB that lives for the dev-server process**, not for a Playwright run. Coordinate bands separate spec *files* from each other but not two *runs* of the same file, so a second run hit the first run's 50 m dedup radius and got a 200 `dedup_match` instead of a 201 | Test infrastructure | `resetDevStore()` added to the shared fixtures and wired into every spec that asserts exact counts (`11`, `12`, `18`, `19`, `21`) |
+| 2 | The dev store seeded **only `ward_14`**, so the dispatcher's out-of-scope path (404, not 403) was unreachable — `POST /api/tickets` rejects an unknown ward with 400 `ward_not_in_city` | **Product / testability** | `ward_15` seeded in `lib/dev-store.ts` |
+| 3 | `serializeTicketForRole` **dropped `closeReason`/`duplicateOfId` for every role**, so DISP-006's documented dedup-confirm contract could not be asserted at all | **Product** | Both exposed on the staff branch only — workflow state, not citizen PII |
+| 4 | `24-feed-photo-thumbnail` used a random ±0.002° jitter (~222 m) against a **50 m** dedup radius — roughly a 20% spurious `dedup_match` chance per run | Test defect | Replaced with the deterministic band generator |
+| 5 | The crew cannot move `routed → in_progress` through the **dispatcher** route (that route is `requireRole('dispatcher')`); `11-dispatcher-detail` posted a crew session there and expected 200 | Test defect | The helper now routes, assigns the crew, then transitions via `/api/v1/crew/tickets/[id]/transition` |
+| 6 | The citizen compact header stripped the **top-bar Report CTA** that WO-001 lists as a required acceptance item; MapLibre's unthemed control chrome rendered near-white boxes on the dark surface | **Product** | Header rule scoped to `[data-role="staff"]`; MapLibre controls themed under `.theme-dark` |
+
+Two further spec corrections were **stale assertions**, not defects: `19-admin-tickets` asserted 5 seed tickets and 2 streetlight tickets where the seed carries **10** and **6**, and `21-dispatcher-crew-picker` expected the full ward roster where the picker has always been department-scoped.
+
+#### The remaining 35 failures are all stale visual baselines
+
+After the fixes above, every remaining failure is a **visual-baseline mismatch** — 8 in the `01-mockups` family and 27 across the route-spec families (`05-`, `06-`, `07-`, `08-`, `10-`, `13-`, `14-`, `17-`, `18-`, `19-`, `20-`, `21-`). Two of those route-spec directories (`11-`, `12-`) had **no committed baselines at all** — their specs had never captured one.
+
+**There is no functional failure left in the route-spec suite.** The baselines are refreshed through `gh workflow run regenerate-baselines.yml`, which now covers **both** baseline families — it previously handled only the static mockups. The refreshed PNGs are produced on `ubuntu-latest`, the platform that asserts on them, and must never be regenerated by hand on a dev machine. See §2.3 for why.
+
+#### One environment trap worth knowing
+
+`webServer.env` reaches only the **server** process. `reuseExistingServer: !process.env.CI` means a manually-started dev server is reused **without** those variables — so `DEV_SKIP_WEBAUTHN=1` was silently absent and every admin write returned 401 `webauthn_required`. That is an **environment artifact, not a code defect**. When a spec fails on an auth gate, check whether the server was started by Playwright or by hand.
+
+### 2.3 Visual regression — Playwright baselines
+
+**Command:** `npm run test:mockups` (mockup family), `npm test` (route-spec family)
+**Location:** `tests-mockups/baselines/` — 25 mockup PNGs under `01-mockups.spec.ts/`, plus one directory per route-spec family that captures a baseline
+**Tolerance:** `maxDiffPixelRatio: 0.01` (mockups), `0.005` (route specs)
 **Source:** `design-artifacts/D-Design-System/01-Visual-Design/mockups/` (12 static HTML mockups)
 
 12 mockups × viewport combinations = 25 baselines. The web-first platform captures mockups 01–04 at both 1440×900 and 1024×768; Rashid's mockups 06–07 additionally capture the 390×844 phone fallback.
+
+#### The route-spec baseline family
+
+The route specs capture **16 baseline directories** under `tests-mockups/baselines/` — one per spec file that asserts a screenshot. Each is a real app route driven through a live dev server, not a static HTML mockup, and each is platform-dependent in the same way (the Noto Sans Bengali webfont rasterises differently on Windows and Linux).
+
+Two families were discovered to have **no committed baselines at all** when the route specs were first executed: `11-dispatcher-detail-light.spec.ts` and `12-dispatcher-dedup-light.spec.ts`. Their specs had never captured one, so they could never have passed. The regenerated workflow's `route-specs` scope now covers them.
 
 | Mockup | 1440 | 1024 | 390 | Persona |
 |---|:---:|:---:|:---:|---|
@@ -100,13 +135,18 @@ Chromium rasterises the Noto Sans Bengali webfont (loaded from Google Fonts) dif
 ```bash
 gh workflow run regenerate-baselines.yml
 gh run download              # artifact: refreshed-baselines
-cp refreshed-baselines/*.png tests-mockups/baselines/01-mockups.spec.ts/
+cp -r refreshed-baselines/* tests-mockups/baselines/
 git add tests-mockups/baselines/
 ```
 
-Do **not** use `npm run test:update-baselines` for the committed set.
+The workflow has a `scope` input — `all` (default), `mockups`, or `route-specs`:
 
-**When the local suite fails on Windows or macOS against the CI-generated baselines, that is expected.** It is the platform difference, not a regression. Trust CI. Before assuming a real regression, compare the CI "actual" PNG against the baseline PNG in the uploaded `mockup-diffs` artifact.
+- **`mockups`** runs `npm run test:update-baselines` for the 25 static mockup baselines, then re-runs `npm run test:mockups` as a **stability check** — a second pass must be pixel-clean, or the mockup is not deterministic and the refreshed baseline would be flaky on every CI run.
+- **`route-specs`** runs `npx playwright test --update-snapshots` with the dev-store env vars (`CITYFIX_DEV_STORE=1`, `DEV_SKIP_WEBAUTHN=1`), driving the **real app** through a live dev server. `snapshotPathTemplate` in `playwright.config.ts` writes the refreshed PNGs under `tests-mockups/baselines/<spec-file>/` — exactly where the committed baselines live.
+
+Both families are platform-dependent in the same way, so `all` refreshes both. The artifact also carries a `mockup-diffs` folder holding the diff PNGs, uploaded `if: always()` so a failure is diagnosable from the image rather than guessed at from the error message.
+
+Do **not** use `npm run test:update-baselines` for the committed set, and do **not** hand-edit a PNG.
 
 #### Stale baselines are the more common cause
 
@@ -219,6 +259,8 @@ The 56 (now 61) route files are thin HTTP boundary adapters: parse, delegate, se
 
 **Step 12 always uploads**, so a baseline failure can be diagnosed from the diff PNG rather than guessed at from the error message. CI's "actual" PNG is the reference for what the mockups look like on the asserting platform.
 
+**CI does not run the route specs.** The 333 route specs need a live dev server and a per-test coordinate space; running them in the pipeline is an open item (checklist row 9.7 stays ❌). They are executed locally against `npm run dev:feat` — see §2.2.
+
 ### The Node 22 requirement
 
 CI runs **Node 22**, not 20. `jsdom@30` pulls `undici@8`, whose `engines.node` is `>=22.19.0`. Undici's decompress interceptor calls `zlib.constants.ZSTD_d_windowLogMax`, which only exists from Node 22.15 / 23.8 (Zstd support in `node:zlib`). On Node 20 that constant is `undefined`, so the module throws `TypeError: Cannot read properties of undefined (reading 'bind')` at import time — the whole Vitest suite dies with 16 unhandled errors.
@@ -229,16 +271,20 @@ That failure was invisible locally (the dev machine runs Node 24) and CI was red
 
 ### The baseline regeneration workflow
 
-`.github/workflows/regenerate-baselines.yml` — `workflow_dispatch`, `ubuntu-latest`, 20-minute timeout.
+`.github/workflows/regenerate-baselines.yml` — `workflow_dispatch`, `ubuntu-latest`, 30-minute timeout, with a `scope` input (`all` | `mockups` | `route-specs`).
 
 ```
 checkout → setup-node (22) → npm ci → playwright install
-  → npm run test:update-baselines
-  → npm run test:mockups        ← stability check
+  → npm run test:update-baselines        ← mockup family
+  → npm run test:mockups                 ← stability check (must be pixel-clean)
+  → npx playwright test --update-snapshots  ← route-spec family
   → upload refreshed-baselines (14-day retention)
+  → upload mockup-diffs (if: always())
 ```
 
 The second pass **must be pixel-clean**. If it is not, the mockup is not deterministic (a live clock, an animation), and the refreshed baseline would be flaky on every CI run.
+
+This workflow was extended on 2026-11-08 to cover the **route-spec** baseline family. It previously handled only the 25 static mockup baselines, which left the route-spec PNGs with no supported refresh path at all.
 
 ---
 
@@ -259,6 +305,8 @@ The second pass **must be pixel-clean**. If it is not, the mockup is not determi
 | 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`), the concurrent field writes too (`tests/unit/writes-concurrency.test.ts`), the duplicate-submission race (`tests/unit/dedup-concurrency.test.ts`) and the crew-capacity rule (`tests/unit/dispatcher/crew-capacity.test.ts`) — but all against the dev store's guard, never against a real Postgres under concurrent load |
 | 12 | No concurrency test for crew capacity | **Closed 2026-11-08** | Duplicate submission was in this gap and was closed first (`tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts`); crew capacity was closed last (`tests/unit/dispatcher/crew-capacity.test.ts`, 14 tests). Both are now covered against the real dev store |
 | 13 | Photo ordering within a Postgres timestamp window is arbitrary | Low | Two photos uploaded in the same timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. A schema question (a `slot` column or a deterministic tiebreak), not a race guard |
+| 14 | The route specs do not run in CI | Medium | The 333 route specs are executed locally against a live dev server, not in the pipeline. A regression that only breaks a persona's end-to-end path can reach `main` without any gate failing. The blocker is the dev server's lifecycle inside CI plus the per-test coordinate isolation the dev store still lacks |
+| 15 | The route specs had never been executed | **Closed 2026-11-08** | The suite existed but had never been run as a whole — the pipeline did not include it and the audit recorded it as *"not executed"*. The first full run produced **61 failures** and exposed two product defects (a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA). All functional failures are now closed; see §2.2 |
 
 **Gaps 3, 4 and 5 share a root cause:** the suite asserts the code's actual behaviour. Where the code diverges from the ADR, the suite is green. This is the same class of miss ADR-007:229-234 predicted — a convention that is not enforced by a mechanism.
 
@@ -278,16 +326,32 @@ npm run test:unit:coverage
 # Route specs (boots the dev server automatically)
 npm test
 
+# Route specs in a Linux container — the closest thing to the CI
+# platform, and the only way to reproduce CI's rasterisation locally
+bash scripts/run-specs-in-container.sh
+
 # Visual regression only
 npm run test:mockups
 
 # Refresh baselines — IN CI, never locally
-gh workflow run regenerate-baselines.yml
+gh workflow run regenerate-baselines.yml -f scope=all
 gh run download
 
 # HTML report
 npm run test:report
 ```
+
+### Running the route specs on Windows
+
+The suite boots its own dev server when none is listening on port 3000. If you already have one running, Playwright **reuses it** — and a hand-started server will not carry `CITYFIX_DEV_STORE=1` or `DEV_SKIP_WEBAUTHN=1`, which are set in `webServer.env` and reach only the server Playwright starts. The symptom is admin-write specs failing with `401 webauthn_required`.
+
+To run against a hand-started server, start it with the same variables:
+
+```bash
+CITYFIX_DEV_STORE=1 DEV_SKIP_WEBAUTHN=1 npm run dev:feat
+```
+
+The suite runs `workers: 1` and `fullyParallel: false`. The dev store is a single in-memory database shared by every spec in the run, so the specs that assert exact counts reset it first (`resetDevStore()` in `tests/helpers/fixtures.ts`).
 
 ### The project's Construction Verification Command
 

@@ -10,6 +10,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The route specs were executed for the first time — 2026-11-08**
+
+The 333 route specs across 33 files had never been run as a suite: the CI pipeline did not include them, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**. All are now closed. What the run exposed:
+
+- `tests/helpers/fixtures.ts` — **new**. The shared fixture helpers, including `resetDevStore()` and the deterministic coordinate-band generator.
+- `.github/workflows/regenerate-baselines.yml` — **extended** to cover the route-spec baseline family. It previously handled only the 25 static mockup baselines, which left the route-spec PNGs with no supported refresh path. A `scope` input (`all` | `mockups` | `route-specs`) selects the family; the route-spec branch runs `npx playwright test --update-snapshots` against a live dev server with the dev-store env vars.
+- `scripts/run-specs-in-container.sh` — **new**. Runs the route specs in a Linux container, the closest local approximation of CI's rasterisation.
+- `prisma/schema.prisma` — `binaryTargets = ["native", "debian-openssl-3.0.x"]`. `native` alone resolves to the platform the client was *generated* on, so a `node_modules` produced on Windows fails on Linux with *"could not locate the Query Engine for runtime debian-openssl-3.0.x"*. One `prisma generate` now emits both engines.
+
 **The crew capacity rule — 2026-11-08**
 
 - `lib/dispatcher/crew-capacity.ts` — **new**. The 5-active-ticket limit in one place, with the counting functions the picker and the assign service both read.
@@ -36,6 +45,31 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 61 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
+
+**The 61 route-spec failures — 2026-11-08.** The first execution of the route-spec suite. Every failure was triaged; two were **product defects**, two were **test-infrastructure gaps**, and two were **stale assertions**.
+
+*Product defects:*
+
+- **`lib/serializers/ticket.ts`** — `serializeTicketForRole` dropped `closeReason` and `duplicateOfId` for **every** role, so DISP-006's documented dedup-confirm contract (`closeReason: 'duplicate'`, `duplicateOfId: <original>`) could not be asserted at all. Both are now exposed on the **staff branch only** — they are workflow state, not citizen PII, and there is no citizen surface for a duplicate closure yet.
+- **`app/globals.css`** — the citizen compact header stripped the **top-bar Report CTA**, which WO-001 lists as a required acceptance item and the 1.6 Home spec mandates at every viewport. The rule was authored for the staff workspace but written against `data-compact` alone, and the citizen routes are compact too. It is now scoped to `[data-role="staff"]`. The same commit themes MapLibre's control chrome under `.theme-dark`, which rendered near-white boxes on the dark surface and failed the dark-theme gate.
+
+*Test-infrastructure gaps:*
+
+- **`lib/dev-store.ts`** — the dev store seeded **only `ward_14`**, so the dispatcher's out-of-scope path (404, not 403) was unreachable: `POST /api/tickets` rejects an unknown ward with 400 `ward_not_in_city`. `ward_15` is now seeded.
+- **`tests/helpers/fixtures.ts`** — the dev store is **one in-memory DB that lives for the dev-server process**, not for a Playwright run. Coordinate bands separate spec *files* from each other but not two *runs* of the same file, so a second run hit the first run's 50 m dedup radius and got a 200 `dedup_match` instead of a 201. `resetDevStore()` is now available and wired into every spec that asserts exact counts (`11`, `12`, `18`, `19`, `21`).
+
+*Stale assertions:*
+
+- `tests/24-feed-photo-thumbnail.spec.ts` used a random ±0.002° jitter (~222 m) against a **50 m** dedup radius — roughly a 20% spurious `dedup_match` chance per run. Now uses the deterministic band generator.
+- `tests/19-admin-tickets-light.spec.ts` asserted 5 seed tickets and 2 streetlight tickets where the seed carries **10** and **6**. Corrected, with the id lists.
+- `tests/21-dispatcher-crew-picker.spec.ts` expected the full ward roster where the picker has always been **department-scoped** — Karim is in `dept_roads` and the ticket is a streetlight report, so he is correctly not offered.
+- `tests/11-dispatcher-detail-light.spec.ts` posted a crew session to the **dispatcher** transition route, which is `requireRole('dispatcher')` — the crew route owns `routed → in_progress`. The helper now routes, assigns the crew, then transitions via `/api/v1/crew/tickets/[id]/transition`.
+
+*Also fixed:*
+
+- `tests/02-live-audit.spec.ts` asserted the old teal dark-mode primary (`rgb(20, 184, 166)`); the 2026-11-04 shell rebuild moved it to the blue ramp (`rgb(96, 165, 250)`).
+- `tests/09-dispatcher-auth.spec.ts` asserted a relative `Location` header; `NextResponse.redirect()` requires an absolute URL, so the assertion now reads the pathname.
+- `app/page.tsx` — `?landing=1` forces the real public landing in dev-store mode. The dev demo page shadowed it, and the landing's "Log in" CTA is load-bearing for `tests/31-post-auth-target`.
 
 **The concurrent ticket-field writes — 2026-11-08, after the audit was delivered.**
 

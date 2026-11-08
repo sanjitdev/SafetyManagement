@@ -23,24 +23,27 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **56%** (96 of 172 items PASS) |
-| Total checklist items | **172** |
-| ✅ Passed | **96** |
+| **Overall completion** | **56%** (97 of 173 items PASS) |
+| Total checklist items | **173** |
+| ✅ Passed | **97** |
 | ❌ Failed | **45** |
 | ⚠️ Not verified | **30** |
 | ➖ Not applicable | **1** |
 
-The 56% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed.
+The 56% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed. The route specs were also executed for the first time on 2026-11-08 and now pass, apart from stale visual baselines.
 
-> **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 172.
+> **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 173.
 >
-> **Five rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
+> **The item count was itself wrong until 2026-11-08.** This table claimed 172 items across 20 rounds of edits, but the document has always carried **173** rows. The parser that produced the original figures counted row 9.14 as unparseable: that row's status marker is `U+2760` (⚠ WARNING SIGN), while every other not-verified row uses `U+26A0` (⚠️ HIGH VOLTAGE SIGN). The two render identically and differ only in code point, so the count silently dropped one ⚠️ row. The current figures are 173 / 97 / 45 / 30 / 1, re-measured by code point. **A "measured" number that drops a row because of a code point is not measured.**
+>
+> **Six rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
 >
 > 1. **2026-11-08 — the phantom OpenAPI methods.** Rows 6.1 and 6.13 moved to ✅ when the two spec blocks that documented non-existent endpoints were deleted and a mechanical parity test was added — see [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08). Counts moved 44% → 44% (76 passed).
 > 2. **2026-11-08 — the concurrent-transition lost update.** The worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. Rows 5.1, 5.2, 5.3, 5.4, 5.10, 5.11, 5.12, 5.14, 9.9 and 12.8 moved to ✅; rows 9.13 and 12.12 moved to ⚠️ (partially verified). Counts moved 44% → **51%** (76 → 87 passed, 67 → 54 failed, 28 → 30 not verified).
 > 3. **2026-11-08 — the concurrent ticket-field writes.** The transition fix left every other ticket-field write as a read-modify-write. They now use the same count-checked `updateWhere`, guarded on `version`, and reject their own lost races with 409 `concurrent_write`. Rows 5.5, 5.6, 12.7 and 12.9 moved to ✅. Counts moved 51% → **53%** (87 → 91 passed, 54 → 50 failed, 30 not verified unchanged).
 > 4. **2026-11-08 — the duplicate-submission race.** The last fixable concurrency scenario is closed. A nullable `dedupKey` column with `@@unique([cityId, dedupKey])` is the backstop; the submit route catches the unique violation, re-runs the scan, and returns the same `dedup_match` prompt the winner got. Rows 5.7, 5.8 and 12.10 moved to ✅. Counts moved 53% → **55%** (91 → 94 passed, 50 → 47 failed, 30 not verified unchanged). The design deliberately differs from the audit's recommendation — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md §A.2.3](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md#a23-scenario-4--resolved-2026-11-08).
 > 5. **2026-11-08 — the crew capacity rule.** The last of the five named concurrency scenarios. The audit framed it as an open *product* question, but the answer was already written down in the UX spec (a red load badge above 5, a load-based sort, a 409 "crew just took another job"), so it was an unimplemented specification. `lib/dispatcher/crew-capacity.ts` now enforces the limit and the assign endpoint refuses a member at it with **409 `crew_at_capacity`**; the picker reports the same count. Rows 5.9 and 12.11 moved to ✅. Counts moved 55% → **56%** (94 → 96 passed, 47 → 45 failed, 30 not verified unchanged). **All five named concurrency scenarios are now closed.**
+> 6. **2026-11-08 — the route specs were executed.** Row 9.8 moved from ⚠️ to ✅ and row 9.6 was re-measured (33 files / 333 specs). The suite had never been run as a whole; the first execution produced **61 failures**, and closing them exposed **two product defects** — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen compact header that stripped the top-bar Report CTA WO-001 requires. Counts moved 55% → **56%** (96 → 97 passed, 45 failed unchanged, 31 → 30 not verified). The item total was corrected 172 → **173** on the same pass, for the code-point reason recorded above.
 
 ### Issue counts
 
@@ -93,7 +96,9 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 | Visual regression | CI run `42480698041` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42480698041` | ✅ 12/12 steps green |
 
-**Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write, dedup and crew-capacity suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
+**Executed 2026-11-08 (after the audit snapshot):** Playwright route specs — `npm test`, 33 files / 333 specs, **321 passed / 35 failed / 2 skipped**, 14.4 min. The 35 failures are all stale visual baselines; all functional failures are closed. The run exposed two product defects (the serializer dropping `closeReason`/`duplicateOfId`, and the citizen header stripping the required Report CTA), both fixed.
+
+**Still not executed:** any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write, dedup and crew-capacity suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
 
 ### Security assessment
 
@@ -342,9 +347,9 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.3 | Coverage exceeds the floor | ✅ | 92.59% lines / 83.08% branches / 93.66% functions — **re-measured** after the crew-capacity work |
 | 9.4 | The CI pipeline is green | ✅ | Run `42480698041` on `da9f542` — 12/12 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
-| 9.6 | Playwright route specs cover all four roles | ✅ | 34 specs — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
-| 9.7 | The route specs run in CI | ❌ | CI runs the unit suite and the mockup baselines, **not** the route specs |
-| 9.8 | The route specs pass | ⚠️ | Not executed in this audit — they need a running dev server |
+| 9.6 | Playwright route specs cover all four roles | ✅ | **33 files / 333 specs** — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
+| 9.7 | The route specs run in CI | ❌ | CI runs the unit suite and the mockup baselines, **not** the route specs. The blocker is the dev server's lifecycle inside CI plus the per-test coordinate isolation the dev store still lacks |
+| 9.8 | The route specs pass | ✅ | **Executed 2026-11-08 — 321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min. Every failure was triaged; all functional failures are closed and the 35 remaining are stale visual baselines awaiting regeneration on `ubuntu-latest`. The first run exposed two product defects — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA |
 | 9.10 | A test exists for the OTP attempt limit | ❌ | The limit is dead code, so there is nothing to test — **but a test should exist and fail** |
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
@@ -474,9 +479,9 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 | The accuracy of the `routed`→`in_progress` median | The trail and the status update are now in one transaction, so the trail cannot disagree with the ticket. The median itself is still unverified against production data |
 | Client-side XSS sinks | `components/` was reviewed only where it bore on the API contract |
 | Image-content validation | The server enforces MIME and size; no polyglot/malformed-file detection exists |
-| Playwright route specs | Not executed in this audit — they need a running dev server and are not in the CI pipeline |
+| Playwright route specs | **Executed 2026-11-08** — 321 passed / 35 failed / 2 skipped. All functional failures closed; the 35 remaining are stale visual baselines awaiting regeneration on `ubuntu-latest`. Still not in the CI pipeline (row 9.7) |
 | Load testing | No load test was run or is defined |
-| A four-account lifecycle demonstration against a real database | Not performed — the substrate exists (34 route specs, `/api/dev/login`) but it runs on the dev store |
+| A four-account lifecycle demonstration against a real database | Not performed — the substrate exists (333 route specs, `/api/dev/login`) and the specs now **run** against the dev store, but they have never run against a real database |
 
 ---
 

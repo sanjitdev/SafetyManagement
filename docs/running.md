@@ -184,6 +184,37 @@ All scripts are defined in `package.json`.
 > `regenerate-baselines.yml` workflow instead. See
 > [TESTING_REPORT.md §2.3](TESTING_REPORT.md#23-visual-regression--playwright-mockup-baselines).
 
+### Running the route specs
+
+`npm test` runs **34 files** — 33 route-spec files (333 specs) plus the
+mockup family. It boots its own dev server when nothing is listening on
+port 3000.
+
+If you already have a dev server running, Playwright **reuses it** — and a
+hand-started server will not carry `CITYFIX_DEV_STORE=1` or
+`DEV_SKIP_WEBAUTHN=1`, which live in `webServer.env` and reach only the
+server Playwright starts. The symptom is admin-write specs failing with
+`401 webauthn_required`. Start the server with the same variables:
+
+```sh
+CITYFIX_DEV_STORE=1 DEV_SKIP_WEBAUTHN=1 npm run dev:feat
+```
+
+To run against a Linux container — the closest local approximation of CI's
+rasterisation, and the way to reproduce a CI-only baseline failure:
+
+```sh
+bash scripts/run-specs-in-container.sh
+```
+
+The route-spec baselines are refreshed by the same workflow as the mockup
+ones, with a `scope` input:
+
+```sh
+gh workflow run regenerate-baselines.yml -f scope=route-specs
+gh run download
+```
+
 ---
 
 ## Dev login shortcut

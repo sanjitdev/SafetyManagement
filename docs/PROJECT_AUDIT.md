@@ -129,7 +129,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Migrations | 5 |
 | i18n keys | 957 |
 | Unit test files | 109 (**1,939 tests**) |
-| Playwright route specs | 34 |
+| Playwright route specs | 33 files / **333 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
 | ADRs | 2 (`ADR-007`, `ADR-016`) |
@@ -195,8 +195,16 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 
 | Check | Run | Result |
 |---|---|---|
-| Full pipeline | `42471075111` on `e32147e` | ✅ **12/12 steps green** — lint, typecheck, unit, coverage, visual regression, build |
+| Full pipeline | `42500176127` on `d895242` | ✅ **12/12 steps green** — lint, typecheck, unit, coverage, visual regression, build |
 | Visual regression | Same run | ✅ 25/25 baselines |
+
+### Executed locally after the audit snapshot
+
+| Check | Command | Result |
+|---|---|---|
+| Playwright route specs | `npm test` | ✅ **321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min |
+
+The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 remaining are stale visual baselines, refreshed on `ubuntu-latest` via `gh workflow run regenerate-baselines.yml`.
 
 ### What could not be verified
 
@@ -319,7 +327,7 @@ Four layers, each adding specialisation:
 
 **2. What is the production env?** `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` decide whether three Critical findings are theoretical or live. This is a one-minute check against the hosting dashboard, and it is the first thing to do.
 
-**3. What is the launch bar?** [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) records 172 items with a PASS / FAIL / NOT VERIFIED / NOT APPLICABLE status. On today's evidence it does not read "ready" — four Critical findings and a blocked real-mode run stand in the way. The ticket-state integrity defect that this audit identified was the other blocker, and it was closed on 2026-11-08: all five named concurrency scenarios now have a guard and a CI-enforced regression test.
+**3. What is the launch bar?** [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) records 173 items with a PASS / FAIL / NOT VERIFIED / NOT APPLICABLE status. On today's evidence it does not read "ready" — four Critical findings and a blocked real-mode run stand in the way. The ticket-state integrity defect that this audit identified was the other blocker, and it was closed on 2026-11-08: all five named concurrency scenarios now have a guard and a CI-enforced regression test.
 
 **And one thing that was not a decision but an obligation — now discharged.** The concurrency defect in `lib/platform/transitions.ts:48-86` required no decision, no credentials and no rare condition — it needed two dispatchers doing their jobs at the same time, which the dashboard exists to make happen. It was also the cheapest thing on the list to fix, and the only one whose failure mode was a citizen being told something untrue about their own report. It was closed on 2026-11-08, along with the other four named scenarios.
 
