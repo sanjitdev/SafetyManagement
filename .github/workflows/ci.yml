@@ -43,7 +43,31 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 22 LTS — NOT 20.
+          #
+          # WHY: `jsdom@30` pulls `undici@8`, whose `engines.node` is
+          # `>=22.19.0`. undici's decompress interceptor calls
+          # `zlib.constants.ZSTD_d_windowLogMax`, which only exists from
+          # Node 22.15 / 23.8 (Zstd support in `node:zlib`). On Node 20
+          # that constant is `undefined`, so the module throws
+          # `TypeError: Cannot read properties of undefined (reading 'bind')`
+          # at import time — the whole Vitest suite dies with 16
+          # unhandled errors and the Unit step fails.
+          #
+          # That failure was invisible locally: the dev machine runs
+          # Node 24, where the constant is present and the suite is
+          # green (101 files / 1835 tests). CI was red on every run
+          # from 2026-10-29 until this bump, which also meant the
+          # coverage floor and the visual-regression gate below were
+          # being SKIPPED, because they run after the unit step.
+          #
+          # `engines.node` in package.json stays `>=20.0.0` because
+          # that is the RUNTIME floor for the deployed app (Vercel
+          # Node 20). The dev dependency on jsdom — and therefore
+          # undici — is a TEST-time requirement only, and it is stricter
+          # than the runtime floor. If the runtime floor is ever raised,
+          # raise this pin in the same commit.
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
