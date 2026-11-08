@@ -21,6 +21,9 @@ cf-cookies.txt
 tests-mockups/artifacts/
 tests-mockups/artifacts/**
 tests-mockups/html-report/
+# Diff images copied out of the container by the two-baseline diagnostic
+# (scripts/run-two-baseline-diag.sh) — a debugging aid, not a deliverable.
+tests-mockups/diffs/
 
 # Per-run UI audit captures. Each spec (02-live-audit, 03-authenticated-flow,
 # 04-e2e-human-tester, …) writes its screenshots here on every run, so the
