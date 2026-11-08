@@ -3,14 +3,15 @@
 **Audit date:** 2026-11-08
 **Codebase:** `main` @ `be9f2b0`
 **Scope:** two areas the production-readiness plan singled out as the highest-value technical risk and the highest-value product gap
+**Update (2026-11-08):** Scenario 2 — the worst case — is **RESOLVED**. See [A.2.1](#a21-scenario-2--resolved-2026-11-08). The four remaining scenarios are still open.
 
 ---
 
 ## Part A — Concurrency
 
-**Headline: there is no concurrency control of any kind in this codebase.**
+**Original headline: there is no concurrency control of any kind in this codebase.**
 
-| Control | Present? | Evidence |
+| Control | Present? (at audit time) | Evidence |
 |---|---|---|
 | `$transaction` | **No** | Zero occurrences in `lib/`, `app/`, `prisma/`. The only repo-wide hit is an unchecked line in the audit plan itself |
 | Optimistic-locking column (`version`) | **No** | `prisma/schema.prisma:311-374` — `Ticket` has `id`, `updatedAt @updatedAt`, and six `@@index`es. **No `@@unique` on the model at all** |
@@ -33,19 +34,19 @@ A status-guarded write cannot be written through the app's own abstraction witho
 
 ### A.1 Scenario verdicts
 
-| # | Scenario | Verdict |
-|---|---|---|
-| 1 | Two dispatchers assign different crews to the same ticket | **VULNERABLE** |
-| 2 | Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** |
-| 3 | Two crew members update the same job | **VULNERABLE** |
-| 4 | Two citizens submit the same report simultaneously | **VULNERABLE** |
-| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** |
+| # | Scenario | Verdict (at audit time) | Verdict now |
+|---|---|---|---|
+| 1 | Two dispatchers assign different crews to the same ticket | **VULNERABLE** | Still open — the assignment write is last-write-wins |
+| 2 | Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** | ✅ **RESOLVED 2026-11-08** — see [A.2.1](#a21-scenario-2--resolved-2026-11-08) |
+| 3 | Two crew members update the same job | **VULNERABLE** | Still open |
+| 4 | Two citizens submit the same report simultaneously | **VULNERABLE** | Still open |
+| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | Still open |
 
 ---
 
 ### A.2 Scenario 2 — concurrent transitions (the worst case)
 
-**Evidence:** `lib/platform/transitions.ts:48-86`
+**Evidence at audit time:** `lib/platform/transitions.ts:48-86`
 
 ```ts
 const ticket = await db.ticket.findUnique({ where: { id: input.ticketId } });   // :49  READ
@@ -73,6 +74,70 @@ await writeAudit({ ... });                                                      
 This is the most consequential finding in the entire audit. The status trail is the citizen-facing trust surface for the whole platform — it is the "feel heard" signal, the thing that makes a citizen believe the report was actually worked. A trail that contradicts the ticket's actual status is not a cosmetic bug; it is the platform telling a citizen something untrue about what happened to their report.
 
 Three routes reach it: `app/api/v1/dispatcher/tickets/[id]/transition/route.ts:100`, `app/api/v1/crew/tickets/[id]/transition/route.ts:151`, `app/api/tickets/[id]/transition/route.ts:233`.
+
+---
+
+### A.2.1 Scenario 2 — RESOLVED 2026-11-08
+
+The defect above is closed at source, not just described. Three changes, plus the CI-enforced test that keeps it closed.
+
+**1. A compare-and-swap write.** `Ticket` gains `version Int @default(0)` (migration `prisma/migrations/20261108120000_ticket_version/`). The transition's write carries the status *and* the version it read in its `where` clause:
+
+```ts
+const count = await tx.ticket.updateWhere({
+  where: { id: input.ticketId, status: ticket.status, version: expectedVersion },
+  data: { status: input.toStatus, version: expectedVersion + 1, ... },
+});
+if (count === 0) {
+  throw new ConcurrentTransitionError(input.ticketId, ticket.status, input.toStatus);
+}
+```
+
+A writer whose read has been overtaken updates **zero rows** instead of clobbering the winner. The affected-row count is what makes this observable — `updateMany` returns how many rows it actually changed.
+
+`ConcurrentTransitionError` is deliberately a *different* error from `InvalidTransitionError`:
+
+| Error | Meaning | Client answer |
+|---|---|---|
+| `InvalidTransitionError` | The requested edge is illegal. Deterministic. | 409 immediately — the ticket is in an illegal state |
+| `ConcurrentTransitionError` | The edge was legal when read, but the race was lost. | 409 — **re-read**; the ticket is in SOME legal state, just not the one the caller saw |
+
+All three transition routes now return **409** with a `concurrent_transition` body for the latter.
+
+**2. One transaction.** `lib/platform/transaction.ts` runs the status update, the trail insert and the audit write inside a single transaction.
+
+- **Prisma path:** `prisma.$transaction(async (tx) => ...)`. The `tx` client is transaction-scoped, so every statement inside it commits together or rolls back together.
+- **Dev-store path:** there is no database, so the helper SNAPSHOTS its mutable collections before the callback and RESTORES them if it callback throws. That is not ACID — the dev store cannot undo a concurrent write made by another task mid-callback — but it does give the transition path the guarantee it needs: either the status, the trail row and the audit row all landed, or none of them did.
+
+Two subtleties the implementation had to get right, both caught by the new tests:
+
+- **`writeAudit` must write through the transaction handle.** `lib/platform/audit.ts` originally wrote through the module-level `db`, which on the Prisma path would have escaped the transaction entirely — the audit row would have committed even if the transition rolled back. `writeAudit(input, target?)` now takes an optional target, and the transition path passes the transaction-scoped handle.
+- **`updateWhere` and `bumpVersion` are facade methods, not Prisma methods.** They reach for the module-level `prismaClient`, so the transaction facade had to translate them explicitly onto the transaction-scoped client's own `updateMany` delegate. A facade that simply bound them would have written outside the transaction.
+
+**3. The dev store implements the same semantics.** `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count. The dev store's read-then-set pair is atomic only by accident of Node's event loop, so a dev-store implementation that skipped the guard would let CI pass while production silently lost updates.
+
+**The dev store's rollback also had to change.** The first version of the helper restored the collections wholesale on rollback (`store.trail.length = 0; store.trail.push(...snapshot)`). That is correct for a single writer and **wrong for two**: the loser's rollback erased the winner's trail row, manufacturing exactly the corruption the transaction was introduced to prevent. The helper now records the ids of the trail and audit rows *its own callback* appended and removes only those on rollback, leaving other writers' rows alone. The Prisma path has a real transaction, so this problem never arises there — the fix brings the dev store's observable behaviour in line with it.
+
+**4. The write paths that do not change status.** A transition that read a ticket before a crew assignment, a citizen rating, a dedup confirm/dismiss or a dispatcher ward/category/note edit would otherwise still pass its compare-and-swap and revert that edit. Those paths now call `db.ticket.bumpVersion({ where: { id } })`, so they participate in the version discipline:
+
+| Path | File |
+|---|---|
+| Crew assignment | `lib/dispatcher/assign-crew.ts` |
+| Citizen feedback | `lib/citizen/feedback.ts` |
+| Dedup confirm / dismiss | `app/api/v1/dispatcher/dedup-flags/[id]/{confirm,dismiss}/route.ts` |
+| Dispatcher ward / category / note edit | `app/api/v1/dispatcher/tickets/[id]/route.ts` |
+| Citizen crew reassignment | `app/api/tickets/[id]/transition/route.ts` |
+
+**5. CI now catches it.** `tests/unit/transitions-concurrency.test.ts` runs two and three concurrent transitions against the **real** dev store (not a mock — a mock would prove nothing about the parity claim) and asserts:
+
+- exactly one of two concurrent transitions wins, and the loser is rejected with `ConcurrentTransitionError`;
+- the loser writes **no** trail row — the citizen-facing trail cannot show a transition that did not happen;
+- the ticket's final status, version and trail row agree with each other;
+- a lost race is reported as a concurrency failure, not an illegal-edge failure.
+
+`tests/unit/platform/transaction.test.ts` covers the helper itself: the dev-store commit/rollback paths, the concurrent-writer rollback that erases nobody else's rows, and the Prisma facade's routing of `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one.
+
+**The test was verified non-vacuous.** Neutering the compare-and-swap (forcing the affected-row count to 1) turns **7 of the 13** concurrency assertions red; restoring it turns them green.
 
 ---
 
@@ -139,14 +204,20 @@ If double-booking is a business rule, it exists nowhere in the codebase. If it i
 
 This is the most important methodological finding.
 
-`lib/dev-store.ts:1616-1629` — `ticket.update` does a read (`getStore().tickets.get`) then a `set`. Node's single-threaded event loop makes each *individual* operation atomic, and there is no `await` between them, so within one `update()` call the pair is effectively atomic. The dev store **hides the read-write gap by accident of the event loop, not by design.**
+`lib/dev-store.ts` — `ticket.update` does a read (`getStore().tickets.get`) then a `set`. Node's single-threaded event loop makes each *individual* operation atomic, and there is no `await` between them, so within one `update()` call the pair is effectively atomic. The dev store **hides the read-write gap by accident of the event loop, not by design.**
 
 Two further divergences:
 
-- `lib/dev-store.ts:1617` — `ticket.update` accepts `where: { id }` only, so it **cannot express a compound guard either**. A fix applied only to the Prisma path would not be exercised by CI.
-- `lib/dev-store.ts:1641-1653` — `ticketPhoto.create` does `list.push(row)` then `list.sort()` then `set`. The push mutates the array **in place before the sort**, so the sort reorders an array already referenced by the Map. Two interleaved creates can leave the list unsorted relative to `uploadedAt`.
+- `lib/dev-store.ts` — `ticket.update` accepts `where: { id }` only, so it **cannot express a compound guard either**. A fix applied only to the Prisma path would not be exercised by CI.
+- `lib/dev-store.ts` — `ticketPhoto.create` does `list.push(row)` then `list.sort()` then `set`. The push mutates the array **in place before the sort**, so the sort reorders an array already referenced by the Map. Two interleaved creates can leave the list unsorted relative to `uploadedAt`.
 
 **Consequence:** the CI suite provides **zero coverage** of any of these defects, and would not catch a regression if a fix were applied only to the Prisma path. A grep of `tests/` for `concurren|race|lost update|simultaneous` finds only dev-server compile-race workarounds and the `write-queue` IndexedDB test — nothing that exercises concurrent writes to the same ticket.
+
+**Update 2026-11-08 — closed for the transition path.** The first divergence is now fixed: `devDb.ticket.updateWhere` accepts a compound `{ id, status, version }` predicate and returns the same affected-row count the Prisma path returns, so the dev store implements the guard deliberately rather than inheriting atomicity from the event loop. `tests/unit/transitions-concurrency.test.ts` now drives two and three concurrent transitions through the **real** dev store and asserts exactly one winner.
+
+The second divergence (`ticketPhoto.create`'s in-place push-then-sort) is **still open** — it is not on the transition path and was not touched.
+
+The remaining four scenarios (A.1 rows 1, 3, 4, 5) still have no CI coverage, because the dev store has no guard for them to exercise. That gap is unchanged and is why those scenarios remain open in A.1.
 
 ---
 
@@ -176,43 +247,51 @@ The DB layer provides zero protection for any ticket-state race.
 
 ### A.9 Recommendations
 
-**R1 — Make `transitionTicket` a compare-and-swap.** (fixes scenarios 2 and 3 — the worst failure.)
+**R1 — Make `transitionTicket` a compare-and-swap.** (fixes scenarios 2 and 3 — the worst failure.) — **DONE 2026-11-08.** See [A.2.1](#a21-scenario-2--resolved-2026-11-08).
 
-In `lib/platform/transitions.ts:48-86`, replace the `db.ticket.update` at `:60-68` with a conditional write that fails when the status has moved:
+As recommended, in `lib/platform/transitions.ts` the `db.ticket.update` was replaced with a conditional write that fails when the status has moved, using the **stronger variant** (a `version Int @default(0)` column bumped on every write):
 
 ```ts
-const { count } = await db.ticket.updateMany({
-  where: { id: input.ticketId, status: ticket.status },
-  data: { status: input.toStatus, ... },
+const count = await tx.ticket.updateWhere({
+  where: { id: input.ticketId, status: ticket.status, version: expectedVersion },
+  data: { status: input.toStatus, version: expectedVersion + 1, ... },
 });
-if (count === 0) throw new InvalidTransitionError(ticket.status, input.toStatus);
+if (count === 0) throw new ConcurrentTransitionError(input.ticketId, ticket.status, input.toStatus);
 ```
 
-This needs no migration. A stronger variant adds `version Int @default(0)` to `Ticket` and bumps it on every write. Either way:
+All four sub-points were carried out:
 
-- Widen `db.ticket.update`'s `where` type in `lib/db-switch.ts` to accept a compound predicate, and add a count-checked `updateMany` to the facade.
-- **Implement the same conditional in `lib/dev-store.ts:1616`** so CI actually exercises the new semantics.
-- Wrap the status update + trail insert + audit write in a single transaction, so the trail can never disagree with the ticket status.
+- ✅ `db.ticket.update`'s `where` type widened to accept a compound predicate, and a count-checked `updateMany` added to the facade as `db.ticket.updateWhere`.
+- ✅ The same conditional implemented in `lib/dev-store.ts` (`devDb.ticket.updateWhere`), so CI exercises the new semantics.
+- ✅ The status update + trail insert + audit write wrapped in a single transaction (`lib/platform/transaction.ts`), so the trail can never disagree with the ticket status.
+- ✅ One deliberate divergence from the recommendation: a lost race raises `ConcurrentTransitionError`, **not** `InvalidTransitionError`. The recommended snippet conflated the two, which would tell the client the ticket is in an illegal state when it is in fact in some *other* legal state. The two are now distinct errors with distinct client contracts (see A.2.1).
 
-**R2 — Close the dedup check-then-insert gap.** (scenario 4.)
+**R2 — Close the dedup check-then-insert gap.** (scenario 4.) — **OPEN.**
 
 Two parts. First, run `checkDedup` and `db.ticket.create` inside one transaction at `Serializable` isolation, or take a `pg_advisory_xact_lock` keyed on `(cityId, categoryId, rounded lat/lng)`. Second, add a DB-level backstop: a `dedupKey String?` column holding a hash of `(cityId, categoryId, round(lat,5), round(lng,5))` with `@@unique([cityId, dedupKey])`. That turns the 50 m radius rule into a coarse grid-key constraint the DB enforces unconditionally. The precise Haversine scan stays for finding the *best* match.
 
-**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.)
+**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **PARTIALLY DONE 2026-11-08.**
 
-Adopt the `version` column from R1 and require callers to pass the version they read. In `lib/dispatcher/assign-crew.ts:152-155` and the three writes in `app/api/v1/dispatcher/tickets/[id]/route.ts:171-214`, use `updateMany({ where: { id, version }, ... })` and return **409 conflict** when `count === 0`, so the dispatcher sees *"this ticket changed, reload and try again"* rather than a silent overwrite. Separately, either add an explicit capacity check in `assign-crew.ts` or record "no capacity limit in v1" as a decision.
+The `version` column now exists and those paths **bump** it (`db.ticket.bumpVersion`), which is what makes a concurrent transition's compare-and-swap fail rather than reverting their edit. That closes the *interaction* between a transition and a non-status write.
 
-**R4 — Add a concurrency test suite.** The dev store can reproduce a lost update if the test drives two interleaved `update()` calls without awaiting between the read and the write. Without this, any fix is unverifiable in CI.
+What is **not** done is the other half of the recommendation: those paths still do not use a count-checked `updateWhere` with the version they read, so **two concurrent assignments still race each other** (last write wins). The remaining work:
+
+- In `lib/dispatcher/assign-crew.ts` and the three writes in `app/api/v1/dispatcher/tickets/[id]/route.ts`, use `updateWhere({ where: { id, version }, ... })` and return **409 conflict** when the count is 0, so the dispatcher sees *"this ticket changed, reload and try again"* rather than a silent overwrite.
+- Separately, either add an explicit capacity check in `assign-crew.ts` or record "no capacity limit in v1" as a decision. Scenario 5 remains entirely open.
+
+**R4 — Add a concurrency test suite.** — **DONE 2026-11-08.**
+
+`tests/unit/transitions-concurrency.test.ts` (13 tests) and `tests/unit/platform/transaction.test.ts` (16 tests) now cover the transition race, the dev-store's version discipline, and the transaction helper's commit/rollback semantics. See [A.2.1](#a21-scenario-2--resolved-2026-11-08).
 
 ---
 
 ### A.10 What could not be verified
 
-| Item | Why |
-|---|---|
-| **The deployed Postgres isolation level** | `lib/db.ts:18-20` constructs `PrismaClient` with no `isolationLevel`, and `DATABASE_URL` is not inspected in the repo, so the connection-string or server default governs. The standard Postgres default is `READ COMMITTED`, under which all of the above failures are real. A non-default server setting could not be ruled out — **but nothing in the codebase requests one** |
-| **Actual concurrent behaviour under load** | All findings are derived from source analysis of the read-modify-write sequences, not from a concurrency test. The dev store cannot reproduce a Postgres lost update, so no local reproduction was available |
-| **Whether Neon sets a non-default isolation level** | Not inspectable from the repository |
+| Item | Why | Changed since |
+|---|---|---|
+| **The deployed Postgres isolation level** | `lib/db.ts:18-20` constructs `PrismaClient` with no `isolationLevel`, and `DATABASE_URL` is not inspectable from the repo, so the connection-string or server default governs. The standard Postgres default is `READ COMMITTED`, under which all of the above failures are real. A non-default server setting could not be ruled out — **but nothing in the codebase requests one** | Unchanged. The compare-and-swap does not depend on the isolation level: the guard is in the `where` clause, so it holds under `READ COMMITTED` and above |
+| **Actual concurrent behaviour under load** | Originally derived from source analysis of the read-modify-write sequences, with no concurrency test available | **Now tested for the transition path.** `tests/unit/transitions-concurrency.test.ts` reproduces the race against the real dev store and asserts exactly one winner. Still unverified against a real Postgres under concurrent load — CI has no database |
+| **Whether Neon sets a non-default isolation level** | Not inspectable from the repository | Unchanged |
 
 ---
 

@@ -1,0 +1,40 @@
+-- Ticket optimistic-lock counter (2026-11-08).
+--
+-- The status-transition path was a non-atomic read-modify-write:
+--
+--   lib/platform/transitions.ts
+--     :49  const ticket = await db.ticket.findUnique({ where: { id } })
+--     :55  const allowed = ALLOWED[ticket.status]        // validate on a STALE read
+--     :60  await db.ticket.update({ where: { id }, data: { status } })   // id-only predicate
+--     :70  await db.trail.create({ ... })                 // separate statement
+--     :79  await writeAudit({ ... })                      // separate statement
+--
+-- Two dispatchers transitioning the same ticket both passed the
+-- validation, and the second write silently overwrote the first. The
+-- trail insert and the audit write were separate statements on top of
+-- that, so the citizen-facing status trail could record a sequence
+-- that could not legally have happened — for example a ticket that
+-- ended `cancelled` carrying a row claiming `in_progress`.
+--
+-- This column makes the write conditional. The engine now writes
+--
+--   UPDATE "Ticket"
+--      SET "status" = $1, "version" = "version" + 1
+--    WHERE "id" = $2 AND "version" = $3
+--
+-- so a writer whose guard no longer matches (because another writer
+-- got there first) updates zero rows, and the engine rejects the
+-- transition rather than clobbering it.
+--
+-- This migration is ADDITIVE only — a new column with a default, no
+-- data loss and no destructive change. Existing rows start at
+-- version 0, which is exactly the state an un-versioned row would
+-- have had.
+--
+-- The default is 0 rather than 1 so the first transition reads
+-- version 0 and writes version 1. Either convention works as long as
+-- the write and the guard agree; 0 is used because it is what a
+-- Prisma `create` produces without an explicit value.
+
+-- AlterTable
+ALTER TABLE "Ticket" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 0;

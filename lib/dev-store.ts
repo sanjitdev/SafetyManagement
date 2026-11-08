@@ -165,6 +165,16 @@ export interface DevTicket {
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+  /**
+   * Optimistic-lock counter (2026-11-08). Mirrors the Prisma
+   * `Ticket.version Int @default(0)` column.
+   *
+   * Optional in the type (rather than a required `number`) so the
+   * hand-built test fixtures that plant a raw `DevTicket` keep
+   * compiling; every read treats a missing value as 0, exactly as
+   * the database default would.
+   */
+  version?: number;
 }
 
 export interface DevAuditEntry {
@@ -1626,6 +1636,66 @@ export const devDb = {
       };
       getStore().tickets.set(args.where.id, next);
       return next;
+    },
+    /**
+     * CONDITIONAL update — the compare-and-swap primitive, mirroring
+     * Prisma's `updateMany` with a compound `where`.
+     *
+     * Returns the number of rows changed: 1 when the guard held, 0
+     * when it did not (another writer got there first). The Prisma
+     * path returns `updateMany`'s `count`, which is exactly this.
+     *
+     * WHY THE DEV STORE MUST IMPLEMENT THE GUARD, NOT JUST THE WRITE.
+     * The dev store's read-then-set pair is atomic only by accident of
+     * Node's single-threaded event loop. An implementation here that
+     * simply wrote the row would let the whole CI suite pass while
+     * production silently lost a status update. The point of the dev
+     * store is to be a faithful stand-in for the database's
+     * concurrency semantics, not a faster one.
+     *
+     * The `where` clauses are ANDed, matching SQL semantics:
+     *   - `id`       — always required
+     *   - `status`   — the caller's expected current status
+     *   - `version`  — the caller's expected current version
+     */
+    updateWhere(args: {
+      where: { id: string; status?: TicketStatus; version?: number };
+      data: Partial<DevTicket> & { version?: number };
+    }): number {
+      const cur = getStore().tickets.get(args.where.id);
+      if (!cur) return 0;
+      if (
+        args.where.status !== undefined &&
+        cur.status !== args.where.status
+      ) {
+        return 0;
+      }
+      if (
+        args.where.version !== undefined &&
+        (cur.version ?? 0) !== args.where.version
+      ) {
+        return 0;
+      }
+      const next: DevTicket = {
+        ...cur,
+        ...args.data,
+        updatedAt: new Date().toISOString(),
+      };
+      getStore().tickets.set(args.where.id, next);
+      return 1;
+    },
+    /**
+     * Bump the optimistic-lock counter without touching anything else.
+     * Mirrors `prismaClient.ticket.updateMany({ data: { version: { increment: 1 } } })`.
+     */
+    bumpVersion(args: { where: { id: string } }): void {
+      const cur = getStore().tickets.get(args.where.id);
+      if (!cur) return;
+      getStore().tickets.set(args.where.id, {
+        ...cur,
+        version: (cur.version ?? 0) + 1,
+        updatedAt: new Date().toISOString(),
+      });
     },
   },
   /**

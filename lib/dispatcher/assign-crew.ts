@@ -154,6 +154,12 @@ export async function assignCrew(
     data: { assignedCrewId: next },
   });
 
+  // Bump the optimistic-lock counter. The assignment does not
+  // change the status, but a transition that read this ticket
+  // before the assignment would otherwise still pass its
+  // compare-and-swap and overwrite the assignee.
+  await db.ticket.bumpVersion({ where: { id: ticket.id } });
+
   // Audit row. Two actions so the dashboard can grep on either.
   const auditAction: 'ticket.assign_crew' | 'ticket.unassign_crew' =
     next === null ? 'ticket.unassign_crew' : 'ticket.assign_crew';

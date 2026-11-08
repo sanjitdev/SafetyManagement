@@ -263,6 +263,12 @@ export async function submitTicketFeedback(
       where: { id: ticket.id },
       data: { feedback: stored },
     });
+    // Bump the optimistic-lock counter. Feedback does not change
+    // the status, but a transition that read this ticket before
+    // the rating was stored would otherwise still pass its
+    // compare-and-swap — and the rating write would be silently
+    // overwritten by the transition's own update.
+    await db.ticket.bumpVersion({ where: { id: ticket.id } });
   } catch (e) {
     return {
       ok: false,

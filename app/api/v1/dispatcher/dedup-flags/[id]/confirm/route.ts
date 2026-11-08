@@ -92,6 +92,11 @@ export async function POST(
     },
   });
 
+  // Bump the optimistic-lock counter so a concurrent transition
+  // that read this ticket before the dedup-confirm loses its
+  // compare-and-swap rather than clobbering the close.
+  await db.ticket.bumpVersion({ where: { id: flag.ticketId } });
+
   await db.dedupFlag.update({
     where: { id: flag.id },
     data: {

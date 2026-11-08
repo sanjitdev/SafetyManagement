@@ -216,6 +216,13 @@ export async function PATCH(
   }
 
   if (changed) {
+    // Bump the optimistic-lock counter once for the whole save.
+    // These edits do not change the status, but a transition that
+    // read this ticket before the edit would otherwise still pass
+    // its compare-and-swap and overwrite the new ward/category/note
+    // with a stale copy of the row.
+    await db.ticket.bumpVersion({ where: { id } });
+
     // One audit entry per distinct action. If both ward and
     // internalNote changed in one save, the assignment loop
     // records them separately (two AuditEntry rows).

@@ -329,8 +329,8 @@ production posture).
 
 - `npx tsc --noEmit` — clean, 0 errors.
 - `npm run test:unit` — 102 files / 1851 tests pass.
-- `npm run test:unit:coverage` — 92.59% lines / 82.56% branches /
-  93.54% functions, all above the 80% floor.
+- `npm run test:unit:coverage` — 92.59% lines / 82.79% branches /
+  93.76% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
 
 ## References

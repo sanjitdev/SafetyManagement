@@ -40,6 +40,7 @@ import {
 import {
   transitionTicket,
   InvalidTransitionError,
+  ConcurrentTransitionError,
 } from '@/lib/platform/transitions';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
@@ -211,6 +212,11 @@ export async function POST(
           where: { id: ticket.id },
           data: { assignedCrewId: parsed.data.assignedCrewId },
         });
+        // Bump the optimistic-lock counter so a concurrent
+        // transition that read this ticket before the reassignment
+        // loses its compare-and-swap rather than clobbering the
+        // new assignee.
+        await db.ticket.bumpVersion({ where: { id: ticket.id } });
         // Bolt admin-tickets: write an audit row for the reassign
         // (the engine's `ticket.transition` audit only fires when
         // toStatus is present; the reassign-only path would
@@ -243,6 +249,20 @@ export async function POST(
         {
           error: 'invalid_transition',
           from_status: e.fromStatus,
+          to_status: e.toStatus,
+        },
+        { status: 409 },
+      );
+    }
+    if (e instanceof ConcurrentTransitionError) {
+      // The requested edge was legal when it was read, but another
+      // writer got there first. The client should re-read rather
+      // than assume the ticket is in an illegal state.
+      return NextResponse.json(
+        {
+          error: 'concurrent_transition',
+          ticket_id: e.ticketId,
+          expected_status: e.expectedStatus,
           to_status: e.toStatus,
         },
         { status: 409 },

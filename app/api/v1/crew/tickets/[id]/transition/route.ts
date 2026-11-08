@@ -38,6 +38,7 @@ import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth
 import {
   transitionTicket,
   InvalidTransitionError,
+  ConcurrentTransitionError,
 } from '@/lib/platform/transitions';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
@@ -163,6 +164,20 @@ export async function POST(
           to_status: e.toStatus,
         },
         { status: 422 },
+      );
+    }
+    if (e instanceof ConcurrentTransitionError) {
+      // The requested edge was legal when it was read, but another
+      // writer got there first. The client should re-read rather
+      // than assume the ticket is in an illegal state.
+      return NextResponse.json(
+        {
+          error: 'concurrent_transition',
+          ticket_id: e.ticketId,
+          expected_status: e.expectedStatus,
+          to_status: e.toStatus,
+        },
+        { status: 409 },
       );
     }
     if (e instanceof ApiError) {

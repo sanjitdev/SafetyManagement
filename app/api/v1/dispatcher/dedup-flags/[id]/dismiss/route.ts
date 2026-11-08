@@ -82,6 +82,11 @@ export async function POST(
     data: { status: 'submitted' },
   });
 
+  // Bump the optimistic-lock counter so a concurrent transition
+  // that read this ticket before the dedup-dismiss loses its
+  // compare-and-swap rather than clobbering the reset.
+  await db.ticket.bumpVersion({ where: { id: flag.ticketId } });
+
   await db.dedupFlag.update({
     where: { id: flag.id },
     data: {

@@ -188,11 +188,45 @@ submitted ──► routed ──► in_progress ──► resolved
 
 An illegal move raises `InvalidTransitionError` → **409 `invalid_transition`** on the shared route, **422 `illegal_transition`** on the v1 dispatcher/crew routes.
 
+#### Concurrency: the compare-and-swap and the transaction
+
+*Added 2026-11-08 to close the concurrency audit's worst finding.*
+
+The transition is a **compare-and-swap**, not a blind write. `Ticket.version Int @default(0)` is an optimistic-lock counter (migration `20261108120000_ticket_version`), and the write carries the status *and* the version the call read in its `where` clause:
+
+```ts
+const count = await tx.ticket.updateWhere({
+  where: { id, status: ticket.status, version: expectedVersion },
+  data: { status: toStatus, version: expectedVersion + 1, ... },
+});
+if (count === 0) throw new ConcurrentTransitionError(...);
+```
+
+A writer whose read has been overtaken updates **zero rows** instead of clobbering the winner. `db.ticket.updateWhere` is the facade method that expresses this — a count-checked `updateMany` with a compound predicate.
+
+The status update, the trail insert and the audit write run inside **one transaction** (`lib/platform/transaction.ts`):
+
+| Backend | Mechanism |
+|---|---|
+| Prisma | `prisma.$transaction(async (tx) => ...)` — the `tx` client is transaction-scoped |
+| Dev store | Snapshot-and-restore of the mutable collections, with the rollback removing **only** the rows the callback itself wrote |
+
+Two errors are deliberately distinct, because they mean different things to the caller:
+
+| Error | Meaning | Client contract |
+|---|---|---|
+| `InvalidTransitionError` | The edge is illegal. Deterministic. | 409 — the ticket is in an illegal state |
+| `ConcurrentTransitionError` | The edge was legal when read, but the race was lost. | 409 — **re-read**; the ticket is in *some* legal state |
+
+The write paths that mutate a ticket **without** changing its status — crew assignment, citizen feedback, dedup confirm/dismiss, dispatcher ward/category/note edits, citizen crew reassignment — call `db.ticket.bumpVersion(...)`, so a transition that read the ticket before one of those edits loses its compare-and-swap instead of silently reverting the edit.
+
 ### Audit trail (`AuditEntry`)
 
 The forensic one. `writeAudit(...)` (`lib/platform/audit.ts`) records `{ entityType, entityId, action, actorId, beforeValue, afterValue, timestamp }`.
 
 **Immutability holds** — a repo-wide search for `auditEntry.update|delete|upsert` returns no matches. There is no API path that modifies or removes an audit row, and the `actor` relation is `onDelete: Restrict`.
+
+`writeAudit(input, target?)` takes an optional write handle. The transition path passes the **transaction-scoped** handle so the audit row commits or rolls back with the change it describes — otherwise the audit log would record a transition that the database rolled back.
 
 ---
 
@@ -276,7 +310,7 @@ checkout → setup-node (22) → npm ci → prisma generate
 
 `engines.node` in `package.json` stays `>=20.0.0` because that is the *runtime* floor for the deployed app. The jsdom dependency is a *test-time* requirement only and is stricter. If the runtime floor is ever raised, raise the CI pin in the same commit.
 
-**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **92.56% lines / 82.56% branches / 93.54% functions**.
+**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **92.59% lines / 82.79% branches / 93.76% functions**.
 
 The floor is never weakened to make a run green — the correct response to a threshold failure is to add real tests for the uncovered path.
 

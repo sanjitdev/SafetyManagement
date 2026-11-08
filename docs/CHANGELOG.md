@@ -32,6 +32,31 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 
 ### Fixed
 
+**The concurrent-transition lost update — 2026-11-08, after the audit was delivered.**
+
+The concurrency audit's worst finding was that `lib/platform/transitions.ts` was a non-atomic read-modify-write: it validated against a status read and wrote with an id-only predicate, so two dispatchers transitioning the same ticket both passed validation and the second silently overwrote the first. Because the trail insert and the audit write were separate statements, **the citizen-facing status trail could describe a sequence that could not legally have happened** — the platform's central trust surface telling a citizen something untrue.
+
+This is now closed at source, with a CI-enforced regression test.
+
+- **`prisma/schema.prisma` + `prisma/migrations/20261108120000_ticket_version/`** — `Ticket.version Int @default(0)`, an optimistic-lock counter. The migration is additive (new column with a default, no data loss).
+- **`lib/platform/transitions.ts`** — the write is now a **compare-and-swap**: the `where` clause carries both the status and the version the call read, so a writer whose read has been overtaken updates **zero rows** instead of clobbering the winner. A count of 0 raises the new `ConcurrentTransitionError`, which is deliberately distinct from `InvalidTransitionError` — the edge was legal, the race was lost, so the client is told to *re-read* rather than that the ticket is in an illegal state.
+- **`lib/platform/transaction.ts`** — **new**. The status update, the trail insert and the audit write now run inside one transaction. On the Prisma path that is `prisma.$transaction`; on the dev-store path it is a snapshot-and-restore, which gives the same observable guarantee (all three writes land, or none do).
+- **`lib/platform/audit.ts`** — `writeAudit(input, target?)` takes an optional write handle so the audit row can commit with the change it describes. Without this the audit write escaped the transaction, defeating its stated purpose.
+- **`lib/db-switch.ts`** — `db.ticket.updateWhere` (a count-checked, compound-predicate write) and `db.ticket.bumpVersion` added to the facade.
+- **`lib/dev-store.ts`** — `devDb.ticket.updateWhere` implements the **same** compound guard and returns the same affected-row count, so CI exercises the real guard instead of passing while production silently lost updates.
+- **The non-status write paths now bump the version:** crew assignment (`lib/dispatcher/assign-crew.ts`), citizen feedback (`lib/citizen/feedback.ts`), dedup confirm/dismiss, dispatcher ward/category/note edits, and the citizen crew reassignment. A transition that read a ticket before one of those edits now loses its compare-and-swap instead of silently reverting the edit.
+- **All three transition routes** (`/api/tickets/{id}/transition`, `/api/v1/crew/tickets/{id}/transition`, `/api/v1/dispatcher/tickets/{id}/transition`) handle `ConcurrentTransitionError` with **409** and a `concurrent_transition` body.
+- **`tests/unit/transitions-concurrency.test.ts`** — **new**, 13 tests. Drives two and three concurrent transitions against the **real** dev store (not a mock — a mock would prove nothing about the parity claim) and asserts exactly one winner, that the loser writes no trail row, and that the trail, the status and the version agree.
+- **`tests/unit/platform/transaction.test.ts`** — **new**, 16 tests. Covers the dev-store commit/rollback paths and the Prisma facade's routing of `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one.
+- **`tests/unit/transitions.test.ts`** — updated for the compare-and-swap write shape, plus four new concurrency-guard assertions.
+
+Two subtleties the implementation had to get right, both caught by the new tests rather than by inspection:
+
+1. **`writeAudit` bypassed the transaction.** It wrote through the module-level `db`, so on the Prisma path the audit row would have committed even if the transition rolled back.
+2. **The dev store's rollback erased the winner's rows.** The first version of the helper restored the trail collection wholesale (`store.trail.length = 0; push(...snapshot)`) — correct for one writer, but with two concurrent writers the loser's rollback deleted the winner's trail row, manufacturing exactly the corruption the transaction was introduced to prevent. The helper now records the ids of the rows *its own callback* appended and removes only those.
+
+The concurrency test was **verified non-vacuous**: neutering the compare-and-swap (forcing the affected-row count to 1) turns **7 of the 13** assertions red; restoring it turns them green.
+
 **The phantom OpenAPI methods — 2026-11-08, after the audit was delivered.**
 
 The audit's one code-level finding was `PATCH /api/tickets/{id}` and `DELETE /api/tickets/{id}` documented in the spec but never implemented (`app/api/tickets/[id]/route.ts` exports only `GET`). The audit *documented* it rather than fixing it, because deleting the spec blocks or implementing two endpoints is a product decision. That decision has now been taken — **delete the blocks** — and the defect is closed at source rather than only in prose.

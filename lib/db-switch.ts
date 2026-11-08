@@ -397,6 +397,64 @@ export const db = {
       isDevStore()
         ? devDb.ticket.update(args as never)
         : prismaClient.ticket.update(args as never),
+    /**
+     * CONDITIONAL update — the compare-and-swap primitive.
+     *
+     * `updateMany` with a compound `where` matches a row only if EVERY
+     * clause holds, and returns the number of rows it actually changed.
+     * A count of 0 means another writer got there first.
+     *
+     * This exists because `update` above can only be expressed as
+     * `WHERE id = ?`, and an id-only predicate cannot detect a lost
+     * update: two concurrent transitions both read status `submitted`,
+     * both pass validation, and the second write clobbers the first.
+     * With `expectedStatus` (and optionally `expectedVersion`) in the
+     * `where` clause, the second write matches zero rows and the
+     * caller can reject it.
+     *
+     * The dev store implements the SAME semantics (see
+     * `devDb.ticket.updateWhere`) — deliberately NOT the same
+     * behaviour. The dev store's read-then-set pair is atomic only by
+     * accident of Node's single-threaded event loop, so a dev-store
+     * implementation that skipped the guard would let CI pass while
+     * production silently lost updates.
+     *
+     * `data` may carry `status`, `version` and `resolvedAt`; the
+     * caller owns the increment semantics.
+     */
+    updateWhere: async (args: {
+      where: {
+        id: string;
+        status?: TicketStatus;
+        version?: number;
+      };
+      data: Record<string, unknown>;
+    }): Promise<number> => {
+      if (isDevStore()) return devDb.ticket.updateWhere(args as never);
+      const { count } = await prismaClient.ticket.updateMany({
+        where: args.where as never,
+        data: args.data as never,
+      });
+      return count;
+    },
+    /**
+     * Bump the optimistic-lock counter on a ticket without touching
+     * anything else. Used by the write paths that mutate a ticket but
+     * are NOT status transitions (assign-crew, dedup confirm, priority
+     * changes) — they still need to participate in the version
+     * discipline so a concurrent status transition cannot silently
+     * overwrite their write.
+     */
+    bumpVersion: async (args: { where: { id: string } }): Promise<void> => {
+      if (isDevStore()) {
+        devDb.ticket.bumpVersion(args as never);
+        return;
+      }
+      await prismaClient.ticket.updateMany({
+        where: { id: args.where.id },
+        data: { version: { increment: 1 } },
+      });
+    },
   },
   trail: {
     create: (args: {

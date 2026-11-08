@@ -349,6 +349,17 @@ model Ticket {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   resolvedAt      DateTime?
+  // Optimistic-lock counter (2026-11-08). Every status transition
+  // writes `WHERE id = ? AND version = <the version it read>` and
+  // increments the counter. A writer whose guard no longer matches
+  // (because another writer got there first) updates zero rows and
+  // the engine rejects the transition instead of silently
+  // overwriting it. Without this column the transition path was a
+  // non-atomic read-modify-write: two dispatchers could both pass
+  // validation and the second would clobber the first, leaving the
+  // citizen-facing status trail describing a sequence that could not
+  // legally have happened.
+  version         Int          @default(0)
 
   city                 City               @relation(fields: [cityId], references: [id], onDelete: Cascade)
   ward                 Ward               @relation(fields: [wardId], references: [id], onDelete: Restrict)

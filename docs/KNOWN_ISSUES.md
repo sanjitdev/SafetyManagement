@@ -37,7 +37,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 24 | `lib/map/osm-raster.ts` at 0% coverage | Medium | Testing | Open |
 | 25 | `AuditEntry.actor` `onDelete: Restrict` vs user deletion | Medium | Data | Unverified |
 | 26 | `docs/running.md` is stale | Low | Docs | ✅ Resolved during this audit |
-| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | Open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
+| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ Partially resolved 2026-11-08 — the transition path now has a compare-and-swap + transaction; the other 4 scenarios remain open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
 | 28 | `SlaPolicy` is defined, seeded and never consulted | Medium | Data | Open |
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
@@ -49,19 +49,35 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 
 **Full evidence: [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) Part A.**
 
-There is **no concurrency control of any kind** in this codebase: zero `$transaction` calls, no `version` column, no compare-and-swap write, no `@@unique` on `Ticket`, and no compound guard expressible through the DB facade (`lib/db-switch.ts` hard-types every `update`'s `where` as `{ id: string }`).
+**Status as of 2026-11-08: partially resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The other four named scenarios remain open.
+
+### The transition path — RESOLVED 2026-11-08
+
+The worst case was `lib/platform/transitions.ts`: it validated against a status read and wrote with an id-only predicate, so two concurrent transitions both passed validation and the second silently overwrote the first. The trail insert and audit write were separate statements, so **the citizen-facing status trail could describe a sequence that could not legally have happened.**
+
+Three changes close it:
+
+1. **A compare-and-swap write.** `Ticket.version Int @default(0)` is an optimistic-lock counter (migration `20261108120000_ticket_version`). The update carries the status *and* the version it read in its `where` clause, so a writer whose read has been overtaken updates **zero rows** instead of clobbering the winner. A count of 0 is a lost update and the transition is rejected with `ConcurrentTransitionError` (a distinct error from `InvalidTransitionError` — the edge was legal, the race was lost).
+2. **One transaction.** The status update, the trail insert and the audit write run inside a single transaction (`lib/platform/transaction.ts`), so a partial failure cannot leave a ticket in a new state with no trail row — or a trail row describing a state the ticket never reached.
+3. **The dev store implements the same semantics.** `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count, so CI exercises the real guard rather than passing while production silently lost updates.
+
+The write paths that mutate a ticket *without* changing its status (crew assignment, citizen feedback, dedup confirm/dismiss, dispatcher ward/category/note edits, citizen crew reassignment) now call `db.ticket.bumpVersion(...)`, so they participate in the version discipline too — a transition that read the ticket before such an edit loses its compare-and-swap rather than silently reverting the edit.
+
+All three transition routes (`/api/tickets/{id}/transition`, `/api/v1/crew/tickets/{id}/transition`, `/api/v1/dispatcher/tickets/{id}/transition`) handle `ConcurrentTransitionError` with **409** and a `concurrent_transition` body, so the client re-reads rather than being told the ticket is in an illegal state.
+
+**CI now catches this.** `tests/unit/transitions-concurrency.test.ts` runs two and three concurrent transitions against the real dev store and asserts exactly one wins, that the loser writes no trail row, and that the trail and the final status agree. The test was verified non-vacuous: neutering the compare-and-swap turns 7 of its 13 assertions red.
+
+### The remaining scenarios — still open
 
 | Scenario | Verdict |
 |---|---|
-| Two dispatchers assign different crews to the same ticket | **VULNERABLE** |
-| Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** |
-| Two crew members update the same job | **VULNERABLE** |
-| Two citizens submit the same report simultaneously | **VULNERABLE** |
-| A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** |
+| Two dispatchers assign different crews to the same ticket | **VULNERABLE** — last write wins; `bumpVersion` makes it visible to a concurrent transition but does not serialise two assignments |
+| Two dispatchers transition the same ticket to different statuses | ✅ **RESOLVED** — compare-and-swap + transaction + regression test |
+| Two crew members update the same job | **VULNERABLE** — no crew-side conditional write |
+| Two citizens submit the same report simultaneously | **VULNERABLE** — dedup runs at submit but two simultaneous submissions can both pass the radius check |
+| A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** — no `@@unique` or capacity limit on active assignments |
 
-The worst case is `lib/platform/transitions.ts:48-86`: it validates against a status read at `:49` and writes with an id-only predicate at `:60`, so two concurrent transitions both pass validation and the second silently overwrites the first. The trail insert (`:70`) and audit write (`:79`) are separate statements, so **the citizen-facing status trail can describe a sequence that could not legally have happened.**
-
-**CI cannot catch this.** `lib/dev-store.ts:1616-1629` makes the read-then-set pair effectively atomic by accident of Node's event loop, and the entire CI suite runs on the dev store.
+The four open scenarios need the same compare-and-swap treatment applied to their own write paths, or a DB-level constraint. They are listed here so the remaining exposure is explicit rather than implied by issue 27's closure.
 
 ---
 
@@ -390,7 +406,7 @@ Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 
 ### 26. `docs/running.md` is stale — ✅ RESOLVED during this audit
 
-**Was:** the document described *"40 route handlers"*, *"249 unit tests across 23 files"*, *"15 visual baselines"* and *"mockups + 19 route specs"* against a reality of 61 handlers / 77 operations, 1,853 tests across 103 files, 25 baselines and 34 route specs. It recommended Node 20, and its route-handler list omitted ~21 handlers including the whole adoption surface and every `/api/v1/admin/cities/[id]/users/*` route.
+**Was:** the document described *"40 route handlers"*, *"249 unit tests across 23 files"*, *"15 visual baselines"* and *"mockups + 19 route specs"* against a reality of 61 handlers / 77 operations, 1,886 tests across 105 files, 25 baselines and 34 route specs. It recommended Node 20, and its route-handler list omitted ~21 handlers including the whole adoption surface and every `/api/v1/admin/cities/[id]/users/*` route.
 
 **Now:** `docs/running.md` has been rewritten against the real stack. All 61 route files are listed with their methods, all 26 `package.json` scripts are documented with what they actually do, the Node 22 requirement is stated with the reason, the visual-baseline rule is stated correctly, and the script/verification tables match reality.
 

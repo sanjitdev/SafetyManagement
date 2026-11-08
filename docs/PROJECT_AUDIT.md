@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 3 |
 | i18n keys | 957 |
-| Unit test files | 102 (**1,853 tests**) |
+| Unit test files | 104 (**1,886 tests**) |
 | Playwright route specs | 34 |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -187,8 +187,8 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **103 files / 1,853 tests passed**, ~28 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.56% lines / 82.56% branches / 93.54% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **105 files / 1,886 tests passed**, ~28 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 82.79% branches / 93.76% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 
 ### Verified on CI
@@ -208,7 +208,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | **A deployed environment** | No deployment was inspected. Whether `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, `OTP_PROVIDER` or `CITYFIX_DEV_PROMOTE_SECRET` are set in production is **unknown — and decisive** for three Critical findings |
 | **A live rate-limit measurement** | The per-instance limitation is established from source (an in-process `Map`), not measured under load |
 | **The migration state of a live database** | `prisma/schema.prisma` was read; whether migrations have been applied is unknown |
-| **Actual concurrent behaviour under load** | The concurrency findings are derived from source analysis of the read-modify-write sequences. The dev store cannot reproduce a Postgres lost update, so no local reproduction was available |
+| **Actual concurrent behaviour under load** | **Now tested for the transition path** — `tests/unit/transitions-concurrency.test.ts` drives concurrent transitions against the real dev store and asserts exactly one winner. Still unverified against a real Postgres under concurrent load: CI has no database. The other four scenarios remain source-analysis only |
 | **The deployed Postgres isolation level** | `lib/db.ts:18-20` sets no `isolationLevel`, so the server default governs. The standard default is `READ COMMITTED`, under which every concurrency failure is real |
 | **Whether the metric numbers are correct in production** | The computation paths were traced to their DB columns; no production dataset was available to sanity-check the arithmetic |
 | **ADR-006** | Not present in `docs/adr/`. Its resolution decides whether a High finding is a vulnerability or a design decision |
@@ -234,12 +234,12 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 ### Weaknesses
 
 1. **Four Critical security findings**, three of which need no credential at all. All four are configuration-reachable rather than theoretical.
-2. **No concurrency control of any kind.** Zero `$transaction`, no `version` column, no `@@unique` on `Ticket`, and the DB facade cannot even express a compound guard. All five named scenarios are vulnerable, and the worst one can make the citizen-facing status trail contradict the ticket's actual state. See [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md).
+2. **Concurrency control — the transition path is fixed; four scenarios remain vulnerable.** *(Was: no concurrency control of any kind — zero `$transaction`, no `version` column, no `@@unique` on `Ticket`, and a DB facade that could not even express a compound guard.)* As of 2026-11-08 the worst scenario — two concurrent transitions making the citizen-facing status trail contradict the ticket — is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. The other four scenarios (crew assignment, crew updates, duplicate submission, crew capacity) still have no guard. See [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md).
 3. **No `middleware.ts`.** A route is protected only if its author remembered. This is the structural cause of two of the High findings — and ADR-007 predicted it.
 4. **No production guard on `CITYFIX_DEV_STORE`.** One env var disables the database, unsigns the session cookie and bypasses WebAuthn. A single guard would close the whole class.
 5. **The API is not internally consistent** — five documented divergences in error codes, field names and status codes. Documented rather than normalised because clients depend on the current behaviour.
 6. **The i18n registry is 2,900 lines** — a single file with 957 keys. At 100% line coverage but 75% branch coverage, it is the largest untested surface in the codebase.
-7. **`docs/running.md` was materially stale** — it described 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,853 and 25. **Rewritten during this audit**; the standing instruction *"update the doc to match the real stack"* is now discharged.
+7. **`docs/running.md` was materially stale** — it described 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,886 and 25. **Rewritten during this audit**; the standing instruction *"update the doc to match the real stack"* is now discharged.
 8. **Wave 2 of the UI redesign is 8 of 12 mockups unbuilt**, and page implementation is blocked on human mockup approval.
 9. **The metrics are honest but incomplete.** No metric uses placeholder data — but `SlaPolicy` is defined, seeded and never consulted, and four `Ticket` timestamps are missing, so two of the four operational questions are only partially answerable.
 
@@ -253,11 +253,13 @@ ADR-007:229-234 said so itself:
 
 `PUT /api/profile` is that route. It was found by this audit, not by the test suite — because the suite asserts what the code *does*, not what the ADR says it *should*.
 
-**The concurrency defect is the same pattern in a different dimension.** Nothing was left to convention for authorisation — concurrency was simply never expressed anywhere, not even in a convention. The rule that a transition must be based on the status the caller *saw* is implicit in every other part of the codebase, and absent from the one place it matters.
+**The concurrency defect was the same pattern in a different dimension.** Nothing was left to convention for authorisation — concurrency was simply never expressed anywhere, not even in a convention. The rule that a transition must be based on the status the caller *saw* is implicit in every other part of the codebase, and absent from the one place it matters.
 
-**And the test suite cannot find it.** The in-memory dev store makes the read-then-set pair effectively atomic by accident of Node's event loop, and CI runs entirely on the dev store. A defect that is invisible to every gate in the pipeline is invisible *by construction*, not by oversight.
+**And the test suite could not find it.** The in-memory dev store makes the read-then-set pair effectively atomic by accident of Node's event loop, and CI runs entirely on the dev store. A defect that is invisible to every gate in the pipeline is invisible *by construction*, not by oversight.
 
 The durable fix is structural, not more rules: a `middleware.ts` baseline, a route-level checklist that runs in CI, and concurrency semantics the dev store actually models. A rule enforced by convention is a rule that decays.
+
+**As of 2026-11-08 that fix has been applied to the transition path**, and it is worth noting what the implementation turned out to require. A conditional write alone was not enough: the audit write had to be re-pointed at the transaction handle, the dev store's rollback had to be rewritten so it stopped erasing a concurrent winner's trail row, and the compare-and-swap had to be implemented in the dev store so CI could actually exercise it. Each of those is the same lesson — **the fix has to be structural, or it decays.** The four remaining scenarios should be fixed the same way, and the pattern to copy is now written down, tested and CI-enforced rather than described.
 
 ---
 

@@ -11,11 +11,11 @@
 | Metric | Value | Floor | Status |
 |---|---|---|---|
 | Unit test files | 102 | — | — |
-| Unit tests passing | **1,853 / 1,853** | — | ✅ |
-| Coverage — lines | **92.56%** | 80% | ✅ |
-| Coverage — branches | **82.56%** | 80% | ✅ |
-| Coverage — functions | **93.54%** | 80% | ✅ |
-| Coverage — statements | **92.56%** | 80% | ✅ |
+| Unit tests passing | **1,886 / 1,886** | — | ✅ |
+| Coverage — lines | **92.59%** | 80% | ✅ |
+| Coverage — branches | **82.79%** | 80% | ✅ |
+| Coverage — functions | **93.76%** | 80% | ✅ |
+| Coverage — statements | **92.59%** | 80% | ✅ |
 | Playwright route specs | 34 | — | — |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
@@ -35,9 +35,20 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 103 files, 1,853 tests, 100% passing, ~28 s
+**Result:** 105 files, 1,886 tests, 100% passing, ~32 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
+
+#### The concurrency suite
+
+Two files exist specifically to prove the ticket-state race is closed. They are new as of 2026-11-08 and are the answer to the concurrency audit's finding that *"CI cannot catch this"*.
+
+| File | Tests | What it proves |
+|---|---:|---|
+| `tests/unit/transitions-concurrency.test.ts` | 13 | Two and three concurrent transitions of the same ticket → exactly one wins; the loser writes **no** trail row; the status, version and trail agree. Runs against the **real** dev store, not a mock |
+| `tests/unit/platform/transaction.test.ts` | 16 | The transaction helper's commit/rollback semantics, and that the Prisma facade routes `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one |
+
+Both were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 concurrency assertions red; restoring it turns them green. A concurrency test that passes for the wrong reason is worse than no concurrency test.
 
 ### 2.2 Route specs — Playwright
 
@@ -114,10 +125,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 92.56% | 80% | +12.56 |
-| Branches | 82.56% | 80% | +2.56 |
-| Functions | 93.54% | 80% | +13.54 |
-| Statements | 92.56% | 80% | +12.56 |
+| Lines | 92.56% | 80% | +12.59 |
+| Branches | 82.79% | 80% | +2.79 |
+| Functions | 93.76% | 80% | +13.76 |
+| Statements | 92.56% | 80% | +12.59 |
 
 ### Why the scope is `lib/**`
 
@@ -239,8 +250,12 @@ The second pass **must be pixel-clean**. If it is not, the mockup is not determi
 | 8 | No load test | Low | The rate limiter's per-instance limit is established from source, not measured |
 | 9 | `lib/storage/blob.ts` S3 path at 66% | Low | The S3 upload path needs an S3-compatible endpoint to test properly |
 | 10 | 55 ESLint warnings | Low | All are unused-variable warnings in test files; no errors, so the gate is green |
+| 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`), but only against the dev store's guard — never against a real Postgres under concurrent load |
+| 12 | No concurrency test for the four remaining scenarios | Medium | Crew assignment, crew updates, duplicate submission and crew capacity still have no guard to exercise, so no test can assert one |
 
 **Gaps 3, 4 and 5 share a root cause:** the suite asserts the code's actual behaviour. Where the code diverges from the ADR, the suite is green. This is the same class of miss ADR-007:229-234 predicted — a convention that is not enforced by a mechanism.
+
+**Gaps 11 and 12 are the same class.** The concurrency audit recorded that *"CI cannot catch this"* because the dev store hid the race by accident of Node's event loop. That gap is now closed for the transition path — the dev store implements the same compound guard and returns the same affected-row count, and the regression test drives two and three concurrent transitions against it. The four remaining scenarios still have no guard, so a test for them would have nothing to assert.
 
 ---
 
