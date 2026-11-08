@@ -13,6 +13,17 @@
 
 generator client {
   provider = "prisma-client-js"
+  // `native` alone resolves to the platform the client was GENERATED on,
+  // so a `node_modules` produced on Windows contains only
+  // `query_engine-windows.dll.node` and the same tree fails on Linux with
+  // "PrismaClientInitializationError: could not locate the Query Engine for
+  // runtime debian-openssl-3.0.x".
+  //
+  // Listing the Linux target explicitly means one `prisma generate` emits
+  // both engines, so the same install works on the dev machine, in CI
+  // (ubuntu-latest) and in the Playwright container used to run the route
+  // specs (scripts/run-specs-in-container.sh).
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

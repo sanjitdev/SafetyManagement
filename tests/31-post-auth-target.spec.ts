@@ -178,7 +178,14 @@ test.describe('A deep link never overrides the role model', () => {
   test('the public landing login CTA resolves by role', async ({ page }) => {
     // The entry path the user actually took: the anonymous landing
     // page's "Log in" button links to `/login?next=/report/location`.
-    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    //
+    // `?landing=1` forces the real public landing. Under
+    // CITYFIX_DEV_STORE=1 the site root renders the dev demo page
+    // (the "Sign in as Rahim" affordance) instead, which shadows the
+    // landing and carries no login link at all. The flag is honoured
+    // only in dev-store mode — in production `/` always renders the
+    // landing.
+    await page.goto(BASE + '/?landing=1', { waitUntil: 'domcontentloaded' });
     const cta = page.locator('a[href*="/login"]').first();
     await expect(cta).toHaveCount(1);
     await cta.click();

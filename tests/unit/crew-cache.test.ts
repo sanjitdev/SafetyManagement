@@ -85,6 +85,8 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     afterPhotoUrls: [],
     createdAt: '2026-10-11T10:00:00Z',
     resolvedAt: null,
+    closeReason: null,
+    duplicateOfId: null,
     internalNote: null,
     assignedCrewId: USER_ID,
     trail: [],

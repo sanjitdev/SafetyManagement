@@ -31,13 +31,20 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { createPinGenerator, resetDevStore } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
-const DHAKA_CENTER = { lat: 23.7890, lng: 90.4075 };
 const CITY_ID = 'city_dhaka_north';
 const WARD_ID = 'ward_14';
 const CATEGORY_ID = 'cat_streetlight'; // dispatcher persona's department
+
+/**
+ * Every ticket this spec creates gets a spot from this file's own
+ * coordinate band, so no other spec file can produce the same one.
+ * See tests/helpers/fixtures.ts for why the band matters.
+ */
+const nextPin = createPinGenerator('11-dispatcher-detail-light.spec.ts');
 
 async function devLogin(
   ctx: APIRequestContext,
@@ -65,20 +72,36 @@ async function forceLightTheme(page: Page) {
  * dispatcher's department-scope filter (only streetlight
  * categories map to dept_streetlight in the dev seed). Returns
  * the new ticket id.
+ *
+ * WHY THE COORDINATES COME FROM A SHARED BAND
+ * -------------------------------------------
+ * The dev store is ONE in-memory database shared by every spec in
+ * the run, and it lives for the whole Playwright session. PLAT-REQ-004
+ * de-duplicates on the EXACT spot (the 50 m radius is a prompt, not
+ * the key), so a ticket created at a fixed coordinate is still there
+ * when another spec — or the next test here — creates its fixture at
+ * the same spot, and the creation comes back as `dedup_match` (a 200
+ * with a `dedup_match` body) instead of a 201.
+ *
+ * That is not a product bug: it is the dedup rule working exactly as
+ * designed. It is a fixture-isolation defect.
+ *
+ * `nextPin` hands out spots from this FILE's own band (see
+ * tests/helpers/fixtures.ts), so this spec can never collide with
+ * another spec file whatever the run order — and never with itself
+ * on a second call.
  */
 async function createFreshTicket(ctx: APIRequestContext): Promise<string> {
   const login = await devLogin(ctx, 'citizen');
   expect(login.status()).toBe(303);
-  // Use coordinates ~5km from DHAKA_CENTER so the ticket sits
-  // comfortably in Mirpur (ward_14) and never collides with any
-  // seed ticket (they are all within ~500m of center).
+  const pin = nextPin();
   const resp = await ctx.post(`${BASE}/api/tickets`, {
     data: {
       cityId: CITY_ID,
       wardId: WARD_ID,
       categoryId: CATEGORY_ID,
-      locationLat: DHAKA_CENTER.lat + 0.04,
-      locationLng: DHAKA_CENTER.lng - 0.03,
+      locationLat: pin.lat,
+      locationLng: pin.lng,
       locationLabel: 'Mirpur 14, test pin',
       locationLabelBn: 'মিরপুর ১৪, পরীক্ষা পিন',
       note: 'Bolt 003-003 detail spec — fresh streetlight report.',
@@ -100,6 +123,23 @@ async function createFreshTicket(ctx: APIRequestContext): Promise<string> {
 }
 
 // --- API-level checks ----------------------------------------------------
+
+/**
+ * Reset the dev store before each test.
+ *
+ * The dev store lives for the whole dev-server process, so it still
+ * holds the previous run's tickets when the same spec is run twice
+ * against the same server. Coordinate bands separate spec FILES from
+ * each other; only a reset separates two RUNS of the same file.
+ */
+test.beforeEach(async () => {
+  const resetCtx = await pwRequest.newContext();
+  try {
+    await resetDevStore(resetCtx);
+  } finally {
+    await resetCtx.dispose();
+  }
+});
 
 test('dispatcher cookie → 200 on /api/v1/dispatcher/tickets/[id]', async () => {
   const ctx = await pwRequest.newContext();
@@ -176,13 +216,17 @@ test('out-of-scope ticket id (ward mismatch) → 404 not_found', async () => {
     // restrict ward on the citizen side (the citizen picks the
     // pin → ward is derived in the UI, not enforced server-side
     // in v1). Use ward_15 directly.
+    const outOfWardPin = nextPin();
     const created = await ctx.post(`${BASE}/api/tickets`, {
       data: {
         cityId: CITY_ID,
         wardId: 'ward_15',
         categoryId: CATEGORY_ID,
-        locationLat: DHAKA_CENTER.lat + 0.05,
-        locationLng: DHAKA_CENTER.lng - 0.04,
+        // A spot from this file's band, so the out-of-ward fixture
+        // cannot collide with the in-ward fixtures (or with another
+        // spec file's) and come back as a dedup match.
+        locationLat: outOfWardPin.lat,
+        locationLng: outOfWardPin.lng,
         locationLabel: 'Cantonment area, test pin',
         locationLabelBn: 'ক্যান্টনমেন্ট এলাকা, পরীক্ষা পিন',
         note: 'Bolt 003-003 scope-denial fixture — out-of-ward.',
@@ -343,22 +387,41 @@ async function loadDetailAtStatus(
   }
   if (targetStatus === 'in_progress') {
     // The dispatcher cannot move routed → in_progress directly
-    // (only the crew can start work in v1). So we move the
-    // ticket to 'routed' and then simulate a crew transition
-    // for the visual baseline only. We do this by signing in
-    // as crew and POSTing to the same endpoint — the route
-    // accepts crew for 'in_progress' as well (the engine's
-    // ALLOWED map is the source of truth).
+    // (only the crew can start work in v1). The CREW route
+    // (`/api/v1/crew/tickets/[id]/transition`) owns that edge.
+    //
+    // Two things the crew route requires that the dispatcher
+    // route does not:
+    //   1. The crew member must be ASSIGNED the ticket
+    //      (`ticket.assignedCrewId === session.userId`, else 404).
+    //   2. The transition must go to the CREW route, not the
+    //      dispatcher one — the dispatcher route is
+    //      `requireRole(session, 'dispatcher')`, so a crew
+    //      session there gets 403 `forbidden_role`.
+    //
+    // An earlier version of this helper posted to the
+    // DISPATCHER route with a crew session and expected 200. It
+    // never passed — the dispatcher route has always been
+    // dispatcher-only.
+    //
+    // Step 1: dispatcher routes it to a crew member.
     let resp = await ctx.post(
       `${BASE}/api/v1/dispatcher/tickets/${ticketId}/transition`,
       { data: { toStatus: 'routed' } },
     );
     expect(resp.status()).toBe(200);
-    // Sign in as crew for the in_progress transition.
+
+    resp = await ctx.post(
+      `${BASE}/api/v1/dispatcher/tickets/${ticketId}/assign-crew`,
+      { data: { assignedCrewId: 'user_crew_rashid' } },
+    );
+    expect(resp.status()).toBe(200);
+
+    // Step 2: the assigned crew starts the work.
     const crewLogin = await devLogin(ctx, 'crew');
     expect(crewLogin.status()).toBe(303);
     resp = await ctx.post(
-      `${BASE}/api/v1/dispatcher/tickets/${ticketId}/transition`,
+      `${BASE}/api/v1/crew/tickets/${ticketId}/transition`,
       { data: { toStatus: 'in_progress' } },
     );
     expect(resp.status()).toBe(200);

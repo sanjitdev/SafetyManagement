@@ -1,4 +1,58 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/**
+ * Load `.env.local` into the TEST process environment.
+ *
+ * WHY
+ * ---
+ * Next.js loads `.env.local` for the dev SERVER, but Playwright's own
+ * process never sees it. That split silently disabled the gated specs
+ * in tests/24-dev-login-page.spec.ts: each of them reads
+ * `process.env.CITYFIX_DEV_PROMOTE_SECRET` and skips when it is
+ * absent — so seven tests skipped on every run, and the
+ * "env var unset → 404" case inverted into a real failure (the secret
+ * IS set in `.env.local`, so the endpoint answered 403 where the spec
+ * expected 404).
+ *
+ * The `webServer.env` block below only reaches the SERVER process —
+ * it does not populate the test process.
+ *
+ * HOW
+ * ---
+ * A deliberately small parser rather than a dependency: `.env.local`
+ * is a flat KEY="value" file, and the only value the specs need is
+ * the local dev promote secret. Values already present in
+ * `process.env` win — an explicit shell export must not be
+ * overwritten by the file.
+ *
+ * This is a LOCAL file. It is gitignored, so CI never has it; on CI
+ * the gated specs simply keep skipping, which is the correct
+ * behaviour for an environment with no promote secret.
+ */
+function loadEnvLocal(): void {
+  const file = resolve(process.cwd(), '.env.local');
+  if (!existsSync(file)) return;
+  for (const raw of readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    if (!key || key in process.env) continue;
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"') && value.length > 1) ||
+      (value.startsWith("'") && value.endsWith("'") && value.length > 1)
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
+
+loadEnvLocal();
 
 /**
  * Playwright config — CityFix.

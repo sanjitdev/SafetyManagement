@@ -5,7 +5,7 @@ name: Regenerate mockup baselines
 #
 # WHY THIS EXISTS
 #
-# The 25 committed baselines under tests-mockups/baselines/ were captured
+# The committed baselines under tests-mockups/baselines/ were captured
 # on a Windows dev machine. CI runs on ubuntu-latest, and the two
 # platforms do not rasterize identically — the same mockup HTML produces
 # measurably different pixels (antialiasing of the Noto Sans Bengali
@@ -21,6 +21,19 @@ name: Regenerate mockup baselines
 #
 # Then commit the returned PNGs. Do NOT hand-edit them, and do NOT
 # regenerate them on a different platform — the same drift returns.
+#
+# SCOPE — TWO FAMILIES OF BASELINE
+#
+#   1. `01-mockups.spec.ts/` — 25 static mockup HTML files, asserted
+#      by `npm run test:mockups`. These are pure HTML + CSS.
+#   2. The per-WO route-spec directories (05-, 06-, 07-, 08-, 10-,
+#      11-, 12-, 13-, 14-, 15-, 16-, 17-, 18-, 19-, 20-, 21-, 23-)
+#      — asserted by `npm test` (Playwright). These are REAL app
+#      routes driven through a live dev server, so they need the
+#      dev-store env vars and a running server.
+#
+# Both families are platform-dependent in the same way, so both are
+# regenerated here.
 
 on:
   workflow_dispatch:
@@ -29,12 +42,20 @@ on:
         description: "Write the refreshed baselines (instead of only uploading them)"
         type: boolean
         default: true
+      scope:
+        description: "Which baseline family to regenerate"
+        type: choice
+        options:
+          - all
+          - mockups
+          - route-specs
+        default: all
 
 jobs:
   regenerate:
     name: Regenerate baselines on ubuntu-latest
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -54,18 +75,55 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Regenerate baselines
+      # --- Family 1: static mockup HTML ---------------------------------
+
+      - name: Regenerate mockup baselines
+        if: inputs.scope == 'all' || inputs.scope == 'mockups'
         run: npm run test:update-baselines
 
-      - name: Verify the refreshed baselines are stable
+      - name: Verify the refreshed mockup baselines are stable
         # A second pass must be pixel-clean. If it is not, the mockup is
         # not deterministic (e.g. it renders a live clock or an animation),
         # and the refreshed baseline would be flaky on every CI run.
+        if: inputs.scope == 'all' || inputs.scope == 'mockups'
         run: npm run test:mockups
+
+      # --- Family 2: per-WO route specs ---------------------------------
+
+      - name: Regenerate route-spec baselines
+        # The route specs drive the REAL app, so the dev server needs
+        # the same env vars the local `npm run dev:feat` uses:
+        # `CITYFIX_DEV_STORE=1` for the in-memory store and
+        # `DEV_SKIP_WEBAUTHN=1` for the admin-write paths (ADR-007's
+        # dev seam — the runner has no virtual authenticator).
+        #
+        # `--update-snapshots` writes the refreshed PNGs in place; the
+        # `snapshotPathTemplate` in playwright.config.ts puts them
+        # under `tests-mockups/baselines/<spec-file>/`, which is
+        # exactly where the committed baselines live.
+        if: inputs.scope == 'all' || inputs.scope == 'route-specs'
+        env:
+          CITYFIX_DEV_STORE: '1'
+          DEV_SKIP_WEBAUTHN: '1'
+          DATABASE_URL: 'postgresql://cityfix:cityfix@localhost:5432/cityfix'
+          SESSION_SECRET: 'ci-placeholder-session-secret-not-a-real-credential'
+          WEBAUTHN_RP_ID: 'localhost'
+          WEBAUTHN_RP_ORIGIN: 'http://localhost:3000'
+          OTP_PROVIDER: 'stub'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npx playwright test --update-snapshots
 
       - name: Upload refreshed baselines
         uses: actions/upload-artifact@v4
         with:
           name: refreshed-baselines
-          path: tests-mockups/baselines/01-mockups.spec.ts/
+          path: tests-mockups/baselines/
           retention-days: 14
+
+      - name: Upload visual diff artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mockup-diffs
+          path: tests-mockups/artifacts/
+          retention-days: 7

@@ -264,9 +264,36 @@
 .role-app-content { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; background: var(--color-surface-page); }
 .role-shell-scrim { display: none; }
 .appheader-root[data-compact="true"] { position: relative; height: 72px !important; min-height: 72px; padding-inline: 28px !important; background: var(--color-surface-card) !important; border-bottom-color: var(--color-border) !important; }
-.appheader-root[data-compact="true"] > div:first-of-type, .appheader-root[data-compact="true"] > .appheader-cta { display: none !important; }
-.appheader-root[data-compact="true"] .appheader-burger { display: none !important; }
-.appheader-root[data-compact="true"] .usermenu-root { display: none !important; }
+/* Staff surfaces only. This rule block was authored for the admin /
+ * dispatcher / crew "compact city operations workspace", where the
+ * brand block and the citizen Report CTA must not appear. It was
+ * written against `data-compact` alone, but the CITIZEN routes
+ * (/home, /feed, /reports) are compact too — they sit beside the
+ * role sidebar — so the rule silently stripped the brand block and
+ * the Report CTA from every citizen surface.
+ *
+ * That broke a documented contract: the design spec for 1.6 Home
+ * says "At all viewports: the Report CTA lives in the top bar ...
+ * One button, one label, always visible", and WO-001 lists the
+ * top-bar Report CTA as a required acceptance item. It also broke
+ * the three route specs that click the top-bar Report CTA
+ * (04-e2e-human-tester, 22-slow-motion-e2e-demo, 28-role-walkthrough).
+ *
+ * Scoping to [data-role="staff"] restores the citizen header while
+ * leaving the staff workspace exactly as designed. `data-role` is set
+ * from the same `role` prop that already gates the CTA in the
+ * component (`role !== 'staff'`), so the two stay in step.
+ */
+.appheader-root[data-compact="true"][data-role="staff"] > div:first-of-type, .appheader-root[data-compact="true"][data-role="staff"] > .appheader-cta { display: none !important; }
+.appheader-root[data-compact="true"][data-role="staff"] .appheader-burger { display: none !important; }
+.appheader-root[data-compact="true"][data-role="staff"] .usermenu-root { display: none !important; }
+/* The citizen compact header sits beside the role sidebar, which
+ * already carries the brand lockup (mark + wordmark + tagline). Showing
+ * the header's wordmark as well put two "CityFix" marks side by side.
+ * Hide the header brand block on that surface — but NOT the Report
+ * CTA, which the citizen contract requires in the top bar.
+ */
+.appheader-root[data-compact="true"][data-role="citizen"] > div:first-of-type { display: none !important; }
 .appheader-compact-tools { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; }
 .appheader-open-nav { display: none; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 9px; color: var(--color-ink); background: var(--color-surface-raised); cursor: pointer; }
 .appheader-search { width: min(440px, 100%); height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-ink-secondary); background: var(--color-surface-raised); }
@@ -280,6 +307,44 @@
 .role-app-shell :focus-visible { outline-offset: 3px; }
 html.theme-dark, html.theme-dark body { color-scheme: dark; background: var(--color-surface-page); }
 html.theme-dark body { color: var(--color-ink); }
+
+/* MapLibre's own control chrome.
+ *
+ * `maplibre-gl/dist/maplibre-gl.css` is imported unthemed by
+ * components/CityActivityMap.tsx, so the zoom buttons and the
+ * attribution strip rendered as near-white (#fff) boxes on a dark
+ * page. The dark-theme gate in tests/29-admin-dark-theme.spec.ts
+ * scans every element for near-white backgrounds and failed on
+ * exactly these two: `.maplibregl-ctrl-group` and
+ * `.maplibregl-ctrl-attrib`.
+ *
+ * The app owns the map surface, so the app owns the controls on it.
+ * Scope every rule to `.theme-dark` so the light theme keeps
+ * MapLibre's stock chrome.
+ */
+.theme-dark .maplibregl-ctrl-group {
+  background: var(--color-surface-raised);
+  box-shadow: 0 0 0 2px var(--color-border), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.theme-dark .maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--color-border);
+}
+.theme-dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.4);
+}
+.theme-dark .maplibregl-ctrl-group button:hover {
+  background: var(--color-surface-card);
+}
+.theme-dark .maplibregl-ctrl-attrib {
+  background: var(--color-surface-raised);
+  color: var(--color-ink-secondary);
+}
+.theme-dark .maplibregl-ctrl-attrib a {
+  color: var(--color-ink-secondary);
+}
+.theme-dark .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--color-surface-raised);
+}
 html ::selection { color: var(--color-on-primary); background: var(--color-primary); }
 html::-webkit-scrollbar, body::-webkit-scrollbar, .role-app-content::-webkit-scrollbar { width: 10px; height: 10px; }
 html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 99px; background: var(--color-border-strong); background-clip: padding-box; }

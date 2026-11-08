@@ -74,6 +74,18 @@ export interface TicketLike {
   photos?: PhotoLike[];
   createdAt: Date | string;
   resolvedAt: Date | string | null;
+  /**
+   * WHY the ticket was closed, and (when it was closed as a
+   * duplicate) WHICH ticket it duplicates.
+   *
+   * Set by the dispatcher dedup-confirm route (DISP-006). These are
+   * workflow state, not citizen PII, so the staff branch exposes
+   * them — but the citizen branch does not (there is no citizen
+   * surface for a duplicate closure yet; see DISP-006 "Out of
+   * scope").
+   */
+  closeReason?: string | null;
+  duplicateOfId?: string | null;
   assignedCrewId: string | null;
   internalNote: string | null;
   reporterId: string;
@@ -180,6 +192,12 @@ export interface SerializedTicket {
   photoUrls: string[];
   createdAt: string;
   resolvedAt: string | null;
+  /**
+   * Why the ticket was closed (`'duplicate'`) and which ticket it
+   * duplicates. Staff-only — see the note on `TicketLike`.
+   */
+  closeReason: string | null;
+  duplicateOfId: string | null;
   // Internal-only fields exposed only to non-citizen roles:
   assignedCrewId: string | null;
   internalNote: string | null;
@@ -281,6 +299,11 @@ export function serializeTicketForRole(
       // Internal fields explicitly nulled out:
       assignedCrewId: null,
       internalNote: null,
+      // Workflow state, not PII — but there is no citizen surface
+      // for a duplicate closure, so it stays hidden from citizens
+      // until that surface exists.
+      closeReason: null,
+      duplicateOfId: null,
       reporterId: ticket.reporterId, // citizens see their own id (it's them)
       reporterName: null,
       trail: serializedTrail,
@@ -322,6 +345,8 @@ export function serializeTicketForRole(
       : null,
     assignedCrewId: ticket.assignedCrewId,
     internalNote: ticket.internalNote,
+    closeReason: ticket.closeReason ?? null,
+    duplicateOfId: ticket.duplicateOfId ?? null,
     reporterId: ticket.reporterId,
     reporterName: ticket.reporterName ?? null,
     trail: serializedTrail,

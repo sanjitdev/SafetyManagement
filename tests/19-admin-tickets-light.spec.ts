@@ -35,9 +35,29 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { resetDevStore } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
+
+/**
+ * Reset the dev store before each test.
+ *
+ * This spec asserts EXACT ticket counts over the city-wide list.
+ * The dev store lives for the whole dev-server process, so any
+ * ticket created by an earlier spec — or by an earlier run of
+ * this one — inflates those counts.
+ *
+ * The reset restores the 10 seed tickets and nothing else.
+ */
+test.beforeEach(async () => {
+  const resetCtx = await pwRequest.newContext();
+  try {
+    await resetDevStore(resetCtx);
+  } finally {
+    await resetCtx.dispose();
+  }
+});
 
 async function devLogin(
   ctx: APIRequestContext,
@@ -104,12 +124,11 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     expect(body.error).toBe('forbidden_role');
   });
 
-  test('GET with admin session → 200 + 5 seed tickets + nextCursor null', async () => {
+  test('GET with admin session → 200 + 10 seed tickets + nextCursor null', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    // The 5 dev-store seed tickets are at -1d, -2d, -4d, -10d, -20d;
-    // the API default is now-7d, so we widen the window to 30d to
-    // cover all of them.
+    // The dev-store seed tickets span -0d to -20d; the API default
+    // is now-7d, so we widen the window to 30d to cover all of them.
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?from=${encodeURIComponent(from)}`,
@@ -120,13 +139,25 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
       tickets: Array<{ id: string; status: string }>;
       nextCursor: string | null;
     };
-    // 5 seed tickets: submitted, routed, in_progress, resolved, closed.
-    expect(body.tickets.length).toBe(5);
+    // TEN seed tickets, not five. The seed carries two families:
+    //
+    //   - the admin/report-lifecycle family (5): submitted, routed,
+    //     in_progress, resolved, closed;
+    //   - the crew-scenario family (5): three `resolved` and two
+    //     `routed` tickets that back the crew surfaces (Rashid's
+    //     "done today" / "done earlier" lists and the routed queue).
+    //
+    // An earlier version of this spec expected 5 — it was written
+    // before the crew-scenario seeds were added, and it asserted
+    // the count as though the seed had never grown. The admin
+    // ticket list is city-wide, so the crew seeds are legitimately
+    // visible here.
+    expect(body.tickets.length).toBe(10);
     expect(body.nextCursor).toBeNull();
-    // Sorted by createdAt desc; the most-recent seed is the
-    // `submitted` ticket (now - 1d), the oldest is `closed` (now - 20d).
-    expect(body.tickets[0].id).toBe('ticket_seed_submitted_1');
-    expect(body.tickets[0].status).toBe('submitted');
+    // Sorted by createdAt desc; the most-recent seed is the crew
+    // "done today" ticket (now - 0d), the oldest is `closed` (now - 20d).
+    expect(body.tickets[0].id).toBe('ticket_seed_crew_done_today_1');
+    expect(body.tickets[0].status).toBe('resolved');
     expect(body.tickets[body.tickets.length - 1].id).toBe('ticket_seed_closed_1');
     expect(body.tickets[body.tickets.length - 1].status).toBe('closed');
   });
@@ -181,7 +212,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     expect(body.tickets[0].id).toBe('ticket_seed_routed_1');
   });
 
-  test('GET ?categoryId=cat_streetlight → 2 tickets', async () => {
+  test('GET ?categoryId=cat_streetlight → 6 tickets', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -193,14 +224,23 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     const body = (await res.json()) as {
       tickets: Array<{ id: string; categoryId: string }>;
     };
-    // Two streetlight tickets, both assigned to Rashid (whose crew
-    // persona is bound to `dept_streetlight`): the routed one and the
-    // in-progress one. The in-progress ticket used to be a `pothole`
-    // (`dept_roads`) assigned to a streetlight crew — an incoherent
-    // seed that the crew list then filtered away (fix #37).
-    expect(body.tickets.length).toBe(2);
+    // SIX streetlight tickets, all assigned to Rashid (whose crew
+    // persona is bound to `dept_streetlight`): the routed one, the
+    // in-progress one, and the four crew-scenario seeds.
+    //
+    // An earlier version of this spec expected 2 — it counted only
+    // the report-lifecycle family and predated the crew-scenario
+    // seeds, three of which are streetlight reports too.
+    expect(body.tickets.length).toBe(6);
     const ids = body.tickets.map((t) => t.id).sort();
-    expect(ids).toEqual(['ticket_seed_inprogress_1', 'ticket_seed_routed_1']);
+    expect(ids).toEqual([
+      'ticket_seed_crew_done_earlier_1',
+      'ticket_seed_crew_done_today_1',
+      'ticket_seed_crew_done_today_2',
+      'ticket_seed_crew_routed_3',
+      'ticket_seed_inprogress_1',
+      'ticket_seed_routed_1',
+    ]);
     for (const t of body.tickets) {
       expect(t.categoryId).toBe('cat_streetlight');
     }

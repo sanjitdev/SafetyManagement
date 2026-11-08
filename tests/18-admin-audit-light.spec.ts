@@ -27,9 +27,31 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { resetDevStore } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
+
+/**
+ * Reset the dev store before each test.
+ *
+ * This spec asserts EXACT counts over the audit log (5 seed
+ * entries, 4 for one actor, 3 with action=create, 1 with
+ * entityType=user). The dev store lives for the whole dev-server
+ * process, so any audit entry written by an earlier spec — or by
+ * an earlier run of this one — inflates those counts.
+ *
+ * The reset restores the 5 seed AuditEntry rows and nothing else,
+ * which is what the assertions below describe.
+ */
+test.beforeEach(async () => {
+  const resetCtx = await pwRequest.newContext();
+  try {
+    await resetDevStore(resetCtx);
+  } finally {
+    await resetCtx.dispose();
+  }
+});
 
 async function devLogin(
   ctx: APIRequestContext,

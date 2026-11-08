@@ -35,8 +35,16 @@
 
 import { test, expect, APIRequestContext } from '@playwright/test';
 import { loginAsCitizen } from './helpers/auth';
+import { createPinGenerator } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
+
+/**
+ * This file's own coordinate band — see the note in
+ * `seedCitizenTicketWithPhoto` for why the fixture cannot use a
+ * fixed centre or a random jitter.
+ */
+const nextPin = createPinGenerator('24-feed-photo-thumbnail.spec.ts');
 
 /**
  * The ids this spec posts against.
@@ -201,18 +209,25 @@ async function seedCitizenTicketWithPhoto(
   ids: ResolvedIds,
 ): Promise<string> {
   /*
-   * The coordinates are jittered per call.
+   * The coordinate comes from this file's OWN band.
    *
    * `POST /api/tickets` runs a DEDUP check (50m radius) and, on a
    * match, answers **200** with `dedup_match: true` instead of
    * **201** — no ticket is created. Against a persistent database
    * (the local Postgres does not reset between runs) a fixed
    * coordinate would therefore match the previous run's fixture and
-   * the second run would fail with "expected 201, got 200". The
-   * jitter keeps each run's fixture outside the previous one's
-   * dedup radius while staying inside the Dhaka bounding box.
+   * the second run would fail with "expected 201, got 200".
+   *
+   * An earlier version of this spec used a RANDOM jitter of
+   * ±0.002° (~±222 m) around a fixed centre. The dedup radius is
+   * only 50 m, so the jitter was ~22× larger than it needed to be
+   * and could still land inside the previous run's 50 m radius —
+   * roughly a 20% chance of a spurious `dedup_match` per run. The
+   * band generator gives a DETERMINISTIC spot in this file's own
+   * disjoint band, so the fixture is reproducible and cannot
+   * collide with another spec file.
    */
-  const jitter = () => (Math.random() - 0.5) * 0.004;
+  const pin = nextPin();
 
   const resp = await ctx.post(`${BASE}/api/tickets`, {
     data: {
@@ -220,8 +235,8 @@ async function seedCitizenTicketWithPhoto(
       wardId: ids.wardId,
       categoryId: ids.streetlightCategoryId,
       note: 'Streetlight out — thumbnail regression fixture',
-      locationLat: 23.789 + jitter(),
-      locationLng: 90.4075 + jitter(),
+      locationLat: pin.lat,
+      locationLng: pin.lng,
       locationLabel: 'Mirpur 14',
       locationLabelBn: 'মিরপুর ১৪',
       photoUrls: [MAGENTA_DATA_URL],
@@ -346,18 +361,19 @@ test.describe('report-list photo thumbnail', () => {
     await devReset(page.request);
     await loginAsCitizen(page);
     const ids = await resolveIds(page.request);
-    // Jittered for the same dedup reason as the photo fixture above —
-    // a fixed coordinate matches a previous run's ticket and the
-    // route answers 200 `dedup_match` instead of creating one.
-    const jitter = () => (Math.random() - 0.5) * 0.004;
+    // A spot from this file's own band, for the same dedup reason as
+    // the photo fixture above — a fixed coordinate matches a previous
+    // run's ticket and the route answers 200 `dedup_match` instead of
+    // creating one.
+    const pin = nextPin();
     const resp = await page.request.post(`${BASE}/api/tickets`, {
       data: {
         cityId: ids.cityId,
         wardId: ids.wardId,
         categoryId: ids.potholeCategoryId,
         note: 'No photo attached — placeholder regression fixture',
-        locationLat: 23.789 + jitter(),
-        locationLng: 90.4075 + jitter(),
+        locationLat: pin.lat,
+        locationLng: pin.lng,
         photoUrls: [],
       },
     });

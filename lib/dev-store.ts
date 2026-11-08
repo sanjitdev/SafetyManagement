@@ -368,6 +368,28 @@ function seed(): Store {
     nameBn: 'ওয়ার্ড ১৪ — মিরপুর',
     polygonGeoJson: null,
   });
+  // A SECOND ward in the SAME city, so the out-of-scope paths are
+  // reachable from the dev store.
+  //
+  // `POST /api/tickets` validates the client-supplied ward against
+  // the session's city (app/api/tickets/route.ts:155) and rejects an
+  // unknown ward with 400 `ward_not_in_city`. With only `ward_14`
+  // seeded, there was NO way to file a ticket in a ward the
+  // dispatcher is not scoped to — so the dispatcher-scope rules
+  // ("a ticket outside my ward returns 404, not 403") could not be
+  // exercised against the dev store at all. The Prisma seed has the
+  // same gap (prisma/seed.ts seeds only `ward_14`).
+  //
+  // The ward id is `ward_15` to match what the route specs use for
+  // their out-of-ward fixtures.
+  wards.set('ward_15', {
+    id: 'ward_15',
+    cityId,
+    number: 15,
+    name: 'Ward 15 — Cantonment',
+    nameBn: 'ওয়ার্ড ১৫ — ক্যান্টনমেন্ট',
+    polygonGeoJson: null,
+  });
 
   const departments = new Map<string, DevDepartment>();
   departments.set(deptIds.streetlight, {

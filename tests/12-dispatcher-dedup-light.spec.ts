@@ -33,10 +33,10 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { createPinGenerator, resetDevStore } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
-const DHAKA_CENTER = { lat: 23.7890, lng: 90.4075 };
 const CITY_ID = 'city_dhaka_north';
 const WARD_ID = 'ward_14';
 const CATEGORY_ID = 'cat_streetlight';
@@ -72,12 +72,36 @@ interface DedupFixture {
  *   2. Citizen POSTs ticket B near A with `dedupDeclineTicketId`
  *      set to A — this writes a DedupFlag row (DISP-006).
  * Both tickets are well outside the 50m radius of any seed
- * ticket (offset ~5km from DHAKA_CENTER) so the dedup engine
- * itself would not fire on the second POST.
+ * ticket (a few kilometres north-east of the city centre) so the
+ * dedup engine itself would not fire on the second POST.
+ *
+ * WHY THE COORDINATES COME FROM A SHARED BAND
+ * -------------------------------------------
+ * The dev store is ONE in-memory database shared by every spec in
+ * the run, and it lives for the whole Playwright session. Ticket A
+ * created at a fixed coordinate is therefore still there when the
+ * NEXT test in this file builds its fixture at the same spot — and
+ * that second creation comes back as `dedup_match` (a 200 with a
+ * `dedup_match` body) instead of a 201.
+ *
+ * That is not a product bug: it is PLAT-REQ-004 working exactly as
+ * designed. It is a fixture-isolation defect.
+ *
+ * `nextPin` hands out spots from this FILE's own coordinate band
+ * (see tests/helpers/fixtures.ts), so this spec can never collide
+ * with another spec file whatever the run order. A and B share the
+ * SAME base, so their ~5 m mutual offset — and therefore the dedup
+ * prompt the fixture is built to exercise — is preserved.
  */
+const nextPin = createPinGenerator('12-dispatcher-dedup-light.spec.ts');
+
 async function createDedupFixture(ctx: APIRequestContext): Promise<DedupFixture> {
   const login = await devLogin(ctx, 'citizen');
   expect(login.status()).toBe(303);
+
+  const base = nextPin();
+  const baseLat = base.lat;
+  const baseLng = base.lng;
 
   // Original ticket (A)
   const a = await ctx.post(`${BASE}/api/tickets`, {
@@ -85,8 +109,8 @@ async function createDedupFixture(ctx: APIRequestContext): Promise<DedupFixture>
       cityId: CITY_ID,
       wardId: WARD_ID,
       categoryId: CATEGORY_ID,
-      locationLat: DHAKA_CENTER.lat + 0.05,
-      locationLng: DHAKA_CENTER.lng - 0.04,
+      locationLat: baseLat,
+      locationLng: baseLng,
       locationLabel: 'Mirpur 14, dedup-fixture original',
       locationLabelBn: 'মিরপুর ১৪, ডেডাপ মূল',
       note: 'Bolt 003-004 dedup fixture — original.',
@@ -109,8 +133,8 @@ async function createDedupFixture(ctx: APIRequestContext): Promise<DedupFixture>
       cityId: CITY_ID,
       wardId: WARD_ID,
       categoryId: CATEGORY_ID,
-      locationLat: DHAKA_CENTER.lat + 0.05 + 0.00005, // ~5m offset
-      locationLng: DHAKA_CENTER.lng - 0.04,
+      locationLat: baseLat + 0.00005, // ~5m offset
+      locationLng: baseLng,
       locationLabel: 'Mirpur 14, dedup-fixture duplicate',
       locationLabelBn: 'মিরপুর ১৪, ডেডাপ নকল',
       note: 'Bolt 003-004 dedup fixture — duplicate (declined).',
@@ -129,6 +153,23 @@ async function createDedupFixture(ctx: APIRequestContext): Promise<DedupFixture>
 }
 
 // --- API-level checks ----------------------------------------------------
+
+/**
+ * Reset the dev store before each test.
+ *
+ * The dev store lives for the whole dev-server process, so it still
+ * holds the previous run's tickets when the same spec is run twice
+ * against the same server. Coordinate bands separate spec FILES from
+ * each other; only a reset separates two RUNS of the same file.
+ */
+test.beforeEach(async () => {
+  const resetCtx = await pwRequest.newContext();
+  try {
+    await resetDevStore(resetCtx);
+  } finally {
+    await resetCtx.dispose();
+  }
+});
 
 test('GET /api/v1/dispatcher/dedup-flags → 200 with the pending flag', async () => {
   const ctx = await pwRequest.newContext();

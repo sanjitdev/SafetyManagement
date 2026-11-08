@@ -42,13 +42,24 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { createPinGenerator, resetDevStore } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1280, height: 800 };
-const DHAKA_CENTER = { lat: 23.7890, lng: 90.4075 };
 const CITY_ID = 'city_dhaka_north';
 const WARD_ID = 'ward_14';
-const WARD_OTHER = 'ward_other';
+/**
+ * A second ward in the SAME city — the dispatcher's scope is
+ * `ward_14`, so a ticket filed in `ward_15` is out of scope.
+ *
+ * `ward_15` (not `ward_other`) because the ward row must EXIST:
+ * `POST /api/tickets` validates the client-supplied ward against
+ * the session's city and rejects an unknown ward with 400
+ * `ward_not_in_city`. The dev store seeds `ward_14` and `ward_15`
+ * (lib/dev-store.ts) precisely so this out-of-scope path is
+ * reachable.
+ */
+const WARD_OTHER = 'ward_15';
 const CATEGORY_ID = 'cat_streetlight';
 
 async function devLogin(
@@ -76,20 +87,40 @@ async function forceLightTheme(page: Page) {
  * city / ward. The dispatcher persona is bound to (city_dhaka_north,
  * ward_14, dept_streetlight), so cat_streetlight is the matching
  * category. Returns the new ticket id.
+ *
+ * WHY THE COORDINATES ARE JITTERED
+ * ---------------------------------
+ * The dev store is ONE in-memory database shared by every spec in
+ * the run, and it lives for the whole Playwright session. A ticket
+ * created at a fixed coordinate is therefore still there when the
+ * NEXT test in this file creates its fixture at the same spot — and
+ * the second creation comes back as `dedup_match` (a 200 with a
+ * `dedup_match` body) instead of a 201.
+ *
+ * That is not a product bug: it is PLAT-REQ-004 working exactly as
+ * designed. It is a fixture-isolation defect.
+ *
+ * `nextPin` hands out spots from this FILE's own coordinate band
+ * (see tests/helpers/fixtures.ts), so this spec can never collide
+ * with another spec file whatever the run order — and never with
+ * itself on a second call.
  */
+const nextPin = createPinGenerator('21-dispatcher-crew-picker.spec.ts');
+
 async function createFreshTicket(ctx: APIRequestContext): Promise<string> {
   const login = await devLogin(ctx, 'citizen');
   expect(login.status()).toBe(303);
-  // Use coordinates ~5km from DHAKA_CENTER so the ticket sits
-  // comfortably in Mirpur (ward_14) and never collides with any
-  // seed ticket (they are all within ~500m of center).
+  // A spot from this file's own band — comfortably in Mirpur
+  // (ward_14) and never colliding with a seed ticket or another
+  // spec file's fixture.
+  const pin = nextPin();
   const resp = await ctx.post(`${BASE}/api/tickets`, {
     data: {
       cityId: CITY_ID,
       wardId: WARD_ID,
       categoryId: CATEGORY_ID,
-      locationLat: DHAKA_CENTER.lat + 0.04,
-      locationLng: DHAKA_CENTER.lng - 0.03,
+      locationLat: pin.lat,
+      locationLng: pin.lng,
       locationLabel: 'Mirpur 14, picker test pin',
       locationLabelBn: 'মিরপুর ১৪, পিকার পরীক্ষা পিন',
       note: 'Bolt 007-002 picker spec — fresh streetlight report.',
@@ -111,15 +142,14 @@ async function createFreshTicket(ctx: APIRequestContext): Promise<string> {
 /**
  * Reset the in-memory dev store between tests so each test gets a
  * clean fixture set. The dev store accumulates tickets across
- * tests; without a reset, fresh ticket creates at a fixed
- * (lat, lng) would dedup against earlier tests' tickets and the
- * spec would fail with `Unexpected dedup_match`.
+ * tests AND across runs (it lives for the whole dev-server process);
+ * without a reset, fresh ticket creates would dedup against earlier
+ * tickets and the spec would fail with `Unexpected dedup_match`.
  */
 test.beforeEach(async () => {
   const resetCtx = await pwRequest.newContext();
   try {
-    const resp = await resetCtx.post(`${BASE}/api/dev/reset`);
-    expect(resp.status()).toBe(200);
+    await resetDevStore(resetCtx);
   } finally {
     await resetCtx.dispose();
   }
@@ -396,13 +426,19 @@ test('POST assign-crew out-of-scope ticket (different ward): 404 not_found', asy
     // Submit a ticket from a citizen in a DIFFERENT ward.
     const cLogin = await devLogin(ctx, 'citizen');
     expect(cLogin.status()).toBe(303);
+    const outOfWardPin = nextPin();
     const created = await ctx.post(`${BASE}/api/tickets`, {
       data: {
         cityId: CITY_ID,
         wardId: WARD_OTHER,
         categoryId: CATEGORY_ID,
-        locationLat: DHAKA_CENTER.lat + 0.05,
-        locationLng: DHAKA_CENTER.lng - 0.04,
+        // A spot from this file's own band, so the out-of-ward
+        // fixture cannot collide with the in-ward fixtures (or with
+        // another spec file's) and come back as a `dedup_match`
+        // instead of a 201. The dev store is shared across the
+        // whole run.
+        locationLat: outOfWardPin.lat,
+        locationLng: outOfWardPin.lng,
         locationLabel: 'Other ward, picker spec pin',
         locationLabelBn: 'অন্য ওয়ার্ড, পিকার স্পেক পিন',
         note: 'Bolt 007-002 picker spec — out-of-ward ticket.',
@@ -503,13 +539,24 @@ test('UI: dispatcher ticket page shows the picker with ward-scoped crew options'
     timeout: 5_000,
   });
 
-  // Two options: the placeholder (empty value) + Karim + Rashid.
-  // The placeholder is the "Unassigned" option; the two crew
-  // options come from the GET helper endpoint.
+  // Two options: the placeholder (empty value) + Rashid.
+  //
+  // The picker is DEPARTMENT-scoped, not just ward-scoped. The
+  // ticket is `cat_streetlight` → `dept_streetlight`, and the
+  // picker passes the ticket's `categoryId` to
+  // GET /api/v1/dispatcher/crew-for-ward, which resolves it to a
+  // department and filters the roster to crew in that department.
+  //
+  // Karim is in `dept_roads` (Roads & Drainage) and the ticket is
+  // a streetlight report, so Karim is correctly NOT offered. An
+  // earlier version of this spec expected the full ward roster
+  // (['', 'user_crew_karim', 'user_crew_rashid']) — that asserted
+  // the department filter away, which the picker has always
+  // applied.
   const optionValues = await picker.locator('option').evaluateAll(
     (opts) => (opts as HTMLOptionElement[]).map((o) => o.value),
   );
-  expect(optionValues).toEqual(['', 'user_crew_karim', 'user_crew_rashid']);
+  expect(optionValues).toEqual(['', 'user_crew_rashid']);
 });
 
 test('UI: pick a crew + Save → ticket.assignedCrewId updates, success shown', async ({ page }) => {

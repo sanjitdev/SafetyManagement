@@ -43,7 +43,11 @@ import { roleHome } from '@/lib/role-home';
 import PublicLandingExperience from '@/components/PublicLandingExperience';
 import { CityFixMark } from '@/components/CityFixMark';
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   const session = await getActiveSession();
   if (session) {
     // Authed users go straight to their OWN primary surface. The
@@ -54,7 +58,20 @@ export default async function HomePage() {
   }
 
   // Dev-store only — the demo persona is a local dev affordance.
-  if (isDevStore()) {
+  //
+  // `?landing=1` forces the REAL public landing even in dev-store
+  // mode. The demo page shadows it, and that shadow made the public
+  // landing unreachable in the environment the route specs run in
+  // (Playwright's webServer sets CITYFIX_DEV_STORE=1). The landing's
+  // "Log in" CTA href is load-bearing — tests/31-post-auth-target
+  // asserts that `/login?next=/report/location` resolves by role —
+  // so the surface it lives on has to be reachable under test.
+  //
+  // The flag is only honoured in dev-store mode; in production the
+  // query parameter is ignored and `/` always renders the landing.
+  const forceLanding = isDevStore() && searchParams?.landing === '1';
+
+  if (isDevStore() && !forceLanding) {
     return (
       <main
         style={{

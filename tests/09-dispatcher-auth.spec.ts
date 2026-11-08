@@ -65,7 +65,13 @@ test('dev login route accepts ?role=dispatcher and 303-redirects', async () => {
     // /dispatcher when the triage queue page landed. The dev login
     // route is owned by Bolt 003-001 in spirit (the persona map is
     // shared) and the redirect update is a Bolt 003-002 commit.
-    expect(resp.headers().location).toBe('/dispatcher');
+    //
+    // The Location header is ABSOLUTE. `NextResponse.redirect()`
+    // requires an absolute URL — it rejects a relative path — so the
+    // route builds one from `req.nextUrl.origin`. Asserting the path
+    // rather than the whole header keeps the test meaningful without
+    // pinning the origin.
+    expect(new URL(resp.headers().location).pathname).toBe('/dispatcher');
   } finally {
     await ctx.dispose();
   }
@@ -77,7 +83,8 @@ test('dev login route accepts ?role=citizen and 303-redirects to /report/locatio
     const resp = await devLogin(ctx, 'citizen');
     expect(resp.status()).toBe(303);
     expect(resp.headers()['x-cityfix-dev-persona']).toMatch(/^citizen:/);
-    expect(resp.headers().location).toBe('/report/location');
+    // Absolute Location — see the note in the dispatcher test above.
+    expect(new URL(resp.headers().location).pathname).toBe('/report/location');
   } finally {
     await ctx.dispose();
   }

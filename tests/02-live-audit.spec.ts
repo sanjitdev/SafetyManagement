@@ -105,7 +105,7 @@ test.describe('Welcome — primary CTA contrast', () => {
     });
   });
 
-  test('primary CTA text is dark-on-light-teal in dark mode', async ({ page }) => {
+  test('primary CTA text is dark-on-light-primary in dark mode', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setAppearance(page, 'dark');
     await page.goto(BASE + '/');
@@ -113,10 +113,13 @@ test.describe('Welcome — primary CTA contrast', () => {
     await expect(btn).toBeVisible();
     const bg = await btn.evaluate((el) => getComputedStyle(el).backgroundColor);
     const color = await btn.evaluate((el) => getComputedStyle(el).color);
-    // Dark mode primary is the lighter teal --color-primary: #14B8A6 → rgb(20, 184, 166)
-    expect(bg).toBe('rgb(20, 184, 166)');
-    // Text on dark-mode primary is the dark teal #052E2B → rgb(5, 46, 43)
-    expect(color).toBe('rgb(5, 46, 43)');
+    // Dark mode primary is --color-primary: #60A5FA → rgb(96, 165, 250).
+    // The primary was teal (#14B8A6 → rgb(20, 184, 166)) until the
+    // 2026-11-04 shell rebuild (7bbe053) moved it to the blue ramp;
+    // this assertion still carried the old teal value.
+    expect(bg).toBe('rgb(96, 165, 250)');
+    // Text on dark-mode primary is --color-on-primary: #020617 → rgb(2, 6, 23)
+    expect(color).toBe('rgb(2, 6, 23)');
     await page.screenshot({
       path: path.join(AUDIT_DIR, 'cta-contrast-dark.png'),
       fullPage: false,
