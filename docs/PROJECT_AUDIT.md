@@ -204,7 +204,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | Playwright route specs | `npm test` | ✅ **321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min |
 
-The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 remaining are stale visual baselines, refreshed on `ubuntu-latest` via `gh workflow run regenerate-baselines.yml`.
+The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037` (32 changed, 27 unchanged, 4 new — the 4 being baselines for two specs that had never captured one).
 
 ### What could not be verified
 

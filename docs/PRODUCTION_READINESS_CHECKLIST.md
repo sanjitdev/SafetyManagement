@@ -96,7 +96,7 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 | Visual regression | CI run `42480698041` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42480698041` | ✅ 12/12 steps green |
 
-**Executed 2026-11-08 (after the audit snapshot):** Playwright route specs — `npm test`, 33 files / 333 specs, **321 passed / 35 failed / 2 skipped**, 14.4 min. The 35 failures are all stale visual baselines; all functional failures are closed. The run exposed two product defects (the serializer dropping `closeReason`/`duplicateOfId`, and the citizen header stripping the required Report CTA), both fixed.
+**Executed 2026-11-08 (after the audit snapshot):** Playwright route specs — `npm test`, 33 files / 333 specs, **321 passed / 35 failed / 2 skipped**, 14.4 min. All functional failures are closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037`. The run exposed two product defects (the serializer dropping `closeReason`/`duplicateOfId`, and the citizen header stripping the required Report CTA), both fixed.
 
 **Still not executed:** any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write, dedup and crew-capacity suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
 
@@ -349,7 +349,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | **33 files / 333 specs** — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
 | 9.7 | The route specs run in CI | ❌ | CI runs the unit suite and the mockup baselines, **not** the route specs. The blocker is the dev server's lifecycle inside CI plus the per-test coordinate isolation the dev store still lacks |
-| 9.8 | The route specs pass | ✅ | **Executed 2026-11-08 — 321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min. Every failure was triaged; all functional failures are closed and the 35 remaining are stale visual baselines awaiting regeneration on `ubuntu-latest`. The first run exposed two product defects — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA |
+| 9.8 | The route specs pass | ✅ | **Executed 2026-11-08 — 321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min. Every failure was triaged; all functional failures are closed and the 35 remaining were stale visual baselines, refreshed on `ubuntu-latest` by workflow run `42501672037` (32 changed, 27 unchanged, 4 new — the 4 being baselines for two specs that had never captured one). The first run exposed two product defects — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA |
 | 9.10 | A test exists for the OTP attempt limit | ❌ | The limit is dead code, so there is nothing to test — **but a test should exist and fail** |
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
@@ -479,7 +479,7 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 | The accuracy of the `routed`→`in_progress` median | The trail and the status update are now in one transaction, so the trail cannot disagree with the ticket. The median itself is still unverified against production data |
 | Client-side XSS sinks | `components/` was reviewed only where it bore on the API contract |
 | Image-content validation | The server enforces MIME and size; no polyglot/malformed-file detection exists |
-| Playwright route specs | **Executed 2026-11-08** — 321 passed / 35 failed / 2 skipped. All functional failures closed; the 35 remaining are stale visual baselines awaiting regeneration on `ubuntu-latest`. Still not in the CI pipeline (row 9.7) |
+| Playwright route specs | **Executed 2026-11-08** — 321 passed / 35 failed / 2 skipped. All functional failures closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037`. Still not in the CI pipeline (row 9.7) |
 | Load testing | No load test was run or is defined |
 | A four-account lifecycle demonstration against a real database | Not performed — the substrate exists (333 route specs, `/api/dev/login`) and the specs now **run** against the dev store, but they have never run against a real database |
 

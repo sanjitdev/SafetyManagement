@@ -12,22 +12,23 @@
 # `@playwright/test` version, so running here is the same browser CI runs.
 #
 # USAGE
-#   (cat src.tar nm.tar) | MSYS_NO_PATHCONV=1 docker run --rm -i \
+#   (cat src.tar.gz nm.tar.gz) | MSYS_NO_PATHCONV=1 docker run --rm -i \
 #     mcr.microsoft.com/playwright:v1.63.0-noble \
-#     bash /tmp/scripts/run-specs-in-container.sh
+#     bash -c 'tar -xzf - -C /tmp && tar -xzf - -C /tmp && \
+#              cd /tmp && bash scripts/run-specs-in-container.sh'
 #
-# The repo is streamed in over stdin as two tar archives (source, then
+# The repo is streamed in over stdin as two GZIP tar archives (source, then
 # node_modules), because a volume mount of the working directory is not
-# permitted in this environment. The source archive contains this script,
-# so the invocation extracts first and runs the extracted copy.
+# permitted in this environment.
+#
+# The command string extracts BOTH archives and then runs the extracted
+# copy of this script. It cannot be `bash /tmp/scripts/run-specs-in-container.sh`
+# — that path does not exist until the archive has been extracted, so bash
+# would fail before a single byte was unpacked. For the same reason this
+# script does NOT extract its own input: by the time it runs, stdin is
+# already consumed.
 
 set -uo pipefail
-
-# Archive 1 — the source tree, which includes this script.
-tar -xf - -C /tmp || exit 1
-
-# Archive 2 — node_modules.
-tar -xf - -C /tmp || exit 1
 
 cd /tmp || exit 1
 

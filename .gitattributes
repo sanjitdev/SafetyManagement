@@ -1,0 +1,17 @@
+# Shell scripts must keep LF endings.
+#
+# The container runner (`scripts/run-specs-in-container.sh`) is executed by
+# bash inside the Linux Playwright image. With Git's default
+# `core.autocrlf` behaviour on Windows, a committed `.sh` file is checked
+# out with CRLF line endings, and bash then fails on the shebang line:
+#
+#   /tmp/scripts/run-specs-in-container.sh: /bin/bash^M: bad interpreter
+#
+# Pinning LF here makes the checkout platform-independent.
+*.sh text eol=lf
+
+# The baseline-regeneration workflow and the mockup specs read the PNG
+# baselines as binary. Never let Git attempt a line-ending conversion on
+# them — a converted PNG is a different file, and the visual diff would
+# fail for a reason that has nothing to do with the UI.
+*.png binary

@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**Refreshed route-spec baselines — 2026-11-08**
+
+- `tests-mockups/baselines/` — **32 PNGs refreshed**, **4 added**. The refresh was produced on `ubuntu-latest` by workflow run `42501672037` and downloaded from its `refreshed-baselines` artifact; the 25 mockup baselines were unchanged, which proves the refresh moved only what was stale. The 4 new files are baselines for `11-dispatcher-detail-light.spec.ts` and `12-dispatcher-dedup-light.spec.ts`, two specs that had **never captured a baseline** and therefore could never have passed.
+
 **The route specs were executed for the first time — 2026-11-08**
 
 The 333 route specs across 33 files had never been run as a suite: the CI pipeline did not include them, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**. All are now closed. What the run exposed:
@@ -45,6 +49,12 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 61 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
+
+**The slow-motion demo could not run headless — 2026-11-08.**
+
+`tests/22-slow-motion-e2e-demo.spec.ts` hardcoded `headless: false` in its `test.use` override. A headed Chromium needs an X server, and a GitHub runner has none, so the spec died with *"Missing X server or $DISPLAY"*. Because it is the last spec in the 358-test sweep, it failed the baseline-regeneration workflow and took the whole regenerated-baseline upload down with it — 350 regenerated PNGs discarded on the runner's disk.
+
+The file's own docblock already promised the opposite (*"Headed mode is opt-in ... the test stays headless-compatible"*) and documented `PWTEST_HEADLESS=0` as the switch, but the env var was never read. Headed mode is now genuinely opt-in; the `--start-fullscreen` / `--kiosk` flags are dropped in headless mode, where they mean nothing. The workflow's baseline upload is now `if: always()`, so one failing spec can never again discard the refreshed PNGs.
 
 **The 61 route-spec failures — 2026-11-08.** The first execution of the route-spec suite. Every failure was triaged; two were **product defects**, two were **test-infrastructure gaps**, and two were **stale assertions**.
 
