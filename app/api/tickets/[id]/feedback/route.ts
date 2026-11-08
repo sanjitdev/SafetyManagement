@@ -49,6 +49,10 @@ const STATUS_BY_CODE: Record<FeedbackErrorCode, number> = {
   not_found: 404,
   not_owner: 403,
   ticket_not_resolved: 409,
+  // The ticket changed between the read and the write. 409, not 422:
+  // the request was legal when it was read; the client should re-read
+  // and re-apply.
+  concurrent_write: 409,
   feedback_write_failed: 500,
 };
 

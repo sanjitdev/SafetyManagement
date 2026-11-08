@@ -3,7 +3,7 @@
 **Audit date:** 2026-11-08
 **Codebase:** `main` @ `be9f2b0`
 **Scope:** two areas the production-readiness plan singled out as the highest-value technical risk and the highest-value product gap
-**Update (2026-11-08):** Scenario 2 — the worst case — is **RESOLVED**. See [A.2.1](#a21-scenario-2--resolved-2026-11-08). The four remaining scenarios are still open.
+**Update (2026-11-08):** Scenario 2 — the worst case — is **RESOLVED**. See [A.2.1](#a21-scenario-2--resolved-2026-11-08). Scenarios 1 and 3 are **RESOLVED** by the version-guarded field writes — see [A.2.2](#a22-scenario-1--resolved-2026-11-08). Scenarios 4 and 5 remain open.
 
 ---
 
@@ -36,11 +36,11 @@ A status-guarded write cannot be written through the app's own abstraction witho
 
 | # | Scenario | Verdict (at audit time) | Verdict now |
 |---|---|---|---|
-| 1 | Two dispatchers assign different crews to the same ticket | **VULNERABLE** | Still open — the assignment write is last-write-wins |
+| 1 | Two dispatchers assign different crews to the same ticket | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.2](#a22-scenario-1--resolved-2026-11-08) |
 | 2 | Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** | ✅ **RESOLVED 2026-11-08** — see [A.2.1](#a21-scenario-2--resolved-2026-11-08) |
-| 3 | Two crew members update the same job | **VULNERABLE** | Still open |
+| 3 | Two crew members update the same job | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.2](#a22-scenario-1--resolved-2026-11-08) |
 | 4 | Two citizens submit the same report simultaneously | **VULNERABLE** | Still open |
-| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | Still open |
+| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | Still open — see [A.6](#a6-scenario-5--no-crew-capacity-constraint) |
 
 ---
 
@@ -118,7 +118,7 @@ Two subtleties the implementation had to get right, both caught by the new tests
 
 **The dev store's rollback also had to change.** The first version of the helper restored the collections wholesale on rollback (`store.trail.length = 0; store.trail.push(...snapshot)`). That is correct for a single writer and **wrong for two**: the loser's rollback erased the winner's trail row, manufacturing exactly the corruption the transaction was introduced to prevent. The helper now records the ids of the trail and audit rows *its own callback* appended and removes only those on rollback, leaving other writers' rows alone. The Prisma path has a real transaction, so this problem never arises there — the fix brings the dev store's observable behaviour in line with it.
 
-**4. The write paths that do not change status.** A transition that read a ticket before a crew assignment, a citizen rating, a dedup confirm/dismiss or a dispatcher ward/category/note edit would otherwise still pass its compare-and-swap and revert that edit. Those paths now call `db.ticket.bumpVersion({ where: { id } })`, so they participate in the version discipline:
+**4. The write paths that do not change status.** A transition that read a ticket before a crew assignment, a citizen rating, a dedup confirm/dismiss or a dispatcher ward/category/note edit would otherwise still pass its compare-and-swap and revert that edit. Those paths now use the **count-checked `updateWhere`**, so they participate in the version discipline — and they reject their own lost races. (Superseded 2026-11-08 by [A.2.2](#a22-scenario-1--resolved-2026-11-08), which replaced the interim `bumpVersion` call with a full compare-and-swap.)
 
 | Path | File |
 |---|---|
@@ -141,9 +141,42 @@ Two subtleties the implementation had to get right, both caught by the new tests
 
 ---
 
+### A.2.2 Scenario 1 — RESOLVED 2026-11-08
+
+*Added 2026-11-08 to close scenarios 1 and 3 — the remaining last-write-wins ticket-field writes.*
+
+The compare-and-swap fixed the *transition* path. The other ticket-field writes still read, decide and write non-atomically, so two dispatchers assigning the same ticket still raced each other: the second write silently clobbered the first, and the audit log recorded two plausible assignments with no indication that one had been lost.
+
+**The fix is the same mechanism, guarded on `version` instead of `(status, version)`.** Every non-status ticket write now goes through `db.ticket.updateWhere({ where: { id, version }, data })`, which returns an affected-row count. A count of zero means another writer got there first.
+
+| Path | Guard | Failure surfaced as |
+|---|---|---|
+| Crew assignment | `version` | `ConcurrentWriteError` → 409 `concurrent_write` |
+| Dispatcher ward / category / note edit | `version` | 409 `concurrent_write` |
+| Citizen feedback | `version` | `concurrent_write` → 409 |
+| Dedup confirm / dismiss | `(status, version)` | 409 `concurrent_transition` |
+
+The dedup paths change the ticket's **status** (`closed` / `submitted`), so they are guarded on `(status, version)` and report a *transition* failure — the same contract the transition path uses.
+
+**Two errors, not one.** `ConcurrentTransitionError` means the caller was changing the status; `ConcurrentWriteError` means the caller was changing a non-status field. Both are 409, but the client's next action differs: re-read and re-decide the status, versus re-read and re-apply the field. Conflating them would tell a dispatcher that the ticket is in an illegal state when it is in fact in a legal one. Both live in `lib/platform/concurrency.ts`.
+
+**The three writes in one dispatcher save each guard separately.** A single PATCH can change the ward, the category and the internal note. Each write bumps the expected version by one and guards against the version the previous write produced, so a concurrent writer that lands between two of them is caught rather than half-applied.
+
+**CI now catches it.** `tests/unit/writes-concurrency.test.ts` (10 tests) runs two concurrent assignments against the **real** dev store and asserts:
+
+- exactly one of two concurrent assignments wins, and the loser raises `ConcurrentWriteError`;
+- the loser writes **no** audit row — the audit trail cannot show an assignment that did not happen;
+- the stored assignee is one of the two candidates and the version advanced by exactly one;
+- the error carries the ticket id, the field and the expected version;
+- a version-guarded write invalidates an in-flight transition's compare-and-swap.
+
+**The test was verified non-vacuous.** Neutering the compare-and-swap turns **4 of the 10** new assertions red — and 9 of the existing transition assertions with it, 13 in total. Restoring it turns them all green.
+
+---
+
 ### A.3 Scenario 1 — concurrent crew assignment
 
-**Evidence:** `lib/dispatcher/assign-crew.ts:71` (read) → `:152-155` (write)
+**Evidence at audit time:** `lib/dispatcher/assign-crew.ts:71` (read) → `:152-155` (write)
 
 ```ts
 const ticket = await getTicketWithTrail(ticketId);              // :71
@@ -155,6 +188,8 @@ await db.ticket.update({
 ```
 
 Dispatcher A and dispatcher B both read `assignedCrewId = crew_1`, both pass the ward and department scope checks, and both write. B's assignment wins silently.
+
+**Now:** the write is a compare-and-swap on the version the caller read. See [A.2.2](#a22-scenario-1--resolved-2026-11-08).
 
 **The audit trail compounds it.** `assign-crew.ts:160-167` writes a `beforeValue` / `afterValue` pair. A's row records `crew_1 → crew_2` and B's row records `crew_1 → crew_3`. The audit log therefore shows two plausible writes and **no indication that one was lost** — which is precisely the question the audit trail exists to answer.
 
@@ -187,6 +222,10 @@ Two sub-cases, with different severity:
 **Both mark the ticket resolved — HIGH.** This is scenario 2's defect reached through the crew route. Two crew members on the same ticket both pass the `assignedCrewId === session.userId` check (`:146`) and both transition to `resolved`; the second overwrites the first's `resolvedAt`, and both write a trail row claiming `resolved`.
 
 **There is also a TOCTOU on the assignment check itself.** `route.ts:146` reads `ticket.assignedCrewId` from a snapshot loaded at `:119`. If a dispatcher reassigns the ticket between `:119` and `:151`, the crew member still completes the transition on a ticket that is no longer theirs.
+
+**Now:** the "both mark the ticket resolved" sub-case is fixed by the transition compare-and-swap (see [A.2.1](#a21-scenario-2--resolved-2026-11-08)) — the crew route uses the same `transitionTicket` service, so the second crew member's transition now loses its compare-and-swap and is rejected with a 409. The reassignment TOCTOU is closed too: the assignment write bumps the version, so the crew member's transition fails its compare-and-swap rather than resolving a ticket that is no longer theirs.
+
+**Still open:** the photo-ordering sub-case. Two photos uploaded in the same Postgres timestamp window get an arbitrary order. Photos are appended rather than overwritten, so nothing is lost — but the ordering is not deterministic. This is a schema question (a `slot` column or a deterministic tiebreak), not a race guard.
 
 ---
 
@@ -270,14 +309,24 @@ All four sub-points were carried out:
 
 Two parts. First, run `checkDedup` and `db.ticket.create` inside one transaction at `Serializable` isolation, or take a `pg_advisory_xact_lock` keyed on `(cityId, categoryId, rounded lat/lng)`. Second, add a DB-level backstop: a `dedupKey String?` column holding a hash of `(cityId, categoryId, round(lat,5), round(lng,5))` with `@@unique([cityId, dedupKey])`. That turns the 50 m radius rule into a coarse grid-key constraint the DB enforces unconditionally. The precise Haversine scan stays for finding the *best* match.
 
-**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **PARTIALLY DONE 2026-11-08.**
+**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **DONE 2026-11-08, except scenario 5.**
 
-The `version` column now exists and those paths **bump** it (`db.ticket.bumpVersion`), which is what makes a concurrent transition's compare-and-swap fail rather than reverting their edit. That closes the *interaction* between a transition and a non-status write.
+The `version` column now exists and every non-status ticket write uses a count-checked `updateWhere` with the version it read:
 
-What is **not** done is the other half of the recommendation: those paths still do not use a count-checked `updateWhere` with the version they read, so **two concurrent assignments still race each other** (last write wins). The remaining work:
+```ts
+const count = await db.ticket.updateWhere({
+  where: { id: ticket.id, version: expectedVersion },
+  data: { assignedCrewId: next, version: expectedVersion + 1 },
+});
+if (count === 0) throw new ConcurrentWriteError(ticket.id, 'assignedCrewId', expectedVersion);
+```
 
-- In `lib/dispatcher/assign-crew.ts` and the three writes in `app/api/v1/dispatcher/tickets/[id]/route.ts`, use `updateWhere({ where: { id, version }, ... })` and return **409 conflict** when the count is 0, so the dispatcher sees *"this ticket changed, reload and try again"* rather than a silent overwrite.
-- Separately, either add an explicit capacity check in `assign-crew.ts` or record "no capacity limit in v1" as a decision. Scenario 5 remains entirely open.
+A count of zero means another writer got there first, and the route returns **409 conflict** with the error code `concurrent_write` — so the dispatcher sees *"this ticket changed, reload and try again"* rather than a silent overwrite. The dedup confirm/dismiss paths change the ticket's status, so they are guarded on `(status, version)` and report `concurrent_transition` instead, matching the transition path's contract.
+
+Both remaining items from the original recommendation:
+
+- ✅ In `lib/dispatcher/assign-crew.ts` and the three writes in `app/api/v1/dispatcher/tickets/[id]/route.ts`, use `updateWhere({ where: { id, version }, ... })` and return **409 conflict** when the count is 0.
+- ⬜ Scenario 5 — the crew capacity constraint — remains entirely open. It is a product decision, not a concurrency defect: the question is whether a crew member may hold N active tickets at once. That belongs in a PRD decision, not in a race guard.
 
 **R4 — Add a concurrency test suite.** — **DONE 2026-11-08.**
 
@@ -290,7 +339,7 @@ What is **not** done is the other half of the recommendation: those paths still 
 | Item | Why | Changed since |
 |---|---|---|
 | **The deployed Postgres isolation level** | `lib/db.ts:18-20` constructs `PrismaClient` with no `isolationLevel`, and `DATABASE_URL` is not inspectable from the repo, so the connection-string or server default governs. The standard Postgres default is `READ COMMITTED`, under which all of the above failures are real. A non-default server setting could not be ruled out — **but nothing in the codebase requests one** | Unchanged. The compare-and-swap does not depend on the isolation level: the guard is in the `where` clause, so it holds under `READ COMMITTED` and above |
-| **Actual concurrent behaviour under load** | Originally derived from source analysis of the read-modify-write sequences, with no concurrency test available | **Now tested for the transition path.** `tests/unit/transitions-concurrency.test.ts` reproduces the race against the real dev store and asserts exactly one winner. Still unverified against a real Postgres under concurrent load — CI has no database |
+| **Actual concurrent behaviour under load** | Originally derived from source analysis of the read-modify-write sequences, with no concurrency test available | **Now tested for the transition and field-write paths.** `tests/unit/transitions-concurrency.test.ts` and `tests/unit/writes-concurrency.test.ts` reproduce the races against the real dev store and assert exactly one winner. Still unverified against a real Postgres under concurrent load — CI has no database |
 | **Whether Neon sets a non-default isolation level** | Not inspectable from the repository | Unchanged |
 
 ---

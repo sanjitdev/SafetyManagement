@@ -116,6 +116,8 @@ export type FeedbackErrorCode =
   | 'not_owner'
   /** The ticket is not in a state where feedback makes sense. */
   | 'ticket_not_resolved'
+  /** The ticket changed between the read and the write — retry. */
+  | 'concurrent_write'
   /** The write failed for an unexpected reason. */
   | 'feedback_write_failed';
 
@@ -220,7 +222,13 @@ export async function submitTicketFeedback(
     return { ok: false, error: { code: 'not_owner' } };
   }
 
-  let ticket: { id: string; reporterId: string; status: string; feedback?: string | null } | null;
+  let ticket: {
+    id: string;
+    reporterId: string;
+    status: string;
+    feedback?: string | null;
+    version?: number;
+  } | null;
   try {
     ticket = await db.ticket.findUnique({ where: { id: ticketId } });
   } catch (e) {
@@ -259,16 +267,25 @@ export async function submitTicketFeedback(
   }
 
   try {
-    await db.ticket.update({
-      where: { id: ticket.id },
-      data: { feedback: stored },
+    // Compare-and-swap on the version this read observed.
+    //
+    // Feedback does not change the status, but a transition that read
+    // this ticket before the rating was stored would otherwise still
+    // pass its compare-and-swap — and the rating write would be
+    // silently overwritten by the transition's own update. Guarding
+    // the write closes that gap in both directions: a lost race
+    // returns `concurrent_write` rather than corrupting the ticket.
+    const expectedVersion = ticket.version ?? 0;
+    const count = await db.ticket.updateWhere({
+      where: { id: ticket.id, version: expectedVersion },
+      data: { feedback: stored, version: expectedVersion + 1 },
     });
-    // Bump the optimistic-lock counter. Feedback does not change
-    // the status, but a transition that read this ticket before
-    // the rating was stored would otherwise still pass its
-    // compare-and-swap — and the rating write would be silently
-    // overwritten by the transition's own update.
-    await db.ticket.bumpVersion({ where: { id: ticket.id } });
+    if (count === 0) {
+      return {
+        ok: false,
+        error: { code: 'concurrent_write', detail: 'ticket_changed_since_read' },
+      };
+    }
   } catch (e) {
     return {
       ok: false,

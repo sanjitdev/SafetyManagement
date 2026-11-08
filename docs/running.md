@@ -158,7 +158,7 @@ All scripts are defined in `package.json`.
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |
 | `npm test` | `playwright test` | Playwright route specs (34 files) |
-| `npm run test:unit` | `vitest run` | 1,886 unit tests across 105 files |
+| `npm run test:unit` | `vitest run` | 1,896 unit tests across 106 files |
 | `npm run test:unit:watch` | `vitest` | Vitest watch mode |
 | `npm run test:unit:coverage` | `vitest run --coverage` | Coverage + the 80% floor gate |
 | `npm run test:mockups` | `playwright test tests/01-mockups.spec.ts` | 25 visual baselines (gating) |
@@ -334,7 +334,7 @@ If all four pass, the project is healthy.
 | Step | Verifies |
 |---|---|
 | `npx tsc --noEmit` | TypeScript strict compile clean |
-| `npm run test:unit` | 1,886 unit tests pass (105 files) |
+| `npm run test:unit` | 1,896 unit tests pass (106 files) |
 | `npm run test:mockups` | 25 visual baselines match (gating) |
 | `curl -fs http://localhost:3000/` | Server returns 2xx on `/` |
 

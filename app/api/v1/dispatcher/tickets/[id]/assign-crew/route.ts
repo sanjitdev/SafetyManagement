@@ -36,6 +36,7 @@ import { z } from 'zod';
 import { getActiveSession } from '@/lib/db-switch';
 import { ApiError, requireRole } from '@/lib/auth/guards';
 import { assignCrew } from '@/lib/dispatcher/assign-crew';
+import { ConcurrentWriteError } from '@/lib/platform/concurrency';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 
 const AssignInput = z.object({
@@ -85,6 +86,20 @@ export async function POST(
       changed: result.changed,
     });
   } catch (e) {
+    if (e instanceof ConcurrentWriteError) {
+      // Another dispatcher assigned this ticket between our read and
+      // our write. 409, not 422: the request was legal when it was
+      // read. The client should re-read and re-apply.
+      return NextResponse.json(
+        {
+          error: 'concurrent_write',
+          ticket_id: e.ticketId,
+          field: e.field,
+          expected_version: e.expectedVersion,
+        },
+        { status: 409 },
+      );
+    }
     if (e instanceof ApiError) {
       return NextResponse.json({ error: e.code }, { status: e.status });
     }

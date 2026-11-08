@@ -27,7 +27,10 @@
  *      the audit log noise-free and matches the same-ward /
  *      same-category / same-internalNote no-op pattern in the
  *      existing PATCH route.
- *   5. Writes the ticket update via `db.ticket.update`.
+ *   5. Writes the ticket update via `db.ticket.updateWhere`, a
+ *      compare-and-swap on the version the caller read. A count of
+ *      zero means another writer moved the ticket first, and the
+ *      function throws `ConcurrentWriteError` (route → 409).
  *   6. Writes one `AuditEntry`:
  *        - action `ticket.assign_crew` when assigning.
  *        - action `ticket.unassign_crew` when clearing.
@@ -47,6 +50,7 @@
 import { db, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireSameCity, requireScope } from '@/lib/auth/guards';
 import { writeAudit } from '@/lib/platform/audit';
+import { ConcurrentWriteError } from '@/lib/platform/concurrency';
 import type { DevTicketWithTrail } from '@/lib/dev-store';
 import type { SessionContext } from '@/lib/auth/session';
 
@@ -148,17 +152,31 @@ export async function assignCrew(
     }
   }
 
-  // Apply the change.
-  await db.ticket.update({
-    where: { id: ticket.id },
-    data: { assignedCrewId: next },
+  // Apply the change — as a compare-and-swap on the version the
+  // caller read.
+  //
+  // Two dispatchers assigning the same ticket concurrently both read
+  // `assignedCrewId = crew_1`, both pass the scope checks, and both
+  // write. Without the version guard the second write silently
+  // clobbers the first, and the audit log records two plausible
+  // assignments with no indication that one was lost — which is
+  // precisely the question the audit trail exists to answer.
+  //
+  // The assignment does not change the status, but it does bump the
+  // version, so a status transition that read this ticket before the
+  // assignment also fails its own compare-and-swap rather than
+  // overwriting the new assignee.
+  const expectedVersion = ticket.version ?? 0;
+  const count = await db.ticket.updateWhere({
+    where: { id: ticket.id, version: expectedVersion },
+    data: { assignedCrewId: next, version: expectedVersion + 1 },
   });
-
-  // Bump the optimistic-lock counter. The assignment does not
-  // change the status, but a transition that read this ticket
-  // before the assignment would otherwise still pass its
-  // compare-and-swap and overwrite the assignee.
-  await db.ticket.bumpVersion({ where: { id: ticket.id } });
+  if (count === 0) {
+    // Another writer moved the ticket between our read and our write.
+    // The route maps this to 409 so the dispatcher sees "this ticket
+    // changed, reload and try again" rather than a silent overwrite.
+    throw new ConcurrentWriteError(ticket.id, 'assignedCrewId', expectedVersion);
+  }
 
   // Audit row. Two actions so the dashboard can grep on either.
   const auditAction: 'ticket.assign_crew' | 'ticket.unassign_crew' =

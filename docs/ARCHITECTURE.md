@@ -220,6 +220,31 @@ Two errors are deliberately distinct, because they mean different things to the 
 
 The write paths that mutate a ticket **without** changing its status — crew assignment, citizen feedback, dedup confirm/dismiss, dispatcher ward/category/note edits, citizen crew reassignment — call `db.ticket.bumpVersion(...)`, so a transition that read the ticket before one of those edits loses its compare-and-swap instead of silently reverting the edit.
 
+#### The same guard on the non-status writes
+
+*Added 2026-11-08 — the transition fix left every other ticket-field write as a read-modify-write.*
+
+A write that changes a field but not the status uses the **same** mechanism, guarded on the version alone:
+
+```ts
+const count = await db.ticket.updateWhere({
+  where: { id, version: expectedVersion },
+  data: { assignedCrewId: next, version: expectedVersion + 1 },
+});
+if (count === 0) throw new ConcurrentWriteError(ticketId, 'assignedCrewId', expectedVersion);
+```
+
+| Path | Guard | Error → HTTP |
+|---|---|---|
+| Crew assignment (`lib/dispatcher/assign-crew.ts`) | `version` | `ConcurrentWriteError` → 409 `concurrent_write` |
+| Dispatcher ward / category / note edit (`app/api/v1/dispatcher/tickets/[id]/route.ts`) | `version` | 409 `concurrent_write` |
+| Citizen feedback (`lib/citizen/feedback.ts`) | `version` | 409 `concurrent_write` |
+| Dedup confirm / dismiss | `(status, version)` | 409 `concurrent_transition` |
+
+Both error classes live in `lib/platform/concurrency.ts`. There are two because the client's next action differs: a status change means *re-read and re-decide*, a field change means *re-read and re-apply*. Conflating them would tell a dispatcher that the ticket is in an illegal state when it is in a legal one.
+
+Where a single request writes several fields (the dispatcher's PATCH can change the ward, the category and the note), each write bumps the expected version by one and guards against the version the previous write produced — so a concurrent writer landing between two of them is caught, not half-applied.
+
 ### Audit trail (`AuditEntry`)
 
 The forensic one. `writeAudit(...)` (`lib/platform/audit.ts`) records `{ entityType, entityId, action, actorId, beforeValue, afterValue, timestamp }`.

@@ -37,7 +37,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 24 | `lib/map/osm-raster.ts` at 0% coverage | Medium | Testing | Open |
 | 25 | `AuditEntry.actor` `onDelete: Restrict` vs user deletion | Medium | Data | Unverified |
 | 26 | `docs/running.md` is stale | Low | Docs | ✅ Resolved during this audit |
-| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ Partially resolved 2026-11-08 — the transition path now has a compare-and-swap + transaction; the other 4 scenarios remain open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
+| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ Mostly resolved 2026-11-08 — the transition path and the concurrent field writes now have a compare-and-swap + transaction + regression tests; duplicate submission and crew capacity remain open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
 | 28 | `SlaPolicy` is defined, seeded and never consulted | Medium | Data | Open |
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
@@ -49,7 +49,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 
 **Full evidence: [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) Part A.**
 
-**Status as of 2026-11-08: partially resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The other four named scenarios remain open.
+**Status as of 2026-11-08: mostly resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The concurrent *field* writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day. Two named scenarios remain open: duplicate submission and crew capacity.
 
 ### The transition path — RESOLVED 2026-11-08
 
@@ -61,23 +61,42 @@ Three changes close it:
 2. **One transaction.** The status update, the trail insert and the audit write run inside a single transaction (`lib/platform/transaction.ts`), so a partial failure cannot leave a ticket in a new state with no trail row — or a trail row describing a state the ticket never reached.
 3. **The dev store implements the same semantics.** `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count, so CI exercises the real guard rather than passing while production silently lost updates.
 
-The write paths that mutate a ticket *without* changing its status (crew assignment, citizen feedback, dedup confirm/dismiss, dispatcher ward/category/note edits, citizen crew reassignment) now call `db.ticket.bumpVersion(...)`, so they participate in the version discipline too — a transition that read the ticket before such an edit loses its compare-and-swap rather than silently reverting the edit.
+The write paths that mutate a ticket *without* changing its status (crew assignment, citizen feedback, dedup confirm/dismiss, dispatcher ward/category/note edits, citizen crew reassignment) now use the **count-checked `updateWhere`** too, guarded on the version they read — see the next section.
 
 All three transition routes (`/api/tickets/{id}/transition`, `/api/v1/crew/tickets/{id}/transition`, `/api/v1/dispatcher/tickets/{id}/transition`) handle `ConcurrentTransitionError` with **409** and a `concurrent_transition` body, so the client re-reads rather than being told the ticket is in an illegal state.
 
 **CI now catches this.** `tests/unit/transitions-concurrency.test.ts` runs two and three concurrent transitions against the real dev store and asserts exactly one wins, that the loser writes no trail row, and that the trail and the final status agree. The test was verified non-vacuous: neutering the compare-and-swap turns 7 of its 13 assertions red.
 
+### The concurrent field writes — RESOLVED 2026-11-08
+
+The transition fix left the other ticket-field writes as read-modify-write. Two dispatchers assigning the same ticket both read `assignedCrewId = crew_1`, both passed the scope checks, and both wrote — the second silently clobbering the first. The audit trail compounded it: one row recorded `crew_1 → crew_2` and the other `crew_1 → crew_3`, so the log showed two plausible writes and **no indication that one was lost**.
+
+Every non-status ticket write now uses `db.ticket.updateWhere({ where: { id, version }, data })`, which returns an affected-row count. A count of zero means another writer got there first.
+
+| Path | Guard | Client sees |
+|---|---|---|
+| Crew assignment | `version` | 409 `concurrent_write` |
+| Dispatcher ward / category / note edit | `version` | 409 `concurrent_write` |
+| Citizen feedback | `version` | 409 `concurrent_write` |
+| Dedup confirm / dismiss | `(status, version)` | 409 `concurrent_transition` |
+
+**Two errors, not one.** `ConcurrentTransitionError` (status change) and `ConcurrentWriteError` (field change) both live in `lib/platform/concurrency.ts`. Both are 409, because in both cases the request was legal when it was read — but the client's next action differs, so the error code distinguishes them.
+
+**CI now catches this too.** `tests/unit/writes-concurrency.test.ts` runs two concurrent assignments against the real dev store and asserts exactly one wins, that the loser writes no audit row, that the version advanced by exactly one, and that a version-guarded write invalidates an in-flight transition. Verified non-vacuous: neutering the compare-and-swap turns 4 of its 10 assertions red.
+
 ### The remaining scenarios — still open
 
 | Scenario | Verdict |
 |---|---|
-| Two dispatchers assign different crews to the same ticket | **VULNERABLE** — last write wins; `bumpVersion` makes it visible to a concurrent transition but does not serialise two assignments |
+| Two dispatchers assign different crews to the same ticket | ✅ **RESOLVED** — compare-and-swap on `version` + regression test |
 | Two dispatchers transition the same ticket to different statuses | ✅ **RESOLVED** — compare-and-swap + transaction + regression test |
-| Two crew members update the same job | **VULNERABLE** — no crew-side conditional write |
+| Two crew members update the same job | ✅ **RESOLVED** — the crew route uses the same `transitionTicket` service, so the second crew member's transition loses its compare-and-swap |
 | Two citizens submit the same report simultaneously | **VULNERABLE** — dedup runs at submit but two simultaneous submissions can both pass the radius check |
 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** — no `@@unique` or capacity limit on active assignments |
 
-The four open scenarios need the same compare-and-swap treatment applied to their own write paths, or a DB-level constraint. They are listed here so the remaining exposure is explicit rather than implied by issue 27's closure.
+The two open scenarios are a different class of defect from the ones now closed. Duplicate submission is a **check-then-insert gap** — it needs a transaction at a higher isolation level or a DB-level unique key on a coarse coordinate grid, not a version guard (a version guard cannot help when the ticket does not exist yet). Crew capacity is a **product decision**, not a race: the question is whether a crew member may hold N active tickets at once, and that belongs in a PRD decision rather than a lock.
+
+One residual sub-case remains open under scenario 3: two photos uploaded in the same Postgres timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. That is a schema question (a `slot` column or a deterministic tiebreak), not a race guard.
 
 ---
 
@@ -453,7 +472,7 @@ Recorded so they are not re-reported as bugs.
 | The local suite fails against CI-generated baselines on Windows | The platform difference — documented in [TESTING_REPORT.md §2.3](TESTING_REPORT.md#23-visual-regression--playwright-mockup-baselines) |
 | No metric is computed from placeholder data | Verified — a repo-wide grep for `Math.random`/`mock`/`placeholder`/`sample`/`demo`/`dummy`/`hardcod` found no hits in any metric path. 25 of 27 audited metrics trace to real DB columns |
 | Concurrent photo uploads both succeed | Photos are **appended**, not overwritten — both rows survive. Only the ordering within a Postgres timestamp window is arbitrary. No data is lost |
-| The dev store hides concurrency races | Not a decision — a limitation. Node's event loop makes the read-then-set pair atomic *by accident*. It means CI provides zero coverage of the concurrency defects, and any fix must be implemented in the dev store too |
+| The dev store hides concurrency races | **Now addressed.** Node's event loop makes the read-then-set pair atomic *by accident*, so any fix must also be implemented in the dev store. It now is: `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count, and two concurrency suites run against the **real** dev store in CI |
 
 ---
 

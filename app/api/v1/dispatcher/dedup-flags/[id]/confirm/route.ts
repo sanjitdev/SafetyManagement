@@ -83,19 +83,37 @@ export async function POST(
     return NextResponse.json({ error: 'original_ticket_missing' }, { status: 500 });
   }
 
-  await db.ticket.update({
-    where: { id: flag.ticketId },
+  // Compare-and-swap on (status, version). This close is a status
+  // transition, so it must lose to any concurrent transition rather
+  // than clobber it — and a status change that lost the race must
+  // not leave the flag marked confirmed.
+  const expectedVersion = beforeTicket.version ?? 0;
+  const closedCount = await db.ticket.updateWhere({
+    where: {
+      id: flag.ticketId,
+      status: beforeTicket.status,
+      version: expectedVersion,
+    },
     data: {
       status: 'closed',
       closeReason: 'duplicate',
       duplicateOfId: original.id,
+      version: expectedVersion + 1,
     },
   });
-
-  // Bump the optimistic-lock counter so a concurrent transition
-  // that read this ticket before the dedup-confirm loses its
-  // compare-and-swap rather than clobbering the close.
-  await db.ticket.bumpVersion({ where: { id: flag.ticketId } });
+  if (closedCount === 0) {
+    // Another writer moved this ticket between the read and the
+    // write. 409 so the dispatcher reloads and re-decides.
+    return NextResponse.json(
+      {
+        error: 'concurrent_transition',
+        ticket_id: flag.ticketId,
+        expected_status: beforeTicket.status,
+        to_status: 'closed',
+      },
+      { status: 409 },
+    );
+  }
 
   await db.dedupFlag.update({
     where: { id: flag.id },

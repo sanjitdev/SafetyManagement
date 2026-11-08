@@ -75,17 +75,31 @@ export async function POST(
   // logged at submit time). The flag overlay is the only
   // thing that hides it from the triage queue. Clearing the
   // flag is sufficient — the ticket is then visible to
-  // the dispatcher's normal triage filter. We still call
-  // `update` so `updatedAt` reflects the dismissal action.
-  await db.ticket.update({
-    where: { id: flag.ticketId },
-    data: { status: 'submitted' },
+  // the dispatcher's normal triage filter. We still write so
+  // `updatedAt` reflects the dismissal action.
+  //
+  // Compare-and-swap on (status, version), so a concurrent
+  // transition wins rather than being clobbered by this reset.
+  const expectedVersion = beforeTicket.version ?? 0;
+  const resetCount = await db.ticket.updateWhere({
+    where: {
+      id: flag.ticketId,
+      status: beforeTicket.status,
+      version: expectedVersion,
+    },
+    data: { status: 'submitted', version: expectedVersion + 1 },
   });
-
-  // Bump the optimistic-lock counter so a concurrent transition
-  // that read this ticket before the dedup-dismiss loses its
-  // compare-and-swap rather than clobbering the reset.
-  await db.ticket.bumpVersion({ where: { id: flag.ticketId } });
+  if (resetCount === 0) {
+    return NextResponse.json(
+      {
+        error: 'concurrent_transition',
+        ticket_id: flag.ticketId,
+        expected_status: beforeTicket.status,
+        to_status: 'submitted',
+      },
+      { status: 409 },
+    );
+  }
 
   await db.dedupFlag.update({
     where: { id: flag.id },

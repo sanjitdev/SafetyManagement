@@ -32,6 +32,21 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 
 ### Fixed
 
+**The concurrent ticket-field writes — 2026-11-08, after the audit was delivered.**
+
+The compare-and-swap below closed the *transition* path. The same read-modify-write shape survived in every other ticket-field write, and the audit recorded it as scenario 1: two dispatchers assigning the same ticket both read `assignedCrewId = crew_1`, both passed the scope checks, and both wrote — the second silently clobbering the first. The audit trail compounded it: A's row recorded `crew_1 → crew_2` and B's row recorded `crew_1 → crew_3`, so the log showed two plausible writes and **no indication that one was lost** — precisely the question the audit trail exists to answer.
+
+Every non-status ticket write now uses the **count-checked `updateWhere`**, guarded on the version the caller read:
+
+- **`lib/platform/concurrency.ts`** — **new**. `ConcurrentWriteError` joins `ConcurrentTransitionError` (moved here from `transitions.ts`). Two errors, not one, because the client's next action differs: re-read and re-decide the *status*, versus re-read and re-apply the *field*. Both are 409 — the request was legal when it was read, and the ticket is not in an illegal state.
+- **`lib/dispatcher/assign-crew.ts`** — the assignment write is now a compare-and-swap on `version`. A count of zero raises `ConcurrentWriteError`; the route returns **409** with the error code `concurrent_write`.
+- **`app/api/v1/dispatcher/tickets/[id]/route.ts`** — the three field writes (ward, category, internal note) are each guarded. A single PATCH can change all three, so each write bumps the expected version by one and guards against the version the previous write produced — a concurrent writer landing between two of them is caught, not half-applied.
+- **`lib/citizen/feedback.ts`** — the rating write is guarded; a lost race returns `concurrent_write` (409) instead of clobbering the rating.
+- **`app/api/v1/dispatcher/dedup-flags/[id]/{confirm,dismiss}/route.ts`** — these change the ticket's **status**, so they are guarded on `(status, version)` and report `concurrent_transition`, matching the transition path's contract.
+- **`tests/unit/writes-concurrency.test.ts`** — **new**, 10 tests. Drives two concurrent assignments against the **real** dev store and asserts exactly one winner, that the loser writes no audit row, that the version advanced by exactly one, and that a version-guarded write invalidates an in-flight transition.
+
+The test was **verified non-vacuous**: neutering the compare-and-swap turns **4 of the 10** new assertions red — and 9 of the transition assertions with it, 13 in total.
+
 **The concurrent-transition lost update — 2026-11-08, after the audit was delivered.**
 
 The concurrency audit's worst finding was that `lib/platform/transitions.ts` was a non-atomic read-modify-write: it validated against a status read and wrote with an id-only predicate, so two dispatchers transitioning the same ticket both passed validation and the second silently overwrote the first. Because the trail insert and the audit write were separate statements, **the citizen-facing status trail could describe a sequence that could not legally have happened** — the platform's central trust surface telling a citizen something untrue.
@@ -44,7 +59,7 @@ This is now closed at source, with a CI-enforced regression test.
 - **`lib/platform/audit.ts`** — `writeAudit(input, target?)` takes an optional write handle so the audit row can commit with the change it describes. Without this the audit write escaped the transaction, defeating its stated purpose.
 - **`lib/db-switch.ts`** — `db.ticket.updateWhere` (a count-checked, compound-predicate write) and `db.ticket.bumpVersion` added to the facade.
 - **`lib/dev-store.ts`** — `devDb.ticket.updateWhere` implements the **same** compound guard and returns the same affected-row count, so CI exercises the real guard instead of passing while production silently lost updates.
-- **The non-status write paths now bump the version:** crew assignment (`lib/dispatcher/assign-crew.ts`), citizen feedback (`lib/citizen/feedback.ts`), dedup confirm/dismiss, dispatcher ward/category/note edits, and the citizen crew reassignment. A transition that read a ticket before one of those edits now loses its compare-and-swap instead of silently reverting the edit.
+- **The non-status write paths now bump the version:** crew assignment (`lib/dispatcher/assign-crew.ts`), citizen feedback (`lib/citizen/feedback.ts`), dedup confirm/dismiss, dispatcher ward/category/note edits, and the citizen crew reassignment. A transition that read a ticket before one of those edits now loses its compare-and-swap instead of silently reverting the edit. *(Superseded later the same day: these paths now use a full compare-and-swap rather than a bare bump — see "The concurrent ticket-field writes" above.)*
 - **All three transition routes** (`/api/tickets/{id}/transition`, `/api/v1/crew/tickets/{id}/transition`, `/api/v1/dispatcher/tickets/{id}/transition`) handle `ConcurrentTransitionError` with **409** and a `concurrent_transition` body.
 - **`tests/unit/transitions-concurrency.test.ts`** — **new**, 13 tests. Drives two and three concurrent transitions against the **real** dev store (not a mock — a mock would prove nothing about the parity claim) and asserts exactly one winner, that the loser writes no trail row, and that the trail, the status and the version agree.
 - **`tests/unit/platform/transaction.test.ts`** — **new**, 16 tests. Covers the dev-store commit/rollback paths and the Prisma facade's routing of `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one.

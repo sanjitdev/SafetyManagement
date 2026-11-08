@@ -145,6 +145,33 @@ export async function PATCH(
   const afterValue: Record<string, unknown> = {};
   let changed = false;
 
+  // The version the caller read. Every write below is a
+  // compare-and-swap against it, so a dispatcher whose ticket moved
+  // underneath them gets a 409 instead of a silent overwrite.
+  //
+  // Each successful write bumps the expected version by one, so the
+  // three writes in one save each guard against the version the
+  // previous one produced.
+  let expectedVersion = inScope.version ?? 0;
+
+  /**
+   * Write one field, guarded by the version this request believes
+   * the ticket is at. Returns false when another writer got there
+   * first.
+   */
+  const guardedWrite = async (
+    field: string,
+    data: Record<string, unknown>,
+  ): Promise<boolean> => {
+    const count = await db.ticket.updateWhere({
+      where: { id, version: expectedVersion },
+      data: { ...data, version: expectedVersion + 1 },
+    });
+    if (count === 0) return false;
+    expectedVersion += 1;
+    return true;
+  };
+
   // Ward reassign
   if (typeof wardId === 'string' && wardId !== inScope.wardId) {
     // Out-of-scope wardId check: if the dispatcher tries to
@@ -168,10 +195,9 @@ export async function PATCH(
     }
     beforeValue.wardId = inScope.wardId;
     afterValue.wardId = wardId;
-    await db.ticket.update({
-      where: { id },
-      data: { wardId },
-    });
+    if (!(await guardedWrite('wardId', { wardId }))) {
+      return concurrentWriteResponse(id, 'wardId', expectedVersion);
+    }
     changed = true;
   }
 
@@ -194,10 +220,9 @@ export async function PATCH(
     }
     beforeValue.categoryId = inScope.categoryId;
     afterValue.categoryId = categoryId;
-    await db.ticket.update({
-      where: { id },
-      data: { categoryId },
-    });
+    if (!(await guardedWrite('categoryId', { categoryId }))) {
+      return concurrentWriteResponse(id, 'categoryId', expectedVersion);
+    }
     changed = true;
   }
 
@@ -208,20 +233,16 @@ export async function PATCH(
   ) {
     beforeValue.internalNote = inScope.internalNote;
     afterValue.internalNote = internalNote;
-    await db.ticket.update({
-      where: { id },
-      data: { internalNote },
-    });
+    if (!(await guardedWrite('internalNote', { internalNote }))) {
+      return concurrentWriteResponse(id, 'internalNote', expectedVersion);
+    }
     changed = true;
   }
 
   if (changed) {
-    // Bump the optimistic-lock counter once for the whole save.
-    // These edits do not change the status, but a transition that
-    // read this ticket before the edit would otherwise still pass
-    // its compare-and-swap and overwrite the new ward/category/note
-    // with a stale copy of the row.
-    await db.ticket.bumpVersion({ where: { id } });
+    // The version was already bumped by each guarded write above —
+    // no separate bump is needed, and a separate bump would race
+    // against the guarded writes' own increments.
 
     // One audit entry per distinct action. If both ward and
     // internalNote changed in one save, the assignment loop
@@ -280,4 +301,27 @@ function pickKeys(
   const out: Record<string, unknown> = {};
   for (const k of keys) if (k in obj) out[k] = obj[k];
   return out;
+}
+
+/**
+ * 409 for a write that lost the race.
+ *
+ * The request was legal when it was read; the ticket simply moved
+ * underneath the dispatcher. 409 (not 422) tells the client to
+ * re-read and re-apply rather than that the request was invalid.
+ */
+function concurrentWriteResponse(
+  id: string,
+  field: string,
+  expectedVersion: number,
+): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'concurrent_write',
+      ticket_id: id,
+      field,
+      expected_version: expectedVersion,
+    },
+    { status: 409 },
+  );
 }

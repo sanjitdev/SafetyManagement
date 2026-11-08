@@ -94,33 +94,14 @@ export class InvalidTransitionError extends Error {
 }
 
 /**
- * Raised when the compare-and-swap write matched zero rows — another
- * writer transitioned this ticket between our read and our write.
- *
- * This is a DIFFERENT failure from `InvalidTransitionError` and the
- * routes must treat it differently:
- *
- *   - `InvalidTransitionError` means the requested edge is illegal.
- *     It is deterministic and the client can be told 409 immediately.
- *   - `ConcurrentTransitionError` means the request was legal when it
- *     was read but lost the race. The right answer is also 409, but
- *     the client should re-read rather than assume the ticket is in
- *     an illegal state — the ticket is in SOME legal state, just not
- *     the one the caller saw.
+ * `ConcurrentTransitionError` lives in `lib/platform/concurrency.ts`
+ * alongside `ConcurrentWriteError` — the two optimistic-locking
+ * failures, one for status transitions and one for non-status field
+ * writes. It is re-exported here so the existing importers of
+ * `lib/platform/transitions` keep working.
  */
-export class ConcurrentTransitionError extends Error {
-  constructor(
-    public ticketId: string,
-    public expectedStatus: TicketStatus,
-    public toStatus: TicketStatus,
-  ) {
-    super(
-      `Ticket ${ticketId} was modified concurrently: expected status ${expectedStatus}, ` +
-        `attempted ${toStatus}`,
-    );
-    this.name = 'ConcurrentTransitionError';
-  }
-}
+export { ConcurrentTransitionError } from '@/lib/platform/concurrency';
+import { ConcurrentTransitionError } from '@/lib/platform/concurrency';
 
 /**
  * Run `fn` inside a single database transaction.
