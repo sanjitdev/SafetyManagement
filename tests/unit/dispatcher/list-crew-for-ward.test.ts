@@ -32,10 +32,23 @@ describe('listCrewForWard', () => {
     });
 
     // Two crew users in ward_14 from the seed: Rashid and Karim.
-    // Sorted by name ASC → Karim, then Rashid.
+    // Sorted by load (low first) then name — Karim holds no active
+    // tickets, Rashid holds four, so Karim comes first either way.
     expect(rows).toEqual([
-      { id: 'user_crew_karim', name: 'Karim' },
-      { id: 'user_crew_rashid', name: 'Rashid' },
+      {
+        id: 'user_crew_karim',
+        name: 'Karim',
+        activeCount: 0,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
+      {
+        id: 'user_crew_rashid',
+        name: 'Rashid',
+        activeCount: 4,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
     ]);
   });
 
@@ -56,7 +69,15 @@ describe('listCrewForWard', () => {
       wardId: 'ward_other',
     });
 
-    expect(rows).toEqual([{ id: 'user_crew_jamal', name: 'Jamal' }]);
+    expect(rows).toEqual([
+      {
+        id: 'user_crew_jamal',
+        name: 'Jamal',
+        activeCount: 0,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
+    ]);
   });
 
   it('omits admins, citizens, and dispatchers (role filter)', async () => {
@@ -92,13 +113,19 @@ describe('listCrewForWard', () => {
     expect(rows).toEqual([]);
   });
 
-  it('returns only { id, name } — no other user fields', async () => {
+  it('returns only the picker fields — no other user fields leak', async () => {
     const rows = await listCrewForWard({
       cityId: 'city_dhaka_north',
       wardId: 'ward_14',
     });
     for (const row of rows) {
-      expect(Object.keys(row).sort()).toEqual(['id', 'name']);
+      expect(Object.keys(row).sort()).toEqual([
+        'activeCount',
+        'atCapacity',
+        'capacityLimit',
+        'id',
+        'name',
+      ]);
     }
   });
 });
@@ -116,7 +143,15 @@ describe('listCrewForWard — department filter', () => {
       wardId: 'ward_14',
       departmentId: 'dept_streetlight',
     });
-    expect(rows).toEqual([{ id: 'user_crew_rashid', name: 'Rashid' }]);
+    expect(rows).toEqual([
+      {
+        id: 'user_crew_rashid',
+        name: 'Rashid',
+        activeCount: 4,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
+    ]);
   });
 
   it('excludes crew from a different department', async () => {
@@ -125,7 +160,15 @@ describe('listCrewForWard — department filter', () => {
       wardId: 'ward_14',
       departmentId: 'dept_roads',
     });
-    expect(rows).toEqual([{ id: 'user_crew_karim', name: 'Karim' }]);
+    expect(rows).toEqual([
+      {
+        id: 'user_crew_karim',
+        name: 'Karim',
+        activeCount: 0,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
+    ]);
     const ids = rows.map((r) => r.id);
     expect(ids).not.toContain('user_crew_rashid');
   });

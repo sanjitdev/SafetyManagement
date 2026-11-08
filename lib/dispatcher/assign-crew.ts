@@ -51,6 +51,7 @@ import { db, getTicketWithTrail } from '@/lib/db-switch';
 import { ApiError, requireSameCity, requireScope } from '@/lib/auth/guards';
 import { writeAudit } from '@/lib/platform/audit';
 import { ConcurrentWriteError } from '@/lib/platform/concurrency';
+import { checkCrewCapacity } from '@/lib/dispatcher/crew-capacity';
 import type { DevTicketWithTrail } from '@/lib/dev-store';
 import type { SessionContext } from '@/lib/auth/session';
 
@@ -149,6 +150,33 @@ export async function assignCrew(
       crew.departmentId !== ticketDepartment
     ) {
       throw new ApiError(403, 'cross_department_access_denied');
+    }
+
+    // Capacity.
+    //
+    // The UX spec (`design-artifacts/C-UX-Scenarios/02-habib-the-
+    // handler/2.4-assign-to-crew/2.4-assign-to-crew.md`) designs a
+    // load limit that was never implemented: the crew card shows
+    // "current load", badged red past 5, and the submit flow returns
+    // 409 when "crew just took another job". This is that rule.
+    //
+    // The ticket being assigned is EXCLUDED from the count, so
+    // re-assigning a ticket that this member already holds does not
+    // count it against them twice.
+    const capacity = await checkCrewCapacity(next, ticket.id);
+    if (capacity.atCapacity) {
+      // 409, not 403: the crew member is a valid choice, they are just
+      // already carrying their share. The UX spec's own 409 copy is
+      // "This crew just took another job — pick a different crew."
+      //
+      // The message carries the counts so the route can pass them to
+      // the client; `ApiError`'s third argument is the free-text slot,
+      // and the route surfaces it as a `detail` field.
+      throw new ApiError(
+        409,
+        'crew_at_capacity',
+        `activeCount=${capacity.activeCount} limit=${capacity.limit}`,
+      );
     }
   }
 

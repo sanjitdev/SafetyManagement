@@ -3792,7 +3792,7 @@
           "Dispatcher"
         ],
         "summary": "Crew eligible for a ward",
-        "description": "Lists the crew that can be assigned in a ward, ordered by name. When `categoryId` is supplied the crew are filtered to that category’s department, plus any crew with no department (general-purpose responders).",
+        "description": "Lists the crew that can be assigned in a ward, ordered by current load (least busy first), then by name. When `categoryId` is supplied the crew are filtered to that category’s department, plus any crew with no department (general-purpose responders). Each entry carries the crew member’s `activeCount` — the number of active (non-terminal) reports they hold — and `atCapacity`, so the dispatcher can see who is already carrying their share. The assignment endpoint is the load-bearing check; this list is a hint.",
         "operationId": "dispatcherCrewForWard",
         "parameters": [
           {
@@ -3831,12 +3831,31 @@
                       "type": "array",
                       "items": {
                         "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "activeCount",
+                          "capacityLimit",
+                          "atCapacity"
+                        ],
                         "properties": {
                           "id": {
                             "type": "string"
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "activeCount": {
+                            "type": "integer",
+                            "description": "Active (non-terminal) reports currently assigned to this crew member."
+                          },
+                          "capacityLimit": {
+                            "type": "integer",
+                            "description": "The maximum number of active reports one crew member may hold."
+                          },
+                          "atCapacity": {
+                            "type": "boolean",
+                            "description": "True when the crew member is at or over the limit."
                           }
                         }
                       }
@@ -4986,7 +5005,7 @@
           "Dispatcher"
         ],
         "summary": "Assign a crew member to a report",
-        "description": "Assigns a crew member, or clears the assignment by sending `null`. The crew member must exist, be a crew role, and belong to the report’s ward and department — otherwise the assignment would be invisible to them.",
+        "description": "Assigns a crew member, or clears the assignment by sending `null`. The crew member must exist, be a crew role, and belong to the report’s ward and department — otherwise the assignment would be invisible to them. A crew member already holding the maximum number of active reports is refused with `409 crew_at_capacity`; the report being assigned is excluded from that count, so re-assigning a report the member already holds is never blocked by capacity.",
         "operationId": "dispatcherAssignCrew",
         "requestBody": {
           "required": true,
@@ -5150,6 +5169,45 @@
                       ]
                     }
                   }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another writer changed the report first, or the crew member is already at capacity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "concurrent_write"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "crew_at_capacity"
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }

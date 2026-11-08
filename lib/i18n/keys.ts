@@ -1163,6 +1163,17 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'নিযুক্তি সংরক্ষণ ব্যর্থ',
     en: 'Could not save assignment',
   },
+  // The crew member is already holding the maximum number of active
+  // reports. The UX spec's own 409 copy is "This crew just took
+  // another job — pick a different crew."
+  'dispatcher.assignCrew.error.at_capacity': {
+    bn: 'এই ক্রু সদস্য ইতিমধ্যে ব্যস্ত — অন্য ক্রু নির্বাচন করুন',
+    en: 'This crew just took another job — pick a different crew',
+  },
+  'dispatcher.assignCrew.error.concurrent': {
+    bn: 'রিপোর্টটি পরিবর্তিত হয়েছে — আবার চেষ্টা করুন',
+    en: 'This report changed — reload and try again',
+  },
 
   // Intent 008 Bolt 008-001 — FR-6 chrome i18n.
   // (The slow-motion demo surfaced these as either missing

@@ -355,6 +355,12 @@ export const db = {
         cityId: string;
         categoryId: string;
         reporterId: string;
+        /**
+         * The assigned crew member — equality or `{ in: [...] }`.
+         * Used by the crew-capacity rule. See the dev store's
+         * `ticket.findMany` for the NULL-matching semantics.
+         */
+        assignedCrewId: string | { in: string[] };
         status: { in: TicketStatus[] };
         locationLat: { gte: number; lte: number };
         locationLng: { gte: number; lte: number };

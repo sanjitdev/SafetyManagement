@@ -37,7 +37,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 24 | `lib/map/osm-raster.ts` at 0% coverage | Medium | Testing | Open |
 | 25 | `AuditEntry.actor` `onDelete: Restrict` vs user deletion | Medium | Data | Unverified |
 | 26 | `docs/running.md` is stale | Low | Docs | ✅ Resolved during this audit |
-| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ 4 of 5 resolved 2026-11-08 — the transition path and the concurrent field writes now have a compare-and-swap + transaction + regression tests, and duplicate submission has a `@@unique([cityId, dedupKey])` backstop + regression tests; crew capacity remains open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
+| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ✅ **All 5 resolved 2026-11-08** — the transition path and the concurrent field writes now have a compare-and-swap + transaction + regression tests, duplicate submission has a `@@unique([cityId, dedupKey])` backstop + regression tests, and crew capacity is enforced by a 5-active-ticket limit with a 409 — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
 | 28 | `SlaPolicy` is defined, seeded and never consulted | Medium | Data | Open |
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
@@ -49,7 +49,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 
 **Full evidence: [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) Part A.**
 
-**Status as of 2026-11-08: all but one resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The concurrent *field* writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day, and the duplicate-submission race was closed at the end of it. **One** named scenario remains open: crew capacity, which is a product decision rather than a race.
+**Status as of 2026-11-08: all five resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The concurrent *field* writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day, the duplicate-submission race at the end of it, and the crew-capacity scenario — which turned out to be an *unimplemented specification* rather than an open product question — last of all.
 
 ### The transition path — RESOLVED 2026-11-08
 
@@ -107,7 +107,7 @@ Two citizens filing the same pothole at the same coordinate at the same instant 
 
 The index semantics were additionally validated against **real PostgreSQL 16**: the full migration chain was applied to a throwaway container and the six relevant behaviours (first insert, second insert refused with `23505`, declined duplicate, second NULL-key row, different city, key released then re-used) were checked directly in SQL.
 
-### The remaining scenario — still open
+### The last scenario — closed 2026-11-08
 
 | Scenario | Verdict |
 |---|---|
@@ -115,9 +115,11 @@ The index semantics were additionally validated against **real PostgreSQL 16**: 
 | Two dispatchers transition the same ticket to different statuses | ✅ **RESOLVED** — compare-and-swap + transaction + regression test |
 | Two crew members update the same job | ✅ **RESOLVED** — the crew route uses the same `transitionTicket` service, so the second crew member's transition loses its compare-and-swap |
 | Two citizens submit the same report simultaneously | ✅ **RESOLVED** — `@@unique([cityId, dedupKey])` backstop + regression test |
-| A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** — no `@@unique` or capacity limit on active assignments |
+| A crew member is assigned while already holding active tickets | ✅ **RESOLVED** — a 5-active-ticket capacity limit, enforced at the endpoint with a 409 |
 
-The one remaining scenario is a **product decision**, not a race: the question is whether a crew member may hold N active tickets at once, and that belongs in a PRD decision rather than a lock.
+**All five named scenarios are now resolved.** The last one was framed as an open *product* question — "may a crew member hold N active tickets at once?" — but the answer was already written down. The UX spec (`design-artifacts/C-UX-Scenarios/02-habib-the-handler/2.4-assign-to-crew/2.4-assign-to-crew.md`) specifies a load badge that goes **red above 5**, a list **sorted by load**, and a **409 "crew just took another job"**. None of it had been implemented, so the fix was to implement the spec rather than to invent a policy.
+
+`lib/dispatcher/crew-capacity.ts` now holds the rule in one place; the assign service refuses a member at the limit with **409 `crew_at_capacity`**, and the picker reports each member's `activeCount` / `capacityLimit` / `atCapacity` so the hint and the trust boundary cannot disagree. `tests/unit/dispatcher/crew-capacity.test.ts` (14 tests) pins the count, the status filter and the exact boundary.
 
 One residual sub-case remains open under scenario 3: two photos uploaded in the same Postgres timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. That is a schema question (a `slot` column or a deterministic tiebreak), not a race guard.
 
@@ -424,7 +426,7 @@ Everywhere except `/api/v1/admin/**` and `/api/profile`, which use `unauthentica
 
 **Evidence:** coverage report — `lib/map/osm-raster.ts | 0 | 0 | 0 | 0 | 1-46`
 
-The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 92.56% overall.
+The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 92.59% overall.
 
 Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 

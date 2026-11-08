@@ -159,8 +159,20 @@ export default function DispatcherTicketDetailPage() {
   // shape — see the route file for the contract); `assignDraft`
   // is the working selection in the dropdown. `assignInFlight`
   // disables the Save button while the POST is pending.
+  //
+  // The load fields (`activeCount`, `capacityLimit`, `atCapacity`)
+  // let the picker show how busy each crew member is and refuse to
+  // offer one who is already at capacity. The picker is a HINT —
+  // the assign endpoint re-checks the capacity, so a stale picker
+  // cannot produce an over-capacity assignment.
   const [crewOptions, setCrewOptions] = useState<
-    Array<{ id: string; name: string }>
+    Array<{
+      id: string;
+      name: string;
+      activeCount: number;
+      capacityLimit: number;
+      atCapacity: boolean;
+    }>
   >([]);
   const [assignDraft, setAssignDraft] = useState<string>('');
   const [assignInFlight, setAssignInFlight] = useState(false);
@@ -240,7 +252,15 @@ export default function DispatcherTicketDetailPage() {
         setCrewOptions([]);
         return;
       }
-      const data = (await res.json()) as { crew: Array<{ id: string; name: string }> };
+      const data = (await res.json()) as {
+        crew: Array<{
+          id: string;
+          name: string;
+          activeCount: number;
+          capacityLimit: number;
+          atCapacity: boolean;
+        }>;
+      };
       setCrewOptions(data.crew);
     } catch {
       setCrewOptions([]);
@@ -392,9 +412,19 @@ export default function DispatcherTicketDetailPage() {
             ? 'dispatcher.assignCrew.error.cross_ward'
             : body.error === 'not_found'
               ? 'dispatcher.assignCrew.error.not_found'
-              : 'dispatcher.assignCrew.error.save_failed';
+              : body.error === 'crew_at_capacity'
+                ? 'dispatcher.assignCrew.error.at_capacity'
+                : body.error === 'concurrent_write'
+                  ? 'dispatcher.assignCrew.error.concurrent'
+                  : 'dispatcher.assignCrew.error.save_failed';
         setAssignError(t(errorKey, null, lang));
         setAssignInFlight(false);
+        // The crew list is now stale — this crew member's load
+        // changed. Re-fetch so the picker's load counts and the
+        // disabled options reflect reality.
+        if (body.error === 'crew_at_capacity') {
+          void fetchCrew(ticket.wardId, ticket.categoryId);
+        }
         return;
       }
       const data = (await res.json()) as { ticket: TicketDetail };
@@ -402,6 +432,9 @@ export default function DispatcherTicketDetailPage() {
       setAssignDraft(data.ticket.assignedCrewId ?? '');
       setAssignSuccess(true);
       setAssignInFlight(false);
+      // The assigned crew member's load just changed. Re-fetch so
+      // the picker's counts stay honest.
+      void fetchCrew(ticket.wardId, ticket.categoryId);
     } catch {
       setAssignError(t('dispatcher.assignCrew.error.save_failed', null, lang));
       setAssignInFlight(false);
@@ -1037,8 +1070,16 @@ export default function DispatcherTicketDetailPage() {
                 {t('dispatcher.assignCrew.placeholder', null, lang)}
               </option>
               {crewOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+                <option
+                  key={c.id}
+                  value={c.id}
+                  // A crew member already at capacity is not offered
+                  // as a choice. The endpoint enforces the same rule,
+                  // so this is a hint — but a hint the dispatcher can
+                  // act on without hitting a 409.
+                  disabled={c.atCapacity}
+                >
+                  {c.name} ({c.activeCount}/{c.capacityLimit})
                 </option>
               ))}
             </select>

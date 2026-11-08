@@ -1749,7 +1749,7 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Dispatcher'],
       summary: 'Crew eligible for a ward',
       description:
-        'Lists the crew that can be assigned in a ward, ordered by name. When `categoryId` is supplied the crew are filtered to that category’s department, plus any crew with no department (general-purpose responders).',
+        'Lists the crew that can be assigned in a ward, ordered by current load (least busy first), then by name. When `categoryId` is supplied the crew are filtered to that category’s department, plus any crew with no department (general-purpose responders). Each entry carries the crew member’s `activeCount` — the number of active (non-terminal) reports they hold — and `atCapacity`, so the dispatcher can see who is already carrying their share. The assignment endpoint is the load-bearing check; this list is a hint.',
       operationId: 'dispatcherCrewForWard',
       parameters: [
         queryParam('wardId', 'The ward to list crew for.', { type: 'string', minLength: 1 }, { required: true }),
@@ -1764,7 +1764,14 @@ export const openapiPaths: Record<string, PathItem> = {
               type: 'array',
               items: {
                 type: 'object',
-                properties: { id: { type: 'string' }, name: { type: 'string' } },
+                required: ['id', 'name', 'activeCount', 'capacityLimit', 'atCapacity'],
+                properties: {
+                  id: { type: 'string' },
+                  name: { type: 'string' },
+                  activeCount: { type: 'integer', description: 'Active (non-terminal) reports currently assigned to this crew member.' },
+                  capacityLimit: { type: 'integer', description: 'The maximum number of active reports one crew member may hold.' },
+                  atCapacity: { type: 'boolean', description: 'True when the crew member is at or over the limit.' },
+                },
               },
             },
           },
@@ -2068,7 +2075,7 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Dispatcher'],
       summary: 'Assign a crew member to a report',
       description:
-        'Assigns a crew member, or clears the assignment by sending `null`. The crew member must exist, be a crew role, and belong to the report’s ward and department — otherwise the assignment would be invisible to them.',
+        'Assigns a crew member, or clears the assignment by sending `null`. The crew member must exist, be a crew role, and belong to the report’s ward and department — otherwise the assignment would be invisible to them. A crew member already holding the maximum number of active reports is refused with `409 crew_at_capacity`; the report being assigned is excluded from that count, so re-assigning a report the member already holds is never blocked by capacity.',
       operationId: 'dispatcherAssignCrew',
       requestBody: jsonBody({
         type: 'object',
@@ -2096,6 +2103,12 @@ export const openapiPaths: Record<string, PathItem> = {
           ],
         }),
         '404': jsonResponse('The report, or the target crew member, does not exist.', errorBody('not_found')),
+        '409': jsonResponse('Another writer changed the report first, or the crew member is already at capacity.', {
+          oneOf: [
+            errorBody('concurrent_write'),
+            errorBody('crew_at_capacity'),
+          ],
+        }),
         '500': jsonResponse('The assignment could not be read back.', errorBody('post_assign_fetch_failed')),
       },
     },

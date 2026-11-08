@@ -10,6 +10,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The crew capacity rule — 2026-11-08**
+
+- `lib/dispatcher/crew-capacity.ts` — **new**. The 5-active-ticket limit in one place, with the counting functions the picker and the assign service both read.
+- `tests/unit/dispatcher/crew-capacity.test.ts` — **new**, 14 tests against the real dev store.
+
 **Audit deliverables — 2026-11-08**
 
 Ten documents created in `docs/`. All are new files; no source code was changed.
@@ -18,7 +23,7 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - `docs/PRODUCTION_READINESS_CHECKLIST.md` — the master go/no-go. **172 items across 12 stages**, each PASS / FAIL / NOT VERIFIED / NOT APPLICABLE with evidence. Carries the mandated Final Report Format: 44% overall, 76 passed, 67 failed, 28 not verified, 1 not applicable; 4 Critical / 5 High / 13 Medium / 9 Low issues; the security, performance and deployment assessments; the sixteen remaining blockers; and the explicit list of items that could not be verified and why.
 - `docs/SECURITY_AUDIT.md` — 17 findings (4 Critical, 4 High, 5 Medium, 4 Low) with file:line evidence, the auth and authorisation contract, and the remediation order. Verdict: not production-ready.
 - `docs/API_DOCUMENTATION.md` — all **77** operations across 61 route handlers, with the guard contract table, the error-code table, per-endpoint request/response schemas, the five documented API inconsistencies, and the two phantom operations found in the spec.
-- `docs/ARCHITECTURE.md` — the layers, the 74-module `lib/` map, the data model, the request lifecycle with the deliberate guard ordering, the dev-store seam, the CI pipeline, and nine known architectural weaknesses.
+- `docs/ARCHITECTURE.md` — the layers, the `lib/` map, the data model, the request lifecycle with the deliberate guard ordering, the dev-store seam, the CI pipeline, and nine known architectural weaknesses.
 - `docs/TESTING_REPORT.md` — the suites, the measured coverage and the weakest areas, the platform-specific baseline rule, the CI pipeline and the Node 22 rationale, and ten known testing gaps.
 - `docs/DEPLOYMENT_GUIDE.md` — Vercel + Neon hosting, the full environment-variable table including the three that must be unset in production, the production checklist, rollback procedures, monitoring gaps and four operational runbooks.
 - `docs/KNOWN_ISSUES.md` — **31** numbered flags with an index table and file:line evidence, plus a "not issues — deliberate design decisions" section so correct behaviour is not re-reported as a bug.
@@ -69,6 +74,23 @@ Two citizens filing the same pothole at the same coordinate at the same instant 
 **Two design decisions that the obvious fix would have got wrong.** The key identifies the **exact** spot, not the 50 m neighbourhood: the radius is a *policy* threshold expressed as a distance, and a radius-keyed unique index would reject a legitimate second report 40 m away (a streetlight next to a pothole). And the key is **nullable**, because PLAT-REQ-004 makes dedup a *prompt*, not a rejection — a report filed after a `dedupDeclineTicketId` must be creatable, so it carries no key, and Postgres treats NULLs in a unique index as distinct.
 
 Both suites were **verified non-vacuous** — neutering the dev store's unique-index check turns 3 of the primitive assertions and 1 of the route assertions red. The migration and the index semantics were additionally validated against **real PostgreSQL 16**: the full migration chain was applied to a throwaway container, and the six relevant behaviours were checked directly in SQL.
+
+**The crew capacity rule — 2026-11-08, after the audit was delivered.**
+
+The last of the five named concurrency scenarios. The audit framed it as an open **product** question — "may a crew member hold N active tickets at once?" — and left it open on the grounds that the answer belonged in a PRD, not a lock.
+
+It was not an open question. **The answer was already written down.** `design-artifacts/C-UX-Scenarios/02-habib-the-handler/2.4-assign-to-crew/2.4-assign-to-crew.md` specifies a crew card showing "Current load — 3 jobs in progress" with a **red badge above 5**, a list **sorted by current load (low first)**, and a **409 "crew just took another job"** on submit. None of it had been implemented: the picker returned `{ id, name }` and nothing else, and the assignment endpoint checked only role, ward and department. So the finding was not an undecided question but an **unimplemented specification**, and implementing it is what closes the audit finding.
+
+- **`lib/dispatcher/crew-capacity.ts`** — **new**. `CREW_CAPACITY_LIMIT = 5`, `countCrewActiveLoad`, `countCrewActiveLoads` and `checkCrewCapacity`. "Active" means `submitted`, `routed` or `in_progress` — the same set `buildCrewLoad` in `lib/dispatcher/monitor.ts` uses for the chart the dispatcher already reads, so the picker and the chart cannot disagree about what "busy" means. The ticket being assigned is **excluded** from its own member's count, so re-assigning a ticket a member already holds does not count it twice.
+- **`lib/dispatcher/assign-crew.ts`** — a member at the limit is refused with **409 `crew_at_capacity`** (not 403 — the member is a valid choice, they are simply already carrying their share). The refusal leaves the ticket unassigned and writes **no** audit row.
+- **`lib/dispatcher/list-crew-for-ward.ts`** — each entry now carries `activeCount`, `capacityLimit` and `atCapacity`, and the roster sorts **least-loaded first**, then by name so the order is stable. The spec's fuller ordering (specialty → load → distance → last activity) is only partially implementable: distance needs the crew member's last known location and "last activity" is a timestamp the `User` row does not carry.
+- **`app/dispatcher/tickets/[id]/page.tsx`** — the `<option>` shows the load (`Karim (0/5)`), an at-capacity option is `disabled`, and the 409 is mapped to localized copy via two new `lib/i18n/keys.ts` entries. The picker is a **hint**; the endpoint is the trust boundary, so a stale picker still cannot produce an over-capacity assignment.
+- **`lib/dev-store.ts`** — `ticket.findMany` gained the `assignedCrewId` filter (equality and `{ in: [...] }`), mirroring Prisma's NULL semantics. Without it the load count silently returned zero for every crew member and the picker would have shown "0/5" for everyone — and the CI suite would have exercised none of the rule.
+- **`tests/unit/dispatcher/crew-capacity.test.ts`** — **new**, 14 tests. **`tests/unit/dispatcher/assign-crew.test.ts`** — **+5** assertions covering the 409, the no-audit-row refusal, the no-op re-assignment, and capacity being freed by a terminal status.
+
+**Why the race is accepted rather than closed.** A capacity limit is a **counting** rule, not a **uniqueness** rule: the same member legitimately holds many tickets, just not more than N. So no `@@unique` can express it, and the check is a read followed by a write — a check-then-act race in principle. The race is benign and deliberately left open: the worst outcome is that a member transiently holds LIMIT+1 tickets, which the dispatcher can see in the picker and reassign. Closing it would need a serialisable transaction or a row lock taken in the middle of the assignment path — a real cost for a soft business rule. This is the same trade the audit accepted for the dedup path.
+
+The suite was **verified non-vacuous**: neutering `atCapacity` to `false` turns **3 of the 14** assertions red.
 
 **The concurrent-transition lost update — 2026-11-08, after the audit was delivered.**
 

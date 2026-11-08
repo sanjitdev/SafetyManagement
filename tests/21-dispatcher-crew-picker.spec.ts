@@ -125,7 +125,7 @@ test.beforeEach(async () => {
   }
 });
 
-test('GET crew-for-ward returns the ward-scoped crew, sorted by name ASC', async () => {
+test('GET crew-for-ward returns the ward-scoped crew, sorted by load then name', async () => {
   const ctx = await pwRequest.newContext();
   try {
     const login = await devLogin(ctx, 'dispatcher');
@@ -135,11 +135,33 @@ test('GET crew-for-ward returns the ward-scoped crew, sorted by name ASC', async
       params: { wardId: WARD_ID },
     });
     expect(resp.status()).toBe(200);
-    const body = (await resp.json()) as { crew: Array<{ id: string; name: string }> };
-    // Two crew in ward_14: Karim + Rashid. Sorted by name ASC.
+    const body = (await resp.json()) as {
+      crew: Array<{
+        id: string;
+        name: string;
+        activeCount: number;
+        capacityLimit: number;
+        atCapacity: boolean;
+      }>;
+    };
+    // Two crew in ward_14: Karim + Rashid. The list is sorted by
+    // current load (least busy first), then name. Karim holds no
+    // active tickets; Rashid holds four — so Karim comes first.
     expect(body.crew).toEqual([
-      { id: 'user_crew_karim', name: 'Karim' },
-      { id: 'user_crew_rashid', name: 'Rashid' },
+      {
+        id: 'user_crew_karim',
+        name: 'Karim',
+        activeCount: 0,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
+      {
+        id: 'user_crew_rashid',
+        name: 'Rashid',
+        activeCount: 4,
+        capacityLimit: 5,
+        atCapacity: false,
+      },
     ]);
   } finally {
     await ctx.dispose();

@@ -1566,6 +1566,17 @@ export const devDb = {
         cityId?: string;
         categoryId?: string;
         reporterId?: string;
+        /**
+         * The assigned crew member. Accepts a plain string (equality)
+         * or `{ in: string[] }`, mirroring Prisma's filter surface.
+         *
+         * Added for the crew-capacity rule (2026-11-08). The dev
+         * store must support the same filters the Prisma path does,
+         * for the same reason it implements the compare-and-swap: a
+         * query that only works against real Prisma is a query the CI
+         * suite never exercises.
+         */
+        assignedCrewId?: string | { in: string[] };
         status?: { in: TicketStatus[] };
         locationLat?: { gte: number; lte: number };
         locationLng?: { gte: number; lte: number };
@@ -1593,6 +1604,20 @@ export const devDb = {
           if (k === 'status') {
             const wanted = (v as { in: TicketStatus[] }).in;
             if (!wanted.includes(t.status)) return false;
+            continue;
+          }
+          if (k === 'assignedCrewId') {
+            const wanted =
+              typeof v === 'string' ? [v] : (v as { in: string[] }).in;
+            const actual = (t as unknown as Record<string, unknown>)[k] as
+              | string
+              | null;
+            // Prisma's `in` does not match NULL, and a plain equality
+            // filter on a nullable column does not match NULL either.
+            // Mirrored here so a `assignedCrewId: null` filter means
+            // "unassigned", not "everything".
+            if (actual === null || actual === undefined) return false;
+            if (!wanted.includes(actual)) return false;
             continue;
           }
           if (k === 'locationLat' || k === 'locationLng') {

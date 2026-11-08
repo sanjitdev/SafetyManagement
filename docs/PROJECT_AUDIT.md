@@ -121,14 +121,14 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 |---|---|
 | Commits | 135 |
 | Route handlers | 61 files, **77 operations** |
-| `lib/` modules | 69 `.ts` + 1 `.tsx`, **22,107 LOC** |
+| `lib/` modules | 72 `.ts` + 1 `.tsx`, **23,521 LOC** |
 | `app/api/` route handlers | **8,374 LOC** |
 | `app/**/page.tsx` | 37 pages, **24,617 LOC** |
 | Components | 62 `.tsx` files |
 | Prisma models | 16 |
-| Migrations | 4 |
+| Migrations | 5 |
 | i18n keys | 957 |
-| Unit test files | 105 (**1,896 tests**) |
+| Unit test files | 109 (**1,939 tests**) |
 | Playwright route specs | 34 |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -187,8 +187,8 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **106 files / 1,896 tests passed**, ~28 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.57% lines / 82.81% branches / 93.77% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **109 files / 1,939 tests passed**, ~28 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 83.08% branches / 93.66% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 
 ### Verified on CI
@@ -208,7 +208,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | **A deployed environment** | No deployment was inspected. Whether `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, `OTP_PROVIDER` or `CITYFIX_DEV_PROMOTE_SECRET` are set in production is **unknown — and decisive** for three Critical findings |
 | **A live rate-limit measurement** | The per-instance limitation is established from source (an in-process `Map`), not measured under load |
 | **The migration state of a live database** | `prisma/schema.prisma` was read; whether migrations have been applied is unknown |
-| **Actual concurrent behaviour under load** | **Now tested for the transition and field-write paths** — `tests/unit/transitions-concurrency.test.ts` and `tests/unit/writes-concurrency.test.ts` drive concurrent writers against the real dev store and assert exactly one winner. Still unverified against a real Postgres under concurrent load: CI has no database. Duplicate submission and crew capacity remain source-analysis only |
+| **Actual concurrent behaviour under load** | **Now tested for the transition, field-write, duplicate-submission and crew-capacity paths** — `tests/unit/transitions-concurrency.test.ts`, `tests/unit/writes-concurrency.test.ts`, `tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts` and `tests/unit/dispatcher/crew-capacity.test.ts` drive concurrent writers against the real dev store and assert exactly one winner. The dedup index semantics were additionally checked against **real PostgreSQL 16** by hand. Still unverified against a real Postgres under concurrent load: CI has no database |
 | **The deployed Postgres isolation level** | `lib/db.ts:18-20` sets no `isolationLevel`, so the server default governs. The standard default is `READ COMMITTED`, under which every concurrency failure is real |
 | **Whether the metric numbers are correct in production** | The computation paths were traced to their DB columns; no production dataset was available to sanity-check the arithmetic |
 | **ADR-006** | Not present in `docs/adr/`. Its resolution decides whether a High finding is a vulnerability or a design decision |
@@ -223,7 +223,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 
 ### Strengths
 
-1. **The layering is real, not aspirational.** The service layer holds the logic (92.56% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
+1. **The layering is real, not aspirational.** The service layer holds the logic (92.59% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
 2. **The PII boundary holds.** The citizen serializer strips `internalNote`, `assignedCrewId` and `reporterName`, anonymises trail actors to "সিটি কর্পোরেশন", and the public serializer strips `locationLabel` — which can carry a street address. No route returns a raw Prisma row.
 3. **The audit trail is genuinely immutable.** No code path updates or deletes an `AuditEntry`.
 4. **ADR-007 is implemented and tested against the real dependency graph**, not with mocks — and the shared transition route applies the ceremony *after* the ticket load and scope checks, exactly as the ADR specifies.
@@ -234,7 +234,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 ### Weaknesses
 
 1. **Four Critical security findings**, three of which need no credential at all. All four are configuration-reachable rather than theoretical.
-2. **Concurrency control — the transition and field-write paths are fixed; two scenarios remain vulnerable.** *(Was: no concurrency control of any kind — zero `$transaction`, no `version` column, no `@@unique` on `Ticket`, and a DB facade that could not even express a compound guard.)* As of 2026-11-08 the worst scenario — two concurrent transitions making the citizen-facing status trail contradict the ticket — is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. The concurrent ticket-field writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day with the same count-checked `updateWhere`. The two scenarios that remain (duplicate submission, crew capacity) are a different class of defect: one is a check-then-insert gap that a version guard cannot close, and the other is a product decision rather than a race. See [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md).
+2. **Concurrency control — all five named scenarios are now fixed.** *(Was: no concurrency control of any kind — zero `$transaction`, no `version` column, no `@@unique` on `Ticket`, and a DB facade that could not even express a compound guard.)* As of 2026-11-08 the worst scenario — two concurrent transitions making the citizen-facing status trail contradict the ticket — is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. The concurrent ticket-field writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day with the same count-checked `updateWhere`. Duplicate submission was closed at the end of it with a nullable `dedupKey` carrying `@@unique([cityId, dedupKey])` — the escape hatch being that a declined duplicate carries no key, and Postgres treats NULLs as distinct. Crew capacity was closed last: the audit had framed it as an open *product* question, but the answer was already written down in the UX spec (a red load badge above 5, a load-based sort, a 409 "crew just took another job"), so it was an unimplemented specification rather than an open question. See [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md).
 3. **No `middleware.ts`.** A route is protected only if its author remembered. This is the structural cause of two of the High findings — and ADR-007 predicted it.
 4. **No production guard on `CITYFIX_DEV_STORE`.** One env var disables the database, unsigns the session cookie and bypasses WebAuthn. A single guard would close the whole class.
 5. **The API is not internally consistent** — five documented divergences in error codes, field names and status codes. Documented rather than normalised because clients depend on the current behaviour.

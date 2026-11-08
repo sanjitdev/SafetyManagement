@@ -505,3 +505,120 @@ describe('assignCrew — round-trips through getTicketWithTrail', () => {
     expect(fromStore!.assignedCrewId).toBe(DEV_CREW_ID);
   });
 });
+
+describe('assignCrew — capacity', () => {
+  // The UX spec (`2.4-assign-to-crew.md`) designs a load limit that
+  // was never implemented: the crew card shows "current load" badged
+  // red above 5, the list sorts by load, and a 409 comes back when
+  // "crew just took another job". This block pins the enforcement.
+  //
+  // Rashid (DEV_CREW_ID) holds FOUR active tickets in the seed, so
+  // one more assignment takes him to exactly the limit of 5.
+
+  it('allows an assignment that brings a crew member TO the limit', async () => {
+    const ticket = seedTicketInScope();
+    const dispatcher = mkDispatcher();
+
+    // Rashid is at 4; this makes it 5, which is allowed.
+    const result = await assignCrew(
+      ticket.id,
+      { assignedCrewId: DEV_CREW_ID },
+      dispatcher,
+    );
+    expect(result.changed).toBe(true);
+    expect(result.ticket.assignedCrewId).toBe(DEV_CREW_ID);
+  });
+
+  it('refuses an assignment that would take a crew member OVER the limit (409 crew_at_capacity)', async () => {
+    // Take Rashid to 5 first.
+    const first = seedTicketInScope();
+    await assignCrew(
+      first.id,
+      { assignedCrewId: DEV_CREW_ID },
+      mkDispatcher(),
+    );
+
+    // This would be the sixth.
+    const second = seedTicketInScope();
+    let caught: unknown;
+    try {
+      await assignCrew(
+        second.id,
+        { assignedCrewId: DEV_CREW_ID },
+        mkDispatcher(),
+      );
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(409);
+    expect((caught as ApiError).code).toBe('crew_at_capacity');
+  });
+
+  it('leaves the ticket unassigned and writes no audit row after a capacity refusal', async () => {
+    const first = seedTicketInScope();
+    await assignCrew(
+      first.id,
+      { assignedCrewId: DEV_CREW_ID },
+      mkDispatcher(),
+    );
+    const auditAfterFirst = devDb.audit.findMany({
+      where: { entityType: 'ticket' },
+    }).length;
+
+    const second = seedTicketInScope();
+    await assignCrew(
+      second.id,
+      { assignedCrewId: DEV_CREW_ID },
+      mkDispatcher(),
+    ).catch(() => undefined);
+
+    const stored = devDb.ticket.findUnique({ where: { id: second.id } });
+    expect(stored!.assignedCrewId).toBeNull();
+    // The refusal wrote no audit row — the same discipline the
+    // concurrent-write rejection follows.
+    expect(
+      devDb.audit.findMany({ where: { entityType: 'ticket' } }).length,
+    ).toBe(auditAfterFirst);
+  });
+
+  it('does not count a ticket the member already holds against them', async () => {
+    // Rashid holds four active tickets, one of which is
+    // `ticket_seed_inprogress_1`. Re-assigning THAT ticket to him
+    // changes nothing, and it must not be refused for capacity —
+    // the ticket being assigned is excluded from the count.
+    const dispatcher = mkDispatcher();
+    const result = await assignCrew(
+      'ticket_seed_inprogress_1',
+      { assignedCrewId: DEV_CREW_ID },
+      dispatcher,
+    );
+    expect(result.changed).toBe(false);
+    expect(result.auditAction).toBeNull();
+  });
+
+  it('frees capacity when a ticket becomes terminal', async () => {
+    // Rashid holds four. Take him to five, then resolve one of his
+    // tickets — that ticket leaves the load, so he is assignable
+    // again.
+    const ticket = seedTicketInScope();
+    await assignCrew(
+      ticket.id,
+      { assignedCrewId: DEV_CREW_ID },
+      mkDispatcher(),
+    );
+
+    await devDb.ticket.update({
+      where: { id: 'ticket_seed_crew_routed_2' },
+      data: { status: 'resolved' },
+    });
+
+    const second = seedTicketInScope();
+    const result = await assignCrew(
+      second.id,
+      { assignedCrewId: DEV_CREW_ID },
+      mkDispatcher(),
+    );
+    expect(result.changed).toBe(true);
+  });
+});

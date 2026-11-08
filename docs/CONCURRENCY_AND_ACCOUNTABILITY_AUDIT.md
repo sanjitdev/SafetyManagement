@@ -50,7 +50,7 @@ A status-guarded write cannot be written through the app's own abstraction witho
 | 2 | Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** | ✅ **RESOLVED 2026-11-08** — see [A.2.1](#a21-scenario-2--resolved-2026-11-08) |
 | 3 | Two crew members update the same job | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.2](#a22-scenario-1--resolved-2026-11-08) |
 | 4 | Two citizens submit the same report simultaneously | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.3](#a23-scenario-4--resolved-2026-11-08) |
-| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | Still open — see [A.6](#a6-scenario-5--no-crew-capacity-constraint) |
+| 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | ✅ **RESOLVED 2026-11-08** — see [A.6](#a6-scenario-5--no-crew-capacity-constraint) |
 
 ---
 
@@ -312,11 +312,69 @@ Two sub-cases, with different severity:
 
 ### A.6 Scenario 5 — no crew capacity constraint
 
-**Evidence:** `lib/dispatcher/assign-crew.ts` — validates role (`:114`), ward (`:117`), department (`:142-148`). **Never checks whether the crew member already holds other active tickets.**
+**Evidence at audit time:** `lib/dispatcher/assign-crew.ts` — validates role (`:114`), ward (`:117`), department (`:142-148`). **Never checks whether the crew member already holds other active tickets.**
 
 `prisma/schema.prisma:368` has `@@index([assignedCrewId])` — an index for lookup, **not** a uniqueness constraint. A dispatcher can assign the same crew member to N tickets; the crew list (`app/api/v1/crew/tickets/route.ts:167`) filters in code, so the crew simply sees all N.
 
 If double-booking is a business rule, it exists nowhere in the codebase. If it is not, the absence should be recorded as a decision rather than left ambiguous.
+
+#### The rule existed — in the UX spec, not the code
+
+The audit framed this as an open product question. It was not. The rule is written down, in
+`design-artifacts/C-UX-Scenarios/02-habib-the-handler/2.4-assign-to-crew/2.4-assign-to-crew.md`:
+
+| Spec line | What it describes |
+|---|---|
+| *"**Current load** — '৩টি কাজ চলমান / 3 jobs in progress' (red badge if > 5)"* | A load badge on each crew card, turning red above 5 |
+| *"Sorted by best fit first: specialty match → **current load (low first)** → distance (near first) → last activity"* | A load-based sort |
+| *"**On 409 conflict** (crew just took another job): 'এই ক্রু এখন অন্য কাজে ব্যস্ত — অন্য ক্রু নির্বাচন করুন / This crew just took another job — pick a different crew.'"* | A 409 refusal when a crew member is already loaded |
+
+All three are capacity behaviour. **None of it was implemented.** The picker returned `{ id, name }` and nothing else; the assignment endpoint checked only role, ward and department; the spec's own 409 copy had no code path that could produce it.
+
+So this was not an undecided question — it was an **unimplemented specification**, and the implementation is what closes the finding. The audit's instinct to leave it as a product decision was right about the *mechanism* (there is no constraint to add) and wrong about the *status* (the decision had already been made, in the design artifacts).
+
+#### What was built
+
+**`lib/dispatcher/crew-capacity.ts`** (new) — the rule, in one place:
+
+- `CREW_CAPACITY_LIMIT = 5`. The spec's red badge fires at **> 5**, so 5 is the last unflagged load and the sixth assignment is the one refused.
+- `countCrewActiveLoad(crewId, excludeTicketId?)` — the number of **active** tickets the member holds. Active means `submitted`, `routed` or `in_progress`; `resolved`, `closed` and `cancelled` are not load, so a member who closed their last ticket is assignable again immediately. This set matches `buildCrewLoad` in `lib/dispatcher/monitor.ts`, which is the chart the dispatcher already reads — the picker and the chart must not disagree about what "busy" means.
+- `countCrewActiveLoads(crewIds)` — the same count for a whole roster in **one** query, not one per member.
+- `checkCrewCapacity(crewId, excludeTicketId?)` — the count, the limit, and the verdict.
+
+`excludeTicketId` matters: without it, a dispatcher re-assigning a ticket that member **already holds** would count that ticket twice and could be refused a re-assignment that changes nothing.
+
+**`lib/dispatcher/assign-crew.ts`** — the enforcement, in the same place as the role/ward/department checks that were already there. A member at the limit is refused with **409 `crew_at_capacity`**, not 403: the member is a valid choice, they are simply already carrying their share. The refusal writes **no** audit row and leaves the ticket unassigned, matching how the concurrent-write rejection behaves.
+
+**`lib/dispatcher/list-crew-for-ward.ts`** — the picker now carries `activeCount`, `capacityLimit` and `atCapacity` on each entry, and sorts **least-loaded first** (then by name, so the order is stable). The spec's full ordering — specialty → load → distance → last activity — cannot be completed here: distance needs the crew member's last known location (v1 approximates it from their last ticket) and "last activity" is a timestamp the `User` row does not carry. The department filter already implements the specialty-match step.
+
+**`app/dispatcher/tickets/[id]/page.tsx`** — the `<option>` shows the load (`Karim (0/5)`), an at-capacity option is `disabled`, and the 409 is mapped to localized copy. The picker is a **hint**; the endpoint is the trust boundary, so a stale picker still cannot produce an over-capacity assignment.
+
+**`lib/dev-store.ts`** — `ticket.findMany` gained the `assignedCrewId` filter (equality and `{ in: [...] }`), with Prisma's NULL semantics mirrored (an `in` filter does not match NULL). Without it the capacity query would work only against real Prisma, and the CI suite would never exercise the rule at all — the same faithfulness discipline the compare-and-swap and the dedup index required.
+
+#### Why this is not a race guard, and why that is fine
+
+A capacity limit is a **counting** rule, not a **uniqueness** rule. The same member legitimately holds many tickets — just not more than N. So there is no `@@unique` to reach for, and the check is a read followed by a write. That is a check-then-act race in principle.
+
+The race is **accepted**, deliberately:
+
+- The worst outcome is that a member transiently holds LIMIT+1 tickets instead of LIMIT. Nobody's data is corrupted; the dispatcher sees the true load in the picker and in the monitor chart, and the extra ticket can be reassigned.
+- Closing it would need a serialisable transaction or a row lock on the crew member, taken in the middle of the assignment path — a real cost for a soft business rule.
+
+This is the same trade the dedup path accepted: a `Serializable` transaction would have bought nothing the unique index did not already give. Here there is no index to reach for, so the race stands and the count is re-read after the write as well, so the audit trail records what actually happened.
+
+#### Verification
+
+| Check | Result |
+|---|---|
+| `tests/unit/dispatcher/crew-capacity.test.ts` | **New, 14 tests** — the count, the status filter, the boundary (5 allowed / 6 refused), the ticket-exclusion, the picker agreement |
+| `tests/unit/dispatcher/assign-crew.test.ts` | **+5 tests** — the 409, the no-audit-row refusal, the no-op re-assignment, the capacity freed by a terminal status |
+| **Non-vacuity** | Neutering `atCapacity` to `false` turns **3 of 130** dispatcher assertions red; restoring it turns them green |
+| `npx tsc --noEmit` | clean |
+| `npm run test:unit` | **109 files / 1,939 tests**, 100% passing |
+| `npm run lint` | 0 errors, 55 warnings (all pre-existing) |
+
+The picker and the assign service read the **same** `CREW_CAPACITY_LIMIT` constant and the **same** status set, so the hint and the trust boundary cannot drift apart.
 
 ---
 
@@ -343,7 +401,9 @@ Two suites exercise them against the **real** dev store: `tests/unit/writes-conc
 
 **Every new suite was verified non-vacuous.** Neutering the guard under test turns its assertions red — 13 for the compare-and-swap, 3 for the unique-index primitives, 1 for the route recovery. A dev store that skipped the guard would let the whole CI suite pass while production behaved differently, so this check is the point of the suites, not a formality.
 
-The remaining scenarios (A.1 row 5 — crew capacity) still have no CI coverage, because there is no guard for them to exercise: that one is a product decision, not a race (see [A.6](#a6-scenario-5--no-crew-capacity-constraint)).
+**Update 2026-11-08 — closed for scenario 5 as well.** The dev store needed one more faithful behaviour for the capacity work: `devDb.ticket.findMany` now filters on `assignedCrewId` (equality **and** `{ in: [...] }`), mirroring Prisma's NULL semantics — an `in` filter does not match a NULL `assignedCrewId`. Without it the load count silently returned zero for every crew member, and the picker would have shown "0/5" for everyone. `tests/unit/dispatcher/crew-capacity.test.ts` (14 tests) drives the real dev store and pins the count, the status filter, the boundary and the picker's agreement with the assign service.
+
+**All five named scenarios are now covered by CI.** The one remaining divergence — `ticketPhoto.create`'s in-place push-then-sort — is still open, but it is a *photo ordering* question, not a race guard: the fix is a deterministic tiebreak (a `slot` column or an `ORDER BY uploadedAt, id`), not a lock.
 
 ---
 
@@ -373,6 +433,8 @@ The DB layer provides zero protection for any ticket-state race.
 
 `dedupKey` is **nullable**, and that is deliberate: a submission that declared a dedup **decline** carries no key, and a ticket that leaves the open statuses has its key released. Postgres treats NULLs in a unique index as distinct, so neither case is constrained — which is exactly what the product requires.
 
+**The crew capacity limit is deliberately NOT a constraint.** It is a counting rule ("a member may hold at most 5 *active* tickets"), not a uniqueness rule, so no index can express it. It is enforced in `lib/dispatcher/crew-capacity.ts` as a read-then-check, with the race accepted and the reason documented — see [A.6](#a6-scenario-5--no-crew-capacity-constraint).
+
 ---
 
 ### A.9 Recommendations
@@ -400,7 +462,7 @@ All four sub-points were carried out:
 
 The recommendation had two parts. The second part was implemented as written — a `dedupKey` column with a `@@unique([cityId, dedupKey])` index — but the **first** part (a `Serializable` transaction or an advisory lock) was deliberately NOT implemented, and the key's precision was changed. Both deviations are argued in [A.2.3](#a23-scenario-4--resolved-2026-11-08); the short version is that a radius-keyed unique index would have made the product's acknowledged-duplicate path impossible to create, and the transaction/advisory-lock variant protects a window that the unique index closes outright.
 
-**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **DONE 2026-11-08, except scenario 5.**
+**R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **DONE 2026-11-08.**
 
 The `version` column now exists and every non-status ticket write uses a count-checked `updateWhere` with the version it read:
 
@@ -417,13 +479,15 @@ A count of zero means another writer got there first, and the route returns **40
 Both remaining items from the original recommendation:
 
 - ✅ In `lib/dispatcher/assign-crew.ts` and the three writes in `app/api/v1/dispatcher/tickets/[id]/route.ts`, use `updateWhere({ where: { id, version }, ... })` and return **409 conflict** when the count is 0.
-- ⬜ Scenario 5 — the crew capacity constraint — remains entirely open. It is a product decision, not a concurrency defect: the question is whether a crew member may hold N active tickets at once. That belongs in a PRD decision, not in a race guard.
+- ✅ Scenario 5 — the crew capacity constraint — is closed by `lib/dispatcher/crew-capacity.ts`, which enforces the limit the UX spec already set (5 active tickets) as a **counting** rule rather than a uniqueness rule, and returns **409 `crew_at_capacity`** when a member is already at the limit. See [A.6](#a6-scenario-5--no-crew-capacity-constraint).
 
 **R4 — Add a concurrency test suite.** — **DONE 2026-11-08.**
 
 `tests/unit/transitions-concurrency.test.ts` (13 tests) and `tests/unit/platform/transaction.test.ts` (16 tests) now cover the transition race, the dev-store's version discipline, and the transaction helper's commit/rollback semantics. See [A.2.1](#a21-scenario-2--resolved-2026-11-08).
 
-**Extended 2026-11-08** with `tests/unit/writes-concurrency.test.ts` (10 tests), `tests/unit/dedup-concurrency.test.ts` (18 tests) and `tests/unit/dedup-route-race.test.ts` (6 tests) — covering the field-write race, the dedup-key primitives, and the submit path's race recovery. **47 concurrency tests in total.** Every one of them was verified non-vacuous by neutering the guard it exercises and confirming the assertions turn red.
+**Extended 2026-11-08** with `tests/unit/writes-concurrency.test.ts` (10 tests), `tests/unit/dedup-concurrency.test.ts` (18 tests) and `tests/unit/dedup-route-race.test.ts` (6 tests) — covering the field-write race, the dedup-key primitives, and the submit path's race recovery.
+
+**Extended again 2026-11-08** with `tests/unit/dispatcher/crew-capacity.test.ts` (14 tests) and 5 further assertions in `tests/unit/dispatcher/assign-crew.test.ts` — covering the capacity limit's count, its status filter, its exact boundary, and the picker's agreement with the assign service. **66 concurrency tests in total.** Every one of them was verified non-vacuous by neutering the guard it exercises and confirming the assertions turn red.
 
 ---
 

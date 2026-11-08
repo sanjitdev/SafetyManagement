@@ -50,7 +50,7 @@ The product thesis is **civic observability**: visibility is what makes a city's
 app/**/page.tsx          React Server Components — presentation
 components/**            Shared UI (62 .tsx files)
 app/api/**/route.ts      HTTP boundary — parse, delegate, serialise  (61 files, 8,374 LOC)
-lib/**                   Service layer — all business logic            (22,107 LOC)
+lib/**                   Service layer — all business logic            (23,521 LOC)
 prisma/schema.prisma     16 models
 ```
 
@@ -259,6 +259,22 @@ A compare-and-swap guards a write against another write to the **same row**. The
 
 The dev store mirrors the index exactly (`devDb.ticket.create` refuses a duplicate with SQLSTATE `23505` and the constraint named `Ticket_cityId_dedupKey_key`), so the CI suite exercises the real semantics rather than a permissive stand-in.
 
+#### The crew capacity rule
+
+*Added 2026-11-08 — the concurrency audit's last open scenario.*
+
+A crew member may hold at most **5 active tickets**. The rule lives in one place, `lib/dispatcher/crew-capacity.ts`, and three surfaces read it: the picker (`lib/dispatcher/list-crew-for-ward.ts`), the enforcement point (`lib/dispatcher/assign-crew.ts`) and the monitor chart's notion of busy (`buildCrewLoad` in `lib/dispatcher/monitor.ts`). All three count the same statuses — `submitted`, `routed`, `in_progress` — so the dispatcher's chart and the dispatcher's picker cannot disagree about who is loaded.
+
+**This is a counting rule, not a uniqueness rule, and the distinction drives the whole design.** A member legitimately holds many tickets; the rule caps *how many at once*. So:
+
+- No `@@unique` can express it — there is no single key that is "one active ticket per member".
+- The check is a **read followed by a write**, which is a check-then-act race in principle.
+- The race is **accepted, deliberately**. The worst outcome is that a member transiently holds 6 instead of 5. Nothing is corrupted, the dispatcher sees the true load in the picker, and the extra ticket can be reassigned. Closing the window would need a serialisable transaction or a row lock taken in the middle of the assignment path — a real cost for a soft business rule.
+
+The endpoint is the **trust boundary**; the picker is a hint. A member at the limit is refused with **409 `crew_at_capacity`** — not 403, because the member is a valid choice, they are simply already carrying their share. The refusal writes no audit row and leaves the ticket unassigned.
+
+The ticket being assigned is **excluded** from its own member's count, so re-assigning a ticket a member already holds does not count it against them twice — otherwise a dispatcher could be refused a re-assignment that changes nothing.
+
 ### Audit trail (`AuditEntry`)
 
 The forensic one. `writeAudit(...)` (`lib/platform/audit.ts`) records `{ entityType, entityId, action, actorId, beforeValue, afterValue, timestamp }`.
@@ -349,7 +365,7 @@ checkout → setup-node (22) → npm ci → prisma generate
 
 `engines.node` in `package.json` stays `>=20.0.0` because that is the *runtime* floor for the deployed app. The jsdom dependency is a *test-time* requirement only and is stricter. If the runtime floor is ever raised, raise the CI pin in the same commit.
 
-**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **92.59% lines / 82.79% branches / 93.76% functions**.
+**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **92.59% lines / 83.08% branches / 93.66% functions**.
 
 The floor is never weakened to make a run green — the correct response to a threshold failure is to add real tests for the uncovered path.
 

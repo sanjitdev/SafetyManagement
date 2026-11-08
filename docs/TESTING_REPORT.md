@@ -10,12 +10,12 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 108 | — | — |
-| Unit tests passing | **1,920 / 1,920** | — | ✅ |
-| Coverage — lines | **92.54%** | 80% | ✅ |
-| Coverage — branches | **83%** | 80% | ✅ |
-| Coverage — functions | **93.62%** | 80% | ✅ |
-| Coverage — statements | **92.54%** | 80% | ✅ |
+| Unit test files | 109 | — | — |
+| Unit tests passing | **1,939 / 1,939** | — | ✅ |
+| Coverage — lines | **92.59%** | 80% | ✅ |
+| Coverage — branches | **83.08%** | 80% | ✅ |
+| Coverage — functions | **93.66%** | 80% | ✅ |
+| Coverage — statements | **92.59%** | 80% | ✅ |
 | Playwright route specs | 34 | — | — |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
@@ -35,13 +35,13 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 108 files, 1,920 tests, 100% passing, ~32 s
+**Result:** 109 files, 1,939 tests, 100% passing, ~28 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
 #### The concurrency suite
 
-Five files exist specifically to prove the ticket-write races are closed. They are new as of 2026-11-08 and are the answer to the concurrency audit's finding that *"CI cannot catch this"*.
+Six files exist specifically to prove the ticket-write races are closed. They are new as of 2026-11-08 and are the answer to the concurrency audit's finding that *"CI cannot catch this"*.
 
 | File | Tests | What it proves |
 |---|---:|---|
@@ -50,8 +50,9 @@ Five files exist specifically to prove the ticket-write races are closed. They a
 | `tests/unit/platform/transaction.test.ts` | 16 | The transaction helper's commit/rollback semantics, and that the Prisma facade routes `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one |
 | `tests/unit/dedup-concurrency.test.ts` | 18 | The dedup **primitives**: the key is deterministic and separator-injection-safe; the unique index refuses a second same-spot ticket; a declined duplicate (NULL key) is still creatable, because Postgres treats NULLs in a unique index as distinct; the key is released when a ticket leaves the open statuses |
 | `tests/unit/dedup-route-race.test.ts` | 6 | The dedup **recovery**: the loser of a submit race gets the same `dedup_match` prompt the winner would have got — not a 500 and not a second ticket; a report filed after a DECLINE is not blocked by the index; a nearby coordinate can still be filed after a decline. Stubs only the session lookup; the data path is the real dev store |
+| `tests/unit/dispatcher/crew-capacity.test.ts` | 14 | The capacity **rule**: the load counts only active tickets (terminal ones do not); the boundary is exact (5 allowed, 6 refused); the ticket being assigned is excluded from its own member's count; and the picker reports the *same* count the assign service enforces, so the hint and the trust boundary cannot disagree |
 
-All five were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 transition assertions and 4 of the 10 write assertions red; restoring it turns them green. Neutering the dev store's unique index turns 3 of the 18 dedup assertions and 1 of the 6 route assertions red. A concurrency test that passes for the wrong reason is worse than no concurrency test.
+All six were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 transition assertions and 4 of the 10 write assertions red; restoring it turns them green. Neutering the dev store's unique index turns 3 of the 18 dedup assertions and 1 of the 6 route assertions red. Neutering `atCapacity` to `false` turns 3 of the 14 capacity assertions red. A concurrency test that passes for the wrong reason is worse than no concurrency test.
 
 ### 2.2 Route specs — Playwright
 
@@ -128,10 +129,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 92.54% | 80% | +12.54 |
-| Branches | 83% | 80% | +3 |
-| Functions | 93.62% | 80% | +13.62 |
-| Statements | 92.54% | 80% | +12.54 |
+| Lines | 92.59% | 80% | +12.59 |
+| Branches | 83.08% | 80% | +3.08 |
+| Functions | 93.66% | 80% | +13.66 |
+| Statements | 92.59% | 80% | +12.59 |
 
 ### Why the scope is `lib/**`
 
@@ -172,7 +173,7 @@ The 56 (now 61) route files are thin HTTP boundary adapters: parse, delegate, se
 | **ADR-007 WebAuthn enforcement** | `tests/unit/require-webauthn.test.ts`, `tests/unit/transition-webauthn.test.ts` — run against the **real dependency graph**, not mocks |
 | **Serializers (the PII boundary)** | `lib/serializers/ticket.ts` at 98.55% lines, `trail.ts` at 100% |
 | **Status transitions** | `lib/platform/transitions.ts` at 97.46% — the full legal/illegal matrix |
-| **Concurrency guards** | `tests/unit/transitions-concurrency.test.ts` (13), `tests/unit/writes-concurrency.test.ts` (10), `tests/unit/platform/transaction.test.ts` (16), `tests/unit/dedup-concurrency.test.ts` (18), `tests/unit/dedup-route-race.test.ts` (6) — against the **real** dev store, verified non-vacuous |
+| **Concurrency guards** | `tests/unit/transitions-concurrency.test.ts` (13), `tests/unit/writes-concurrency.test.ts` (10), `tests/unit/platform/transaction.test.ts` (16), `tests/unit/dedup-concurrency.test.ts` (18), `tests/unit/dedup-route-race.test.ts` (6), `tests/unit/dispatcher/crew-capacity.test.ts` (14) — against the **real** dev store, verified non-vacuous |
 | **Optimistic locking** | `lib/platform/concurrency.ts` at 100% — both the transition and write error contracts |
 | **Dedup** | `lib/platform/dedup.ts` at 98.3% lines |
 | **Password hashing** | `lib/auth/password.ts` — Argon2id parameters, the policy, and the separate `hashSecret` path |
@@ -255,13 +256,13 @@ The second pass **must be pixel-clean**. If it is not, the mockup is not determi
 | 8 | No load test | Low | The rate limiter's per-instance limit is established from source, not measured |
 | 9 | `lib/storage/blob.ts` S3 path at 66% | Low | The S3 upload path needs an S3-compatible endpoint to test properly |
 | 10 | 55 ESLint warnings | Low | All are unused-variable warnings in test files; no errors, so the gate is green |
-| 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`) and the concurrent field writes too (`tests/unit/writes-concurrency.test.ts`), but only against the dev store's guard — never against a real Postgres under concurrent load |
-| 12 | No concurrency test for crew capacity | Medium | Duplicate submission **was** in this gap and is now closed (`tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts`). Crew capacity remains: it is a product decision, not a race — there is no guard to exercise until the product decides whether one exists |
+| 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`), the concurrent field writes too (`tests/unit/writes-concurrency.test.ts`), the duplicate-submission race (`tests/unit/dedup-concurrency.test.ts`) and the crew-capacity rule (`tests/unit/dispatcher/crew-capacity.test.ts`) — but all against the dev store's guard, never against a real Postgres under concurrent load |
+| 12 | No concurrency test for crew capacity | **Closed 2026-11-08** | Duplicate submission was in this gap and was closed first (`tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts`); crew capacity was closed last (`tests/unit/dispatcher/crew-capacity.test.ts`, 14 tests). Both are now covered against the real dev store |
 | 13 | Photo ordering within a Postgres timestamp window is arbitrary | Low | Two photos uploaded in the same timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. A schema question (a `slot` column or a deterministic tiebreak), not a race guard |
 
 **Gaps 3, 4 and 5 share a root cause:** the suite asserts the code's actual behaviour. Where the code diverges from the ADR, the suite is green. This is the same class of miss ADR-007:229-234 predicted — a convention that is not enforced by a mechanism.
 
-**Gaps 11 and 12 are the same class.** The concurrency audit recorded that *"CI cannot catch this"* because the dev store hid the race by accident of Node's event loop. That gap is now closed for the transition path, the field-write paths **and the duplicate-submission path** — the dev store implements the same compound guard and returns the same affected-row count, and the regression tests drive concurrent writers against it. The unique index on `(cityId, dedupKey)` is what closes the submit race, and the dev store mirrors its Postgres semantics exactly, including treating NULLs as distinct. Only crew capacity remains, and it has no guard to assert against until the product decides whether one exists.
+**Gaps 11 and 12 are the same class, and both are now closed.** The concurrency audit recorded that *"CI cannot catch this"* because the dev store hid the race by accident of Node's event loop. That gap is now closed for the transition path, the field-write paths, the duplicate-submission path **and the crew-capacity rule** — the dev store implements the same compound guard and returns the same affected-row count, and the regression tests drive concurrent writers against it. The unique index on `(cityId, dedupKey)` is what closes the submit race, and the dev store mirrors its Postgres semantics exactly, including treating NULLs as distinct. The capacity rule needed one more faithful behaviour: `devDb.ticket.findMany` now filters on `assignedCrewId` (equality and `{ in: [...] }`), mirroring Prisma's NULL semantics — without it the load count silently returned zero for every crew member and the picker would have shown "0/5" for everyone.
 
 ---
 

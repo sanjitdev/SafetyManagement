@@ -23,36 +23,37 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **55%** (94 of 172 items PASS) |
+| **Overall completion** | **56%** (96 of 172 items PASS) |
 | Total checklist items | **172** |
-| ✅ Passed | **94** |
-| ❌ Failed | **47** |
+| ✅ Passed | **96** |
+| ❌ Failed | **45** |
 | ⚠️ Not verified | **30** |
 | ➖ Not applicable | **1** |
 
-The 55% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **the one remaining concurrency scenario** (crew capacity — the transition, field-write and duplicate-submission paths are now closed), and **operations that have never been exercised against real infrastructure**.
+The 56% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed.
 
 > **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 172.
 >
-> **Four rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
+> **Five rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
 >
 > 1. **2026-11-08 — the phantom OpenAPI methods.** Rows 6.1 and 6.13 moved to ✅ when the two spec blocks that documented non-existent endpoints were deleted and a mechanical parity test was added — see [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08). Counts moved 44% → 44% (76 passed).
 > 2. **2026-11-08 — the concurrent-transition lost update.** The worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. Rows 5.1, 5.2, 5.3, 5.4, 5.10, 5.11, 5.12, 5.14, 9.9 and 12.8 moved to ✅; rows 9.13 and 12.12 moved to ⚠️ (partially verified). Counts moved 44% → **51%** (76 → 87 passed, 67 → 54 failed, 28 → 30 not verified).
 > 3. **2026-11-08 — the concurrent ticket-field writes.** The transition fix left every other ticket-field write as a read-modify-write. They now use the same count-checked `updateWhere`, guarded on `version`, and reject their own lost races with 409 `concurrent_write`. Rows 5.5, 5.6, 12.7 and 12.9 moved to ✅. Counts moved 51% → **53%** (87 → 91 passed, 54 → 50 failed, 30 not verified unchanged).
 > 4. **2026-11-08 — the duplicate-submission race.** The last fixable concurrency scenario is closed. A nullable `dedupKey` column with `@@unique([cityId, dedupKey])` is the backstop; the submit route catches the unique violation, re-runs the scan, and returns the same `dedup_match` prompt the winner got. Rows 5.7, 5.8 and 12.10 moved to ✅. Counts moved 53% → **55%** (91 → 94 passed, 50 → 47 failed, 30 not verified unchanged). The design deliberately differs from the audit's recommendation — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md §A.2.3](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md#a23-scenario-4--resolved-2026-11-08).
+> 5. **2026-11-08 — the crew capacity rule.** The last of the five named concurrency scenarios. The audit framed it as an open *product* question, but the answer was already written down in the UX spec (a red load badge above 5, a load-based sort, a 409 "crew just took another job"), so it was an unimplemented specification. `lib/dispatcher/crew-capacity.ts` now enforces the limit and the assign endpoint refuses a member at it with **409 `crew_at_capacity`**; the picker reports the same count. Rows 5.9 and 12.11 moved to ✅. Counts moved 55% → **56%** (94 → 96 passed, 47 → 45 failed, 30 not verified unchanged). **All five named concurrency scenarios are now closed.**
 
 ### Issue counts
 
 | Severity | Count | Detail |
 |---|---:|---|
 | **Critical** | **4** | OTP plaintext in every environment; OTP attempt limit never enforced; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions |
-| **High** | **5** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted; **concurrency control** — ⚠️ the transition, field-write and duplicate-submission paths are closed (2026-11-08); crew capacity is the one scenario that remains VULNERABLE |
+| **High** | **4** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted. *(The fifth High finding — concurrency control — was **closed on 2026-11-08**: all five named scenarios now have a guard and a CI-enforced regression test.)* |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
 | **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
 
-**Total open issues: 31.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08. The concurrency finding is **still partially** closed — issue 27 is now "4 of 5 scenarios resolved" and is still counted as open, because crew capacity has no guard at all and remains a product decision.)
+**Total open issues: 30.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, and the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open.)
 
-The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 14 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 47 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
+The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 13 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 45 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
 
 ### Features completed during the audit
 
@@ -86,13 +87,13 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **108 files / 1,920 tests passed**, ~32 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.54% lines / 83% branches / 93.62% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **109 files / 1,939 tests passed**, ~28 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 83.08% branches / 93.66% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 | Visual regression | CI run `42477753107` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42477753107` | ✅ 12/12 steps green |
 
-**Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write and dedup suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
+**Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write, dedup and crew-capacity suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
 
 ### Security assessment
 
@@ -258,17 +259,17 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 5.6 | Concurrent field edits (ward, category, internal note) cannot both succeed | ✅ | `app/api/v1/dispatcher/tickets/[id]/route.ts` — each of the three writes is a compare-and-swap on `version`; the loser returns 409 `concurrent_write` |
 | 5.7 | Concurrent duplicate submissions cannot both create a ticket | ✅ | **RESOLVED 2026-11-08** — a unique index on `(cityId, dedupKey)` is the backstop. The loser's insert is refused with SQLSTATE `23505`; the route catches it, re-runs the scan, and returns the same `dedup_match` prompt the winner got. No second ticket, and the loser is not charged |
 | 5.8 | The database provides a backstop against duplicate tickets | ✅ | `@@unique([cityId, dedupKey])` — migration `20261108140000_ticket_dedup_key`. The key is a SHA-256 of `(cityId, categoryId, locationLat, locationLng)` and is **nullable**, because Postgres treats NULLs in a unique index as distinct — that is what lets a declined duplicate be filed |
-| 5.9 | Crew assignment is capacity-constrained | ❌ | No capacity check in `assign-crew.ts`; `@@index([assignedCrewId])` is an index, not a constraint |
+| 5.9 | Crew assignment is capacity-constrained | ✅ | **RESOLVED 2026-11-08** — `lib/dispatcher/crew-capacity.ts` enforces the limit the UX spec already set (5 active tickets) and `assign-crew.ts` refuses a member at the limit with **409 `crew_at_capacity`**. A counting rule, not a uniqueness rule, so no index can express it; the check-then-act race is accepted and documented. The picker reports the same count, so the hint and the trust boundary cannot disagree |
 | 5.10 | The abstraction can express a compound guard | ✅ | `db.ticket.updateWhere` in `lib/db-switch.ts`; `devDb.ticket.updateWhere` in `lib/dev-store.ts` implements the same guard |
 | 5.11 | Transactions are used where multi-statement atomicity is required | ✅ | `lib/platform/transaction.ts` — `prisma.$transaction` on the Prisma path, snapshot-and-restore on the dev-store path |
 | 5.12 | Optimistic locking exists | ✅ | `Ticket.version Int @default(0)` — migration `20261108120000_ticket_version` |
 | 5.13 | Serializable isolation is requested where needed | ❌ | `lib/db.ts` — no `isolationLevel` option; no `SELECT … FOR UPDATE` anywhere. **Not needed for the transition path**: the compare-and-swap guard lives in the `where` clause, so it holds under `READ COMMITTED`. **Also not needed for the submit path**: the unique index closes that window outright rather than narrowing it, so a `Serializable` transaction would buy nothing the index does not already give |
-| 5.14 | The test suite would catch a lost update | ✅ | `tests/unit/transitions-concurrency.test.ts` (13 tests) + `tests/unit/writes-concurrency.test.ts` (10 tests) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) against the real dev store. Verified non-vacuous: neutering the compare-and-swap turns 7 of the first and 4 of the second red; neutering the dev store's unique index turns 3 of the 18 and 1 of the 6 red |
+| 5.14 | The test suite would catch a lost update | ✅ | `tests/unit/transitions-concurrency.test.ts` (13 tests) + `tests/unit/writes-concurrency.test.ts` (10 tests) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) against the real dev store. Verified non-vacuous: neutering the compare-and-swap turns 7 of the first and 4 of the second red; neutering the dev store's unique index turns 3 of the 18 and 1 of the 6 red; neutering `atCapacity` turns 3 of the 14 red |
 | 5.15 | The audit trail records concurrent-write conflicts | ❌ | A rejected transition writes **no** audit row — the loser is visible as a 409 to the client, but not in the audit log. The audit log records what happened, not what was refused |
 | 5.16 | The idempotent/append-only photo path is safe under concurrency | ✅ | Photos are appended, not overwritten — both rows survive. Ordering within a timestamp window is arbitrary, but no data is lost |
 | 5.17 | The audit trail is immutable | ✅ | No code path updates or deletes an `AuditEntry` |
 
-**Stage 5 status: 13 of 17 items now pass** (was 1 of 17). The transition path — the worst case, and the one the audit called the most consequential finding in the entire audit — is closed at source and covered by a CI-enforced test, and the concurrent field writes are closed the same way. Duplicate submission (5.7) is now closed by a unique index rather than by a transaction, because the two are not equivalent here: a radius-keyed index would have made the dedup-decline path uncreatable, so the key is the **exact** spot, the 50 m Haversine scan stays the prompt, and the column is nullable so a declined duplicate is still filable. Crew capacity (5.9) is a different class of defect entirely — a product decision rather than a race, and it stays open until the product decides whether v1 has a capacity limit at all.
+**Stage 5 status: 14 of 17 items now pass** (was 1 of 17). The transition path — the worst case, and the one the audit called the most consequential finding in the entire audit — is closed at source and covered by a CI-enforced test, and the concurrent field writes are closed the same way. Duplicate submission (5.7) is now closed by a unique index rather than by a transaction, because the two are not equivalent here: a radius-keyed index would have made the dedup-decline path uncreatable, so the key is the **exact** spot, the 50 m Haversine scan stays the prompt, and the column is nullable so a declined duplicate is still filable. Crew capacity (5.9) was long assumed to be a product decision rather than a defect — but the answer was already written down in the UX spec (a red load badge above 5, a load-based sort, a 409 "crew just took another job"), so it was an **unimplemented specification** and is now implemented. The two items still failing are 5.13 (no `Serializable` isolation — deliberately not needed, since both remaining windows are closed by a guard in the `where` clause and by a unique index) and 5.15 (a rejected write writes no audit row — the audit log records what happened, not what was refused).
 
 ---
 
@@ -335,10 +336,10 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 108 files, 1,920 tests, ~32 s |
+| 9.1 | A unit test suite exists | ✅ | 109 files, 1,939 tests, ~28 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
-| 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) — drive concurrent transitions, concurrent field writes and concurrent duplicate submissions against the real dev store and assert exactly one winner |
-| 9.3 | Coverage exceeds the floor | ✅ | 92.54% lines / 83% branches / 93.62% functions — **re-measured** after the dedup work |
+| 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
+| 9.3 | Coverage exceeds the floor | ✅ | 92.59% lines / 83.08% branches / 93.66% functions — **re-measured** after the crew-capacity work |
 | 9.4 | The CI pipeline is green | ✅ | Run `42477753107` on `8c0c04e` — 12/12 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | 34 specs — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
@@ -422,7 +423,7 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 | 12.8 | **Concurrency — two dispatchers transition the same ticket** | ✅ | **RESOLVED 2026-11-08** — compare-and-swap on `(status, version)` inside one transaction; the loser gets 409 and writes no trail row |
 | 12.9 | **Concurrency — two crew members update the same job** | ✅ | **RESOLVED 2026-11-08** — the crew route uses the same `transitionTicket` service, so the second crew member's transition loses its compare-and-swap. Photos remain safe (appended) |
 | 12.10 | **Concurrency — two citizens submit the same report** | ✅ | **RESOLVED 2026-11-08** — the unique index on `(cityId, dedupKey)` is the backstop. The loser of the race is refused by the index, and the route recovers by re-running the scan and returning the same `dedup_match` prompt the winner got — no second ticket, no 500, and the loser is not charged |
-| 12.11 | **Concurrency — a crew member assigned while already loaded** | ❌ | **VULNERABLE (no constraint)** — a product decision, not a race |
+| 12.11 | **Concurrency — a crew member assigned while already loaded** | ✅ | **RESOLVED 2026-11-08** — a 5-active-ticket capacity limit, enforced at the endpoint with a 409 `crew_at_capacity`; the picker reports the same count |
 | 12.12 | **Concurrency was tested by issuing concurrent requests** | ⚠️ | **Now tested for the transition, field-write and submit paths** — `tests/unit/transitions-concurrency.test.ts`, `tests/unit/writes-concurrency.test.ts`, `tests/unit/dedup-concurrency.test.ts` and `tests/unit/dedup-route-race.test.ts` drive concurrent writers against the real dev store. Still not exercised against a real Postgres under concurrent load — CI has no database. The dedup index's behaviour **was** checked against a real PostgreSQL 16 by hand on 2026-11-08, but sequentially, not under load |
 | 12.13 | **Operational accountability — metrics are from real timestamps** | ✅ | Verified — no metric uses placeholder data |
 | 12.14 | **A four-account lifecycle demonstration with real DB records** | ❌ | **Not performed.** The Playwright suite covers all four roles and `/api/dev/login` provides persona sign-in, but it runs on the dev store, not a real database, and it was not executed in this audit |
