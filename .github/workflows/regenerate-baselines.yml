@@ -114,6 +114,16 @@ jobs:
         run: npx playwright test --update-snapshots
 
       - name: Upload refreshed baselines
+        # `if: always()` — the refreshed PNGs are the point of this
+        # workflow, so ONE failing spec must not discard them.
+        #
+        # The first run of this workflow (42500182383) regenerated
+        # 350 of 358 specs' baselines and then threw away all of
+        # them, because the upload was gated on the regeneration
+        # step's success and a single browser crash in
+        # `22-slow-motion-e2e-demo` failed that step. The PNGs were
+        # on the runner's disk the whole time.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: refreshed-baselines

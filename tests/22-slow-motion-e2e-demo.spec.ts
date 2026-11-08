@@ -14,9 +14,11 @@
  * the run can be reviewed afterwards even if the reviewer missed a
  * frame.
  *
- * Headed mode is opt-in via the per-test `test.use` override below —
- * the test stays headless-compatible (e.g. when run in CI by accident
- * it will still pass assertions, just without the visual demo).
+ * Headed mode is opt-in via `PWTEST_HEADLESS=0` (or Playwright's
+ * `--headed`) — the default is headless, because a headed Chromium
+ * needs an X server and a CI runner has none. The test stays
+ * headless-compatible: the assertions and the captured screenshots
+ * are identical either way, only the window is visible.
  *
  * Run from a shell with a dev:feat server already running on 3100:
  *   PWTEST_REUSE_EXISTING_SERVER=1 \
@@ -71,9 +73,28 @@ test.beforeAll(() => {
 });
 
 // Per-test override: open a headed Chromium with `slowMo` so each
-// user-visible action lands `SLOW_MO_MS` after the previous one. Run
-// with `--headed` (or `PWTEST_HEADLESS=0`) to actually see the
-// browser. This MUST be at top-level (not inside a describe) —
+// user-visible action lands `SLOW_MO_MS` after the previous one.
+//
+// HEADED IS OPT-IN. The default is headless, because a headed
+// Chromium needs an X server and a CI runner has none:
+//
+//   Missing X server or $DISPLAY
+//   [pid=9169][err] The platform failed to initialize.  Exiting.
+//
+// That is how this spec failed the baseline-regeneration workflow
+// (run 42500182383): the file hardcoded `headless: false`, so the
+// last spec in the 358-test sweep died on a headless runner and
+// took the whole regenerated-baseline upload down with it. The
+// file's own docblock already promised the opposite — *"Headed
+// mode is opt-in ... the test stays headless-compatible"* — and
+// `PWTEST_HEADLESS=0` was documented as the switch but never
+// implemented.
+//
+// Set `PWTEST_HEADLESS=0` (or pass Playwright's `--headed`) to
+// watch the demo. The assertions and the captured screenshots are
+// identical either way; only the window is visible.
+//
+// This MUST be at top-level (not inside a describe) —
 // Playwright requires `test.use` to live at the file scope or in
 // the playwright.config.ts `projects` block.
 //
@@ -87,16 +108,24 @@ test.beforeAll(() => {
 // `viewport: { width: 1920, height: 1080 }` ensures the captured
 // screenshots match a 1080p canvas, which is what the user sees
 // when the window is maximised.
+//
+// The kiosk flags are meaningless in headless mode and are dropped
+// there — Chromium refuses `--kiosk` without a display, and passing
+// them anyway buys nothing.
+const HEADED = process.env.PWTEST_HEADLESS === '0';
+
 test.use({
   launchOptions: {
-    headless: false,
+    headless: !HEADED,
     slowMo: SLOW_MO_MS,
-    args: [
-      '--start-fullscreen',
-      '--kiosk',
-      '--no-default-browser-check',
-      '--no-first-run',
-    ],
+    args: HEADED
+      ? [
+          '--start-fullscreen',
+          '--kiosk',
+          '--no-default-browser-check',
+          '--no-first-run',
+        ]
+      : [],
   },
   viewport: { width: 1920, height: 1080 },
 });
