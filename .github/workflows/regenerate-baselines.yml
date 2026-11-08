@@ -1,0 +1,71 @@
+name: Regenerate mockup baselines
+
+# Regenerates the visual-regression baselines ON THE CI PLATFORM
+# (ubuntu-latest) and uploads them as an artifact.
+#
+# WHY THIS EXISTS
+#
+# The 25 committed baselines under tests-mockups/baselines/ were captured
+# on a Windows dev machine. CI runs on ubuntu-latest, and the two
+# platforms do not rasterize identically — the same mockup HTML produces
+# measurably different pixels (antialiasing of the Noto Sans Bengali
+# glyphs, and small layout-height differences where text wraps). The
+# visual-regression gate therefore failed on CI while passing locally,
+# which is why it had been red on every run since 2026-10-29.
+#
+# The baselines must be produced by the platform that asserts on them.
+# This workflow is the supported way to refresh them:
+#
+#   gh workflow run regenerate-baselines.yml
+#   gh run download   # the artifact holds the refreshed PNGs
+#
+# Then commit the returned PNGs. Do NOT hand-edit them, and do NOT
+# regenerate them on a different platform — the same drift returns.
+
+on:
+  workflow_dispatch:
+    inputs:
+      update:
+        description: "Write the refreshed baselines (instead of only uploading them)"
+        type: boolean
+        default: true
+
+jobs:
+  regenerate:
+    name: Regenerate baselines on ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22 LTS — matches ci.yml. `jsdom@30` → `undici@8`
+          # requires `engines.node >= 22.19.0`; on Node 20 the Zstd
+          # constant it reaches for is undefined and the Vitest suite
+          # dies at import time.
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Regenerate baselines
+        run: npm run test:update-baselines
+
+      - name: Verify the refreshed baselines are stable
+        # A second pass must be pixel-clean. If it is not, the mockup is
+        # not deterministic (e.g. it renders a live clock or an animation),
+        # and the refreshed baseline would be flaky on every CI run.
+        run: npm run test:mockups
+
+      - name: Upload refreshed baselines
+        uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-baselines
+          path: tests-mockups/baselines/01-mockups.spec.ts/
+          retention-days: 14
