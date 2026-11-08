@@ -41,6 +41,19 @@
  *    (rather than a stable code) are documented with the code the
  *    guard throws, since the message equals the code in practice
  *    (`ApiError` sets `message = code` when no message is supplied).
+ * 4. Rule 1 is now ENFORCED, not just asserted.
+ *    `tests/unit/docs/openapi-route-parity.test.ts` reads every
+ *    `app/api/**\/route.ts` from disk, extracts its exported HTTP
+ *    methods, and compares them against this document in both
+ *    directions. A documented operation with no handler, or a handler
+ *    with no documented operation, fails the unit suite.
+ *
+ *    This was added on 2026-11-08 after the production-readiness audit
+ *    found the pair of phantom operations on `/api/tickets/{id}` that
+ *    rule 1 was supposed to prevent — `tsc --noEmit` cannot catch a
+ *    documented method with no handler behind it, because the type
+ *    checker validates that a component reference is well-formed, not
+ *    that a documented operation exists.
  */
 
 /**
@@ -1363,54 +1376,23 @@ export const openapiPaths: Record<string, PathItem> = {
         '429': rateLimitedResponse('retry_after_ms'),
       },
     },
-    patch: {
-      tags: ['Tickets'],
-      summary: 'Edit a report',
-      description: 'The citizen may edit their own report until it is routed to a crew.',
-      operationId: 'updateTicket',
-      requestBody: jsonBody(
-        {
-          type: 'object',
-          properties: {
-            note: { type: 'string', maxLength: 1000 },
-            categoryId: { type: 'string', minLength: 1 },
-            wardId: { type: 'string', minLength: 1 },
-            locationLng: { type: 'number', minimum: -180, maximum: 180 },
-            locationLat: { type: 'number', minimum: -90, maximum: 90 },
-            locationLabel: { type: 'string', maxLength: 500 },
-            locationLabelBn: { type: 'string', maxLength: 500 },
-          },
-        },
-        { required: false },
-      ),
-      responses: {
-        '200': jsonResponse('The updated report.', {
-          type: 'object',
-          required: ['ticket'],
-          properties: { ticket: { $ref: '#/components/schemas/SerializedTicket' } },
-        }),
-        '400': jsonResponse('Validation failed.', issuesBody('invalid_input')),
-        '401': { $ref: '#/components/responses/Unauthorized' },
-        '403': jsonResponse('The report belongs to another citizen.', errorBody('not_owner')),
-        '404': { $ref: '#/components/responses/NotFound' },
-        '409': jsonResponse('The report can no longer be edited.', errorBody('ticket_locked')),
-        '429': { $ref: '#/components/responses/RateLimited' },
-      },
-    },
-    delete: {
-      tags: ['Tickets'],
-      summary: 'Delete a report',
-      description: 'The citizen may delete their own report until it is routed to a crew.',
-      operationId: 'deleteTicket',
-      responses: {
-        '200': OK_RESPONSE,
-        '401': { $ref: '#/components/responses/Unauthorized' },
-        '403': jsonResponse('The report belongs to another citizen.', errorBody('not_owner')),
-        '404': { $ref: '#/components/responses/NotFound' },
-        '409': jsonResponse('The report can no longer be deleted.', errorBody('ticket_locked')),
-        '429': { $ref: '#/components/responses/RateLimited' },
-      },
-    },
+    // NO `patch` AND NO `delete` HERE — ON PURPOSE.
+    //
+    // Both operations used to be documented on this path. Neither has
+    // ever existed: `app/api/tickets/[id]/route.ts` exports only `GET`
+    // (line 17), and both requests return 405. The 2026-11-08
+    // production-readiness audit found the phantom pair by reconciling
+    // the 61 route files against this document; the Swagger UI at
+    // /api/docs was telling developers that a citizen could edit or
+    // delete their own report.
+    //
+    // The blocks were deleted rather than left as "planned", because a
+    // spec that lists unimplemented operations is indistinguishable
+    // from a spec that lists broken ones. If a future Bolt implements
+    // citizen report editing, it must add the handler AND the spec
+    // block in the same commit — `tests/unit/docs/openapi-route-parity.test.ts`
+    // now compares this document against the route files
+    // mechanically, so the two can no longer drift apart.
   },
   '/api/tickets/{id}/transition': {
     parameters: [{ $ref: '#/components/parameters/TicketId' }],

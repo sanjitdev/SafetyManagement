@@ -29,9 +29,11 @@ The two are kept in sync by a rule that is enforced by the type checker, not by 
 | Docs | 2 | 2 | `/api/docs/*` | Public |
 | **Total** | **61** | **77** | | |
 
-Operation split by method across the whole surface: 31 GET, 32 POST, 7 PATCH, 6 DELETE, 1 PUT.
+Operation split by method across the whole surface: 30 GET, 32 POST, 8 DELETE, 6 PATCH, 1 PUT.
 
-> **The counts here are measured, not estimated.** They were produced by parsing `export {GET,POST,PUT,PATCH,DELETE}` declarations out of all 61 `route.ts` files and reconciling the result against `lib/docs/openapi.ts`. An earlier draft of this document claimed 80 operations; that figure was wrong and has been corrected.
+> **The counts here are measured, not estimated.** They were produced by parsing `export {GET,POST,PUT,PATCH,DELETE}` declarations out of all 61 `route.ts` files and reconciling the result against `lib/docs/openapi.ts`. An earlier draft of this document claimed 80 operations; that figure was wrong and has been corrected. A later revision of this table carried a wrong *method split* (31 GET / 7 PATCH / 6 DELETE) while its totals were right; re-measuring on 2026-11-08 gave 30 GET / 6 PATCH / 8 DELETE.
+>
+> The reconciliation is now **enforced mechanically** — `tests/unit/docs/openapi-route-parity.test.ts` compares the spec against the route files in both directions on every unit run.
 
 ---
 
@@ -689,29 +691,30 @@ Both are **public and un-rate-limited** by design — Swagger's "Try it out" fet
 - **Rendered:** `GET /api/docs` (Swagger UI, assets from unpkg)
 - **Materialised:** `npm run docs:generate` → `lib/docs/openapi.json`
 
-**53 paths / 70 operations** are in the spec. It excludes the 8 dev-only and docs routes (7 + 2 = 9 operations across 8 files), which accounts for the difference against the 77 live operations.
+**53 paths / 68 operations** are in the spec. It excludes the 8 dev-only and docs routes (7 + 2 = 9 operations across 8 files), which accounts for the difference against the 77 live operations.
 
-> ### ⚠️ The spec contains two phantom operations
+> ### ✅ The phantom-operation defect was found — and fixed
 >
-> Reconciling the spec against the route handlers found **one path where the spec documents methods that do not exist**:
+> Reconciling the spec against the route handlers found **one path where the spec documented methods that did not exist**:
 >
-> | Path | In the spec | In the code |
+> | Path | Was in the spec | Is in the code |
 > |---|---|---|
 > | `/api/tickets/{id}` | `GET`, `PATCH`, `DELETE` | **`GET` only** |
 >
-> `app/api/tickets/[id]/route.ts` exports exactly one handler — `GET` at line 17. There is no `PATCH` and no `DELETE`. The spec's `patch` block (openapi.ts:1366-1399, `operationId: updateTicket`) and `delete` block (openapi.ts:1400-1413, `operationId: deleteTicket`) describe endpoints that do not exist. A repo-wide search for `updateTicket` and `deleteTicket` outside the spec returns **no hits**, and no client code calls either method.
+> `app/api/tickets/[id]/route.ts` exports exactly one handler — `GET` at line 17. There was no `PATCH` and no `DELETE`. The spec's `patch` block (`operationId: updateTicket`) and `delete` block (`operationId: deleteTicket`) described endpoints that did not exist, violating the spec module's own accuracy rule #1. The type checker could not catch it: `tsc --noEmit` validates that a component reference is well-formed, not that a documented method has a handler behind it.
 >
-> **This violates the spec module's own accuracy rule #1** — *"Every path, method, status code and error code here was read from the corresponding route file. Where a route's own docblock disagrees with its code, THE CODE WINS."* The rule exists precisely to prevent this, and the type checker cannot catch it: `tsc --noEmit` validates that a component reference is well-formed, not that a documented method has a handler behind it.
+> **Both blocks were deleted on 2026-11-08.** They were removed rather than left as "planned", because a spec that lists unimplemented operations is indistinguishable from a spec that lists broken ones — and the Swagger UI at `/api/docs` was telling developers that a citizen could edit or delete their own report, when both requests return 405.
 >
-> **Impact: documentation only.** Nothing calls the phantom endpoints, so no client breaks. But a developer reading the Swagger UI at `/api/docs` will reasonably believe a citizen can edit or delete their own report, and will build against an endpoint that returns 405. Fix by removing the `patch` and `delete` blocks from `lib/docs/openapi.ts`, or by implementing the handlers.
+> **A durable guard now enforces it.** `tests/unit/docs/openapi-route-parity.test.ts` reads every `app/api/**/route.ts` from disk, extracts its exported HTTP methods, and compares them against the spec in both directions — a documented operation with no handler fails, and a handler with no documented operation fails. The test runs on every unit suite, so the two can no longer drift apart. It was verified non-vacuous by renaming a live `PATCH` export and confirming the suite went red.
 >
-> **A durable fix would be a CI check** that parses the exported method names out of every `route.ts` and asserts they match the spec — the same reconciliation this audit performed by hand. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist).
+> If a future Bolt implements citizen report editing, it must add the handler **and** the spec block in the same commit. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08).
 
-The spec module's own header records three rules that explain its shape:
+The spec module's own header records four rules that explain its shape:
 
 1. Every path, method, status code and error code was read from the corresponding route file. **Where a route's docblock disagrees with its code, the code wins** — several docblocks in this repo are stale (e.g. `POST /api/tickets`'s header claims the dedup body carries `existing_ticket`, but the code returns a flat `existing_ticket_id`).
 2. The API is **not internally consistent**, and the spec does not pretend it is. The known divergences are documented inline rather than normalised away, because clients already depend on the current behaviour.
 3. Endpoints that return 401 with the guard's raw error *message* are documented with the code the guard throws, since `ApiError` sets `message = code`.
+4. **Rule 1 is enforced, not just asserted.** `tests/unit/docs/openapi-route-parity.test.ts` compares this document against the route files mechanically on every unit run.
 
 ---
 

@@ -41,7 +41,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 28 | `SlaPolicy` is defined, seeded and never consulted | Medium | Data | Open |
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
-| 31 | The OpenAPI spec documents two methods that do not exist | Low | Docs | Open |
+| 31 | The OpenAPI spec documents two methods that do not exist | Low | Docs | ✅ Resolved 2026-11-08 — blocks deleted, parity test added |
 
 ---
 
@@ -366,7 +366,7 @@ Everywhere except `/api/v1/admin/**` and `/api/profile`, which use `unauthentica
 
 **Evidence:** coverage report — `lib/map/osm-raster.ts | 0 | 0 | 0 | 0 | 1-46`
 
-The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 92.59% overall.
+The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 92.56% overall.
 
 Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 
@@ -390,15 +390,15 @@ Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 
 ### 26. `docs/running.md` is stale — ✅ RESOLVED during this audit
 
-**Was:** the document described *"40 route handlers"*, *"249 unit tests across 23 files"*, *"15 visual baselines"* and *"mockups + 19 route specs"* against a reality of 61 handlers / 77 operations, 1,851 tests across 102 files, 25 baselines and 34 route specs. It recommended Node 20, and its route-handler list omitted ~21 handlers including the whole adoption surface and every `/api/v1/admin/cities/[id]/users/*` route.
+**Was:** the document described *"40 route handlers"*, *"249 unit tests across 23 files"*, *"15 visual baselines"* and *"mockups + 19 route specs"* against a reality of 61 handlers / 77 operations, 1,853 tests across 103 files, 25 baselines and 34 route specs. It recommended Node 20, and its route-handler list omitted ~21 handlers including the whole adoption surface and every `/api/v1/admin/cities/[id]/users/*` route.
 
 **Now:** `docs/running.md` has been rewritten against the real stack. All 61 route files are listed with their methods, all 26 `package.json` scripts are documented with what they actually do, the Node 22 requirement is stated with the reason, the visual-baseline rule is stated correctly, and the script/verification tables match reality.
 
 **Still open:** the document now cross-links the audit deliverables rather than duplicating them — `DEPLOYMENT_GUIDE.md` for production, `API_DOCUMENTATION.md` for the endpoint reference, `PRODUCTION_READINESS_CHECKLIST.md` for the go/no-go.
 
-### 31. The OpenAPI spec documents two methods that do not exist
+### 31. The OpenAPI spec documents two methods that do not exist — ✅ RESOLVED 2026-11-08
 
-**Evidence:** `lib/docs/openapi.ts:1366-1413` (spec blocks) vs `app/api/tickets/[id]/route.ts:17` (the only handler)
+**Evidence:** `lib/docs/openapi.ts` (spec blocks) vs `app/api/tickets/[id]/route.ts:17` (the only handler)
 
 The spec documents `PATCH /api/tickets/{id}` (`operationId: updateTicket`) and `DELETE /api/tickets/{id}` (`operationId: deleteTicket`). **Neither exists.** The route file exports exactly one handler — `GET`.
 
@@ -409,6 +409,14 @@ A repo-wide search for `updateTicket` and `deleteTicket` outside the spec return
 **Impact: documentation only.** Nothing calls the phantom endpoints, so no client breaks. But the Swagger UI at `/api/docs` tells a developer that a citizen can edit or delete their own report, and the endpoint returns 405.
 
 **Fix:** remove the `patch` and `delete` blocks from `lib/docs/openapi.ts`, or implement the handlers. The durable fix is a **CI check** that parses the exported method names out of every `route.ts` and asserts they match the spec — the reconciliation this audit performed by hand.
+
+**Fix applied (2026-11-08).** Both spec blocks were deleted and `lib/docs/openapi.json` was regenerated. The blocks were removed rather than left as "planned", because a spec that lists unimplemented operations is indistinguishable from a spec that lists broken ones.
+
+**The durable guard is now in place.** `tests/unit/docs/openapi-route-parity.test.ts` reads every `app/api/**/route.ts` from disk, extracts its exported HTTP methods, and compares them against `openapiPaths` in **both** directions — a documented operation with no handler fails, and a handler with no documented operation fails. The excluded route groups (`/api/dev/**`, `/api/docs/**`) are declared in the test with their reasons, and the test asserts the exclusion list is exactly those eight paths, so a third silent exclusion cannot appear.
+
+The test was **verified non-vacuous**: renaming a live `PATCH` export to `PATCHX` turned the suite red with `PATCH /api/v1/dispatcher/tickets/{id} — documented but no handler exports it`, and restoring the file turned it green.
+
+If a future Bolt implements citizen report editing, it must add the handler **and** the spec block in the same commit.
 
 ---
 
@@ -424,7 +432,7 @@ Recorded so they are not re-reported as bugs.
 | The WebAuthn login route returns 404 for both a missing and a non-admin user | No enumeration leak |
 | The dedup scan caps at `take: 20` | A deliberate bound on the candidate scan. A *policy* limitation, not a defect |
 | `AuditEntry.action` is a free-form string | `entityType` is a typed union; `action` is not. Recorded as a minor inconsistency in [SECURITY_AUDIT.md §7.2](SECURITY_AUDIT.md#72-immutability) |
-| The OpenAPI spec excludes the 8 dev/docs routes | 53 paths / 70 operations vs 77 live across 61 files. The excluded routes account for the difference exactly — but the spec does contain 2 phantom operations on one path (see #31) |
+| The OpenAPI spec excludes the 8 dev/docs routes | 53 paths / 68 operations vs 77 live across 61 files. The excluded routes account for the difference exactly. The spec no longer contains phantom operations — `tests/unit/docs/openapi-route-parity.test.ts` enforces that mechanically (see #31) |
 | The coverage scope excludes `app/api/**` | Measured on 2026-10-27: the route files are thin adapters with no business logic, already covered by the Playwright route specs. The 80% floor still applies, to the scope that holds the logic |
 | The local suite fails against CI-generated baselines on Windows | The platform difference — documented in [TESTING_REPORT.md §2.3](TESTING_REPORT.md#23-visual-regression--playwright-mockup-baselines) |
 | No metric is computed from placeholder data | Verified — a repo-wide grep for `Math.random`/`mock`/`placeholder`/`sample`/`demo`/`dummy`/`hardcod` found no hits in any metric path. 25 of 27 audited metrics trace to real DB columns |

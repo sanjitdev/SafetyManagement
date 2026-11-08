@@ -1,7 +1,7 @@
 # CityFix — Production Readiness Checklist
 
 **Audit date:** 2026-11-08
-**Codebase:** `main` @ `be9f2b0`
+**Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+
 **Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 5 High blockers, plus a ticket-state integrity defect that can make the citizen-facing status trail contradict reality.
 
 **Status legend**
@@ -23,16 +23,18 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **43%** (74 of 172 items PASS) |
+| **Overall completion** | **44%** (76 of 172 items PASS) |
 | Total checklist items | **172** |
-| ✅ Passed | **74** |
-| ❌ Failed | **68** |
-| ⚠️ Not verified | **29** |
+| ✅ Passed | **76** |
+| ❌ Failed | **67** |
+| ⚠️ Not verified | **28** |
 | ➖ Not applicable | **1** |
 
-The 43% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **the absence of any concurrency control**, and **operations that have never been exercised against real infrastructure**.
+The 44% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **the absence of any concurrency control**, and **operations that have never been exercised against real infrastructure**.
 
 > **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 172.
+>
+> **Two rows have changed since the audit was written.** Rows 6.1 and 6.13 moved to ✅ on 2026-11-08 when the phantom OpenAPI methods were deleted and a mechanical parity test was added — see [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08). The figures above were re-measured after that change, not adjusted by hand.
 
 ### Issue counts
 
@@ -41,15 +43,15 @@ The 43% is a completeness score against the production-readiness surface, **not*
 | **Critical** | **4** | OTP plaintext in every environment; OTP attempt limit never enforced; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions |
 | **High** | **5** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted; **no concurrency control anywhere in the codebase** (5 VULNERABLE scenarios) |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
-| **Low** | **10** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique`; **2 phantom methods in the OpenAPI spec** |
+| **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
 
-**Total open issues: 32.**
+**Total open issues: 31.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08.)
 
-The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 15 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 68 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
+The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 14 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 67 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
 
 ### Features completed during the audit
 
-No product features were built. The audit produced **10 documents** and **0 source-code changes**. The two code-level remediations already landed in the prior session (the Node 22 CI pin and the lazy production DB guard) predate this audit and are credited to the CI-repair work, not here.
+No product features were built. The audit produced **10 documents** and, at the time of writing, **0 source-code changes**. One source-code change has landed since: the phantom OpenAPI methods were deleted and a mechanical parity test was added on 2026-11-08, which moved rows 6.1 and 6.13 to ✅. The two code-level remediations from the prior session (the Node 22 CI pin and the lazy production DB guard) predate this audit and are credited to the CI-repair work, not here.
 
 | Deliverable | Status |
 |---|---|
@@ -72,8 +74,8 @@ No product features were built. The audit produced **10 documents** and **0 sour
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **102 files / 1,851 tests passed**, ~28 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 82.56% branches / 93.54% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **103 files / 1,853 tests passed**, ~28 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.56% lines / 82.56% branches / 93.54% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 | Visual regression | CI run `42471075111` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42471075111` | ✅ 12/12 steps green |
@@ -164,7 +166,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 1.8 | `package.json` scripts cover the full lifecycle | ✅ | `dev`, `build`, `start`, `lint`, `test:unit`, `test:unit:coverage`, `test:mockups`, `db:*`, `docs:generate`, `check:i18n` |
 | 1.9 | `engines.node` declared | ✅ | `>=20.0.0` (runtime floor; CI pins 22 — see §5.3) |
 | 1.10 | No secrets committed to the repository | ✅ | `.env.example` holds placeholders only |
-| 1.11 | `docs/running.md` matches the current codebase | ❌ | Stale: claims 40 handlers / 249 tests / 15 baselines against 61 / 1,851 / 25 |
+| 1.11 | `docs/running.md` matches the current codebase | ✅ | **Rewritten during this audit** against the real stack — all 61 route files with their methods, all 26 `package.json` scripts, the Node 22 requirement, the visual-baseline platform rule. It previously claimed 40 handlers / 249 tests / 15 baselines. See [KNOWN_ISSUES.md #26](KNOWN_ISSUES.md#26-docsrunningmd-is-stale---resolved-during-this-audit) |
 | 1.12 | `.env.example` documents every variable `lib/` reads | ❌ | Missing `CITYFIX_DEV_PROMOTE_SECRET`, `DEV_SKIP_WEBAUTHN` and **all** `BLOB_*` |
 
 ---
@@ -260,7 +262,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 6.1 | Every route has an OpenAPI entry | ⚠️ | 53 paths / 70 operations of 77 live. The 8 dev/docs route files are excluded **by design**. But the spec documents **2 phantom methods** — `PATCH` and `DELETE` on `/api/tickets/{id}` — which do not exist. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist) |
+| 6.1 | Every route has an OpenAPI entry | ✅ | 53 paths / 68 operations of 77 live. The 8 dev/docs route files are excluded **by design**. The spec's 2 phantom methods (`PATCH`/`DELETE` on `/api/tickets/{id}`) were **deleted on 2026-11-08** and the JSON artifact regenerated. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08) |
 | 6.2 | The OpenAPI spec is type-checked | ✅ | `lib/docs/openapi.ts` is typed code — `tsc` catches a malformed component reference |
 | 6.3 | Every API boundary validates input with Zod | ⚠️ | Holds across `app/api/**` except `app/api/profile/route.ts` (hand-rolled validation at `:46-51`) |
 | 6.4 | Error codes are consistent across the surface | ❌ | 5 live divergences — see [KNOWN_ISSUES.md §17-21](KNOWN_ISSUES.md#api-consistency) |
@@ -272,7 +274,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 6.10 | Rate limiting is applied to the sensitive routes | ✅ | Per-IP token bucket on the OTP and login paths |
 | 6.11 | Rate limiting works across instances | ❌ | In-process `Map` — `lib/platform/rate-limit.ts:17` |
 | 6.12 | Login lockout survives a restart | ❌ | In-process — `lib/auth/login-lockout.ts:38` |
-| 6.13 | The OpenAPI spec matches the live route handlers | ❌ | Reconciled by hand: **2 phantom methods** — `PATCH`/`DELETE` on `/api/tickets/{id}` are documented but not implemented. The spec's own accuracy rule #1 is violated, and `tsc` cannot catch it |
+| 6.13 | The OpenAPI spec matches the live route handlers | ✅ | **Now enforced mechanically.** `tests/unit/docs/openapi-route-parity.test.ts` reads every `app/api/**/route.ts` from disk, extracts its exported HTTP methods, and compares them against `openapiPaths` in both directions. Verified non-vacuous by renaming a live `PATCH` export and confirming the suite went red. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08) |
 
 ---
 
@@ -319,9 +321,9 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 102 files, 1,851 tests, ~28 s |
+| 9.1 | A unit test suite exists | ✅ | 103 files, 1,853 tests, ~28 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
-| 9.3 | Coverage exceeds the floor | ✅ | 92.59% lines / 82.56% branches / 93.54% functions |
+| 9.3 | Coverage exceeds the floor | ✅ | 92.56% lines / 82.56% branches / 93.54% functions |
 | 9.4 | The CI pipeline is green | ✅ | Run `42471075111` on `e32147e` — 12/12 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | 34 specs — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |

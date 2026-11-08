@@ -11,11 +11,11 @@
 | Metric | Value | Floor | Status |
 |---|---|---|---|
 | Unit test files | 102 | — | — |
-| Unit tests passing | **1,851 / 1,851** | — | ✅ |
-| Coverage — lines | **92.59%** | 80% | ✅ |
+| Unit tests passing | **1,853 / 1,853** | — | ✅ |
+| Coverage — lines | **92.56%** | 80% | ✅ |
 | Coverage — branches | **82.56%** | 80% | ✅ |
 | Coverage — functions | **93.54%** | 80% | ✅ |
-| Coverage — statements | **92.59%** | 80% | ✅ |
+| Coverage — statements | **92.56%** | 80% | ✅ |
 | Playwright route specs | 34 | — | — |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
@@ -35,7 +35,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 102 files, 1,851 tests, 100% passing, ~28 s
+**Result:** 103 files, 1,853 tests, 100% passing, ~28 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -114,10 +114,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 92.59% | 80% | +12.59 |
+| Lines | 92.56% | 80% | +12.56 |
 | Branches | 82.56% | 80% | +2.56 |
 | Functions | 93.54% | 80% | +13.54 |
-| Statements | 92.59% | 80% | +12.59 |
+| Statements | 92.56% | 80% | +12.56 |
 
 ### Why the scope is `lib/**`
 

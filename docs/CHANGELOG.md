@@ -15,7 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 Ten documents created in `docs/`. All are new files; no source code was changed.
 
 - `docs/PROJECT_AUDIT.md` — the entry point. Project identity, the product thesis, personas, history (135 commits), what exists, verification status, health assessment, governance, what is not built yet, and the three decisions that matter most.
-- `docs/PRODUCTION_READINESS_CHECKLIST.md` — the master go/no-go. **172 items across 12 stages**, each PASS / FAIL / NOT VERIFIED / NOT APPLICABLE with evidence. Carries the mandated Final Report Format: 43% overall, 74 passed, 68 failed, 29 not verified, 1 not applicable; 4 Critical / 5 High / 13 Medium / 10 Low issues; the security, performance and deployment assessments; the sixteen remaining blockers; and the explicit list of items that could not be verified and why.
+- `docs/PRODUCTION_READINESS_CHECKLIST.md` — the master go/no-go. **172 items across 12 stages**, each PASS / FAIL / NOT VERIFIED / NOT APPLICABLE with evidence. Carries the mandated Final Report Format: 44% overall, 76 passed, 67 failed, 28 not verified, 1 not applicable; 4 Critical / 5 High / 13 Medium / 9 Low issues; the security, performance and deployment assessments; the sixteen remaining blockers; and the explicit list of items that could not be verified and why.
 - `docs/SECURITY_AUDIT.md` — 17 findings (4 Critical, 4 High, 5 Medium, 4 Low) with file:line evidence, the auth and authorisation contract, and the remediation order. Verdict: not production-ready.
 - `docs/API_DOCUMENTATION.md` — all **77** operations across 61 route handlers, with the guard contract table, the error-code table, per-endpoint request/response schemas, the five documented API inconsistencies, and the two phantom operations found in the spec.
 - `docs/ARCHITECTURE.md` — the layers, the 74-module `lib/` map, the data model, the request lifecycle with the deliberate guard ordering, the dev-store seam, the CI pipeline, and nine known architectural weaknesses.
@@ -28,11 +28,21 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 
 - `docs/KNOWN_ISSUES.md` — index extended to cross-reference `CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md`; the concurrency findings are now reachable from the operational index rather than only from the dedicated document. Issue #26 (`docs/running.md` is stale) is marked **resolved**. Issue #31 records the phantom OpenAPI methods.
 - `docs/PROJECT_AUDIT.md` — the deliverable table now lists ten documents rather than nine; the "what could not be verified" table carries the concurrency-specific unknowns; the health assessment records the concurrency defect alongside the security findings; the operation count is corrected to 77.
-- **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,851, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 61 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
+- **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 61 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
 
-Nothing in the source code. **No application code was modified by this audit** — the output is analysis, not remediation. The one code-level defect found (the phantom OpenAPI methods) is *documented*, not fixed, because fixing it means either deleting the spec blocks or implementing two endpoints, and that is a product decision rather than an audit action.
+**The phantom OpenAPI methods — 2026-11-08, after the audit was delivered.**
+
+The audit's one code-level finding was `PATCH /api/tickets/{id}` and `DELETE /api/tickets/{id}` documented in the spec but never implemented (`app/api/tickets/[id]/route.ts` exports only `GET`). The audit *documented* it rather than fixing it, because deleting the spec blocks or implementing two endpoints is a product decision. That decision has now been taken — **delete the blocks** — and the defect is closed at source rather than only in prose.
+
+- `lib/docs/openapi.ts` — the `patch` (`operationId: updateTicket`) and `delete` (`operationId: deleteTicket`) blocks removed from `/api/tickets/{id}`, replaced by a comment explaining what was removed and why. The module header gained accuracy rule #4, which states that rule #1 is now *enforced* rather than merely asserted.
+- `lib/docs/openapi.json` — regenerated (`npm run docs:generate`): 53 paths / 68 operations, down from 70.
+- `tests/unit/docs/openapi-route-parity.test.ts` — **new**. Reads every `app/api/**/route.ts` from disk, extracts its exported HTTP methods, and compares them against `openapiPaths` in **both** directions. A documented operation with no handler fails; a handler with no documented operation fails. The two excluded route groups (`/api/dev/**`, `/api/docs/**`) are declared in the test with their reasons, and the test asserts the exclusion list is exactly those eight paths so a third silent exclusion cannot appear.
+
+The test was **verified non-vacuous**: renaming a live `PATCH` export to `PATCHX` turned the suite red with `PATCH /api/v1/dispatcher/tickets/{id} — documented but no handler exports it`; restoring the file turned it green. Without that check, a parity test that passes for the wrong reason is worse than no parity test.
+
+Two checklist rows moved to ✅ as a result (6.1 and 6.13), and the checklist's figures were **re-measured** rather than adjusted by hand: 172 items / 76 passed / 67 failed / 28 not verified / 1 not applicable = 44%. Low-severity findings drop 10 → 9; total open issues 32 → 31.
 
 ---
 
@@ -86,13 +96,15 @@ Recorded here so the changelog is useful on its own. Full evidence is in the lin
 
 `lib/platform/transitions.ts:48-86` validates a transition against a status read at line 49 and writes it with an id-only predicate at line 60. Two dispatchers transitioning the same ticket therefore **both** pass validation, and the second silently overwrites the first. The trail insert (line 70) and the audit write (line 79) are separate statements, so the status trail can record a sequence that could not legally have happened — for instance a ticket that ended `cancelled` carrying a row claiming `in_progress`. The status trail is the citizen-facing trust surface for the entire platform. This is the most consequential defect found.
 
-### Low — the OpenAPI spec documents two methods that do not exist
+### Low — the OpenAPI spec documents two methods that do not exist — ✅ FIXED 2026-11-08
 
-`lib/docs/openapi.ts:1366-1413` describes `PATCH /api/tickets/{id}` and `DELETE /api/tickets/{id}`. `app/api/tickets/[id]/route.ts` exports exactly one handler — `GET` at line 17. Nothing calls the phantom endpoints, so no client breaks, but the Swagger UI at `/api/docs` tells a developer that a citizen can edit or delete their own report, and the endpoint returns 405.
+`lib/docs/openapi.ts` described `PATCH /api/tickets/{id}` and `DELETE /api/tickets/{id}`. `app/api/tickets/[id]/route.ts` exports exactly one handler — `GET` at line 17. Nothing called the phantom endpoints, so no client broke, but the Swagger UI at `/api/docs` told a developer that a citizen could edit or delete their own report, and the endpoint returns 405.
 
-This violates the spec module's own accuracy rule #1 (*"Where a route's own docblock disagrees with its code, THE CODE WINS"*), and `tsc --noEmit` cannot catch it — the type checker validates that a component reference is well-formed, not that a documented method has a handler behind it.
+This violated the spec module's own accuracy rule #1 (*"Where a route's own docblock disagrees with its code, THE CODE WINS"*), and `tsc --noEmit` cannot catch it — the type checker validates that a component reference is well-formed, not that a documented method has a handler behind it.
 
 **How it was found:** reconciling all 61 route files' exported method names against `openapiPaths` produced exactly one mismatch. The same reconciliation corrected this audit's own operation count from 80 to **77**.
+
+**Fixed:** both spec blocks were deleted, `lib/docs/openapi.json` was regenerated, and `tests/unit/docs/openapi-route-parity.test.ts` now compares the spec against the route files mechanically on every unit run — so the two can no longer drift apart. See the "Fixed" section above.
 
 ### What the audit did *not* find- **No placeholder data in any production metric path.** A repo-wide grep for `Math.random`, `mock`, `placeholder`, `sample`, `demo`, `dummy` and `hardcod` across `app/dispatcher`, `app/admin`, `lib/dispatcher` and `lib/admin` returned no hits in any metric path. 25 of the 27 audited metrics trace directly to real DB columns.
 - **The PII boundary holds.** The citizen serializer strips `internalNote`, `assignedCrewId` and `reporterName`, anonymises trail actors, and the public serializer strips `locationLabel`.

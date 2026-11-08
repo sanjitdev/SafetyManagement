@@ -286,4 +286,4 @@ The app loads Noto Sans Bengali from Google Fonts. If `fonts.googleapis.com` is 
 - [TESTING_REPORT.md](TESTING_REPORT.md) — what CI verifies before deploy
 - [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) — the overall go/no-go
 
-> **Note:** `docs/running.md` is the older, local-development-focused guide. Its script and route tables are stale (it lists 40 route handlers, 249 unit tests and 15 baselines; the current counts are 61 handlers, 1,851 unit tests and 25 baselines). This document supersedes it for production concerns, but `running.md` should be refreshed.
+> **Note:** `docs/running.md` is the local-development-focused guide. It was rewritten during the 2026-11-08 audit and its route and script tables now match the codebase (61 handlers, 1,853 unit tests, 25 baselines). This document still supersedes it for production concerns — deployment, environment variables and rollback.

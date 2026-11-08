@@ -26,7 +26,7 @@ It is the entry point to the other nine deliverables. Where this document summar
 | [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) | The go/no-go |
 | [CHANGELOG.md](CHANGELOG.md) | The release history |
 
-**The verdict is in [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md): 43% complete, 74 passed / 68 failed / 29 not verified / 1 not applicable — and not deployable.**
+**The verdict is in [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md): 44% complete, 76 passed / 67 failed / 28 not verified / 1 not applicable — and not deployable.**
 
 ---
 
@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 3 |
 | i18n keys | 957 |
-| Unit test files | 102 (**1,851 tests**) |
+| Unit test files | 102 (**1,853 tests**) |
 | Playwright route specs | 34 |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -187,8 +187,8 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **102 files / 1,851 tests passed**, ~28 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 82.56% branches / 93.54% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **103 files / 1,853 tests passed**, ~28 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.56% lines / 82.56% branches / 93.54% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 
 ### Verified on CI
@@ -223,7 +223,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 
 ### Strengths
 
-1. **The layering is real, not aspirational.** The service layer holds the logic (92.59% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
+1. **The layering is real, not aspirational.** The service layer holds the logic (92.56% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
 2. **The PII boundary holds.** The citizen serializer strips `internalNote`, `assignedCrewId` and `reporterName`, anonymises trail actors to "সিটি কর্পোরেশন", and the public serializer strips `locationLabel` — which can carry a street address. No route returns a raw Prisma row.
 3. **The audit trail is genuinely immutable.** No code path updates or deletes an `AuditEntry`.
 4. **ADR-007 is implemented and tested against the real dependency graph**, not with mocks — and the shared transition route applies the ceremony *after* the ticket load and scope checks, exactly as the ADR specifies.
@@ -239,7 +239,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 4. **No production guard on `CITYFIX_DEV_STORE`.** One env var disables the database, unsigns the session cookie and bypasses WebAuthn. A single guard would close the whole class.
 5. **The API is not internally consistent** — five documented divergences in error codes, field names and status codes. Documented rather than normalised because clients depend on the current behaviour.
 6. **The i18n registry is 2,900 lines** — a single file with 957 keys. At 100% line coverage but 75% branch coverage, it is the largest untested surface in the codebase.
-7. **`docs/running.md` is materially stale** — it describes 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,851 and 25.
+7. **`docs/running.md` was materially stale** — it described 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,853 and 25. **Rewritten during this audit**; the standing instruction *"update the doc to match the real stack"* is now discharged.
 8. **Wave 2 of the UI redesign is 8 of 12 mockups unbuilt**, and page implementation is blocked on human mockup approval.
 9. **The metrics are honest but incomplete.** No metric uses placeholder data — but `SlaPolicy` is defined, seeded and never consulted, and four `Ticket` timestamps are missing, so two of the four operational questions are only partially answerable.
 
