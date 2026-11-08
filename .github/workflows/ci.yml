@@ -98,6 +98,11 @@ jobs:
         run: npm run build
 
       - name: Upload visual diff artifacts
+        # Always upload, so a baseline failure can be diagnosed from the
+        # diff PNG rather than guessed at from the error message. The
+        # baselines are rendered by ubuntu-latest (see
+        # tests-mockups/README.md), so CI's "actual" PNG is the reference
+        # for what the mockups look like on the asserting platform.
         if: always()
         uses: actions/upload-artifact@v4
         with:
