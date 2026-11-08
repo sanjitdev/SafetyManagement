@@ -53,8 +53,50 @@ export async function verifyPassword(
 ): Promise<boolean> {
   try {
     return await verify(hashStr, plaintext, ARGON2_OPTIONS);
-  } catch {
-    // argon2 throws on a malformed hash; treat as a failed verification
+  } catch (err) {
+    // A MALFORMED HASH is a failed verification — the stored credential is
+    // unusable, so the login is refused. That is the intended behaviour
+    // and it is safe to swallow.
+    //
+    // A MISSING NATIVE BINDING is NOT that. `@node-rs/argon2` throws
+    // "Cannot find native binding" when the platform-specific optional
+    // dependency is absent — e.g. a `node_modules` tree installed on
+    // Windows and then run on Linux. That is a SERVER MISCONFIGURATION,
+    // and swallowing it as "wrong credentials" turns a deployment fault
+    // into a lie told to every user: the login page reports a bad
+    // password when the server cannot check passwords at all.
+    //
+    // This was not hypothetical. The route-spec suite run in the Linux
+    // Playwright container produced 50 failures, every one of them a
+    // login that "timed out" waiting for navigation. The real cause was
+    // this catch: the container's `node_modules` carried only
+    // `@node-rs/argon2-win32-x64-msvc`, so `verify` threw, the catch
+    // returned `false`, and every persona was told its password was
+    // wrong. The specs were fine. The environment was broken, and this
+    // function was the reason nobody could tell.
+    //
+    // So: distinguish the two. A malformed hash is a `false`. A missing
+    // binding is re-thrown, because it is the operator's problem to fix
+    // and no user-facing message should hide it.
+    if (isMissingNativeBinding(err)) throw err;
     return false;
   }
+}
+
+/**
+ * Is this error the "the argon2 native addon is not installed for this
+ * platform" failure?
+ *
+ * `@node-rs/argon2` reports it as "Cannot find native binding. npm has a
+ * bug related to optional dependencies ...". Matching on the message is
+ * the only signal available — the error carries no error code.
+ */
+function isMissingNativeBinding(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message.toLowerCase();
+  return (
+    message.includes('cannot find native binding') ||
+    message.includes('failed to load native binding') ||
+    message.includes('was compiled against a different node.js version')
+  );
 }
