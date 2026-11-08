@@ -227,6 +227,7 @@ or submit a new one.
 - **Source**: `design-artifacts/E-Development/000-tech-audit.md`
 - **Status**: Affirmed; schema ships in WO-000; the four route
   handlers are deferred to WO-005.
+- **Full ADR**: `docs/adr/ADR-007-admin-write-webauthn.md`
 
 **Context**: Admins configure wards, categories, departments,
 and dedup-radius overrides. A password compromise against an
@@ -247,6 +248,16 @@ flow accepts a one-time-password until WO-005 lands.
 - **Admin password + SMS-OTP** — same blast radius as the
   citizen path; rejected for admins.
 - **TOTP only** — better than SMS-OTP, but still phishable.
+
+**Update (2026-11-08)** — the `requireWebAuthn` guard shipped
+(Bolt 005-001) and is enforced on all 16 write handlers under
+`/api/v1/admin/*`. The shared transition route
+`app/api/tickets/[id]/transition/route.ts` — an admin write path
+outside that tree, carrying the admin-only crew-reassign and the
+admin-any-status branch — was left ungated; it is now gated for
+the `admin` role. The gate is a property of the **role**, not of
+the path: reads are exempt, and dispatcher/crew writes are not
+admin writes. Pinned by `tests/unit/transition-webauthn.test.ts`.
 
 ---
 

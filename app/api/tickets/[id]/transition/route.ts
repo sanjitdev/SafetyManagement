@@ -7,8 +7,22 @@
  * Role rules:
  *   - dispatcher: submitted → routed (and any → cancelled)
  *   - crew:       routed → in_progress, in_progress → resolved (and any → cancelled)
- *   - admin:      any transition (but admin writes still require WebAuthn in v1.1)
+ *   - admin:      any transition — admin writes require WebAuthn (ADR-007)
  *   - citizen:    not allowed (use a separate "cancel my own" endpoint, deferred)
+ *
+ * ADR-007 ("admin write paths require WebAuthn"): this route is an
+ * admin write path — the admin-only pure-reassign branch writes
+ * `assignedCrewId` directly, and the admin branch of the transition
+ * table can move a ticket through any status. Both therefore require
+ * a fresh WebAuthn assertion from the admin. Dispatcher and crew
+ * transitions are NOT admin writes and are not gated (their writes
+ * are already bounded by `requireScope`).
+ *
+ * The WebAuthn check runs AFTER the cheap role/scope checks so a
+ * dispatcher gets `forbidden_role`/`cross_ward_access_denied` rather
+ * than a WebAuthn error, and only after the ticket is loaded so a
+ * non-existent ticket still 404s rather than 401-ing on a ceremony
+ * the caller cannot complete.
  *
  * Backend-agnostic: works on Prisma or the in-memory dev store.
  */
@@ -16,7 +30,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
-import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth/guards';
+import {
+  ApiError,
+  requireRole,
+  requireSameCity,
+  requireScope,
+  requireWebAuthn,
+} from '@/lib/auth/guards';
 import {
   transitionTicket,
   InvalidTransitionError,
@@ -112,6 +132,19 @@ export async function POST(
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
+  // The ticket's department comes from its category (a streetlight
+  // ticket belongs to the streetlight department). `db.ticket.findUnique`
+  // does not join the category, so the hydrated row is used — the
+  // same shape the dispatcher route's `requireScope` call uses.
+  //
+  // This mattered: the scope check used to pass a literal `null` for
+  // `departmentId`, and `requireScope` compares the argument against
+  // the session's department with `!==`. `null !== 'dept_streetlight'`
+  // is true, so EVERY dispatcher and crew caller was rejected with
+  // `cross_department_access_denied` — the shared route was unusable
+  // for exactly the two roles it was meant to serve.
+  const withTrail = await getTicketWithTrail(ticket.id);
+
   try {
     requireSameCity(session!, ticket.cityId);
   } catch (e) {
@@ -119,9 +152,30 @@ export async function POST(
   }
   if (session!.role !== 'admin') {
     try {
-      requireScope(session!, ticket.wardId, null);
+      requireScope(session!, ticket.wardId, withTrail?.departmentId ?? null);
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    }
+  }
+
+  // ADR-007: admin writes require a fresh WebAuthn assertion. This
+  // covers BOTH admin write shapes on this route — the pure
+  // `assignedCrewId` reassign and the status transition (admin can
+  // move a ticket through any status in ALLOWED_BY_ROLE).
+  //
+  // Dispatcher and crew are not admin writes, so they skip the
+  // ceremony; their writes are already bounded by `requireScope`.
+  if (session!.role === 'admin') {
+    try {
+      await requireWebAuthn(session);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        return NextResponse.json({ error: e.code }, { status: e.status });
+      }
+      return NextResponse.json(
+        { error: 'webauthn_failed', detail: (e as Error).message },
+        { status: 401 },
+      );
     }
   }
 
