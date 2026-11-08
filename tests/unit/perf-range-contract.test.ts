@@ -42,6 +42,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { getStore, resetStore } from '@/lib/dev-store';
+import { nowMs } from '@/lib/format/clock';
 import { rangeContaining } from '../helpers/perf-range';
 
 /** The dev-store seed that the performance suite reads. */
@@ -180,9 +181,14 @@ describe('seed-relative range discipline', () => {
     // Pins the premise of the whole guard: if the seed ever became
     // date-fixed, the seed-relative helper would become unnecessary
     // and this guard would need to be revisited.
+    //
+    // The age is measured against the shared PINNED clock — the seed
+    // is built from it, so measuring against the wall clock would
+    // read a different instant entirely (and be days off under a
+    // pinned harness).
     resetStore();
     const seeded = getStore().tickets.get(SEEDED_TICKET_ID)!;
-    const ageMs = Date.now() - Date.parse(seeded.createdAt);
+    const ageMs = nowMs() - Date.parse(seeded.createdAt);
     const ageDays = ageMs / 86_400_000;
     expect(ageDays).toBeGreaterThan(9);
     expect(ageDays).toBeLessThan(11);

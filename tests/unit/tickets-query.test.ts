@@ -22,12 +22,16 @@ import {
   clampLimit,
   TICKET_STATUS_VALUES,
 } from '@/lib/admin/tickets-query';
+import { nowMs } from '@/lib/format/clock';
 
 describe('buildWhere', () => {
   test('default 7d window + cityId when no other filters are passed', () => {
-    const before = Date.now();
+    // Measured against the shared pinned clock the query builder
+    // reads — a wall-clock reference measures a different instant
+    // entirely, and under a pinned harness the two are days apart.
+    const before = nowMs();
     const { where, fromIso, toIso } = buildWhere({ cityId: 'city_dncc' });
-    const after = Date.now();
+    const after = nowMs();
     expect(fromIso).toMatch(/T/);
     expect(toIso).toMatch(/T/);
     const fromMs = Date.parse(fromIso);

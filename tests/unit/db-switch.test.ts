@@ -36,6 +36,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { db, getTicketWithTrail, useDevStore } from '@/lib/db-switch';
 import { resetStore, getStore, DEV_CITY_ID, DEV_CITIZEN_ID } from '@/lib/dev-store';
+import { nowMs } from '@/lib/format/clock';
 
 beforeEach(() => {
   resetStore();
@@ -524,11 +525,15 @@ describe('db.otp', () => {
         expiresAt: new Date('2999-01-01T00:00:00.000Z'),
       },
     });
+    // The row's `createdAt` is stamped by the shared pinned clock, so
+    // the `since` reference must come from the SAME clock — a wall
+    // clock reference asks about a different instant, and under a
+    // pinned harness the two are days apart.
     const count = await db.otp.countRecent({
       where: {
         userId: 'u_otp_count',
         scope: 'registration',
-        since: new Date(Date.now() - 60_000).toISOString(),
+        since: new Date(nowMs() - 60_000).toISOString(),
       },
     });
     expect(count).toBeGreaterThanOrEqual(1);

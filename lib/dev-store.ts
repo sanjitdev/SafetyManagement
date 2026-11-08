@@ -298,6 +298,37 @@ declare global {
   var __CITYFIX_DEV_STORE__: Store | undefined;
 }
 
+/**
+ * The `updatedAt` an update should stamp — STRICTLY AFTER the previous
+ * one.
+ *
+ * ── Why not just `nowIso()` ────────────────────────────────────
+ *
+ * `updatedAt` is a monotonic version marker, not a wall-clock
+ * reading. A row updated twice in the same millisecond must still
+ * show that it changed, or "last modified" ordering collapses and a
+ * reader cannot tell which of two writes came last.
+ *
+ * That mattered as soon as the clock was PINNED. Under a frozen
+ * clock `nowIso()` returns the SAME instant on every call, so an
+ * update stamped `updatedAt` equal to `createdAt` — and the change
+ * became invisible rather than merely coarse. The old behaviour was
+ * an accident of the wall clock advancing between two calls, and a
+ * pinned clock exposes it.
+ *
+ * So the bump is explicit: take "now", and if it is not strictly
+ * after the previous stamp, step forward by one millisecond. On a
+ * live clock this is a no-op in all but the same-millisecond case;
+ * under a pinned clock it produces a strictly increasing sequence
+ * that mirrors what the database would have written.
+ */
+function bumpedTimestamp(previous: string): string {
+  const now = nowMs();
+  const prevMs = Date.parse(previous);
+  const nextMs = Number.isNaN(prevMs) || now > prevMs ? now : prevMs + 1;
+  return new Date(nextMs).toISOString();
+}
+
 function seed(): Store {
   const cityId = 'city_dhaka_north';
   const wardId = 'ward_14';
@@ -1754,7 +1785,7 @@ export const devDb = {
       const next: DevTicket = {
         ...cur,
         ...args.data,
-        updatedAt: nowIso(),
+        updatedAt: bumpedTimestamp(cur.updatedAt),
       };
       getStore().tickets.set(args.where.id, next);
       return next;
@@ -1801,7 +1832,7 @@ export const devDb = {
       const next: DevTicket = {
         ...cur,
         ...args.data,
-        updatedAt: nowIso(),
+        updatedAt: bumpedTimestamp(cur.updatedAt),
       };
       getStore().tickets.set(args.where.id, next);
       return 1;
@@ -1816,7 +1847,7 @@ export const devDb = {
       getStore().tickets.set(args.where.id, {
         ...cur,
         version: (cur.version ?? 0) + 1,
-        updatedAt: nowIso(),
+        updatedAt: bumpedTimestamp(cur.updatedAt),
       });
     },
   },

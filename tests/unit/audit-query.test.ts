@@ -23,12 +23,18 @@
 
 import { describe, expect, test } from 'vitest';
 import { buildWhere, clampLimit } from '@/lib/admin/audit-query';
+import { nowMs } from '@/lib/format/clock';
 
 describe('buildWhere', () => {
   test('default 7d window when no filters are passed', () => {
-    const before = Date.now();
+    // The window must be measured against the SAME clock the query
+    // builder uses. `buildWhere` reads the shared pinned clock
+    // (`lib/format/clock.ts`), so a wall-clock reference would be
+    // measuring a different instant entirely — and under a pinned
+    // test harness the two are days apart.
+    const before = nowMs();
     const { where, fromIso, toIso } = buildWhere({});
-    const after = Date.now();
+    const after = nowMs();
     expect(fromIso).toMatch(/T/);
     expect(toIso).toMatch(/T/);
     const fromMs = Date.parse(fromIso);
