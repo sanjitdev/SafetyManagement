@@ -2008,7 +2008,7 @@
           "Tickets"
         ],
         "summary": "File a report",
-        "description": "Creates a report in the citizen’s city and files it under the given ward and category.\n\nA near-duplicate is **not** merged. When another open report sits within the\ncity’s dedup radius this returns 200 with a `dedup_match` prompt and creates\nnothing; the citizen can then re-POST with `dedupDeclineTicketId` to file it\nanyway, which raises a review flag for the dispatcher.",
+        "description": "Creates a report in the citizen’s city and files it under the given ward and category.\n\nA near-duplicate is **not** merged. When another open report sits within the\ncity’s dedup radius this returns 200 with a `dedup_match` prompt and creates\nnothing; the citizen can then re-POST with `dedupDeclineTicketId` to file it\nanyway, which raises a review flag for the dispatcher.\n\nTwo reports filed at the *identical* location at the same instant are also\nde-duplicated, by the database rather than by the scan: a unique index on the\nlocation key refuses the second insert and the loser is returned the same\n`dedup_match` prompt. A report filed after a `dedupDeclineTicketId` is exempt\nfrom that index — an acknowledged duplicate must always be creatable.",
         "operationId": "createTicket",
         "requestBody": {
           "required": true,
@@ -2248,6 +2248,27 @@
                       "type": "string",
                       "enum": [
                         "cross_city_forbidden"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A concurrent submission of the same location won the dedup race, and the winning ticket could not be resolved afterwards. The citizen should retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "dedup_conflict_unresolved"
                       ]
                     }
                   }

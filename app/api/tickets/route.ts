@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { requireRole } from '@/lib/auth/guards';
-import { checkDedup } from '@/lib/platform/dedup';
+import { checkDedup, computeDedupKey, isDedupConflict } from '@/lib/platform/dedup';
 import { writeAudit } from '@/lib/platform/audit';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
@@ -196,20 +196,113 @@ export async function POST(req: NextRequest) {
   }
 
   // Create the ticket + initial trail entry.
-  const created = await db.ticket.create({
-    data: {
+  //
+  // ── The dedup KEY (2026-11-08) ─────────────────────────────────
+  //
+  // The scan above is a READ and this is a WRITE, and nothing
+  // connected them: two citizens filing the same pothole at the same
+  // coordinate at the same instant both ran the scan before either
+  // ticket existed, both saw nothing, and both created a ticket. The
+  // database could not stop it either — the `Ticket` model had no
+  // unique constraint of any kind, so the city ended up with two
+  // open tickets for one pothole and no way to tell they were the
+  // same report.
+  //
+  // The key closes that. `dedupKey` is a hash of
+  // `(cityId, categoryId, lat, lng)` and the column carries a unique
+  // index, so the second insert is refused BY THE DATABASE rather
+  // than by a hopeful check. When that happens the loser re-runs the
+  // scan, finds the winner, and returns the SAME response the
+  // citizen would have got had the winner committed first — which is
+  // the point: the citizen who filed second is told about the
+  // existing report instead of being given a second one.
+  //
+  // The key is deliberately omitted when the citizen DECLINED a dedup
+  // match. A declined duplicate is a legitimate ticket at the same
+  // coordinates — that is precisely the thing the dispatcher needs to
+  // review — so it must be creatable. A NULL key never collides with
+  // anything (Postgres treats NULLs in a unique index as distinct),
+  // so the decline path stays open while the un-acknowledged path is
+  // closed.
+  const dedupKey = input.dedupDeclineTicketId
+    ? null
+    : computeDedupKey({
+        cityId: input.cityId,
+        categoryId: input.categoryId,
+        locationLat: input.locationLat,
+        locationLng: input.locationLng,
+      });
+
+  let created;
+  try {
+    created = await db.ticket.create({
+      data: {
+        cityId: input.cityId,
+        wardId: input.wardId,
+        categoryId: input.categoryId,
+        reporterId: session!.userId,
+        status: 'submitted',
+        locationLat: input.locationLat,
+        locationLng: input.locationLng,
+        locationLabel: input.locationLabel ?? null,
+        locationLabelBn: input.locationLabelBn ?? null,
+        note: input.note ?? null,
+        dedupKey,
+      },
+    });
+  } catch (e) {
+    // The dedup-key index refused this insert: another submission of
+    // the same spot won the race.
+    if (!isDedupConflict(e)) {
+      throw e;
+    }
+    // Re-run the scan. The winner's ticket now exists, so the scan
+    // finds it. This is the same lookup the non-racing path performs
+    // above, and it produces the same answer.
+    const winner = await checkDedup({
       cityId: input.cityId,
-      wardId: input.wardId,
       categoryId: input.categoryId,
-      reporterId: session!.userId,
-      status: 'submitted',
       locationLat: input.locationLat,
       locationLng: input.locationLng,
-      locationLabel: input.locationLabel ?? null,
-      locationLabelBn: input.locationLabelBn ?? null,
-      note: input.note ?? null,
-    },
-  });
+    });
+    if (winner) {
+      await writeAudit({
+        entityType: 'ticket',
+        entityId: winner.existingTicketId,
+        action: 'ticket.dedup_detected',
+        actorId: session!.userId,
+        afterValue: {
+          candidateLat: input.locationLat,
+          candidateLng: input.locationLng,
+          distanceMeters: winner.distanceMeters,
+          // Marks this match as a LOST RACE rather than an ordinary
+          // prompt: the scan above found nothing, so the citizen was
+          // never asked — the database refused the insert instead.
+          source: 'dedup_key_conflict',
+        },
+      });
+      return NextResponse.json(
+        {
+          dedup_match: true,
+          existing_ticket_id: winner.existingTicketId,
+          distance_meters: winner.distanceMeters,
+          existing_status: winner.existingTicketStatus,
+        },
+        { status: 200 },
+      );
+    }
+    // The scan found nothing even though the index refused the
+    // insert. That means the winner's ticket exists but is NOT
+    // visible to the scan — it is in a non-open status, or the
+    // coordinates differ slightly. Falling through to a 409 is the
+    // honest answer: the citizen's report was refused for a reason
+    // we cannot explain, and inventing a second ticket would be
+    // worse than saying so.
+    return NextResponse.json(
+      { error: 'dedup_conflict_unresolved' },
+      { status: 409 },
+    );
+  }
 
   // Bolt 007-001: photos are no longer stored as a flat array on
   // the ticket; they live in `TicketPhoto` rows with `uploadedByRole`

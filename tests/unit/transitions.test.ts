@@ -151,6 +151,9 @@ describe('platform transitions', () => {
         status: 'resolved',
         version: 4,
         resolvedAt: expect.any(String),
+        // The dedup key is released when the ticket leaves the open
+        // statuses, so the spot can be reported again (2026-11-08).
+        dedupKey: null,
       },
     });
   });

@@ -1,0 +1,98 @@
+-- Ticket dedup-key backstop (2026-11-08).
+--
+-- THE DEFECT
+-- ----------
+-- The citizen submit path was a check-then-insert:
+--
+--   app/api/tickets/route.ts
+--     :167  dup = await checkDedup({ ... })   -- READ
+--     :199  const created = await db.ticket.create({ ... })   -- WRITE
+--
+-- Two citizens filing the same pothole at the same coordinate at the
+-- same instant both ran the READ before either ticket existed. Both
+-- scans returned zero candidates. Both proceeded to the WRITE, and
+-- two identical tickets were created — both `status='submitted'`,
+-- both at the same coordinates, both claiming the same work. The
+-- city then had two tickets for one pothole, and the dispatcher's
+-- queue showed the same issue twice with no indication that they
+-- were the same report.
+--
+-- The database could not prevent it: the `Ticket` model had no
+-- unique constraint of any kind.
+--
+-- THE FIX
+-- ------
+-- A dedicated `dedupKey` column plus a unique index on
+-- `(cityId, dedupKey)`. The key is a hash of the submission's
+-- identity — `(cityId, categoryId, lat, lng)` — so the index makes
+-- "two open tickets at the same spot in the same category in the
+-- same city" a database-level impossibility rather than a
+-- convention.
+--
+-- WHY THE KEY IS NULLABLE, AND WHY THAT MATTERS
+-- ---------------------------------------------
+-- Postgres treats NULLs in a unique index as DISTINCT from one
+-- another (SQL standard; only `NULLS NOT DISTINCT` changes that,
+-- and that is a Postgres 15 feature we do not rely on). A ticket
+-- with `dedupKey = NULL` therefore never collides with anything.
+--
+-- That is the escape hatch the product needs. The 50 m dedup rule is
+-- a PROMPT, not a hard rejection (PLAT-REQ-004): the citizen may
+-- decline the prompt and file the report anyway, and the dispatcher
+-- then decides whether it really was a duplicate. The declined
+-- report is a legitimate ticket at the same coordinates as the
+-- original, and it MUST be creatable.
+--
+-- So the decline path simply omits the key:
+--
+--   - A ticket created with no decline carries its dedupKey.
+--   - A ticket created AFTER a decline carries NO dedupKey.
+--
+-- The index then enforces exactly the right thing: two
+-- UNACKNOWLEDGED same-spot tickets cannot both exist, while an
+-- acknowledged duplicate — which is precisely the thing the dispatcher
+-- needs to review — always can.
+--
+-- WHY THE KEY IS CLEARED WHEN A TICKET LEAVES THE OPEN STATUSES
+-- -------------------------------------------------------------
+-- The key exists to stop an OPEN ticket being shadowed by a second
+-- open ticket at the same spot. Once the original is resolved,
+-- closed or cancelled, the spot is free again: a citizen who sees
+-- the same unrepaired pothole next month must be able to file it
+-- again. The transition paths therefore clear `dedupKey` when the
+-- ticket leaves `submitted`/`routed`/`in_progress`, releasing the
+-- slot.
+--
+-- WHY THE KEY IS A HASH, NOT THE RAW COORDINATES
+-- ----------------------------------------------
+-- The index is on `(cityId, dedupKey)`, so the key must be a single
+-- scalar. A hash of the four identity components is compact
+-- (64 hex chars of SHA-256, or 32 with a shorter digest) and
+-- avoids a second wide composite index. The hash is deterministic,
+-- so two submissions of the same spot always produce the same key.
+--
+-- WHY THE GRID PRECISION IS EXACT, NOT THE 50 m RADIUS
+-- -----------------------------------------------------
+-- The 50 m radius is a POLICY threshold expressed as a distance
+-- because the citizen experience is "is this the same spot?". It
+-- cannot be a unique-index constraint: two genuinely DIFFERENT
+-- reports 40 m apart — a pothole and a broken streetlight on the
+-- same pavement — are different issues, and a radius-keyed unique
+-- index would reject the second one outright. The precise Haversine
+-- scan in `lib/platform/dedup.ts` stays the thing that decides
+-- "same spot within 50 m"; this index only backs up the case where
+-- both submissions claim the SAME coordinates to float precision.
+--
+-- This migration is ADDITIVE only — a new nullable column with no
+-- default, plus a new index. No existing row is touched, no data is
+-- rewritten, and nothing is dropped. Existing tickets keep
+-- `dedupKey = NULL`, so the index starts out empty and only
+-- constrains tickets created from this migration onward. That is the
+-- intended behaviour: the index is a backstop for the race, not a
+-- retrofit of history.
+
+-- AlterTable
+ALTER TABLE "Ticket" ADD COLUMN "dedupKey" TEXT;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Ticket_cityId_dedupKey_key" ON "Ticket"("cityId", "dedupKey");

@@ -1,7 +1,7 @@
 # CityFix — Production Readiness Checklist
 
 **Audit date:** 2026-11-08
-**Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+
+**Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+; the concurrency rows re-verified at `8c0c04e`+
 **Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 5 High blockers, plus a ticket-state integrity defect that can make the citizen-facing status trail contradict reality.
 
 **Status legend**
@@ -23,42 +23,45 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **53%** (91 of 172 items PASS) |
+| **Overall completion** | **55%** (94 of 172 items PASS) |
 | Total checklist items | **172** |
-| ✅ Passed | **91** |
-| ❌ Failed | **50** |
+| ✅ Passed | **94** |
+| ❌ Failed | **47** |
 | ⚠️ Not verified | **30** |
 | ➖ Not applicable | **1** |
 
-The 53% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **the two remaining concurrency scenarios** (duplicate submission and crew capacity — the transition and field-write paths are now closed), and **operations that have never been exercised against real infrastructure**.
+The 55% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **the one remaining concurrency scenario** (crew capacity — the transition, field-write and duplicate-submission paths are now closed), and **operations that have never been exercised against real infrastructure**.
 
 > **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 172.
 >
-> **Three rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
+> **Four rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
 >
 > 1. **2026-11-08 — the phantom OpenAPI methods.** Rows 6.1 and 6.13 moved to ✅ when the two spec blocks that documented non-existent endpoints were deleted and a mechanical parity test was added — see [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08). Counts moved 44% → 44% (76 passed).
 > 2. **2026-11-08 — the concurrent-transition lost update.** The worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. Rows 5.1, 5.2, 5.3, 5.4, 5.10, 5.11, 5.12, 5.14, 9.9 and 12.8 moved to ✅; rows 9.13 and 12.12 moved to ⚠️ (partially verified). Counts moved 44% → **51%** (76 → 87 passed, 67 → 54 failed, 28 → 30 not verified).
 > 3. **2026-11-08 — the concurrent ticket-field writes.** The transition fix left every other ticket-field write as a read-modify-write. They now use the same count-checked `updateWhere`, guarded on `version`, and reject their own lost races with 409 `concurrent_write`. Rows 5.5, 5.6, 12.7 and 12.9 moved to ✅. Counts moved 51% → **53%** (87 → 91 passed, 54 → 50 failed, 30 not verified unchanged).
+> 4. **2026-11-08 — the duplicate-submission race.** The last fixable concurrency scenario is closed. A nullable `dedupKey` column with `@@unique([cityId, dedupKey])` is the backstop; the submit route catches the unique violation, re-runs the scan, and returns the same `dedup_match` prompt the winner got. Rows 5.7, 5.8 and 12.10 moved to ✅. Counts moved 53% → **55%** (91 → 94 passed, 50 → 47 failed, 30 not verified unchanged). The design deliberately differs from the audit's recommendation — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md §A.2.3](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md#a23-scenario-4--resolved-2026-11-08).
 
 ### Issue counts
 
 | Severity | Count | Detail |
 |---|---:|---|
 | **Critical** | **4** | OTP plaintext in every environment; OTP attempt limit never enforced; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions |
-| **High** | **5** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted; **concurrency control** — ⚠️ the transition path is closed (2026-11-08); the other 4 scenarios remain VULNERABLE |
+| **High** | **5** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted; **concurrency control** — ⚠️ the transition, field-write and duplicate-submission paths are closed (2026-11-08); crew capacity is the one scenario that remains VULNERABLE |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
 | **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
 
-**Total open issues: 31.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08. The concurrency finding is **partially** closed — issue 27 is now "1 of 5 scenarios resolved" and is still counted as open.)
+**Total open issues: 31.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08. The concurrency finding is **still partially** closed — issue 27 is now "4 of 5 scenarios resolved" and is still counted as open, because crew capacity has no guard at all and remains a product decision.)
 
-The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 14 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 67 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
+The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 14 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 47 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
 
 ### Features completed during the audit
 
-No product features were built. The audit produced **10 documents** and, at the time of writing, **0 source-code changes**. Two source-code changes have landed since:
+No product features were built. The audit produced **10 documents** and, at the time of writing, **0 source-code changes**. Four source-code changes have landed since:
 
 1. **2026-11-08 — the phantom OpenAPI methods.** The two spec blocks documenting non-existent endpoints were deleted and a mechanical parity test was added, which moved rows 6.1 and 6.13 to ✅.
 2. **2026-11-08 — the concurrent-transition lost update.** The audit's worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, `writeAudit` re-pointed at the transaction handle, the dev store implementing the same guard, and a CI-enforced regression test. Ten checklist rows moved to ✅ and two to ⚠️.
+3. **2026-11-08 — the concurrent ticket-field writes.** Every remaining ticket-field write became a count-checked `updateWhere` guarded on `version`. Four rows moved to ✅.
+4. **2026-11-08 — the duplicate-submission race.** A nullable `dedupKey` column with `@@unique([cityId, dedupKey])`, a submit route that recovers from the unique violation, the dev store mirroring Postgres's NULL semantics, and 24 new tests across two suites. Three rows moved to ✅.
 
 The two code-level remediations from the prior session (the Node 22 CI pin and the lazy production DB guard) predate this audit and are credited to the CI-repair work, not here.
 
@@ -77,19 +80,19 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 
 ### Tests executed and results
 
-**All executed locally on 2026-11-08.** The most recent green CI run is `42471075111` on `e32147e` (12/12 steps).
+**All executed locally on 2026-11-08.** The most recent green CI run is `42477753107` on `8c0c04e` (12/12 steps).
 
 | Check | Command | Result |
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **105 files / 1,886 tests passed**, ~32 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 82.79% branches / 93.76% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **108 files / 1,920 tests passed**, ~32 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **92.54% lines / 83% branches / 93.62% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
-| Visual regression | CI run `42471075111` | ✅ 25/25 baselines |
-| Full pipeline | CI run `42471075111` | ✅ 12/12 steps green |
+| Visual regression | CI run `42477753107` | ✅ 25/25 baselines |
+| Full pipeline | CI run `42477753107` | ✅ 12/12 steps green |
 
-**Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency test **is** executed — `tests/unit/transitions-concurrency.test.ts` runs on the dev store and is part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
+**Not executed:** Playwright route specs (`npm test` — needs a running dev server and was not part of the CI pipeline), any database-backed test, any load test. The concurrency tests **are** executed — the transition, field-write and dedup suites all run on the dev store and are part of the CI unit suite; what is not exercised is concurrency against a real Postgres under load.
 
 ### Security assessment
 
@@ -125,7 +128,7 @@ No load test was run and no production dataset was available. What can be stated
 The code builds, the CI pipeline is green, and the Vercel project is linked. What is missing is everything between "the build works" and "the service is correct":
 
 - The `DATABASE_URL` in the deployed environment is unknown. Whether it points at Neon or a loopback address is **not inspectable from the repository**, and it decides whether three Critical findings are theoretical or live.
-- `prisma migrate deploy` has never been run against a live database. No migration state was verified.
+- `prisma migrate deploy` has never been run against a live database. No migration state was verified. There are now **five** migrations; the fifth (`20261108140000_ticket_dedup_key`) was applied to a throwaway PostgreSQL 16 container on 2026-11-08 to check the index's behaviour, but never to a live database.
 - `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` are all **unknown in production**.
 - The real-mode run is **blocked**: `lib/platform/db-guard.ts` correctly refuses a loopback `DATABASE_URL` under `NODE_ENV=production`, so a genuine production-mode run needs a hosted Neon URL.
 - No monitoring, no alerting, no uptime check, no error tracking, no backup/restore verification.
@@ -141,7 +144,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
 | 3 | `OTP_MAX_ATTEMPTS` never enforced | Critical | `app/api/v1/auth/verify-otp/route.ts:111`; `lib/auth/otp.ts:32` |
 | 4 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
-| 5 | **Concurrency control — 2 of 5 scenarios remain vulnerable** (the transition path and the concurrent field writes are closed) | Medium | `app/api/tickets/route.ts` (dedup — a check-then-insert gap); crew capacity (a product decision, not a race) |
+| 5 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
 | 6 | `PUT /api/profile` is an ungated admin write | High | `app/api/profile/route.ts:26-59` |
 | 7 | WebAuthn challenges never consumed | High | `lib/auth/guards.ts:113-125` |
 | 8 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
@@ -185,7 +188,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | 2.1 | Prisma schema defined and committed | ✅ | `prisma/schema.prisma` — 16 models |
-| 2.2 | Migrations exist for the schema | ✅ | 4: `20261012102438_init`, `20261013000000_add_ticket_photo`, `20261027140000_platform_gaps`, `20261108120000_ticket_version` |
+| 2.2 | Migrations exist for the schema | ✅ | 5: `20261012102438_init`, `20261013000000_add_ticket_photo`, `20261027140000_platform_gaps`, `20261108120000_ticket_version`, `20261108140000_ticket_dedup_key` |
 | 2.3 | Migrations have been applied to a live database | ⚠️ | No database reachable during the audit |
 | 2.4 | All database access goes through `lib/db.ts` — no raw SQL | ✅ | Repo-wide search for `$queryRaw` / `$executeRawUnsafe` → no hits in app code |
 | 2.5 | Referential integrity is declared | ✅ | `onDelete` specified on every relation |
@@ -253,19 +256,19 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 5.4 | The status trail cannot contradict the ticket's actual status | ✅ | **The most consequential finding — closed.** One trail row per successful transition; the loser's rollback removes only its own rows |
 | 5.5 | Concurrent crew assignments cannot both succeed | ✅ | `lib/dispatcher/assign-crew.ts` — a compare-and-swap on `version`; the loser raises `ConcurrentWriteError` and the route returns 409 `concurrent_write` |
 | 5.6 | Concurrent field edits (ward, category, internal note) cannot both succeed | ✅ | `app/api/v1/dispatcher/tickets/[id]/route.ts` — each of the three writes is a compare-and-swap on `version`; the loser returns 409 `concurrent_write` |
-| 5.7 | Concurrent duplicate submissions cannot both create a ticket | ❌ | Dedup scan and insert are separate statements with no transaction — `app/api/tickets/route.ts` |
-| 5.8 | The database provides a backstop against duplicate tickets | ❌ | **No `@@unique` on `Ticket`** |
+| 5.7 | Concurrent duplicate submissions cannot both create a ticket | ✅ | **RESOLVED 2026-11-08** — a unique index on `(cityId, dedupKey)` is the backstop. The loser's insert is refused with SQLSTATE `23505`; the route catches it, re-runs the scan, and returns the same `dedup_match` prompt the winner got. No second ticket, and the loser is not charged |
+| 5.8 | The database provides a backstop against duplicate tickets | ✅ | `@@unique([cityId, dedupKey])` — migration `20261108140000_ticket_dedup_key`. The key is a SHA-256 of `(cityId, categoryId, locationLat, locationLng)` and is **nullable**, because Postgres treats NULLs in a unique index as distinct — that is what lets a declined duplicate be filed |
 | 5.9 | Crew assignment is capacity-constrained | ❌ | No capacity check in `assign-crew.ts`; `@@index([assignedCrewId])` is an index, not a constraint |
 | 5.10 | The abstraction can express a compound guard | ✅ | `db.ticket.updateWhere` in `lib/db-switch.ts`; `devDb.ticket.updateWhere` in `lib/dev-store.ts` implements the same guard |
 | 5.11 | Transactions are used where multi-statement atomicity is required | ✅ | `lib/platform/transaction.ts` — `prisma.$transaction` on the Prisma path, snapshot-and-restore on the dev-store path |
 | 5.12 | Optimistic locking exists | ✅ | `Ticket.version Int @default(0)` — migration `20261108120000_ticket_version` |
-| 5.13 | Serializable isolation is requested where needed | ❌ | `lib/db.ts` — no `isolationLevel` option; no `SELECT … FOR UPDATE` anywhere. **Not needed for the transition path**: the compare-and-swap guard lives in the `where` clause, so it holds under `READ COMMITTED` |
-| 5.14 | The test suite would catch a lost update | ✅ | `tests/unit/transitions-concurrency.test.ts` (13 tests) + `tests/unit/writes-concurrency.test.ts` (10 tests) against the real dev store. Verified non-vacuous: neutering the guard turns 7 of the first and 4 of the second red |
+| 5.13 | Serializable isolation is requested where needed | ❌ | `lib/db.ts` — no `isolationLevel` option; no `SELECT … FOR UPDATE` anywhere. **Not needed for the transition path**: the compare-and-swap guard lives in the `where` clause, so it holds under `READ COMMITTED`. **Also not needed for the submit path**: the unique index closes that window outright rather than narrowing it, so a `Serializable` transaction would buy nothing the index does not already give |
+| 5.14 | The test suite would catch a lost update | ✅ | `tests/unit/transitions-concurrency.test.ts` (13 tests) + `tests/unit/writes-concurrency.test.ts` (10 tests) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) against the real dev store. Verified non-vacuous: neutering the compare-and-swap turns 7 of the first and 4 of the second red; neutering the dev store's unique index turns 3 of the 18 and 1 of the 6 red |
 | 5.15 | The audit trail records concurrent-write conflicts | ❌ | A rejected transition writes **no** audit row — the loser is visible as a 409 to the client, but not in the audit log. The audit log records what happened, not what was refused |
 | 5.16 | The idempotent/append-only photo path is safe under concurrency | ✅ | Photos are appended, not overwritten — both rows survive. Ordering within a timestamp window is arbitrary, but no data is lost |
 | 5.17 | The audit trail is immutable | ✅ | No code path updates or deletes an `AuditEntry` |
 
-**Stage 5 status: 11 of 17 items now pass** (was 1 of 17). The transition path — the worst case, and the one the audit called the most consequential finding in the entire audit — is closed at source and covered by a CI-enforced test, and the concurrent field writes are closed the same way. The two remaining scenarios (5.7, 5.9) are a different class of defect: duplicate submission is a check-then-insert gap that needs a transaction at a higher isolation level or a DB-level unique key, and crew capacity is a product decision rather than a race.
+**Stage 5 status: 13 of 17 items now pass** (was 1 of 17). The transition path — the worst case, and the one the audit called the most consequential finding in the entire audit — is closed at source and covered by a CI-enforced test, and the concurrent field writes are closed the same way. Duplicate submission (5.7) is now closed by a unique index rather than by a transaction, because the two are not equivalent here: a radius-keyed index would have made the dedup-decline path uncreatable, so the key is the **exact** spot, the 50 m Haversine scan stays the prompt, and the column is nullable so a declined duplicate is still filable. Crew capacity (5.9) is a different class of defect entirely — a product decision rather than a race, and it stays open until the product decides whether v1 has a capacity limit at all.
 
 ---
 
@@ -332,19 +335,19 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 106 files, 1,896 tests, ~32 s |
+| 9.1 | A unit test suite exists | ✅ | 108 files, 1,920 tests, ~32 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
-| 9.3 | Coverage exceeds the floor | ✅ | 92.57% lines / 82.81% branches / 93.77% functions — **re-measured** after the concurrency work |
-| 9.4 | The CI pipeline is green | ✅ | Run `42476873192` on `909f8b2` — 12/12 steps |
+| 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) — drive concurrent transitions, concurrent field writes and concurrent duplicate submissions against the real dev store and assert exactly one winner |
+| 9.3 | Coverage exceeds the floor | ✅ | 92.54% lines / 83% branches / 93.62% functions — **re-measured** after the dedup work |
+| 9.4 | The CI pipeline is green | ✅ | Run `42477753107` on `8c0c04e` — 12/12 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | 34 specs — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
 | 9.7 | The route specs run in CI | ❌ | CI runs the unit suite and the mockup baselines, **not** the route specs |
 | 9.8 | The route specs pass | ⚠️ | Not executed in this audit — they need a running dev server |
-| 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) — drive concurrent transitions and concurrent field writes against the real dev store and assert exactly one winner |
 | 9.10 | A test exists for the OTP attempt limit | ❌ | The limit is dead code, so there is nothing to test — **but a test should exist and fail** |
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
-| 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition and field-write paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, and two concurrency suites exercise it in CI. Duplicate submission and crew capacity still have no dev-store guard to exercise, and `ticketPhoto.create`'s push-then-sort is still unsafe |
+| 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write and submit paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, and `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct). Three concurrency suites exercise them in CI. Crew capacity still has no dev-store guard to exercise, and `ticketPhoto.create`'s push-then-sort is still unsafe |
 | 9.14 | The test suite runs against a live database | ❠️ | No database-backed CI job |
 | 9.15 | Load testing has been performed | ⚠️ | No load test was run or is defined |
 | 9.16 | WebAuthn is exercised against real hardware | ⚠️ | No authenticator was available; attestation, assertion and counter-clone detection were read, not executed |
@@ -418,9 +421,9 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 | 12.7 | **Concurrency — two dispatchers assign the same crew** | ✅ | **RESOLVED 2026-11-08** — compare-and-swap on `version`; the loser gets 409 `concurrent_write` and writes no audit row |
 | 12.8 | **Concurrency — two dispatchers transition the same ticket** | ✅ | **RESOLVED 2026-11-08** — compare-and-swap on `(status, version)` inside one transaction; the loser gets 409 and writes no trail row |
 | 12.9 | **Concurrency — two crew members update the same job** | ✅ | **RESOLVED 2026-11-08** — the crew route uses the same `transitionTicket` service, so the second crew member's transition loses its compare-and-swap. Photos remain safe (appended) |
-| 12.10 | **Concurrency — two citizens submit the same report** | ❌ | **VULNERABLE** — two identical tickets, neither flagged. A check-then-insert gap: it needs a transaction at a higher isolation level or a DB-level unique key, not a version guard |
+| 12.10 | **Concurrency — two citizens submit the same report** | ✅ | **RESOLVED 2026-11-08** — the unique index on `(cityId, dedupKey)` is the backstop. The loser of the race is refused by the index, and the route recovers by re-running the scan and returning the same `dedup_match` prompt the winner got — no second ticket, no 500, and the loser is not charged |
 | 12.11 | **Concurrency — a crew member assigned while already loaded** | ❌ | **VULNERABLE (no constraint)** — a product decision, not a race |
-| 12.12 | **Concurrency was tested by issuing concurrent requests** | ⚠️ | **Now tested for the transition and field-write paths** — `tests/unit/transitions-concurrency.test.ts` and `tests/unit/writes-concurrency.test.ts` drive concurrent writers against the real dev store. Still not exercised against a real Postgres under concurrent load — CI has no database |
+| 12.12 | **Concurrency was tested by issuing concurrent requests** | ⚠️ | **Now tested for the transition, field-write and submit paths** — `tests/unit/transitions-concurrency.test.ts`, `tests/unit/writes-concurrency.test.ts`, `tests/unit/dedup-concurrency.test.ts` and `tests/unit/dedup-route-race.test.ts` drive concurrent writers against the real dev store. Still not exercised against a real Postgres under concurrent load — CI has no database. The dedup index's behaviour **was** checked against a real PostgreSQL 16 by hand on 2026-11-08, but sequentially, not under load |
 | 12.13 | **Operational accountability — metrics are from real timestamps** | ✅ | Verified — no metric uses placeholder data |
 | 12.14 | **A four-account lifecycle demonstration with real DB records** | ❌ | **Not performed.** The Playwright suite covers all four roles and `/api/dev/login` provides persona sign-in, but it runs on the dev store, not a real database, and it was not executed in this audit |
 
@@ -434,7 +437,7 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 
 | Item | What is missing |
 |---|---|
-| The live PostgreSQL migration state | No database was reachable. `prisma/schema.prisma` was read; whether the migrations have been applied is unknown. **A fifth migration was added on 2026-11-08** (`20261108120000_ticket_version`, adding `Ticket.version`) and is likewise unapplied |
+| The live PostgreSQL migration state | No database was reachable. `prisma/schema.prisma` was read; whether the migrations have been applied is unknown. **Two migrations were added on 2026-11-08** — `20261108120000_ticket_version` (adding `Ticket.version`) and `20261108140000_ticket_dedup_key` (adding `Ticket.dedupKey` and its unique index) — and both are unapplied. The full chain was applied to a throwaway PostgreSQL 16 container to check the index's behaviour, but that container was destroyed and says nothing about any live database |
 | `AuditEntry.actor` `onDelete: Restrict` vs user deletion | Needs a live database — see [KNOWN_ISSUES.md #25](KNOWN_ISSUES.md#25-auditentryactor-ondelete-restrict-vs-user-deletion) |
 | A production-mode run | The db-guard correctly blocks a loopback `DATABASE_URL` under `NODE_ENV=production`. A real-mode run needs a hosted Neon `DATABASE_URL` |
 | The deployed Postgres isolation level | `lib/db.ts:18-20` sets no `isolationLevel`, so the server default governs. The standard default is `READ COMMITTED`, under which every concurrency failure is real — but a non-default server setting could not be ruled out. **Note: the transition path's compare-and-swap does not depend on this** — the guard lives in the `where` clause, so it holds under `READ COMMITTED` and above |

@@ -65,6 +65,7 @@
 
 import { db } from '@/lib/db-switch';
 import { writeAudit } from './audit';
+import { freesDedupKey } from './dedup';
 import type { TicketStatus } from '@prisma/client';
 
 const ALLOWED: Record<TicketStatus, TicketStatus[]> = {
@@ -156,6 +157,21 @@ export async function transitionTicket(input: TransitionInput): Promise<void> {
         ...(input.toStatus === 'resolved'
           ? { resolvedAt: new Date().toISOString() }
           : {}),
+        // Release the dedup key when the ticket leaves the open
+        // statuses.
+        //
+        // The key exists to stop an OPEN ticket being shadowed by a
+        // second open ticket at the same spot. Once the original is
+        // resolved, closed or cancelled, the spot is free again: a
+        // citizen who sees the same unrepaired pothole next month
+        // must be able to file it. Clearing the key releases the
+        // unique index slot, so the next report at that spot
+        // succeeds.
+        //
+        // A ticket that is ALREADY closed keeps a NULL key, so
+        // writing NULL is a no-op in that case — it is simply the
+        // correct value.
+        ...(freesDedupKey(input.toStatus) ? { dedupKey: null } : {}),
       },
     });
 

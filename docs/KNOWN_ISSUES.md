@@ -37,7 +37,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 24 | `lib/map/osm-raster.ts` at 0% coverage | Medium | Testing | Open |
 | 25 | `AuditEntry.actor` `onDelete: Restrict` vs user deletion | Medium | Data | Unverified |
 | 26 | `docs/running.md` is stale | Low | Docs | ✅ Resolved during this audit |
-| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ Mostly resolved 2026-11-08 — the transition path and the concurrent field writes now have a compare-and-swap + transaction + regression tests; duplicate submission and crew capacity remain open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
+| 27 | **No concurrency control anywhere** — 5 named scenarios vulnerable | **High** | Data integrity | ⚠️ 4 of 5 resolved 2026-11-08 — the transition path and the concurrent field writes now have a compare-and-swap + transaction + regression tests, and duplicate submission has a `@@unique([cityId, dedupKey])` backstop + regression tests; crew capacity remains open — see [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) |
 | 28 | `SlaPolicy` is defined, seeded and never consulted | Medium | Data | Open |
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
@@ -49,7 +49,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 
 **Full evidence: [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) Part A.**
 
-**Status as of 2026-11-08: mostly resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The concurrent *field* writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day. Two named scenarios remain open: duplicate submission and crew capacity.
+**Status as of 2026-11-08: all but one resolved.** The worst case — two concurrent transitions of the same ticket — is now closed at source, with a CI-enforced regression test. The concurrent *field* writes (crew assignment, dispatcher ward/category/note edits, citizen feedback) were closed the same day, and the duplicate-submission race was closed at the end of it. **One** named scenario remains open: crew capacity, which is a product decision rather than a race.
 
 ### The transition path — RESOLVED 2026-11-08
 
@@ -84,17 +84,40 @@ Every non-status ticket write now uses `db.ticket.updateWhere({ where: { id, ver
 
 **CI now catches this too.** `tests/unit/writes-concurrency.test.ts` runs two concurrent assignments against the real dev store and asserts exactly one wins, that the loser writes no audit row, that the version advanced by exactly one, and that a version-guarded write invalidates an in-flight transition. Verified non-vacuous: neutering the compare-and-swap turns 4 of its 10 assertions red.
 
-### The remaining scenarios — still open
+### The duplicate-submission race — RESOLVED 2026-11-08
+
+The citizen submit path was a **check-then-insert** with nothing connecting the two statements:
+
+```ts
+dup = await checkDedup({ ... });                    // READ
+if (dup) { ... return 200 dedup_match; }
+const created = await db.ticket.create({ ... });    // WRITE
+```
+
+Two citizens filing the same pothole at the same coordinate at the same instant both ran the READ before either ticket existed. Both scans returned zero candidates. Both proceeded to the WRITE, and **two identical tickets were created** — both `status='submitted'`, both at the same coordinates, both claiming the same work. The database could not prevent it: `Ticket` had **no unique constraint of any kind**.
+
+**The fix is a database-level backstop.** `Ticket.dedupKey String?` (migration `20261108140000_ticket_dedup_key`) holds a SHA-256 digest of `(cityId, categoryId, locationLat, locationLng)` and carries `@@unique([cityId, dedupKey])`. The second insert is refused **by the database** rather than by a hopeful check; the loser re-runs the scan and is returned the **same `dedup_match` prompt** the citizen would have got had the winner committed first.
+
+**Two design decisions that the naive fix would have got wrong.**
+
+1. **The key is NOT radius-keyed.** The 50 m radius is a *policy* threshold expressed as a distance, because the citizen experience is "is this the same spot?". It cannot be a unique-index constraint: two genuinely *different* reports 40 m apart — a pothole and a broken streetlight on the same pavement — are different issues, and a radius-keyed index would reject the second one outright. The key therefore identifies the **exact** spot; the precise Haversine scan stays where it was and remains the thing that raises the prompt.
+2. **The key is NULLABLE, and that is the escape hatch the product needs.** PLAT-REQ-004 makes dedup a *prompt*, not a rejection — the citizen may decline it and file the report anyway, and the dispatcher then judges whether it really was a duplicate. So a submission that declares a `dedupDeclineTicketId` carries **no** key, and Postgres treats NULLs in a unique index as distinct: the acknowledged duplicate is always creatable. The key is also **released** when a ticket leaves the open statuses, so a resolved spot can be reported again.
+
+**CI now catches it.** `tests/unit/dedup-concurrency.test.ts` (18 tests) covers the key and the index primitives; `tests/unit/dedup-route-race.test.ts` (6 tests) covers the submit path's recovery against the real dev store. Both were verified non-vacuous — neutering the dev store's unique-index check turns 3 and 1 of their assertions red respectively.
+
+The index semantics were additionally validated against **real PostgreSQL 16**: the full migration chain was applied to a throwaway container and the six relevant behaviours (first insert, second insert refused with `23505`, declined duplicate, second NULL-key row, different city, key released then re-used) were checked directly in SQL.
+
+### The remaining scenario — still open
 
 | Scenario | Verdict |
 |---|---|
 | Two dispatchers assign different crews to the same ticket | ✅ **RESOLVED** — compare-and-swap on `version` + regression test |
 | Two dispatchers transition the same ticket to different statuses | ✅ **RESOLVED** — compare-and-swap + transaction + regression test |
 | Two crew members update the same job | ✅ **RESOLVED** — the crew route uses the same `transitionTicket` service, so the second crew member's transition loses its compare-and-swap |
-| Two citizens submit the same report simultaneously | **VULNERABLE** — dedup runs at submit but two simultaneous submissions can both pass the radius check |
+| Two citizens submit the same report simultaneously | ✅ **RESOLVED** — `@@unique([cityId, dedupKey])` backstop + regression test |
 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** — no `@@unique` or capacity limit on active assignments |
 
-The two open scenarios are a different class of defect from the ones now closed. Duplicate submission is a **check-then-insert gap** — it needs a transaction at a higher isolation level or a DB-level unique key on a coarse coordinate grid, not a version guard (a version guard cannot help when the ticket does not exist yet). Crew capacity is a **product decision**, not a race: the question is whether a crew member may hold N active tickets at once, and that belongs in a PRD decision rather than a lock.
+The one remaining scenario is a **product decision**, not a race: the question is whether a crew member may hold N active tickets at once, and that belongs in a PRD decision rather than a lock.
 
 One residual sub-case remains open under scenario 3: two photos uploaded in the same Postgres timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. That is a schema question (a `slot` column or a deterministic tiebreak), not a race guard.
 
@@ -472,7 +495,7 @@ Recorded so they are not re-reported as bugs.
 | The local suite fails against CI-generated baselines on Windows | The platform difference — documented in [TESTING_REPORT.md §2.3](TESTING_REPORT.md#23-visual-regression--playwright-mockup-baselines) |
 | No metric is computed from placeholder data | Verified — a repo-wide grep for `Math.random`/`mock`/`placeholder`/`sample`/`demo`/`dummy`/`hardcod` found no hits in any metric path. 25 of 27 audited metrics trace to real DB columns |
 | Concurrent photo uploads both succeed | Photos are **appended**, not overwritten — both rows survive. Only the ordering within a Postgres timestamp window is arbitrary. No data is lost |
-| The dev store hides concurrency races | **Now addressed.** Node's event loop makes the read-then-set pair atomic *by accident*, so any fix must also be implemented in the dev store. It now is: `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count, and two concurrency suites run against the **real** dev store in CI |
+| The dev store hides concurrency races | **Now addressed.** Node's event loop makes the read-then-set pair atomic *by accident*, so any fix must also be implemented in the dev store. It now is: `devDb.ticket.updateWhere` applies the same compound guard and returns the same affected-row count, `devDb.ticket.create` enforces the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, NULLs distinct), and three concurrency suites run against the **real** dev store in CI |
 
 ---
 

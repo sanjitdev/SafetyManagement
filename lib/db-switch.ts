@@ -379,6 +379,13 @@ export const db = {
         locationLabel?: string | null;
         locationLabelBn?: string | null;
         note?: string | null;
+        /**
+         * The dedup-key backstop (2026-11-08). See
+         * `lib/platform/dedup.ts` for the key's construction. A
+         * submission that declared a dedup decline passes `null` (or
+         * omits it), which makes it exempt from the unique index.
+         */
+        dedupKey?: string | null;
       };
     }) =>
       isDevStore()
@@ -388,11 +395,12 @@ export const db = {
               locationLabel: args.data.locationLabel ?? null,
               locationLabelBn: args.data.locationLabelBn ?? null,
               note: args.data.note ?? null,
+              dedupKey: args.data.dedupKey ?? null,
               assignedCrewId: null,
               internalNote: null,
             },
           })
-        : prismaClient.ticket.create({ data: args.data }),
+        : prismaClient.ticket.create({ data: args.data as never }),
     update: (args: { where: { id: string }; data: Record<string, unknown> }) =>
       isDevStore()
         ? devDb.ticket.update(args as never)
@@ -1033,6 +1041,10 @@ export async function getTicketWithTrail(
     // `DevTicketWithTrail` shape (the dev store keeps it on the
     // ticket row too).
     feedback: t.feedback ?? null,
+    // Dedup-key backstop (2026-11-08). Carried through so the
+    // dev-store and Prisma paths return the same `DevTicketWithTrail`
+    // shape. The key is internal — the citizen serializer strips it.
+    dedupKey: t.dedupKey ?? null,
     // Prisma returns Date objects; DevTicketWithTrail stores
     // ISO strings. The serializer (lib/serializers/ticket.ts)
     // already handles both shapes, so this is a type-only

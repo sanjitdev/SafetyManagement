@@ -360,6 +360,25 @@ model Ticket {
   // citizen-facing status trail describing a sequence that could not
   // legally have happened.
   version         Int          @default(0)
+  // Dedup-key backstop (2026-11-08). A hash of
+  // `(cityId, categoryId, locationLat, locationLng)` — the identity
+  // of "this exact spot in this category in this city".
+  //
+  // The 50 m dedup rule is a PROMPT (PLAT-REQ-004), not a rejection:
+  // the citizen may decline it and file the report anyway, and the
+  // dispatcher then judges whether it really was a duplicate. So a
+  // declined report must be creatable at the same coordinates as the
+  // original — which is why this column is NULLABLE. Postgres treats
+  // NULLs in a unique index as distinct, so a ticket with no key
+  // never collides with anything.
+  //
+  // The key is written only for submissions that did NOT declare a
+  // dedup decline, and is cleared when the ticket leaves the open
+  // statuses (so a resolved spot can be reported again). The
+  // `@@unique([cityId, dedupKey])` index makes "two unacknowledged
+  // open tickets at the same spot" a database-level impossibility
+  // instead of a convention.
+  dedupKey       String?
 
   city                 City               @relation(fields: [cityId], references: [id], onDelete: Cascade)
   ward                 Ward               @relation(fields: [wardId], references: [id], onDelete: Restrict)
@@ -378,6 +397,11 @@ model Ticket {
   @@index([reporterId])
   @@index([assignedCrewId])
   @@index([updatedAt])
+  // Dedup-key backstop (2026-11-08). NULLs are distinct in a Postgres
+  // unique index, so a ticket with no dedupKey never collides — that
+  // is what lets a DECLINED duplicate (which carries no key) exist
+  // alongside the original it duplicates.
+  @@unique([cityId, dedupKey])
   // PLAT-REQ-004 spatial index surrogate: a compound on (cityId, locationLat, locationLng)
   // gives Postgres enough to use BRIN if we add one; for v1 we filter post-query in JS.
   @@index([cityId, locationLat, locationLng])

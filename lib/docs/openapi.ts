@@ -1274,6 +1274,12 @@ export const openapiPaths: Record<string, PathItem> = {
         'city’s dedup radius this returns 200 with a `dedup_match` prompt and creates',
         'nothing; the citizen can then re-POST with `dedupDeclineTicketId` to file it',
         'anyway, which raises a review flag for the dispatcher.',
+        '',
+        'Two reports filed at the *identical* location at the same instant are also',
+        'de-duplicated, by the database rather than by the scan: a unique index on the',
+        'location key refuses the second insert and the loser is returned the same',
+        '`dedup_match` prompt. A report filed after a `dedupDeclineTicketId` is exempt',
+        'from that index — an acknowledged duplicate must always be creatable.',
       ].join('\n'),
       operationId: 'createTicket',
       requestBody: jsonBody({
@@ -1341,6 +1347,10 @@ export const openapiPaths: Record<string, PathItem> = {
         }),
         '401': { $ref: '#/components/responses/Unauthorized' },
         '403': jsonResponse('The report was filed against a different city than the session.', errorBody('cross_city_forbidden')),
+        '409': jsonResponse(
+          'A concurrent submission of the same location won the dedup race, and the winning ticket could not be resolved afterwards. The citizen should retry.',
+          errorBody('dedup_conflict_unresolved'),
+        ),
         '413': jsonResponse('A photo exceeded the size limit.', errorBody('photo_too_large', { max_chars: { type: 'integer' } })),
         '500': jsonResponse('The report was created but could not be read back.', errorBody('post_create_fetch_failed')),
       },

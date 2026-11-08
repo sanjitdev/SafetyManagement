@@ -175,6 +175,16 @@ export interface DevTicket {
    * the database default would.
    */
   version?: number;
+  /**
+   * Dedup-key backstop (2026-11-08). Mirrors the Prisma
+   * `Ticket.dedupKey String?` column.
+   *
+   * Optional in the type (rather than `string | null`) so the
+   * hand-built test fixtures that plant a raw `DevTicket` keep
+   * compiling; every read treats a missing value exactly like `null`,
+   * which is what the database does too.
+   */
+  dedupKey?: string | null;
 }
 
 export interface DevAuditEntry {
@@ -1615,11 +1625,48 @@ export const devDb = {
         duplicateOfId: args.data.duplicateOfId ?? null,
         closeReason: args.data.closeReason ?? null,
         feedback: args.data.feedback ?? null,
+        dedupKey: args.data.dedupKey ?? null,
         id,
         createdAt: now,
         updatedAt: now,
         resolvedAt: null,
       };
+      // THE DEDUP-KEY UNIQUE INDEX (2026-11-08).
+      //
+      // The dev store must enforce the same unique index the database
+      // enforces, for the same reason it implements the compare-and-
+      // swap: a dev store that skipped the constraint would let the
+      // whole CI suite pass while production refused the duplicate
+      // insert. The point of the dev store is to be a faithful
+      // stand-in for the database's concurrency semantics, not a
+      // more permissive one.
+      //
+      // The semantics match Postgres exactly:
+      //   - NULLs are DISTINCT. A ticket with no key never collides
+      //     with anything, so the acknowledged-duplicate path (which
+      //     deliberately carries no key) always works.
+      //   - The scope is `(cityId, dedupKey)`.
+      //   - The violation is reported as a Postgres unique violation
+      //     (SQLSTATE 23505) with the constraint named, so the
+      //     caller's `isDedupConflict` recognises it.
+      if (t.dedupKey) {
+        for (const existing of getStore().tickets.values()) {
+          if (existing.cityId === t.cityId && existing.dedupKey === t.dedupKey) {
+            const err = new Error(
+              `Unique constraint failed on the fields: (\`cityId\`,\`dedupKey\`)`,
+            ) as Error & {
+              code?: string;
+              meta?: { target: string[]; constraint: string };
+            };
+            err.code = '23505';
+            err.meta = {
+              target: ['cityId', 'dedupKey'],
+              constraint: 'Ticket_cityId_dedupKey_key',
+            };
+            throw err;
+          }
+        }
+      }
       getStore().tickets.set(id, t);
       return t;
     },

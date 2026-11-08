@@ -245,6 +245,20 @@ Both error classes live in `lib/platform/concurrency.ts`. There are two because 
 
 Where a single request writes several fields (the dispatcher's PATCH can change the ward, the category and the note), each write bumps the expected version by one and guards against the version the previous write produced — so a concurrent writer landing between two of them is caught, not half-applied.
 
+#### The dedup-key backstop on submit
+
+*Added 2026-11-08 — the version guard cannot help when the ticket does not exist yet.*
+
+A compare-and-swap guards a write against another write to the **same row**. The citizen submit path races on something different: two submissions that both find **no** existing ticket and both create one. There is no shared row to guard, so the mechanism has to be a **unique constraint**.
+
+`Ticket.dedupKey String?` (migration `20261108140000_ticket_dedup_key`) holds a SHA-256 digest of `(cityId, categoryId, locationLat, locationLng)` and carries `@@unique([cityId, dedupKey])`. The submit path computes the key; when the database refuses the insert, the loser re-runs the dedup scan and is returned the same `dedup_match` prompt the winner would have received.
+
+**The key is deliberately narrower than the 50 m dedup radius.** The radius is a *policy* threshold expressed as a distance, because the citizen experience is "is this the same spot?". A radius-keyed unique index would reject a legitimate second report 40 m away — a streetlight on the same pavement as a pothole. The key therefore identifies the **exact** spot, and the precise Haversine scan remains the thing that raises the citizen-facing prompt.
+
+**The key is nullable, and that is the product's escape hatch.** PLAT-REQ-004 makes dedup a prompt, not a rejection: the citizen may decline it and file the report anyway, and the dispatcher then judges whether it really was a duplicate. A submission that declares a `dedupDeclineTicketId` therefore carries **no** key, and Postgres treats NULLs in a unique index as distinct — so the acknowledged duplicate is always creatable. The key is also **released** when a ticket leaves the open statuses, so a resolved spot can be reported again.
+
+The dev store mirrors the index exactly (`devDb.ticket.create` refuses a duplicate with SQLSTATE `23505` and the constraint named `Ticket_cityId_dedupKey_key`), so the CI suite exercises the real semantics rather than a permissive stand-in.
+
 ### Audit trail (`AuditEntry`)
 
 The forensic one. `writeAudit(...)` (`lib/platform/audit.ts`) records `{ entityType, entityId, action, actorId, beforeValue, afterValue, timestamp }`.

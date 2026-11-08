@@ -47,6 +47,29 @@ Every non-status ticket write now uses the **count-checked `updateWhere`**, guar
 
 The test was **verified non-vacuous**: neutering the compare-and-swap turns **4 of the 10** new assertions red — and 9 of the transition assertions with it, 13 in total.
 
+**The duplicate-submission race — 2026-11-08, after the audit was delivered.**
+
+The last fixable concurrency scenario. The citizen submit path was a **check-then-insert** with nothing connecting the two statements:
+
+```ts
+dup = await checkDedup({ ... });                    // READ
+if (dup) { ... return 200 dedup_match; }
+const created = await db.ticket.create({ ... });    // WRITE
+```
+
+Two citizens filing the same pothole at the same coordinate at the same instant both ran the READ before either ticket existed. Both scans returned zero candidates. Both proceeded to the WRITE, and **two identical tickets were created** — both `status='submitted'`, both at the same coordinates, both claiming the same work. The database could not prevent it: `Ticket` had **no unique constraint of any kind**.
+
+- **`prisma/schema.prisma` + `prisma/migrations/20261108140000_ticket_dedup_key/`** — `Ticket.dedupKey String?` carrying `@@unique([cityId, dedupKey])`. The migration is additive (new nullable column + new index; no existing row is touched).
+- **`lib/platform/dedup.ts`** — `computeDedupKey` (a SHA-256 digest of `(cityId, categoryId, lat, lng)`), `isDedupConflict` (recognises Postgres SQLSTATE `23505` on the dedup constraint) and `freesDedupKey` (the statuses that release the key).
+- **`app/api/tickets/route.ts`** — the submit path computes the key, and when the database refuses the insert the loser re-runs `checkDedup` and is returned the **same `dedup_match` prompt** the citizen would have received had the winner committed first. A refusal the recovery scan cannot resolve returns **409 `dedup_conflict_unresolved`** rather than inventing a second ticket.
+- **`lib/platform/transitions.ts`** — the key is **released** when a ticket leaves the open statuses, so a resolved spot can be reported again.
+- **`lib/dev-store.ts`** — `devDb.ticket.create` enforces the unique index with Postgres's exact semantics (NULLs distinct, scope `(cityId, dedupKey)`, SQLSTATE `23505` with the constraint named). Without this the CI suite would pass while production refused the insert.
+- **`tests/unit/dedup-concurrency.test.ts`** — **new**, 18 tests. **`tests/unit/dedup-route-race.test.ts`** — **new**, 6 tests, covering the submit path's recovery against the real dev store.
+
+**Two design decisions that the obvious fix would have got wrong.** The key identifies the **exact** spot, not the 50 m neighbourhood: the radius is a *policy* threshold expressed as a distance, and a radius-keyed unique index would reject a legitimate second report 40 m away (a streetlight next to a pothole). And the key is **nullable**, because PLAT-REQ-004 makes dedup a *prompt*, not a rejection — a report filed after a `dedupDeclineTicketId` must be creatable, so it carries no key, and Postgres treats NULLs in a unique index as distinct.
+
+Both suites were **verified non-vacuous** — neutering the dev store's unique-index check turns 3 of the primitive assertions and 1 of the route assertions red. The migration and the index semantics were additionally validated against **real PostgreSQL 16**: the full migration chain was applied to a throwaway container, and the six relevant behaviours were checked directly in SQL.
+
 **The concurrent-transition lost update — 2026-11-08, after the audit was delivered.**
 
 The concurrency audit's worst finding was that `lib/platform/transitions.ts` was a non-atomic read-modify-write: it validated against a status read and wrote with an id-only predicate, so two dispatchers transitioning the same ticket both passed validation and the second silently overwrote the first. Because the trail insert and the audit write were separate statements, **the citizen-facing status trail could describe a sequence that could not legally have happened** — the platform's central trust surface telling a citizen something untrue.

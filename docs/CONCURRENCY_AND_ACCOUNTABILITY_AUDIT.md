@@ -32,6 +32,16 @@ update: async (args: {
 
 A status-guarded write cannot be written through the app's own abstraction without changing that signature. This is the same shape as the ADR-007 finding: the rule was never expressed in the mechanism.
 
+**Update 2026-11-08 — the control surface now exists.** Every control the table above lists as absent has since been added, and the `db-switch` signature has been widened to admit a compound predicate:
+
+| Control | Present now | Where |
+|---|---|---|
+| `$transaction` | ✅ | `lib/platform/transaction.ts` — `runInTransaction(db, fn)` |
+| Optimistic-locking column (`version`) | ✅ | `prisma/schema.prisma` — `Ticket.version Int @default(0)` |
+| Compare-and-swap write | ✅ | `db.ticket.updateWhere({ where, data })` → affected-row count |
+| Unique constraint | ✅ | `@@unique([cityId, dedupKey])` on `Ticket` |
+| `Serializable` isolation | ⬜ | Deliberately not used — see [A.2.3](#a23-scenario-4--resolved-2026-11-08) |
+
 ### A.1 Scenario verdicts
 
 | # | Scenario | Verdict (at audit time) | Verdict now |
@@ -39,7 +49,7 @@ A status-guarded write cannot be written through the app's own abstraction witho
 | 1 | Two dispatchers assign different crews to the same ticket | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.2](#a22-scenario-1--resolved-2026-11-08) |
 | 2 | Two dispatchers transition the same ticket to different statuses | **VULNERABLE — worst case** | ✅ **RESOLVED 2026-11-08** — see [A.2.1](#a21-scenario-2--resolved-2026-11-08) |
 | 3 | Two crew members update the same job | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.2](#a22-scenario-1--resolved-2026-11-08) |
-| 4 | Two citizens submit the same report simultaneously | **VULNERABLE** | Still open |
+| 4 | Two citizens submit the same report simultaneously | **VULNERABLE** | ✅ **RESOLVED 2026-11-08** — see [A.2.3](#a23-scenario-4--resolved-2026-11-08) |
 | 5 | A crew member is assigned while already holding active tickets | **VULNERABLE (no constraint)** | Still open — see [A.6](#a6-scenario-5--no-crew-capacity-constraint) |
 
 ---
@@ -174,6 +184,75 @@ The dedup paths change the ticket's **status** (`closed` / `submitted`), so they
 
 ---
 
+### A.2.3 Scenario 4 — RESOLVED 2026-11-08
+
+*Added 2026-11-08 to close the duplicate-submission race — the last fixable scenario.*
+
+The citizen submit path was a check-then-insert with nothing connecting the two statements:
+
+```ts
+// app/api/tickets/route.ts
+dup = await checkDedup({ ... });                    // READ
+if (dup) { ... return 200 dedup_match; }
+const created = await db.ticket.create({ ... });    // WRITE
+```
+
+Two citizens filing the same pothole at the same coordinate at the same instant both ran the READ before either ticket existed. Both scans returned zero candidates. Both proceeded to the WRITE, and two identical tickets were created — both `status='submitted'`, both at the same coordinates, both claiming the same work. The database could not prevent it: before this change the `Ticket` model had **no unique constraint of any kind** (see [A.8](#a8-unique-constraints-that-do-exist)).
+
+#### The fix
+
+A `dedupKey String?` column on `Ticket`, carrying a unique index on `(cityId, dedupKey)`. The key is a SHA-256 digest of `(cityId, categoryId, locationLat, locationLng)`, so it identifies **one exact spot in one category in one city**.
+
+The submit path computes the key, and when the database refuses the insert the loser re-runs `checkDedup` and returns the **same `dedup_match` prompt** the citizen would have received had the winner committed first. The citizen who filed second is told about the existing report instead of being given a second one.
+
+#### Two deliberate deviations from the original recommendation
+
+**1. The key is NOT radius-keyed.** The recommendation proposed hashing `round(lat,5)` / `round(lng,5)` and called it "the 50 m radius rule turned into a coarse grid-key constraint the DB enforces unconditionally". That is wrong for this product, and implementing it as written would have been a **functional regression**:
+
+- The 50 m radius is a **policy threshold expressed as a distance**, because the citizen experience is *"is this the same spot?"*. It cannot be a unique-index constraint. Two genuinely **different** reports 40 m apart — a pothole and a broken streetlight on the same pavement — are different issues, and a radius-keyed index would reject the second one **outright**: the platform refusing a legitimate report.
+- A radius-keyed *grid* has to pick a cell size, and every choice is wrong in one direction or the other: coarse cells block distinct reports, fine cells do not cover the radius at all. Two points 40 m apart can also fall in the same coarse cell by accident.
+- The key is therefore **narrower than the prompt**: it catches only *"the same coordinates, to float precision"*. The precise Haversine scan stays exactly where it was — it remains the thing that decides *"same spot within 50 m"* and raises the citizen-facing prompt. The index is a backstop for the case where **the prompt was never raised because neither ticket existed yet**, which is the race.
+
+**2. The key is NULLABLE, and that is the escape hatch the product needs.** PLAT-REQ-004 makes dedup a **prompt, not a rejection**: the citizen may decline it and file the report anyway, and the dispatcher then decides whether it really was a duplicate. The declined report is a legitimate ticket **at the same coordinates as the original**, and it MUST be creatable — it is precisely the thing the dispatcher's dedup queue exists to review.
+
+So the decline path simply **omits the key**:
+
+| Submission | `dedupKey` | Result |
+|---|---|---|
+| Normal report | the key | Carries the key; a second un-acknowledged same-spot ticket is refused by the index |
+| Report filed after a `dedupDeclineTicketId` | `NULL` | Always creatable — Postgres treats NULLs in a unique index as distinct |
+| Ticket that leaves the open statuses | `NULL` | The key is **released**, so a resolved spot can be reported again |
+
+**3. No transaction, and no advisory lock.** The recommendation's first part — a `Serializable` transaction or a `pg_advisory_xact_lock` — was **not** implemented, because the unique index closes the window outright rather than narrowing it. A `Serializable` transaction would make the second insert fail with a serialization error rather than a duplicate-key error, which buys nothing the index does not already give, at the cost of serialising unrelated writes in the same transaction. An advisory lock keyed on the rounded coordinates would protect the scan-then-insert window, but the index protects **more** than that window: it also refuses a duplicate that arrives *after* the winner committed, which the lock would not.
+
+#### What was verified, and how
+
+The migration and the index were validated against **real PostgreSQL 16**, not just the dev store. A throwaway container was created, the full migration chain was applied to it (all five migrations, cleanly), and the index semantics were exercised directly in SQL:
+
+| # | Scenario | Expected | Result |
+|---|---|---|---|
+| 1 | First ticket with a key | succeeds | ✅ |
+| 2 | Second ticket, same `(cityId, dedupKey)` | **23505** | ✅ `duplicate key value violates unique constraint "Ticket_cityId_dedupKey_key"` |
+| 3 | Declined duplicate (`NULL` key) | succeeds | ✅ |
+| 4 | Another `NULL`-key ticket | succeeds | ✅ — NULLs are distinct |
+| 5 | Same key, different city | succeeds | ✅ |
+| 6 | Release the key, then re-insert it | succeeds | ✅ |
+
+The constraint name Postgres reports — `Ticket_cityId_dedupKey_key` — is exactly what `isDedupConflict` recognises.
+
+**CI now catches it.** Two new suites:
+
+- `tests/unit/dedup-concurrency.test.ts` (18 tests) — the key is deterministic, differs on every identity component, cannot be confused by a separator inside a component; the index refuses a second same-spot ticket; a declined duplicate is creatable; a different category, a different city and a nearby coordinate are all unaffected; the key is released on resolution and kept while the ticket is open.
+- `tests/unit/dedup-route-race.test.ts` (6 tests) — the **route's** recovery, against the real dev store with only the session stubbed: the loser of the race gets a `dedup_match` prompt rather than a second ticket; a declined duplicate is created and carries no key; the original keeps its key.
+
+**Both suites were verified non-vacuous.** Neutering the dev store's unique-index check turns **3** of the primitive assertions and **1** of the route assertions red. Restoring it turns them all green. This is the same check that caught the earlier attempt at this fix: a dev store that skipped the constraint would let the whole CI suite pass while production refused the insert.
+
+#### The one thing this does not cover
+
+The key is only written for tickets created **after** the migration. Pre-existing tickets keep `dedupKey = NULL`, so the index starts empty and constrains only new submissions. That is deliberate — the index is a backstop for the race, not a retrofit of history — but it does mean a **pre-existing** open ticket will not block a new identical one. The Haversine scan still catches that case, so the citizen still gets the prompt; only the exact-duplicate backstop is missing for historical rows.
+
+---
+
 ### A.3 Scenario 1 — concurrent crew assignment
 
 **Evidence at audit time:** `lib/dispatcher/assign-crew.ts:71` (read) → `:152-155` (write)
@@ -210,6 +289,8 @@ Two citizens submitting the same pothole at the same coordinate at the same inst
 The database cannot prevent it: `prisma/schema.prisma:311-374` has **no `@@unique` on `Ticket`**. The migrations confirm it — `20261012102438_init` and `20261027140000_platform_gaps` create unique indexes for `City`, `Ward`, `Department`, `Category`, `User`, `PushSubscription`, `Crew` and `SlaPolicy`, and **none for `Ticket`, `TicketPhoto` or `TicketTrailEntry`**.
 
 Note the deliberate escape hatch: `app/api/tickets/route.ts:167` skips the dedup check when `dedupDeclineTicketId` is present, because the design *intends* to let a citizen override a duplicate. The race produces an **unintentional** duplicate that bypasses even the decline logging and the `DedupFlag` review queue — the worst kind, because nothing surfaces it.
+
+**Now:** ✅ **RESOLVED 2026-11-08** — see [A.2.3](#a23-scenario-4--resolved-2026-11-08). A `dedupKey` column with a `@@unique([cityId, dedupKey])` index makes the duplicate insert a database-level impossibility; the loser re-runs the scan and is returned the same `dedup_match` prompt the winner would have got. The decline escape hatch is preserved because a declined submission carries **no** key, and NULLs are distinct in a Postgres unique index.
 
 ---
 
@@ -256,7 +337,13 @@ Two further divergences:
 
 The second divergence (`ticketPhoto.create`'s in-place push-then-sort) is **still open** — it is not on the transition path and was not touched.
 
-The remaining four scenarios (A.1 rows 1, 3, 4, 5) still have no CI coverage, because the dev store has no guard for them to exercise. That gap is unchanged and is why those scenarios remain open in A.1.
+**Update 2026-11-08 — closed for scenarios 1, 3 and 4.** `devDb.ticket.updateWhere` now returns the affected-row count (above), and `devDb.ticket.create` enforces the **`(cityId, dedupKey)` unique index** with Postgres's exact semantics — NULLs are distinct, the scope is `(cityId, dedupKey)`, and the violation is reported as SQLSTATE `23505` with the constraint named `Ticket_cityId_dedupKey_key`. So the dev store now mirrors both of the database's concurrency behaviours that the fixed scenarios depend on.
+
+Two suites exercise them against the **real** dev store: `tests/unit/writes-concurrency.test.ts` (10 tests) and `tests/unit/dedup-concurrency.test.ts` (18 tests), plus `tests/unit/dedup-route-race.test.ts` (6 tests) for the submit path's recovery.
+
+**Every new suite was verified non-vacuous.** Neutering the guard under test turns its assertions red — 13 for the compare-and-swap, 3 for the unique-index primitives, 1 for the route recovery. A dev store that skipped the guard would let the whole CI suite pass while production behaved differently, so this check is the point of the suites, not a formality.
+
+The remaining scenarios (A.1 row 5 — crew capacity) still have no CI coverage, because there is no guard for them to exercise: that one is a product decision, not a race (see [A.6](#a6-scenario-5--no-crew-capacity-constraint)).
 
 ---
 
@@ -272,7 +359,7 @@ The remaining four scenarios (A.1 rows 1, 3, 4, 5) still have no CI coverage, be
 | `Category` | `(cityId, slug)` | `:165` |
 | `User` | `(cityId, phone)`; `(cityId, email)` | `:228-229` |
 | `PushSubscription` | `endpoint` | `:288` |
-| **`Ticket`** | **none** | — |
+| **`Ticket`** | `(cityId, dedupKey)` — added 2026-11-08 | `prisma/schema.prisma` `@@unique([cityId, dedupKey])` |
 | **`TicketPhoto`** | **none** | — |
 | **`TicketTrailEntry`** | **none** | — |
 | **`DedupFlag`** | **none** | — |
@@ -281,6 +368,10 @@ The remaining four scenarios (A.1 rows 1, 3, 4, 5) still have no CI coverage, be
 | **`OtpCode`** | **none** | — |
 
 The DB layer provides zero protection for any ticket-state race.
+
+**Update 2026-11-08.** `Ticket` now carries one unique constraint — `(cityId, dedupKey)` — which closes the duplicate-submission race (see [A.2.3](#a23-scenario-4--resolved-2026-11-08)). The ticket-*state* races are still protected by the `version` compare-and-swap rather than by an index: a status transition and a field write both aim at the **same row**, so an index cannot arbitrate between them — only a row-level guard can.
+
+`dedupKey` is **nullable**, and that is deliberate: a submission that declared a dedup **decline** carries no key, and a ticket that leaves the open statuses has its key released. Postgres treats NULLs in a unique index as distinct, so neither case is constrained — which is exactly what the product requires.
 
 ---
 
@@ -305,9 +396,9 @@ All four sub-points were carried out:
 - ✅ The status update + trail insert + audit write wrapped in a single transaction (`lib/platform/transaction.ts`), so the trail can never disagree with the ticket status.
 - ✅ One deliberate divergence from the recommendation: a lost race raises `ConcurrentTransitionError`, **not** `InvalidTransitionError`. The recommended snippet conflated the two, which would tell the client the ticket is in an illegal state when it is in fact in some *other* legal state. The two are now distinct errors with distinct client contracts (see A.2.1).
 
-**R2 — Close the dedup check-then-insert gap.** (scenario 4.) — **OPEN.**
+**R2 — Close the dedup check-then-insert gap.** (scenario 4.) — **DONE 2026-11-08.** See [A.2.3](#a23-scenario-4--resolved-2026-11-08).
 
-Two parts. First, run `checkDedup` and `db.ticket.create` inside one transaction at `Serializable` isolation, or take a `pg_advisory_xact_lock` keyed on `(cityId, categoryId, rounded lat/lng)`. Second, add a DB-level backstop: a `dedupKey String?` column holding a hash of `(cityId, categoryId, round(lat,5), round(lng,5))` with `@@unique([cityId, dedupKey])`. That turns the 50 m radius rule into a coarse grid-key constraint the DB enforces unconditionally. The precise Haversine scan stays for finding the *best* match.
+The recommendation had two parts. The second part was implemented as written — a `dedupKey` column with a `@@unique([cityId, dedupKey])` index — but the **first** part (a `Serializable` transaction or an advisory lock) was deliberately NOT implemented, and the key's precision was changed. Both deviations are argued in [A.2.3](#a23-scenario-4--resolved-2026-11-08); the short version is that a radius-keyed unique index would have made the product's acknowledged-duplicate path impossible to create, and the transaction/advisory-lock variant protects a window that the unique index closes outright.
 
 **R3 — Version-guard the other ticket-field writes.** (scenarios 1 and 5.) — **DONE 2026-11-08, except scenario 5.**
 
@@ -332,6 +423,8 @@ Both remaining items from the original recommendation:
 
 `tests/unit/transitions-concurrency.test.ts` (13 tests) and `tests/unit/platform/transaction.test.ts` (16 tests) now cover the transition race, the dev-store's version discipline, and the transaction helper's commit/rollback semantics. See [A.2.1](#a21-scenario-2--resolved-2026-11-08).
 
+**Extended 2026-11-08** with `tests/unit/writes-concurrency.test.ts` (10 tests), `tests/unit/dedup-concurrency.test.ts` (18 tests) and `tests/unit/dedup-route-race.test.ts` (6 tests) — covering the field-write race, the dedup-key primitives, and the submit path's race recovery. **47 concurrency tests in total.** Every one of them was verified non-vacuous by neutering the guard it exercises and confirming the assertions turn red.
+
 ---
 
 ### A.10 What could not be verified
@@ -339,7 +432,7 @@ Both remaining items from the original recommendation:
 | Item | Why | Changed since |
 |---|---|---|
 | **The deployed Postgres isolation level** | `lib/db.ts:18-20` constructs `PrismaClient` with no `isolationLevel`, and `DATABASE_URL` is not inspectable from the repo, so the connection-string or server default governs. The standard Postgres default is `READ COMMITTED`, under which all of the above failures are real. A non-default server setting could not be ruled out — **but nothing in the codebase requests one** | Unchanged. The compare-and-swap does not depend on the isolation level: the guard is in the `where` clause, so it holds under `READ COMMITTED` and above |
-| **Actual concurrent behaviour under load** | Originally derived from source analysis of the read-modify-write sequences, with no concurrency test available | **Now tested for the transition and field-write paths.** `tests/unit/transitions-concurrency.test.ts` and `tests/unit/writes-concurrency.test.ts` reproduce the races against the real dev store and assert exactly one winner. Still unverified against a real Postgres under concurrent load — CI has no database |
+| **Actual concurrent behaviour under load** | Originally derived from source analysis of the read-modify-write sequences, with no concurrency test available | **Now tested for the transition, field-write and duplicate-submission paths.** `tests/unit/transitions-concurrency.test.ts`, `tests/unit/writes-concurrency.test.ts`, `tests/unit/dedup-concurrency.test.ts` and `tests/unit/dedup-route-race.test.ts` reproduce the races against the real dev store and assert exactly one winner. The dedup-key index itself was additionally exercised against **real PostgreSQL 16** (the migration chain applied to a throwaway container, and the index semantics checked directly in SQL) — see [A.2.3](#a23-scenario-4--resolved-2026-11-08). Still unverified against a real Postgres under *concurrent load* — CI has no database |
 | **Whether Neon sets a non-default isolation level** | Not inspectable from the repository | Unchanged |
 
 ---

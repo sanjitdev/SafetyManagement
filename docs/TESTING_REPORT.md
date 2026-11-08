@@ -10,19 +10,19 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 103 | — | — |
-| Unit tests passing | **1,896 / 1,896** | — | ✅ |
-| Coverage — lines | **92.57%** | 80% | ✅ |
-| Coverage — branches | **82.81%** | 80% | ✅ |
-| Coverage — functions | **93.77%** | 80% | ✅ |
-| Coverage — statements | **92.57%** | 80% | ✅ |
+| Unit test files | 108 | — | — |
+| Unit tests passing | **1,920 / 1,920** | — | ✅ |
+| Coverage — lines | **92.54%** | 80% | ✅ |
+| Coverage — branches | **83%** | 80% | ✅ |
+| Coverage — functions | **93.62%** | 80% | ✅ |
+| Coverage — statements | **92.54%** | 80% | ✅ |
 | Playwright route specs | 34 | — | — |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
 | ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
 | CI pipeline | 12/12 steps green | all green | ✅ |
 
-**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42476873192` on commit `909f8b2`.
+**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42477753107` on commit `8c0c04e`.
 
 ---
 
@@ -35,21 +35,23 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 106 files, 1,896 tests, 100% passing, ~32 s
+**Result:** 108 files, 1,920 tests, 100% passing, ~32 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
 #### The concurrency suite
 
-Three files exist specifically to prove the ticket-write races are closed. They are new as of 2026-11-08 and are the answer to the concurrency audit's finding that *"CI cannot catch this"*.
+Five files exist specifically to prove the ticket-write races are closed. They are new as of 2026-11-08 and are the answer to the concurrency audit's finding that *"CI cannot catch this"*.
 
 | File | Tests | What it proves |
 |---|---:|---|
 | `tests/unit/transitions-concurrency.test.ts` | 13 | Two and three concurrent transitions of the same ticket → exactly one wins; the loser writes **no** trail row; the status, version and trail agree. Runs against the **real** dev store, not a mock |
 | `tests/unit/writes-concurrency.test.ts` | 10 | Two concurrent crew assignments → exactly one wins; the loser writes **no** audit row; the version advances by exactly one; a version-guarded write invalidates an in-flight transition |
 | `tests/unit/platform/transaction.test.ts` | 16 | The transaction helper's commit/rollback semantics, and that the Prisma facade routes `updateWhere`, `bumpVersion`, `trail.create` and `audit.create` to the **transaction-scoped** client rather than the root one |
+| `tests/unit/dedup-concurrency.test.ts` | 18 | The dedup **primitives**: the key is deterministic and separator-injection-safe; the unique index refuses a second same-spot ticket; a declined duplicate (NULL key) is still creatable, because Postgres treats NULLs in a unique index as distinct; the key is released when a ticket leaves the open statuses |
+| `tests/unit/dedup-route-race.test.ts` | 6 | The dedup **recovery**: the loser of a submit race gets the same `dedup_match` prompt the winner would have got — not a 500 and not a second ticket; a report filed after a DECLINE is not blocked by the index; a nearby coordinate can still be filed after a decline. Stubs only the session lookup; the data path is the real dev store |
 
-All three were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 transition assertions and 4 of the 10 write assertions red; restoring it turns them green. A concurrency test that passes for the wrong reason is worse than no concurrency test.
+All five were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 transition assertions and 4 of the 10 write assertions red; restoring it turns them green. Neutering the dev store's unique index turns 3 of the 18 dedup assertions and 1 of the 6 route assertions red. A concurrency test that passes for the wrong reason is worse than no concurrency test.
 
 ### 2.2 Route specs — Playwright
 
@@ -126,10 +128,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 92.57% | 80% | +12.57 |
-| Branches | 82.81% | 80% | +2.81 |
-| Functions | 93.77% | 80% | +13.77 |
-| Statements | 92.57% | 80% | +12.57 |
+| Lines | 92.54% | 80% | +12.54 |
+| Branches | 83% | 80% | +3 |
+| Functions | 93.62% | 80% | +13.62 |
+| Statements | 92.54% | 80% | +12.54 |
 
 ### Why the scope is `lib/**`
 
@@ -170,7 +172,7 @@ The 56 (now 61) route files are thin HTTP boundary adapters: parse, delegate, se
 | **ADR-007 WebAuthn enforcement** | `tests/unit/require-webauthn.test.ts`, `tests/unit/transition-webauthn.test.ts` — run against the **real dependency graph**, not mocks |
 | **Serializers (the PII boundary)** | `lib/serializers/ticket.ts` at 98.55% lines, `trail.ts` at 100% |
 | **Status transitions** | `lib/platform/transitions.ts` at 97.46% — the full legal/illegal matrix |
-| **Concurrency guards** | `tests/unit/transitions-concurrency.test.ts` (13), `tests/unit/writes-concurrency.test.ts` (10), `tests/unit/platform/transaction.test.ts` (16) — against the **real** dev store, verified non-vacuous |
+| **Concurrency guards** | `tests/unit/transitions-concurrency.test.ts` (13), `tests/unit/writes-concurrency.test.ts` (10), `tests/unit/platform/transaction.test.ts` (16), `tests/unit/dedup-concurrency.test.ts` (18), `tests/unit/dedup-route-race.test.ts` (6) — against the **real** dev store, verified non-vacuous |
 | **Optimistic locking** | `lib/platform/concurrency.ts` at 100% — both the transition and write error contracts |
 | **Dedup** | `lib/platform/dedup.ts` at 98.3% lines |
 | **Password hashing** | `lib/auth/password.ts` — Argon2id parameters, the policy, and the separate `hashSecret` path |
@@ -190,7 +192,7 @@ The 56 (now 61) route files are thin HTTP boundary adapters: parse, delegate, se
 | `lib/map/osm-raster.ts` | Not yet written — **a gap, not a decision** | Should be fixed |
 | Real WebAuthn hardware | No authenticator available in CI | Needs a device lab |
 | Real SMS delivery | The Twilio provider is not exercised against the live API | Needs provider credentials |
-| Live Postgres | The suite runs on the dev store | Needs a database-backed CI job |
+| Live Postgres | The suite runs on the dev store. The dedup unique index **was** validated against a real PostgreSQL 16 instance manually on 2026-11-08 (six behaviours checked in SQL), but that is not repeatable in CI | Needs a database-backed CI job |
 | Multi-instance rate limiting | The limiter is in-process by design | v1.1, when it moves to Redis |
 
 ---
@@ -248,18 +250,18 @@ The second pass **must be pixel-clean**. If it is not, the mockup is not determi
 | 3 | `PUT /api/profile` has no WebAuthn test | High | The gap in [SECURITY_AUDIT.md finding #5](SECURITY_AUDIT.md) is invisible to the suite because the suite asserts what the code does, not what the ADR says it should |
 | 4 | No test for the OTP attempt limit | Medium | The limit is dead code, so there is nothing to test — but a test *should* exist and fail |
 | 5 | No cross-city admin test | Medium | Finding #7 — the two admin surfaces disagree, and no test pins either behaviour |
-| 6 | No live-database test run | Medium | Every test runs on the dev store; Prisma-specific behaviour (e.g. `AuditEntry.actor` `onDelete: Restrict` vs user deletion) is never exercised |
+| 6 | No live-database test run | Medium | Every test runs on the dev store; Prisma-specific behaviour (e.g. `AuditEntry.actor` `onDelete: Restrict` vs user deletion) is never exercised. The dedup index's behaviour was checked against a real PostgreSQL 16 by hand on 2026-11-08, which is a spot check, not a CI job |
 | 7 | No WebAuthn hardware test | Medium | Attestation, assertion and counter-clone detection are read, not executed |
 | 8 | No load test | Low | The rate limiter's per-instance limit is established from source, not measured |
 | 9 | `lib/storage/blob.ts` S3 path at 66% | Low | The S3 upload path needs an S3-compatible endpoint to test properly |
 | 10 | 55 ESLint warnings | Low | All are unused-variable warnings in test files; no errors, so the gate is green |
 | 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`) and the concurrent field writes too (`tests/unit/writes-concurrency.test.ts`), but only against the dev store's guard — never against a real Postgres under concurrent load |
-| 12 | No concurrency test for the two remaining scenarios | Medium | Duplicate submission and crew capacity still have no guard to exercise, so no test can assert one. Crew capacity is a product decision, not a race; duplicate submission is a check-then-insert gap that a version guard cannot close |
+| 12 | No concurrency test for crew capacity | Medium | Duplicate submission **was** in this gap and is now closed (`tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts`). Crew capacity remains: it is a product decision, not a race — there is no guard to exercise until the product decides whether one exists |
 | 13 | Photo ordering within a Postgres timestamp window is arbitrary | Low | Two photos uploaded in the same timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. A schema question (a `slot` column or a deterministic tiebreak), not a race guard |
 
 **Gaps 3, 4 and 5 share a root cause:** the suite asserts the code's actual behaviour. Where the code diverges from the ADR, the suite is green. This is the same class of miss ADR-007:229-234 predicted — a convention that is not enforced by a mechanism.
 
-**Gaps 11 and 12 are the same class.** The concurrency audit recorded that *"CI cannot catch this"* because the dev store hid the race by accident of Node's event loop. That gap is now closed for the transition path and the field-write paths — the dev store implements the same compound guard and returns the same affected-row count, and the regression tests drive concurrent writers against it. The two remaining scenarios still have no guard, so a test for them would have nothing to assert.
+**Gaps 11 and 12 are the same class.** The concurrency audit recorded that *"CI cannot catch this"* because the dev store hid the race by accident of Node's event loop. That gap is now closed for the transition path, the field-write paths **and the duplicate-submission path** — the dev store implements the same compound guard and returns the same affected-row count, and the regression tests drive concurrent writers against it. The unique index on `(cityId, dedupKey)` is what closes the submit race, and the dev store mirrors its Postgres semantics exactly, including treating NULLs as distinct. Only crew capacity remains, and it has no guard to assert against until the product decides whether one exists.
 
 ---
 
