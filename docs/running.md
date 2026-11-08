@@ -214,7 +214,7 @@ by `process.env.CITYFIX_DEV_STORE === '1'`).
 > `list-users`. Two of them mint admin sessions. Keep
 > `CITYFIX_DEV_PROMOTE_SECRET` unset in production. See
 > [SECURITY_AUDIT.md §2](SECURITY_AUDIT.md#2-authorization) and
-> [KNOWN_ISSUES.md #3](KNOWN_ISSUES.md#3-four-apidevroutes-are-not-dev-store-gated).
+> [KNOWN_ISSUES.md #3](KNOWN_ISSUES.md#3-four-apidev-routes-are-not-dev-store-gated).
 
 ---
 
