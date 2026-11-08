@@ -144,3 +144,45 @@ export function createPinGenerator(fileName: string): PinGenerator {
     };
   };
 }
+
+/**
+ * The pinned epoch, in milliseconds — the "now" the dev server seeded
+ * its rows from.
+ *
+ * ── Why a spec needs this ──────────────────────────────────────
+ *
+ * The dev store seeds its audit rows and tickets relative to a
+ * PINNED epoch (`CITYFIX_SEED_NOW`), so that the rendered pages are
+ * byte-identical between runs and a committed visual baseline can
+ * hold. A spec that builds a query window from the WALL clock is
+ * then asking a different question from the one the server answered:
+ * the window sits in the future, matches no seeded row, and the
+ * count comes back 0.
+ *
+ * This is exactly what `ADM-007` in `18-admin-audit-light.spec.ts`
+ * did — `const now = new Date()` — and it failed with 0 entries where
+ * 2 were expected.
+ *
+ * The helper reads the SAME environment variable the server reads.
+ * `NEXT_PUBLIC_` is checked first for the same reason
+ * `lib/format/clock.ts` checks it first: it is the one that is
+ * guaranteed to be inlined into the client bundle, so the server and
+ * the browser cannot disagree about "now".
+ */
+export function pinnedEpochMs(): number {
+  const pinned =
+    process.env.NEXT_PUBLIC_CITYFIX_SEED_NOW ?? process.env.CITYFIX_SEED_NOW;
+  if (!pinned) {
+    // No pin — the server is on the wall clock too, so the wall
+    // clock is the correct reference here.
+    return Date.now();
+  }
+  const parsed = Date.parse(pinned);
+  if (Number.isNaN(parsed)) {
+    throw new Error(
+      `CITYFIX_SEED_NOW="${pinned}" is not a valid ISO timestamp — ` +
+        'the spec cannot align its query window with the seeded rows.',
+    );
+  }
+  return parsed;
+}

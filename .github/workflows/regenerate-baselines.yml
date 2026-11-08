@@ -116,6 +116,11 @@ jobs:
           CITYFIX_DEV_STORE: '1'
           DEV_SKIP_WEBAUTHN: '1'
           CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
+          # The SAME pin under the PUBLIC name — see ci.yml. Without it
+          # the client bundle falls back to the wall clock and the
+          # hydration fails, so the captured PNG would come from a page
+          # React had already replaced with client-rendered content.
+          NEXT_PUBLIC_CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
           TZ: 'Asia/Dhaka'
           DATABASE_URL: 'postgresql://cityfix:cityfix@localhost:5432/cityfix'
           SESSION_SECRET: 'ci-placeholder-session-secret-not-a-real-credential'

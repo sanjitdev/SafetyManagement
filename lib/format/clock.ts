@@ -47,6 +47,38 @@
 let cached: number | null = null;
 
 /**
+ * The pinned epoch, as a PUBLIC environment variable.
+ *
+ * WHY THE PUBLIC PREFIX
+ * ---------------------
+ * `process.env.CITYFIX_SEED_NOW` is only readable on the SERVER. A
+ * client component that renders on the server AND in the browser —
+ * which every chart axis is — would read the pinned clock on the
+ * server and the wall clock in the browser. The two would disagree,
+ * and React would fail the hydration with "Text content did not match"
+ * because the server-rendered HTML said one day and the client
+ * rendered another.
+ *
+ * That is not hypothetical. The `/home` trend chart rendered its axis
+ * from the clock, and the server said "৩১ অক্টো … ৬ নভে" while the
+ * client said "১ নভে … ৯ নভে" — three days apart, because the
+ * browser had no access to the pin.
+ *
+ * `NEXT_PUBLIC_` is inlined into the client bundle at build time, so
+ * both sides read the SAME value. The variable is a test-harness
+ * setting, not a secret, and it is only set when the clock is pinned
+ * (i.e. in CI and the container), so the production bundle never
+ * carries it.
+ *
+ * `CITYFIX_SEED_NOW` is still read as the fallback, because the SERVER
+ * sees the un-prefixed name and the variable is set once for both.
+ */
+const PUBLIC_PIN =
+  typeof process !== 'undefined'
+    ? process.env.NEXT_PUBLIC_CITYFIX_SEED_NOW
+    : undefined;
+
+/**
  * The pinned epoch in milliseconds, or `null` when the clock is live.
  *
  * Resolved once per process: the value cannot change mid-run (it is
@@ -55,7 +87,11 @@ let cached: number | null = null;
  */
 function pinnedEpoch(): number | null {
   if (cached !== null) return cached === -1 ? null : cached;
-  const pinned = process.env.CITYFIX_SEED_NOW;
+  // The public variable wins: it is the one the browser sees, so using
+  // it on the server too guarantees the two agree.
+  const pinned =
+    PUBLIC_PIN ??
+    (typeof process !== 'undefined' ? process.env.CITYFIX_SEED_NOW : undefined);
   if (!pinned) {
     cached = -1;
     return null;

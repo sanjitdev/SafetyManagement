@@ -27,7 +27,7 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
-import { resetDevStore } from './helpers/fixtures';
+import { resetDevStore, pinnedEpochMs } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
@@ -180,7 +180,13 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
   test('GET ?from=<now-10m>&to=<now> → 200 + 2 entries', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    const now = new Date();
+    // The window must be anchored to the SAME clock the server seeded
+    // from — not the wall clock. The dev store's audit rows sit at
+    // −1m, −5m, −30m, −60m and −24h relative to the PINNED epoch
+    // (`CITYFIX_SEED_NOW`). Against a live `new Date()` the window
+    // sits in the future, misses every seeded row, and the count
+    // comes back 0 instead of 2.
+    const now = new Date(pinnedEpochMs());
     const from = new Date(now.getTime() - 10 * 60_000).toISOString();
     const to = now.toISOString();
     const res = await ctx.get(

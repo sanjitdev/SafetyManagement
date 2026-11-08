@@ -51,6 +51,27 @@ export CI=1
 export CITYFIX_DEV_STORE=1
 export DEV_SKIP_WEBAUTHN=1
 
+# THE CLOCK IS PINNED
+# -------------------
+# `CITYFIX_SEED_NOW` freezes the dev server's clock, and `TZ` pins the
+# process timezone to the product's zone. Without them every seeded
+# timestamp moves with the wall clock and the rendered pages change
+# minute by minute — so the visual baselines could never hold, and the
+# run's result would depend on WHEN it ran.
+#
+# The value MUST match the one in `playwright.config.ts` and in both
+# GitHub workflows. That is what makes a baseline reproducible rather
+# than merely current.
+export CITYFIX_SEED_NOW=2026-11-06T09:44:00.000Z
+# The SAME pin under the PUBLIC name. `process.env` is server-only, so
+# a client component rendering a timestamp falls back to the wall clock
+# in the browser while the server reads the pinned one — and React fails
+# the hydration ("Text content did not match"). The `NEXT_PUBLIC_`
+# prefix is what makes the value visible to the client bundle, so both
+# sides agree by construction.
+export NEXT_PUBLIC_CITYFIX_SEED_NOW=2026-11-06T09:44:00.000Z
+export TZ=Asia/Dhaka
+
 echo "=== node / playwright versions ==="
 node --version
 # Resolve Playwright from the REPO's node_modules, not the npx cache.

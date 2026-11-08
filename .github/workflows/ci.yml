@@ -62,6 +62,13 @@ jobs:
       # `TZ=Asia/Dhaka` pins the process timezone to the product's
       # zone so the clock and the render agree.
       CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
+      # The SAME pin under the PUBLIC name. `process.env` is server-only,
+      # so a client component that renders a timestamp falls back to the
+      # wall clock in the browser while the server reads the pinned one
+      # — and React fails the hydration ("Text content did not match").
+      # `NEXT_PUBLIC_*` is inlined into the client bundle at build time,
+      # so both sides read the same epoch.
+      NEXT_PUBLIC_CITYFIX_SEED_NOW: '2026-11-06T09:44:00.000Z'
       TZ: 'Asia/Dhaka'
 
     steps:

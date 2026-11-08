@@ -144,6 +144,15 @@ export default defineConfig({
       CITYFIX_DEV_STORE: '1',
       DEV_SKIP_WEBAUTHN: '1',
       CITYFIX_SEED_NOW: process.env.CITYFIX_SEED_NOW ?? '2026-11-06T09:44:00.000Z',
+      // The SAME pin, under the PUBLIC name. The server-only
+      // `CITYFIX_SEED_NOW` is invisible to the browser bundle, so a
+      // client component that renders a timestamp would read the wall
+      // clock while the server read the pinned one — and React would
+      // fail the hydration with "Text content did not match".
+      // `NEXT_PUBLIC_*` is inlined into the client bundle at build
+      // time, so both sides read the same epoch.
+      NEXT_PUBLIC_CITYFIX_SEED_NOW:
+        process.env.CITYFIX_SEED_NOW ?? '2026-11-06T09:44:00.000Z',
       TZ: 'Asia/Dhaka',
     },
   },
