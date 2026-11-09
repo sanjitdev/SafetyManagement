@@ -316,7 +316,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 7.5 | Visual regression baselines exist and gate the pipeline | ✅ | 25 baselines; CI step 10 |
 | 7.6 | The baselines are deterministic on the asserting platform | ✅ | Regenerated on `ubuntu-latest`; `regenerate-baselines.yml` workflow |
 | 7.7 | The admin ticket page offers a WebAuthn ceremony affordance | ❌ | `app/admin/tickets/[id]/page.tsx` has no ceremony affordance — an admin without a registered key sees a bare error |
-| 7.8 | Wave 2 of the UI redesign is built | ❌ | 8 of 12 mockups unbuilt — blocked on human mockup approval |
+| 7.8 | Wave 2 of the UI redesign is built | ❌ | All 12 mockups are authored and baselined (7 in Wave 1, 5 in Wave 2), but the **page implementation** is blocked on human mockup approval |
 | 7.9 | The webfont is self-hosted | ❌ | Loaded from Google Fonts — this is the root cause of the platform-baseline drift |
 | 7.10 | Client-side XSS sinks were reviewed | ⚠️ | `components/` was reviewed only where it bore on the API contract |
 | 7.11 | The map renders with real tile URLs | ⚠️ | `lib/map/osm-raster.ts` is at **0% coverage** — a regression is a blank map and no gate catches it |
@@ -471,7 +471,7 @@ The plan's three CityFix-specific priorities, plus its request for a demonstrate
 | Item | What is missing |
 |---|---|
 | ADR-006 | Not in `docs/adr/`. Until it is written or found, it is not knowable from the code whether the admin city-scope divergence is a vulnerability or a design decision |
-| Wave 2 mockup approval | 8 of 12 mockups are unbuilt; page implementation is blocked on human mockup approval |
+| Wave 2 mockup approval | All 12 mockups are authored and baselined; the **page implementation** is blocked on human mockup approval of the 5 Wave 2 mockups |
 | The decision on `CITYFIX_DEV_PROMOTE_SECRET` in production | Needs an explicit owner decision — the code cannot decide it |
 
 ### Real-world validation

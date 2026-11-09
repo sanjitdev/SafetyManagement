@@ -255,7 +255,7 @@ The route specs **now run in CI**. They previously never ran in the pipeline, wh
 5. **The API is not internally consistent** — five documented divergences in error codes, field names and status codes. Documented rather than normalised because clients depend on the current behaviour.
 6. **The i18n registry is 2,900 lines** — a single file with 964 keys. At 100% line coverage but 75% branch coverage, it is the largest untested surface in the codebase.
 7. **`docs/running.md` was materially stale** — it described 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,886 and 25. **Rewritten during this audit**; the standing instruction *"update the doc to match the real stack"* is now discharged.
-8. **Wave 2 of the UI redesign is 8 of 12 mockups unbuilt**, and page implementation is blocked on human mockup approval.
+8. **Wave 2 of the UI redesign has all 12 mockups authored and baselined** (7 in Wave 1, 5 in Wave 2), but the **page implementation** is blocked on human mockup approval. Waves 3–6 have no mockups authored yet.
 9. **The metrics are honest but incomplete.** No metric uses placeholder data — but `SlaPolicy` is defined, seeded and never consulted, and four `Ticket` timestamps are missing, so two of the four operational questions are only partially answerable.
 
 ### The systemic pattern
@@ -315,7 +315,7 @@ Four layers, each adding specialisation:
 
 | Gap | Status |
 |---|---|
-| **Wave 2 of the UI redesign** | 8 of 12 mockups unbuilt. Blocked on human mockup approval |
+| **Wave 2 of the UI redesign** | All 12 mockups authored and baselined. The page implementation is blocked on human mockup approval; Waves 3–6 are not yet authored |
 | **Web Push delivery** | Stubbed. The wire call is v1.1 |
 | **The `/api/blob` serving route** | Does not exist, so local photos are dead links |
 | **A `middleware.ts`** | Does not exist |

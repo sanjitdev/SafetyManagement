@@ -1,6 +1,6 @@
 # CityFix — Visual Design
 
-The visual layer for CityFix. Defines the design tokens, the component library, and 7 hero mockups that establish the visual language for every page.
+The visual layer for CityFix. Defines the design tokens, the component library, and 12 hero mockups that establish the visual language for every page.
 
 ## Brand personality
 
@@ -31,7 +31,7 @@ Two rules govern every component:
 |---|---|
 | `tokens.css` | The single source of truth for the visual language. CSS custom properties only — colors, type, spacing, radii, shadows, motion. |
 | `components.html` | A self-documenting library of every component pattern, applied to the tokens. Open in browser to scan. |
-| `gallery.html` | Entry point. Embedded previews of all 7 mockups + link to component library. |
+| `gallery.html` | Entry point. Embedded previews of all 12 mockups + link to component library. |
 | `mockups/01-welcome.html` | First-run welcome screen. Pure typography moment. |
 | `mockups/02-home-city-activity.html` | Map + activity bottom sheet + Report CTA. |
 | `mockups/03-report-submitted.html` | Confirmation + 4-step status trail + ticket ID. |
@@ -63,6 +63,11 @@ design-artifacts/D-Design-System/01-Visual-Design/
     05-daily-queue-dashboard.html
     06-field-app-home.html
     07-status-in-progress.html
+    08-login.html
+    09-register.html
+    10-verify-otp.html
+    11-public-landing.html
+    12-feed.html
 ```
 
 ## Token highlights
