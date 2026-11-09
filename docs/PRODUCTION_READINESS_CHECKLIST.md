@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-11-08
 **Codebase:** `main` @ `be9f2b0` (audit snapshot); rows 6.1 and 6.13 re-verified at `096bcc5`+; the concurrency rows re-verified at `da9f542`+
-**Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 4 High blockers. The ticket-state integrity defect that could make the citizen-facing status trail contradict reality is **closed**; the remaining blockers are configuration-reachable auth defects and operations that have never been exercised against real infrastructure.
+**Verdict:** ❌ **NOT READY FOR PRODUCTION** — 4 Critical and 2 High blockers. The ticket-state integrity defect that could make the citizen-facing status trail contradict reality is **closed**; the remaining blockers are configuration-reachable auth defects and operations that have never been exercised against real infrastructure.
 
 **Status legend**
 
@@ -23,14 +23,14 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **60%** (104 of 173 items PASS) |
+| **Overall completion** | **61%** (106 of 173 items PASS) |
 | Total checklist items | **173** |
-| ✅ Passed | **104** |
-| ❌ Failed | **40** |
+| ✅ Passed | **106** |
+| ❌ Failed | **38** |
 | ⚠️ Not verified | **28** |
 | ➖ Not applicable | **1** |
 
-The 60% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed. The route specs were also executed for the first time on 2026-11-08 and now pass, apart from stale visual baselines.
+The 61% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed. The route specs were also executed for the first time on 2026-11-08 and now pass, apart from stale visual baselines.
 
 > **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 173.
 >
@@ -47,30 +47,33 @@ The 60% is a completeness score against the production-readiness surface, **not*
 > 7. **2026-11-08 — the route specs run in CI, and the clock is pinned.** Row 9.7 moved from ❌ to ✅. The `ubuntu-latest` measurement — the only platform the visual baselines are asserted on — exposed a defect no Windows run could see: the **seeded clock was the wall clock**, so every screenshot embedded the moment it was taken and no baseline could ever hold. The clock is now pinned end to end (`lib/format/clock.ts`) — seed, query windows, chart axes, and the **client bundle**, which needed `NEXT_PUBLIC_` because `process.env` is server-only and a server/client divergence fails the React hydration. The suite now runs in CI: workflow run `42562594543` was green end to end, with the route specs at **326 passed / 0 failed / 7 skipped**, and run `42568173838` re-confirmed the same result.
 > 8. **2026-11-09 — the ungated `PUT /api/profile` admin write.** Rows 3.13, 4.7, 6.3 and 9.11 moved to ✅ (2 from ❌, 2 from ⚠️) — the admin write is WebAuthn-gated, Zod-validated, ownership-scoped and audited, with an 18-test regression suite. See [KNOWN_ISSUES.md #5](KNOWN_ISSUES.md#5-put-apiprofile-is-an-ungated-admin-write--closed-2026-11-09).
 > 9. **2026-11-09 — the header counts were carried forward, not re-measured.** Re-measuring for round 8 exposed that the header had claimed **97 passed / 56%** since round 6, while the rows had actually said **98** (from round 7, when row 9.7 moved to ✅) and then **100** (from the OTP round, when rows 3.8 and 9.10 moved to ✅). Three rounds of row changes had left the header untouched. The document says *"the counts are measured, not asserted… re-measured after each — never adjusted by hand"* — that was true when it was written and false by round 9. The figures are now **re-measured from the rows** with the same code-point-aware parser rather than carried forward, and the parser was run against every recorded snapshot in this file's history to catch exactly this class of drift.
+> 10. **2026-11-09 — the WebAuthn challenge is now one-shot.** Rows 3.12 and 7.7 moved from ❌ to ✅. `requireWebAuthn` now DELETEs the challenge row it accepts, scoped to its owner; a concurrent consume is a refusal rather than a pass; a rejected guard call consumes nothing. One ceremony now authorises exactly one admin write. Row 7.7's claim was also stale — it said the admin ticket page has no ceremony affordance, but `app/admin/tickets/[id]/page.tsx` has rendered `AdminWebAuthnStepUp` since the step-up route landed. Counts moved 60% → **61%** (104 → 106 passed, 40 → 38 failed, 28 not verified unchanged). The parser was run against the pre-edit file first to confirm it reproduces the recorded 104/40/28/1 baseline before the new figures were accepted.
 >
-> **The current figures are 173 / 104 / 40 / 28 / 1, re-measured by code point.**
+> **The current figures are 173 / 106 / 38 / 28 / 1, re-measured by code point.**
 
 ### Issue counts
 
 | Severity | Count | Detail |
 |---|---:|---|
 | **Critical** | **3** | OTP plaintext in every environment; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions. *(The fourth Critical finding — the unenforced OTP attempt limit — was **closed on 2026-11-09**: the limit is now read back from the `OtpCode` row and enforced, with a regression test.)* |
-| **High** | **3** | WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted. *(Two further High findings were closed: concurrency control on **2026-11-08** — all five named scenarios now have a guard and a CI-enforced regression test; and the ungated `PUT /api/profile` admin write on **2026-11-09** — the write is now WebAuthn-gated for admins, Zod-validated, ownership-scoped and audited, with an 18-test regression suite.)* |
+| **High** | **2** | Admin city-scoped routes skip the city check; password login is not role-restricted. *(Three further High findings were closed: concurrency control on **2026-11-08** — all five named scenarios now have a guard and a CI-enforced regression test; the ungated `PUT /api/profile` admin write on **2026-11-09** — the write is now WebAuthn-gated for admins, Zod-validated, ownership-scoped and audited, with an 18-test regression suite; and the unconsumed WebAuthn challenge on **2026-11-09** — `requireWebAuthn` now deletes the challenge it accepts, so one ceremony authorises exactly one write, with a 9-test regression suite.)* |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
 | **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
 
-**Total open issues: 29.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open — and the ungated `PUT /api/profile` admin write was closed on 2026-11-09.)
+**Total open issues: 28.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open — the ungated `PUT /api/profile` admin write was closed on 2026-11-09, and the unconsumed WebAuthn challenge was closed on 2026-11-09.)
 
-The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 13 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 40 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
+The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 13 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 38 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
 
 ### Features completed during the audit
 
-No product features were built. The audit produced **10 documents** and, at the time of writing, **0 source-code changes**. Four source-code changes have landed since:
+No product features were built. The audit produced **10 documents** and, at the time of writing, **0 source-code changes**. Six source-code changes have landed since:
 
 1. **2026-11-08 — the phantom OpenAPI methods.** The two spec blocks documenting non-existent endpoints were deleted and a mechanical parity test was added, which moved rows 6.1 and 6.13 to ✅.
 2. **2026-11-08 — the concurrent-transition lost update.** The audit's worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, `writeAudit` re-pointed at the transaction handle, the dev store implementing the same guard, and a CI-enforced regression test. Ten checklist rows moved to ✅ and two to ⚠️.
 3. **2026-11-08 — the concurrent ticket-field writes.** Every remaining ticket-field write became a count-checked `updateWhere` guarded on `version`. Four rows moved to ✅.
 4. **2026-11-08 — the duplicate-submission race.** A nullable `dedupKey` column with `@@unique([cityId, dedupKey])`, a submit route that recovers from the unique violation, the dev store mirroring Postgres's NULL semantics, and 24 new tests across two suites. Three rows moved to ✅.
+5. **2026-11-09 — the unenforced OTP attempt limit.** The counter is now read back from the `OtpCode` row and enforced, with a regression test.
+6. **2026-11-09 — the WebAuthn challenge is now one-shot.** `requireWebAuthn` consumes the challenge it accepts; the delete is scoped to the owner; a concurrent consume is a refusal. Rows 3.12 and 7.7 moved to ✅.
 
 The two code-level remediations from the prior session (the Node 22 CI pin and the lazy production DB guard) predate this audit and are credited to the CI-repair work, not here.
 
@@ -95,8 +98,8 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **114 files / 2,005 tests passed**, ~29 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **94.02% lines / 83.01% branches / 94.84% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **115 files / 2,014 tests passed**, ~30 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **93.13% lines / 83.02% branches / 94.09% functions** (floor 80%) — re-measured locally after the WebAuthn consumption change |
 | i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 | Visual regression | CI run `42568173838` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42568173838` | ✅ 14/14 steps green |
@@ -121,7 +124,7 @@ The auth stack is genuinely well built at the component level: Argon2id with OWA
 - `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere**. `attempts` was incremented at `app/api/v1/auth/verify-otp/route.ts` and never read. The route's own docstring promised a 5-attempt lockout that did not exist. **Closed 2026-11-09** — the counter is now read back and enforced.
 - Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check, unlike their two correctly-gated siblings. Two of them mint **admin sessions**, bypassing both the password and WebAuthn. A single leaked static secret yields unauthenticated privilege escalation.
 - `PUT /api/profile` had no `requireRole`, no `requireWebAuthn` and no Zod schema. **Closed 2026-11-09** — the admin write is WebAuthn-gated, the body is Zod-validated, the write is scoped to the session's own user, and every write lands an audit row.
-- WebAuthn challenges are **never consumed**. One ceremony authorises every admin write for the next five minutes, which is not what ADR-007's threat model assumes.
+- WebAuthn challenges were **never consumed**. One ceremony authorised every admin write for the next five minutes, which is not what ADR-007's threat model assumes. **Closed 2026-11-09** — the challenge is now a one-shot nonce: `requireWebAuthn` deletes the row it accepts, scoped to its owner, and a concurrent consume is a refusal rather than a pass.
 - `CITYFIX_DEV_STORE` has **no production guard**. One env var disables the database, unsigns the session cookie and bypasses WebAuthn.
 
 **The structural cause:** there is no `middleware.ts`. A route is protected only if its author remembered. ADR-007:229-234 predicted this exact failure mode — it was written down, tested, and then decayed outside the tree it governed.
@@ -159,7 +162,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
 | 3 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
 | 4 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
-| 5 | WebAuthn challenges never consumed | High | `lib/auth/guards.ts:113-125` |
+| 5 | ~~WebAuthn challenges never consumed~~ — **closed 2026-11-09**, the challenge is now a one-shot nonce | — | `lib/auth/guards.ts`; `lib/db-switch.ts` |
 | 6 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
 | 7 | Password login is not role-restricted | High | `app/api/v1/auth/login/route.ts:137-139` |
 | 8 | The four production env vars are unverified | Critical | — |
@@ -230,7 +233,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 3.9 | Account lockout after repeated failures | ❌ | Documented in the route docstring, absent in the code |
 | 3.10 | OTP code uses a CSPRNG | ❌ | `Math.random()` — `lib/auth/otp.ts` |
 | 3.11 | WebAuthn registration and assertion work | ✅ | `@simplewebauthn/server` v10; RP ID/origin guards in production |
-| 3.12 | WebAuthn challenges are consumed on use | ❌ | No `delete`/`update` on `webAuthnChallenge` anywhere — `lib/auth/guards.ts:113-125` |
+| 3.12 | WebAuthn challenges are consumed on use | ✅ | **Closed 2026-11-09** — `requireWebAuthn` DELETES the challenge row it accepts (`db.webAuthnChallenge.consume`), scoped to the owning user; a concurrent consume is a refusal, not a pass; a rejected call consumes nothing. Covered by `tests/unit/webauthn-challenge-consumption.test.ts` (9 tests) |
 | 3.13 | Admin writes require a fresh WebAuthn assertion | ✅ | ADR-007 is enforced on `/api/v1/admin/*`, the shared transition route, and — since **2026-11-09** — `PUT /api/profile`. Every admin-reachable write in the tree is gated |
 | 3.14 | Password login is role-restricted | ❌ | No `role` constraint — `app/api/v1/auth/login/route.ts:137-139` |
 | 3.15 | Dev-only auth bypasses are `isDevStore()`-gated | ❌ | `DEV_SKIP_WEBAUTHN` is double-gated, but four `/api/dev/*` routes are secret-gated only |
@@ -315,7 +318,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 7.4 | The design system is committed alongside the code | ✅ | `design-artifacts/D-Design-System/` — tokens, icon registry, primitives, 12 mockups |
 | 7.5 | Visual regression baselines exist and gate the pipeline | ✅ | 25 baselines; CI step 10 |
 | 7.6 | The baselines are deterministic on the asserting platform | ✅ | Regenerated on `ubuntu-latest`; `regenerate-baselines.yml` workflow |
-| 7.7 | The admin ticket page offers a WebAuthn ceremony affordance | ❌ | `app/admin/tickets/[id]/page.tsx` has no ceremony affordance — an admin without a registered key sees a bare error |
+| 7.7 | The admin ticket page offers a WebAuthn ceremony affordance | ✅ | **Closed 2026-11-09** — `app/admin/tickets/[id]/page.tsx` renders `AdminWebAuthnStepUp` when the transition is refused with a WebAuthn gate code, and retries the transition once the assertion lands. An admin without a registered key is pointed at the registration link, not a bare error |
 | 7.8 | Wave 2 of the UI redesign is built | ❌ | All 12 mockups are authored and baselined (7 in Wave 1, 5 in Wave 2), but the **page implementation** is blocked on human mockup approval |
 | 7.9 | The webfont is self-hosted | ❌ | Loaded from Google Fonts — this is the root cause of the platform-baseline drift |
 | 7.10 | Client-side XSS sinks were reviewed | ⚠️ | `components/` was reviewed only where it bore on the API contract |
@@ -348,7 +351,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 114 files, 2,005 tests, ~29 s |
+| 9.1 | A unit test suite exists | ✅ | 115 files, 2,014 tests, ~30 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
 | 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
 | 9.3 | Coverage exceeds the floor | ✅ | 94.02% lines / 83.01% branches / 94.84% functions — **re-measured** after the crew-capacity work |

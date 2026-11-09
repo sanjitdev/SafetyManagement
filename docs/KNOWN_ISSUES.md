@@ -16,7 +16,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 3 | Four `/api/dev/*` routes not dev-store-gated | **Critical** | Auth | Open |
 | 4 | `bootstrap-admin` + `issue-session` mint admin sessions | **Critical** | Auth | Open |
 | 5 | `PUT /api/profile` is an ungated admin write | **High** | AuthZ | **Closed 2026-11-09** |
-| 6 | WebAuthn challenges never consumed | **High** | Auth | Open |
+| 6 | WebAuthn challenges never consumed | **High** | Auth | **Closed 2026-11-09** |
 | 7 | Admin city-scoped routes skip the city check | **High** | AuthZ | Open — needs ADR-006 |
 | 8 | Password login is not role-restricted | **High** | Auth | Open |
 | 9 | Local blob photos 404 — no `/api/blob` route | Medium | Storage | Open |
@@ -42,6 +42,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
 | 31 | The OpenAPI spec documents two methods that do not exist | Low | Docs | ✅ Resolved 2026-11-08 — blocks deleted, parity test added |
+| 32 | The admin city-configuration pages have no WebAuthn step-up affordance | Medium | Admin UX | **Open — introduced 2026-11-09** by the challenge-consumption fix |
 
 ---
 
@@ -260,15 +261,24 @@ The client half is wired too: `app/profile/page.tsx` now surfaces the existing `
 
 ---
 
-### 6. WebAuthn challenges are never consumed
+### 6. WebAuthn challenges are never consumed — **CLOSED 2026-11-09**
 
-**Evidence:** no `webAuthnChallenge.delete|deleteMany|update` anywhere; `lib/db-switch.ts:679-752` exposes only `create` / `findLatest` / `findById`; `lib/auth/guards.ts:113-125`
+**Evidence:** `lib/auth/guards.ts`; `lib/db-switch.ts` (`webAuthnChallenge.consume`); `lib/dev-store.ts`; covered by `tests/unit/webauthn-challenge-consumption.test.ts` (9 tests)
 
-`requireWebAuthn` only checks that *a* challenge row exists and has not expired. `tests/unit/require-webauthn.test.ts:167-175` pins exactly this behaviour.
+**What was wrong.** Verified by reading the file: `requireWebAuthn` only checked that *a* challenge row existed and had not expired. It never removed the row. `lib/db-switch.ts` exposed only `create` / `findLatest` / `findById` — there was no consume path anywhere in the codebase, and `tests/unit/require-webauthn.test.ts:167-175` pinned exactly that behaviour.
 
-**One ceremony authorises every admin write for the next 5 minutes.** The ADR-007 threat model assumes a fresh assertion per write; the code does not enforce that.
+**One ceremony authorised every admin write for the next 5 minutes.** The ADR-007 threat model assumes a fresh assertion per write; the code did not enforce that.
 
-**Fix:** consume the challenge on use.
+**The fix.** `requireWebAuthn` now consumes the challenge it accepts:
+
+- **The challenge is deleted on use.** `db.webAuthnChallenge.consume({ id, userId })` — in production a `deleteMany({ where: { id, userId } })`, in the dev store a scoped delete. One ceremony authorises **exactly one** write; the next write needs a fresh assertion.
+- **The delete is scoped to the owning user.** A challenge belonging to somebody else cannot be consumed by this session, and the owner can still use their own row.
+- **A failed consume is a refusal, not a pass.** If the row vanished between the read and the delete — a concurrent write won the race — the guard throws `webauthn_assertion_expired`. Two concurrent writes cannot both be authorised by one challenge.
+- **A rejected guard call consumes nothing.** An expired challenge or a missing credential leaves the row in place, so a failed attempt never burns a challenge the admin could still use.
+
+**Non-vacuity.** Proven by mutation: removing the delete from the consume path turns 6 of the 9 tests red.
+
+**Consequence of the closure.** Because the challenge is now one-shot, every admin write needs its own ceremony. Pages that trigger a gated write must therefore surface the `AdminWebAuthnStepUp` affordance — see the known-issue entry for the admin pages that do not yet.
 
 ---
 
@@ -298,9 +308,36 @@ If the city-scoped reading is correct, then `GET /api/v1/admin/cities/[id]/adopt
 const user = await db.user.findFirst({ where: { cityId: city.id, phone } });
 ```
 
-No `role` constraint. An admin, dispatcher or crew account can authenticate with a password. Combined with #5, #6 and #7, the hardware key is a per-write gate rather than a login requirement — and the gate is bypassable.
+No `role` constraint. An admin, dispatcher or crew account can authenticate with a password. The hardware key is therefore a per-write gate rather than a login requirement. #5 and #6 are now closed, so the password path no longer reaches an ungated admin write — but #7 remains open beneath it, and the key is still not required to *log in*.
 
 **Fix:** restrict the password path to `role: 'citizen'`; force admin login through `/api/auth/webauthn/login`.
+
+---
+
+### 32. The admin city-configuration pages have no WebAuthn step-up affordance
+
+**Evidence:** `app/admin/cities/[id]/setup/page.tsx`, `taxonomy/page.tsx`, `wards/page.tsx`, `users/page.tsx`; only `app/admin/tickets/[id]/page.tsx` and `app/profile/page.tsx` render `AdminWebAuthnStepUp`
+
+**Status: open — introduced 2026-11-09 by the challenge-consumption fix.**
+
+This issue is a *consequence* of closing #6, not a pre-existing defect. Before the fix, one WebAuthn ceremony satisfied the gate for five minutes, so an admin who stepped up once could perform many writes in that window without another prompt. The pages did not need an affordance because they did not need to ask.
+
+Now that the challenge is a one-shot nonce, **every** admin write needs its own ceremony. The four admin city-configuration pages make **13 gated write calls** and none of them surfaces the `AdminWebAuthnStepUp` panel:
+
+| Page | Gated calls | Methods |
+|---|---:|---|
+| `app/admin/cities/[id]/setup/page.tsx` | `PATCH`/`POST /api/v1/admin/cities/{id}` | PATCH, POST |
+| `app/admin/cities/[id]/taxonomy/page.tsx` | `POST`/`PATCH`/`DELETE` on `/categories` and `/departments` | POST ×2, PATCH, DELETE ×2 |
+| `app/admin/cities/[id]/wards/page.tsx` | `POST`/`DELETE /api/v1/admin/cities/{id}/wards` | POST, DELETE |
+| `app/admin/cities/[id]/users/page.tsx` | `POST`/`DELETE /api/v1/admin/cities/{id}/users`, `POST .../users/import` | POST, DELETE |
+
+`app/admin/cities/[id]/users/page.tsx` already *detects* the refusal — it renders a message for `webauthn_required` and `webauthn_assertion_expired` — but it does not render the ceremony, so the admin is told the write was refused and given no way to satisfy it.
+
+**Impact.** These four admin workflows **dead-end** on a bare `401 webauthn_assertion_expired`. The write is refused correctly; there is simply no path to retry it. This is the exact failure ADR-007 recorded as *"the admin ticket page has no ceremony affordance, so an admin who has not registered a key sees a bare error code with no path to fix it"* — the same class of defect, on the pages that were fixed later.
+
+**Fix:** render `AdminWebAuthnStepUp` on each of the four pages, following the pattern already established in `app/admin/tickets/[id]/page.tsx` and `app/profile/page.tsx` — stash the pending write, open the panel on a WebAuthn gate code, retry on a verified assertion.
+
+**Note:** this is a UX gap, not a security gap. The gate refuses correctly in every case; the remedy is that the admin cannot proceed without completing a ceremony.
 
 ---
 
@@ -535,7 +572,7 @@ Recorded so they are not re-reported as bugs.
 |---|---|
 | `requireScope` skips the check for admins | ADR-007:26-33 — an admin session is city-wide authority. The session binds `wardId: null` for admins |
 | The shared transition route does **not** require WebAuthn from dispatchers or crew | ADR-007 — "admin writes" means role `admin`, not "staff writes" |
-| The WebAuthn assertion route has no rate limit | Its own docstring accepts this; the route is gated by the signature check. Finding #6 is the real weakness |
+| The WebAuthn assertion route has no rate limit | Its own docstring accepts this; the route is gated by the signature check. Finding #6 (the unconsumed challenge) was the real weakness and is now closed |
 | The WebAuthn login route returns 404 for both a missing and a non-admin user | No enumeration leak |
 | The dedup scan caps at `take: 20` | A deliberate bound on the candidate scan. A *policy* limitation, not a defect |
 | `AuditEntry.action` is a free-form string | `entityType` is a typed union; `action` is not. Recorded as a minor inconsistency in [SECURITY_AUDIT.md §7.2](SECURITY_AUDIT.md#72-immutability) |

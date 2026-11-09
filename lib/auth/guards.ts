@@ -88,6 +88,20 @@ export const WEBAUTHN_CHALLENGE_TTL_MS = 5 * 60 * 1000;
  * 401 `webauthn_assertion_expired` if the most-recent challenge
  * row is older than `WEBAUTHN_CHALLENGE_TTL_MS`.
  *
+ * SECURITY_AUDIT finding #6 — the challenge is CONSUMED on use.
+ * A WebAuthn challenge is a one-shot nonce: it proves possession of
+ * the credential at one moment, so it may authorise exactly one
+ * write. Before this, the row survived for its full five-minute TTL
+ * and one assertion authorised every admin write in that window.
+ * The row is now deleted the moment the guard accepts it, so the
+ * next write needs a fresh assertion.
+ *
+ * The delete is scoped to the session's own user, and a failed
+ * consume (the row vanished between the read and the delete — a
+ * concurrent write won the race) is treated as a refusal rather
+ * than a pass. Two concurrent writes must not both be authorised by
+ * one challenge.
+ *
  * Dev seam: when `CITYFIX_DEV_STORE=1` AND
  * `DEV_SKIP_WEBAUTHN=1`, the guard short-circuits and returns
  * the session as-is. Production never reads `DEV_SKIP_WEBAUTHN`.
@@ -121,6 +135,18 @@ export async function requireWebAuthn(
       ? challenge.expiresAt
       : new Date(challenge.expiresAt);
   if (expiresAt < new Date()) {
+    throw new ApiError(401, 'webauthn_assertion_expired');
+  }
+  // Consume it. A challenge is a one-shot nonce; once it has
+  // authorised a write it must not authorise another.
+  const consumed = await db.webAuthnChallenge.consume({
+    id: challenge.id,
+    userId: session.userId,
+  });
+  if (!consumed) {
+    // The row vanished between the read and the delete — a
+    // concurrent write consumed it first. Exactly one of the two
+    // may proceed.
     throw new ApiError(401, 'webauthn_assertion_expired');
   }
   return session;

@@ -391,7 +391,7 @@ ADR-007:229-234 predicted the remaining exposure: *"a future admin write route a
 | 1 | **No `middleware.ts`** | Every route hand-rolls its auth; a route is protected only if its author remembered. This is the structural cause of findings #5 and #7 | repo-wide |
 | 2 | **No production guard on `CITYFIX_DEV_STORE`** | The dev store disables the database, unsigns the session cookie, and bypasses WebAuthn. One env var flips all three | `lib/db-switch.ts` |
 | 3 | **In-process rate limiting and lockout** | Not shared across instances; resets on restart | `lib/platform/rate-limit.ts:17`, `lib/auth/login-lockout.ts:38` |
-| 4 | **WebAuthn challenges are never consumed** | One ceremony authorises every admin write for 5 minutes | `lib/db-switch.ts:679-752` |
+| 4 | ~~**WebAuthn challenges are never consumed**~~ — **closed 2026-11-09** | Was: one ceremony authorised every admin write for 5 minutes. Now the challenge is a one-shot nonce — `requireWebAuthn` deletes the row it accepts, so one ceremony authorises exactly one write | `lib/auth/guards.ts`, `lib/db-switch.ts` (`webAuthnChallenge.consume`) |
 | 5 | **Two admin surfaces disagree on city scope** | `admin/tickets/{id}` calls `requireSameCity`; `admin/cities/{id}/**` does not | `app/api/v1/admin/` |
 | 6 | **Coverage scoped to `lib/**` only** | Route handlers have 0% unit coverage by design. Acceptable — they are thin adapters, covered by Playwright — but it means a handler with hidden logic is invisible to the floor | `vitest.config.ts` |
 | 7 | **`AuditEntry.actor` is `onDelete: Restrict`** | Deleting a user who has acted may fail. Either a bug or a safeguard needing a documented path | `prisma/schema.prisma:428-443` |

@@ -330,7 +330,7 @@ production posture).
 **Verification gates** (per `team.md` Mandated):
 
 - `npx tsc --noEmit` — clean, 0 errors.
-- `npm run test:unit` — 114 files / 2005 tests pass.
+- `npm run test:unit` — 115 files / 2014 tests pass.
 - `npm run test:unit:coverage` — 94.02% lines / 83.01% branches /
   94.84% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
@@ -409,8 +409,8 @@ cross-user test fail (the forged path 404s rather than 403s).
 
 ### What is unchanged
 
-- The guard itself is unchanged. `requireWebAuthn` still accepts a
-  fresh unexpired challenge row, and it still does not consume it.
+- The guard still accepts a fresh unexpired challenge row. (It also now
+  **consumes** it — see the amendment below.)
 - The dev seam is unchanged.
 - The login ceremony is unchanged and still mints a session.
 - The rule remains a property of the **role**, not of a path.
@@ -478,6 +478,80 @@ The gate is proven non-vacuous: neutering it (`if (session.role ===
 - The step-up ceremony is unchanged.
 - The rule remains a property of the **role**, not of a path.
 
+## Amendment 2026-11-09 — the challenge is a one-shot nonce
+
+**Status:** [SECURITY_AUDIT.md finding #6](../SECURITY_AUDIT.md) (High) is **CLOSED**.
+
+### What was missing
+
+This ADR's Decision says *"Every admin write path requires a fresh
+WebAuthn assertion."* The guard enforced *fresh* — it checked that the
+most-recent challenge row for the session's user existed and had not
+expired — but it did not enforce **one-shot**. The row survived for its
+full five-minute TTL, so **a single ceremony authorised every admin
+write in that window**.
+
+The threat model this ADR assumes — *"a write requires a fresh
+assertion from a registered authenticator"* — was therefore not what
+the code enforced. A stolen session cookie plus one observed ceremony
+was enough to satisfy the gate for many subsequent mutations. The
+audit called this the highest-leverage fix to the platform's core
+threat model.
+
+### The amendment
+
+`requireWebAuthn` now **consumes** the challenge it accepts:
+
+- The row is **deleted** via `db.webAuthnChallenge.consume({ id,
+  userId })` — in production a `deleteMany({ where: { id, userId } })`,
+  in the dev store a scoped delete that mirrors it.
+- The delete is **scoped to the owning user**. A challenge belonging to
+  somebody else cannot be consumed by this session, and the owner can
+  still use their own row.
+- A **failed consume is a refusal, not a pass**. If the row vanished
+  between the read and the delete — a concurrent write won the race —
+  the guard throws `401 webauthn_assertion_expired`. Two concurrent
+  writes must not both be authorised by one challenge.
+- A **rejected** guard call (expired challenge, no credential)
+  **consumes nothing**. A failed attempt must not burn a challenge the
+  admin could still use.
+
+One ceremony now authorises **exactly one** write, and the next write
+needs a fresh assertion.
+
+### Test plan (the amendment)
+
+`tests/unit/webauthn-challenge-consumption.test.ts` (9 tests) pins the
+contract: a successful guard call removes the row; a **second** admin
+write with the same session is refused `webauthn_assertion_expired`;
+a fresh ceremony authorises the next write again; a rejected call on an
+expired challenge does **not** consume it; a rejected call with no
+credential does **not** consume it; a consume scoped to another user
+does not touch the row; the owner can consume their own row; consuming
+twice reports `false` the second time; and **two concurrent guard calls
+authorise exactly one write**.
+
+Non-vacuity is proven by mutation: removing the delete from the consume
+path turns 6 of the 9 tests red.
+
+### Consequence
+
+Because the challenge is now one-shot, every admin write needs its own
+ceremony. A page that triggers a gated write must therefore surface the
+`AdminWebAuthnStepUp` affordance — otherwise the admin dead-ends on a
+bare `401 webauthn_assertion_expired`. The pages that carry the
+affordance today are `app/admin/tickets/[id]/page.tsx` and
+`app/profile/page.tsx`; the admin city-configuration pages do not yet,
+and are recorded as an open known issue.
+
+### What is unchanged
+
+- The dev seam is unchanged — `DEV_SKIP_WEBAUTHN` still short-circuits
+  the whole guard, consumption included.
+- The challenge TTL is unchanged (5 minutes).
+- The step-up ceremony is unchanged.
+- The rule remains a property of the **role**, not of a path.
+
 ## References
 
 - `lib/auth/guards.ts` — `requireWebAuthn` (`:95-127`); the
@@ -525,6 +599,13 @@ The gate is proven non-vacuous: neutering it (`if (session.role ===
 - `tests/unit/profile-webauthn-gate.test.ts` — the profile gate's
   regression suite (18 tests).
 - `app/profile/page.tsx` — the profile page's step-up affordance.
+- `tests/unit/webauthn-challenge-consumption.test.ts` — the
+  challenge-consumption regression suite (9 tests, the 2026-11-09
+  amendment closing finding #6).
+- `lib/db-switch.ts` — the `webAuthnChallenge.consume` facade
+  (`deleteMany({ where: { id, userId } })` in production).
+- `lib/dev-store.ts` — the dev store's scoped delete, mirroring the
+  production facade.
 - `.specsmd/aidlc/memory-bank/standards/decision-index.md` — the
   ADR register; ADR-007's canonical entry ("Admin write paths
   require WebAuthn").

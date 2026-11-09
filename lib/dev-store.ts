@@ -2169,6 +2169,25 @@ export const devDb = {
       if (!row || row.userId !== args.userId) return null;
       return row;
     },
+    /**
+     * SECURITY_AUDIT finding #6 — consume a challenge.
+     *
+     * A WebAuthn challenge is a one-shot nonce. Once it has
+     * authorised a write it must not authorise another one: a
+     * single assertion is a proof of possession at one moment,
+     * not a bearer token for the next five minutes.
+     *
+     * The row is deleted rather than flagged, so the deletion is
+     * visible to `findLatest` — a stale row that merely *looked*
+     * consumed would still satisfy the guard.
+     */
+    consume(args: { id: string; userId: string }): boolean {
+      const store = getStore();
+      const row = store.webAuthnChallenges.get(args.id);
+      if (!row || row.userId !== args.userId) return false;
+      store.webAuthnChallenges.delete(args.id);
+      return true;
+    },
   },
 };
 

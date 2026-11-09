@@ -6,7 +6,9 @@
  * ticket transition and crew reassignment require a fresh WebAuthn
  * assertion. The guard (`requireWebAuthn` in lib/auth/guards.ts)
  * enforces that by checking that the most-recent challenge row for
- * the session's user is unexpired.
+ * the session's user is unexpired, and then DELETING it — a
+ * challenge is a one-shot nonce (SECURITY_AUDIT finding #6), so one
+ * ceremony authorises exactly one write.
  *
  * **The gap this route closes.** Until now the only way to obtain a
  * fresh challenge was `POST /api/auth/webauthn/login`, which is
@@ -156,11 +158,12 @@ export async function POST(req: NextRequest) {
     );
 
     // Refresh the challenge ledger. `requireWebAuthn` reads the
-    // most-recent challenge row for the user and compares its
-    // `expiresAt` against now — it does not consume the row. The
-    // challenge this assertion just proved IS fresh (it was minted
-    // seconds ago and the signature verified against it), so the
-    // next gated write passes.
+    // most-recent challenge row for the user, compares its
+    // `expiresAt` against now, and then DELETES it — a challenge is
+    // a one-shot nonce (SECURITY_AUDIT finding #6). The challenge
+    // this assertion just proved IS fresh (it was minted seconds
+    // ago and the signature verified against it), so the next gated
+    // write passes and consumes it.
     //
     // The refresh is explicit rather than implicit so the ledger row
     // and the proof agree: we write a NEW row with a fresh

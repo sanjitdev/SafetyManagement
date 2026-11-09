@@ -14,11 +14,11 @@
 | Severity | Count | Blockers for production launch? |
 |---|---|---|
 | Critical | 3 | Yes — 2 of the 3 are reachable without any credential |
-| High | 3 | Yes — each independently breaks the ADR-007 threat model |
+| High | 2 | Yes — each independently breaks the ADR-007 threat model |
 | Medium | 5 | Should fix before scale-out, not before pilot |
 | Low | 4 | No |
 
-*Counts are the OPEN findings. Two have been closed since the audit: the unenforced OTP attempt limit (Critical #2) and the ungated `PUT /api/profile` admin write (High #5), both on 2026-11-09.*
+*Counts are the OPEN findings. Three have been closed since the audit: the unenforced OTP attempt limit (Critical #2), the ungated `PUT /api/profile` admin write (High #5), and the unconsumed WebAuthn challenge (High #6), all on 2026-11-09.*
 
 **Verdict: NOT production-ready.** The three open Critical findings are all *configuration-reachable* rather than theoretical — they only become harmless if the deployment's environment variables are set exactly right, and nothing in the codebase enforces that. The single highest-leverage fix is adding an `isDevStore()` guard to four `/api/dev/*` routes (four lines of code).
 
@@ -35,7 +35,7 @@ The strongest part of this codebase is the discipline around the `/api/v1/admin/
 | 3 | **Critical** | Four production-reachable `/api/dev/*` endpoints gated only on a shared secret, not on `isDevStore()` | `app/api/dev/{bootstrap-admin:52,issue-session:35,list-users:37,promote-admin:43}/route.ts` | Add `if (!isDevStore()) return 404` to all four, before the secret check |
 | 4 | **Critical** | `bootstrap-admin` + `issue-session` mint a full admin session, bypassing password and WebAuthn entirely | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` | Same as #3; delete both routes before production |
 | 5 | **High** | Admin write path **not** WebAuthn-gated: `PUT /api/profile` has no role check and no ceremony | `app/api/profile/route.ts` | **CLOSED 2026-11-09** — the admin write calls `requireWebAuthn`; the body is Zod-validated; the write is scoped to `session.userId`; every write lands an audit row. Covered by `tests/unit/profile-webauthn-gate.test.ts` |
-| 6 | **High** | WebAuthn challenges are **never consumed** — one assertion satisfies the gate for many writes | No `webAuthnChallenge.delete` anywhere; `lib/auth/guards.ts:113-125` | Mark the challenge consumed on use (delete/rotate) |
+| 6 | **High** | WebAuthn challenges are **never consumed** — one assertion satisfies the gate for many writes | No `webAuthnChallenge.delete` anywhere; `lib/auth/guards.ts:113-125` | **CLOSED 2026-11-09** — `requireWebAuthn` now DELETES the challenge row it accepts (`db.webAuthnChallenge.consume`); the delete is scoped to the owning user; a concurrent consume is a refusal, not a pass. Covered by `tests/unit/webauthn-challenge-consumption.test.ts` |
 | 7 | **High** | Admin city-scoped routes never verify `params.id === session.cityId` — cross-city read + write | `app/api/v1/admin/cities/[id]/**` (only `requireRole('admin')`); `app/api/v1/admin/cities/[id]/adoption/route.ts:50` | Resolve ADR-006, then add `requireSameCity(session, params.id)` consistently |
 | 8 | **High** | Staff can authenticate with a **password only** — the WebAuthn key is not a login requirement | `app/api/v1/auth/login/route.ts:137-139` (no role filter) | Restrict the password login to `role: 'citizen'`; force admin login through `/api/auth/webauthn/login` |
 | 9 | **Medium** | In-process rate limiter and login lockout are not multi-instance safe | `lib/platform/rate-limit.ts:17`; `lib/auth/login-lockout.ts:38` | Move to Postgres/Redis before scaling past one instance |
@@ -150,9 +150,13 @@ Implementation is in `lib/auth/webauthn.ts` (605 lines) on `@simplewebauthn/serv
 | Assertion verify | Counter bumped; credential + counter passed to `verifyAuthenticationResponse` | `lib/auth/webauthn.ts:452-563` |
 | Revoke | Refuses to revoke the last credential (409 `webauthn_last_credential`) | `lib/auth/webauthn.ts:573-602` |
 
-**Finding #6 (High) — challenges are never consumed.** A repo-wide grep for `webAuthnChallenge.delete|deleteMany|update` returns **no matches**. `lib/db-switch.ts:679-752` exposes only `create` / `findLatest` / `findById` — no consume path. `requireWebAuthn` (`lib/auth/guards.ts:113-125`) only checks that *a* challenge row exists and has not expired. `tests/unit/require-webauthn.test.ts:167-175` pins exactly this behaviour: *"returns the session when credentials + a fresh challenge row exist."*
+**Finding #6 (High) — challenges are never consumed. CLOSED 2026-11-09.** *As found:* a repo-wide grep for `webAuthnChallenge.delete|deleteMany|update` returned **no matches**. `lib/db-switch.ts:679-752` exposed only `create` / `findLatest` / `findById` — no consume path. `requireWebAuthn` (`lib/auth/guards.ts:113-125`) only checked that *a* challenge row exists and has not expired. `tests/unit/require-webauthn.test.ts:167-175` pinned exactly this behaviour: *"returns the session when credentials + a fresh challenge row exist."*
 
-Consequence: **a single ceremony authorises every admin write for the next 5 minutes.** The threat model in ADR-007 assumes "a write requires a fresh assertion from a registered authenticator" (ADR-007:35-36) — that is not what the code enforces. A stolen session cookie plus one observed ceremony satisfies the gate for many subsequent mutations.
+*Consequence as found:* **a single ceremony authorised every admin write for the next 5 minutes.** The threat model in ADR-007 assumes "a write requires a fresh assertion from a registered authenticator" (ADR-007:35-36) — that was not what the code enforced. A stolen session cookie plus one observed ceremony satisfied the gate for many subsequent mutations.
+
+*Remediation:* `requireWebAuthn` now **consumes** the challenge it accepts. The consume is a `db.webAuthnChallenge.consume({ id, userId })` call that deletes the row, scoped to the owning user, and the guard treats a failed consume as a **refusal** (`webauthn_assertion_expired`) rather than a pass — so two concurrent writes cannot both be authorised by one challenge. In production the facade uses `deleteMany({ where: { id, userId } })`; the dev store mirrors it with a scoped delete. A *rejected* guard call (expired challenge, no credential) consumes nothing, so a failed attempt never burns a challenge the admin could still use.
+
+The challenge is now a genuine one-shot nonce: one ceremony authorises **exactly one** write, and the next write needs a fresh assertion. Covered by `tests/unit/webauthn-challenge-consumption.test.ts` (9 tests, including the concurrent-write race and the user-scoping of the delete). Non-vacuity proven by mutation — removing the delete from the consume path turns 6 of the 9 tests red.
 
 `requireUserVerification: false` means a PIN-only authenticator is acceptable. Defensible for v1 hardware keys; recorded here as an accepted risk.
 
@@ -257,7 +261,7 @@ If the city-scoped reading is correct, then `GET /api/v1/admin/cities/[id]/adopt
 const user = await db.user.findFirst({ where: { cityId: city.id, phone } });
 ```
 
-No `role` constraint. The route's docstring (L26-37) acknowledges this — the password path *"is still load-bearing for WRITES"* — but that framing is wrong given #5 and #7. An admin, dispatcher, or crew account with a password can authenticate and then operate across the entire admin surface. The hardware key is therefore not a login requirement, only a per-write gate — and that gate is bypassable by #5 (profile PUT), #7 (cross-city writes on `cities/[id]`), and #6 (one ceremony, five minutes of writes).
+No `role` constraint. The route's docstring (L26-37) acknowledges this — the password path *"is still load-bearing for WRITES"* — but that framing is wrong given #5 and #7. An admin, dispatcher, or crew account with a password can authenticate and then operate across the entire admin surface. The hardware key is therefore not a login requirement, only a per-write gate — and that gate was bypassable by #5 (profile PUT, now closed), #7 (cross-city writes on `cities/[id]`), and #6 (one ceremony, five minutes of writes, now closed). With #5 and #6 closed, the password-login path is no longer a route to ungated admin writes — but it is still an authentication-surface weakness, and #7 remains open beneath it.
 
 **Routes reachable without a session** (all intentional):
 
@@ -592,14 +596,14 @@ Note also: `action` is a free-form string with no enum constraint and no server-
 ### High
 
 4. ~~**`PUT /api/profile` is an ungated admin write**~~ — **CLOSED 2026-11-09.** The admin write now calls `requireWebAuthn`; the body is Zod-validated; the write is scoped to `session.userId`; the cheap checks run before the ceremony; and every write lands an audit row. The non-admin write stays ungated, per ADR-007. Regression test: `tests/unit/profile-webauthn-gate.test.ts`.
-5. **WebAuthn challenges are never consumed** — one ceremony authorises all writes for 5 minutes. Remediation: consume the challenge on use. This is the single highest-leverage fix to the platform's core threat model.
+5. ~~**WebAuthn challenges are never consumed**~~ — **CLOSED 2026-11-09.** `requireWebAuthn` now DELETES the challenge row it accepts; the delete is scoped to the owning user; a concurrent consume is a refusal rather than a pass; a rejected guard call consumes nothing. One ceremony now authorises exactly one write. Regression test: `tests/unit/webauthn-challenge-consumption.test.ts`.
 6. **Admin city-scoped routes have no city check** — `requireRole('admin')` only, while `admin/tickets/[id]` *does* call `requireSameCity`. Remediation: resolve ADR-006, then apply the answer consistently to all 12 routes under `cities/[id]`.
 7. **Password login is not role-restricted** — an admin can authenticate with a password. Remediation: restrict the password path to `role: 'citizen'`; force admin login through the WebAuthn route.
 
 ### Medium
 
 8. **In-process rate limiting and lockout** — not multi-instance safe. Remediation: Postgres or Redis before scaling.
-9. **No `middleware.ts`** — the structural cause of #4 and #6. Remediation: add a baseline session gate.
+9. **No `middleware.ts`** — the structural cause of #4 (now closed) and #6 (now closed). Remediation: add a baseline session gate.
 10. **CSP `'unsafe-inline' 'unsafe-eval'`** — remediation: nonces; isolate the Swagger route.
 11. **`.env.example` incomplete** — missing `CITYFIX_DEV_PROMOTE_SECRET`, `DEV_SKIP_WEBAUTHN`, all `BLOB_*`. Remediation: document every var, mark the dangerous ones "must be unset in production".
 12. **`sessionId` echoed in `/api/auth/status`** — remediation: omit from the body.

@@ -10,8 +10,8 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 114 | — | — |
-| Unit tests passing | **2,005 / 2,005** | — | ✅ |
+| Unit test files | 115 | — | — |
+| Unit tests passing | **2,014 / 2,014** | — | ✅ |
 | Coverage — lines | **94.02%** | 80% | ✅ |
 | Coverage — branches | **83.01%** | 80% | ✅ |
 | Coverage — functions | **94.84%** | 80% | ✅ |
@@ -37,7 +37,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 114 files, 2,005 tests, 100% passing, ~29 s
+**Result:** 115 files, 2,014 tests, 100% passing, ~30 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -55,6 +55,24 @@ Six files exist specifically to prove the ticket-write races are closed. They ar
 | `tests/unit/dispatcher/crew-capacity.test.ts` | 14 | The capacity **rule**: the load counts only active tickets (terminal ones do not); the boundary is exact (5 allowed, 6 refused); the ticket being assigned is excluded from its own member's count; and the picker reports the *same* count the assign service enforces, so the hint and the trust boundary cannot disagree |
 
 All six were **verified non-vacuous**. Neutering the compare-and-swap — forcing the affected-row count to 1 — turns 7 of the 13 transition assertions and 4 of the 10 write assertions red; restoring it turns them green. Neutering the dev store's unique index turns 3 of the 18 dedup assertions and 1 of the 6 route assertions red. Neutering `atCapacity` to `false` turns 3 of the 14 capacity assertions red. A concurrency test that passes for the wrong reason is worse than no concurrency test.
+
+#### The WebAuthn consumption suite
+
+`tests/unit/webauthn-challenge-consumption.test.ts` (9 tests, added 2026-11-09) closes SECURITY_AUDIT finding #6. A WebAuthn challenge is a one-shot nonce: it proves possession of the credential at one moment, so it may authorise exactly one write. The suite runs against the **real** in-memory dev store — no mocks, because the contract under test *is* "the guard deletes the row", and a mock would only re-assert the mock.
+
+| What it pins | Why it matters |
+|---|---|
+| A successful guard call removes the challenge row from the ledger | The consume actually happens |
+| A **second** admin write with the same session is refused `webauthn_assertion_expired` | This is the behaviour that closes the finding — one ceremony, one write |
+| A fresh ceremony authorises the next write again | The gate is not simply broken |
+| A **rejected** call on an expired challenge does **not** consume it | A failed attempt must not burn a challenge the admin could still use |
+| A **rejected** call with no credential does **not** consume it | Same reason |
+| A consume scoped to another user does not touch the row | One admin cannot spend another admin's challenge |
+| The owner **can** consume their own row | The scope check is not over-tight |
+| Consuming the same row twice reports `false` the second time | The dev store's consume is idempotent-safe |
+| **Two concurrent guard calls authorise exactly ONE write** | A race must not authorise two writes |
+
+It is **verified non-vacuous**: removing the delete from the dev store's consume path turns 6 of the 9 tests red.
 
 ### 2.2 Route specs — Playwright
 
@@ -380,6 +398,7 @@ This workflow was extended on 2026-11-08 to cover the **route-spec** baseline fa
 | 15 | The route specs had never been executed | **Closed 2026-11-08** | The suite existed but had never been run as a whole — the pipeline did not include it and the audit recorded it as *"not executed"*. The first full run produced **61 failures** and exposed two product defects (a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA). All functional failures are now closed; see §2.2 |
 | 16 | The rendered clock was the runtime's, not the product's | **Closed 2026-11-08** | `toLocaleString` resolved the timezone from the runtime, so the same instant rendered six hours apart on a Dhaka server than on a UTC one. A ticket filed at 15:00 in Dhaka showed `09:00 AM`. This was a **product** bug, not a test artifact. The formatters now pin `Asia/Dhaka`, and the four surfaces that each carried their own locale-only copy of a formatter now share one. See §2.2 |
 | 17 | The seeded clock was the wall clock | **Closed 2026-11-08** | Every seeded timestamp derived from `Date.now()`, so a screenshot could never match a baseline captured at a different moment — the symptom being a baseline test that fails however many times it is regenerated. `CITYFIX_SEED_NOW` now pins the seed epoch, and the seeded output is byte-identical across host timezones. See §2.2 |
+| 18 | ~~No test that a WebAuthn challenge is consumed~~ | **Closed 2026-11-09** | The challenge was never deleted, so there was nothing to test — and one assertion authorised every admin write for five minutes (SECURITY_AUDIT finding #6). The guard now consumes the row it accepts, and `tests/unit/webauthn-challenge-consumption.test.ts` (9 tests) pins it, including the concurrent-write race. Non-vacuity proven: removing the delete fails 6 of the 9 |
 
 **Gaps 3, 4 and 5 share a root cause:** the suite asserts the code's actual behaviour. Where the code diverges from the ADR, the suite is green. This is the same class of miss ADR-007:229-234 predicted — a convention that is not enforced by a mechanism.
 

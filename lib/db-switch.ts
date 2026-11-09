@@ -821,6 +821,29 @@ export const db = {
         expiresAt: row.expiresAt,
       };
     },
+    /**
+     * SECURITY_AUDIT finding #6 — consume a challenge once it has
+     * authorised a write. The row is DELETED, not flagged: a
+     * "consumed" row that `findLatest` still returns would satisfy
+     * the guard a second time.
+     *
+     * Returns `true` when a row was deleted, `false` when there
+     * was nothing to delete (already consumed, expired, or owned
+     * by another user).
+     */
+    consume: async (args: { id: string; userId: string }) => {
+      if (isDevStore()) {
+        return devDb.webAuthnChallenge.consume(args);
+      }
+      // `deleteMany` rather than `delete`: it is a no-op when the
+      // row is already gone, and it lets us scope the delete to the
+      // owning user so a challenge can never be consumed by anyone
+      // but its owner.
+      const result = await prismaClient.webAuthnChallenge.deleteMany({
+        where: { id: args.id, userId: args.userId },
+      });
+      return result.count > 0;
+    },
   },
   userWebAuthn: {
     readCredentials: async (userId: string) => {

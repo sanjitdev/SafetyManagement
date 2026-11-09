@@ -10,6 +10,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The WebAuthn challenge is now a one-shot nonce — 2026-11-09**
+
+SECURITY_AUDIT finding #6 (High) is closed. ADR-007's Decision says *"Every admin write path requires a fresh WebAuthn assertion"* — the guard enforced *fresh* (the challenge had not expired) but not **one-shot**. The row survived for its full five-minute TTL, so **a single ceremony authorised every admin write in that window**. A stolen session cookie plus one observed hardware-key tap satisfied the gate for many subsequent mutations.
+
+- `lib/auth/guards.ts` — `requireWebAuthn` now consumes the challenge it accepts. The row is deleted via `db.webAuthnChallenge.consume({ id, userId })`, **scoped to the owning user**. A failed consume — the row vanished between the read and the delete, so a concurrent write won the race — is a **refusal** (`401 webauthn_assertion_expired`), not a pass. A *rejected* guard call (expired challenge, no credential) consumes nothing, so a failed attempt never burns a challenge the admin could still use.
+- `lib/db-switch.ts` — the new `webAuthnChallenge.consume` facade. In production it is a `deleteMany({ where: { id, userId } })`: a no-op when the row is already gone, and scoped so a challenge can never be consumed by anyone but its owner.
+- `lib/dev-store.ts` — the dev store's scoped delete, mirroring the production facade exactly.
+- `app/api/auth/webauthn/step-up/route.ts` — two comments corrected to describe the new behaviour.
+- `tests/unit/webauthn-challenge-consumption.test.ts` — **new**, 9 tests. They pin that the row is gone after a successful guard call, that a **second** admin write with the same session is refused, that a fresh ceremony authorises the next write again, that rejected calls consume nothing, that the delete is user-scoped, and that **two concurrent guard calls authorise exactly one write**. Non-vacuity is proven by mutation: removing the delete from the consume path turns 6 of the 9 tests red.
+
+One ceremony now authorises exactly one write. Because of that, every admin write needs its own ceremony — the pages that trigger a gated write must surface the `AdminWebAuthnStepUp` affordance.
+
 **CI run `42568173838` — 14/14 steps green — 2026-11-09**
 
 The pipeline that verifies the `PUT /api/profile` gate is green end to end on commit `0a71d64`:
@@ -24,7 +36,7 @@ The pipeline that verifies the `PUT /api/profile` gate is green end to end on co
 | Route specs | **326 passed** (10.3 min) |
 | Build | green |
 
-This is the authoritative measurement and the reference every CI figure in the documentation now points at.
+This is the authoritative measurement and the reference every CI figure in the documentation now points at. *(The suite has since grown to **115 files / 2,014 tests** with the WebAuthn consumption suite added; the figures in this table are the ones run `42568173838` produced, and the next CI run supersedes them.)*
 
 **The `PUT /api/profile` WebAuthn gate — 2026-11-09**
 

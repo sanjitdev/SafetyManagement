@@ -76,7 +76,7 @@ Admin write endpoints require a **fresh assertion** from a registered authentica
 1. `POST /api/auth/webauthn/assertion` — body carries the credential ID and the authenticator's signed challenge. On success the server issues a session cookie.
 2. That session then satisfies `requireWebAuthn` on admin writes for the challenge TTL (5 minutes).
 
-**Known limitation:** challenges are currently **not consumed** on use — see [SECURITY_AUDIT.md §1.4](SECURITY_AUDIT.md#14-webauthn) (finding #6, High). One ceremony currently authorises every admin write for 5 minutes.
+**The challenge is one-shot.** Since 2026-11-09, `requireWebAuthn` **consumes** the challenge it accepts — the row is deleted, scoped to its owner. One ceremony therefore authorises **exactly one** admin write; the next write needs a fresh assertion, and a second write inside the same 5-minute window gets `401 webauthn_assertion_expired`. To step up again without re-logging-in, use `POST /api/auth/webauthn/step-up`. See [SECURITY_AUDIT.md §1.4](SECURITY_AUDIT.md#14-webauthn) (finding #6, closed 2026-11-09).
 
 ### Guards
 

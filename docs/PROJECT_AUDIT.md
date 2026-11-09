@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 5 |
 | i18n keys | 964 |
-| Unit test files | 114 (**2,005 tests**) |
+| Unit test files | 115 (**2,014 tests**) |
 | Playwright route specs | 34 files / **358 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -158,7 +158,7 @@ The citizen page count is `/home` (1) + `/report/*` (6) + `/reports/*` (2) + `/p
 | Sessions | `lib/auth/session.ts` | Complete — HMAC-signed, server-side revocable |
 | Passwords | `lib/auth/password.ts` | Complete — Argon2id, OWASP parameters |
 | OTP | `lib/auth/otp.ts` + providers | **Two Critical defects** — see below |
-| WebAuthn | `lib/auth/webauthn.ts` | Complete, but challenges are never consumed |
+| WebAuthn | `lib/auth/webauthn.ts` | Complete — and the challenge is now one-shot (consumed on use, closed 2026-11-09) |
 | Guards | `lib/auth/guards.ts` | Complete |
 | Audit | `lib/platform/audit.ts` | Complete — append-only, immutable |
 | Dedup | `lib/platform/dedup.ts` | Complete — Haversine, parameterised |
@@ -187,7 +187,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **114 files / 2,005 tests passed**, ~29 s |
+| Unit tests | `npm run test:unit` | ✅ **115 files / 2,014 tests passed**, ~30 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **94.02% lines / 83.01% branches / 94.84% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 
