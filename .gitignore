@@ -51,9 +51,6 @@ tsconfig.tsbuildinfo
 Thumbs.db
 *.log
 
-# WDS module internals — should never be touched by anything but the WDS sync tool
-.wds/.cache/
-
 # Next.js auto-generated TypeScript shim (regenerated on every build)
 next-env.d.ts
 
@@ -73,8 +70,6 @@ next-env.d.ts
 # skills, templates) stays gitignored, as a re-pull of the specsmd
 # framework replaces those locally without touching the briefs.
 .puku-cli/
-_bmad/
-.wds/
 
 # specsmd runtime cache (per-developer; re-installed by the specsmd
 # framework). The memory bank (intents/bolts/standards/story-index.md

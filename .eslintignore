@@ -18,8 +18,6 @@ tests-mockups/html-report/
 .puku-cli/
 .specsmd/
 aidlc/
-_bmad/
-.wds/
 design-artifacts/
 prisma/migrations/
 next-env.d.ts

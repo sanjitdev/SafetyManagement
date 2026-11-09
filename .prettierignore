@@ -21,8 +21,6 @@ tests-mockups/html-report/
 .puku-cli/
 .specsmd/
 aidlc/
-_bmad/
-.wds/
 
 # Design artifacts — static HTML/SVG reference material
 design-artifacts/

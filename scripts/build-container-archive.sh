@@ -50,7 +50,6 @@ MSYS_NO_PATHCONV=1 tar -cf "$STAGE/base.tar" \
   --exclude='tests-mockups/artifacts' \
   --exclude='.git' \
   --exclude='aidlc' \
-  --exclude='_bmad' \
   --exclude='_progress' \
   --exclude='presentation' \
   --exclude='ui-audit-shots' \

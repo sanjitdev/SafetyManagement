@@ -622,7 +622,7 @@ function shotWithCaption(slide, file, box, cap) {
   );
 
   slide.addText(
-    '15 agent personas across 7 modules — installed in-repo at _bmad/.',
+    '15 agent personas across 7 modules — the legacy BMAD/WDS toolchain was removed; AIDLC + specsmd now drive the build.',
     {
       x: 0.72,
       y: 6.1,

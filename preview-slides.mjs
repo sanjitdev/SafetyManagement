@@ -271,7 +271,7 @@ function contentSlide({ eyebrow, title, subtitle, n }) {
     0.5,
     { size: 11.5, italic: true, color: T.inkSecondary, lh: 16 },
   );
-  text(sl, '15 agent personas across 7 modules — installed in-repo at _bmad/.', 0.72, 6.1, 11.9, 0.3, {
+  text(sl, '15 agent personas across 7 modules — the legacy BMAD/WDS toolchain was removed; AIDLC + specsmd now drive the build.', 0.72, 6.1, 11.9, 0.3, {
     size: 12, bold: true, color: T.primary,
   });
 }
