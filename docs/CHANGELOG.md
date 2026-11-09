@@ -10,6 +10,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**CI run `42568173838` — 14/14 steps green — 2026-11-09**
+
+The pipeline that verifies the `PUT /api/profile` gate is green end to end on commit `0a71d64`:
+
+| Step | Result |
+|---|---|
+| Lint | 0 errors, 56 warnings |
+| Typecheck | clean |
+| Unit tests | **114 files / 2,005 tests** passed (40.19 s) |
+| Coverage floor | **94.02% lines / 83.01% branches / 94.84% functions** — all above 80% |
+| Visual regression | **25/25** mockup baselines passed (21.1 s) |
+| Route specs | **326 passed** (10.3 min) |
+| Build | green |
+
+This is the authoritative measurement and the reference every CI figure in the documentation now points at.
+
 **The `PUT /api/profile` WebAuthn gate — 2026-11-09**
 
 `PUT /api/profile` was the one admin-reachable write outside the ADR-007 gate. It is now closed: the admin write requires a fresh WebAuthn assertion, the body is Zod-validated, the write is scoped to the caller's own row, and every write lands an audit row.
@@ -95,6 +111,27 @@ ADR-007 states its rule as a property of the **role**, not of the path: *"Every 
 
 `docs/PRODUCTION_READINESS_CHECKLIST.md` says its figures are *"measured, not asserted… re-measured after each — never adjusted by hand."* That was true through round 6 and false from round 7 on: the header claimed **97 passed / 56%** while the rows had actually said **98** (row 9.7 moved to ✅) and then **100** (rows 3.8 and 9.10 moved to ✅). Three rounds of row changes had left the header untouched. The counts are now re-measured from the rows with a code-point-aware parser, and the parser was run against every recorded snapshot in the file's history to catch exactly this class of drift. The figures are **173 / 104 / 40 / 28 / 1, 60%**.
 
+**Six more carried-forward figures — 2026-11-09.**
+
+The same failure recurred in six other places, each a figure a previous round quoted rather than measured. All are now re-measured against the working tree or against the CI log that produced them.
+
+| Figure | Was | Now | Measured from |
+|---|---|---|---|
+| Unit test files | 113 | **114** | `vitest run` — the file list |
+| Unit tests | 1,987 | **2,005** | `vitest run` |
+| Coverage — lines | 93.94% | **94.02%** | CI run `42568173838` |
+| Coverage — branches | 82.91% | **83.01%** | CI run `42568173838` |
+| Coverage — functions | 94.46% | **94.84%** | CI run `42568173838` |
+| i18n registry size | 957 keys | **964 keys** | `check:i18n-keys.mjs` |
+
+The coverage figures are quoted from the CI run rather than a local run because v8 branch instrumentation counts differently under Node 22 on Linux than it does on the Windows dev machine — a local run of the same code reports 93.14 / 83 / 94.07. CI is the platform the floor is asserted on, so CI is the figure the docs quote.
+
+**The Wave 2 mockup blocker was described backwards — 2026-11-09.**
+
+Three documents said *"Wave 2 of the UI redesign is 8 of 12 mockups unbuilt."* That is inverted: **all 12 mockups are authored and baselined** — 7 in Wave 1 and 5 in Wave 2 — and `docs/TESTING_REPORT.md` already listed all twelve. What is actually blocked is the Wave 2 **page implementation**, which waits on human approval of the five Wave 2 mockups. Waves 3–6 have no mockups authored yet; the intent's own inception log records *"12 of 28"*.
+
+The visual-design `README.md` had drifted the same way: it said *"7 hero mockups"*, *"all 7 mockups"* and listed a file tree of `01`–`07` only, while its own mockup table and coverage rationale already listed all twelve.
+
 **The OTP attempt limit was never enforced — 2026-11-09.**
 
 `OTP_MAX_ATTEMPTS` was exported but imported nowhere; the `attempts` column was written on a wrong guess and never read back. The verify-otp route's own docblock promised a 5-attempt lockout that did not exist, so a 6-digit code could be worked through without limit — the per-IP rate limit bounds the *rate* of guesses, not their *number*. The route now reads the counter back before verification and returns `429 too_many_attempts` at the limit, refusing even the correct code once locked out. Full detail under **Added** above; regression test `tests/unit/otp-attempt-limit.test.ts`.
@@ -113,7 +150,7 @@ Also: the dev store, the admin query windows and the chart axes all read the pin
 
 **Proof that the baselines are now stable, not merely current.** Re-running the baseline-regeneration workflow on `ubuntu-latest` (run `42517872827`) produced **63 PNGs byte-identical** to the committed baselines — every one of them. A refresh that reproduces the committed files exactly is a stronger claim than "the baselines were refreshed": it means the visual regression suite is now *reproducible*, so a future failure is a real regression rather than ambient drift. The two PNGs that had failed in the Linux container were failing against a **stale committed copy**, because the archive that run used was built before the pinned-clock refresh landed.
 
-**The route specs are green on the platform that asserts the baselines.** CI run `42562594543` — every one of its 14 steps green — reports **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, with the unit suite at **112 files / 1,978 tests** and the mockup family at **25/25**. This is the authoritative measurement: `ubuntu-latest` is where the visual baselines are asserted, so a Windows run cannot stand in for it.
+**The route specs are green on the platform that asserts the baselines.** CI run `42562594543` — every one of its 14 steps green — reports **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, with the unit suite at **112 files / 1,978 tests** and the mockup family at **25/25**. This is the authoritative measurement: `ubuntu-latest` is where the visual baselines are asserted, so a Windows run cannot stand in for it. (Run `42568173838` re-confirmed the same route-spec result on 2026-11-09, with the unit suite at 114 files / 2,005 tests.)
 
 **The slow-motion demo could not run headless — 2026-11-08.**
 

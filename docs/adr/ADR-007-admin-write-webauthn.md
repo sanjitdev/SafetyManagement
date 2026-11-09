@@ -331,8 +331,8 @@ production posture).
 
 - `npx tsc --noEmit` — clean, 0 errors.
 - `npm run test:unit` — 114 files / 2005 tests pass.
-- `npm run test:unit:coverage` — 93.14% lines / 83% branches /
-  94.07% functions, all above the 80% floor.
+- `npm run test:unit:coverage` — 94.02% lines / 83.01% branches /
+  94.84% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
 
 ## Amendment 2026-11-09 — the ceremony affordance (step-up route)

@@ -188,14 +188,14 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
 | Unit tests | `npm run test:unit` | ✅ **114 files / 2,005 tests passed**, ~29 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **93.14% lines / 83% branches / 94.07% functions** (floor 80%) |
+| Coverage | `npm run test:unit:coverage` | ✅ **94.02% lines / 83.01% branches / 94.84% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 
 ### Verified on CI
 
 | Check | Run | Result |
 |---|---|---|
-| Full pipeline | `42562594543` on `871f218` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
+| Full pipeline | `42568173838` on `0a71d64` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
 | Visual regression | Same run | ✅ 25/25 baselines |
 
 ### Executed after the audit snapshot
@@ -203,7 +203,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | Check | Command | Result |
 |---|---|---|
 | Playwright route specs (first execution, Windows) | `npm test` | **321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min |
-| Playwright route specs (CI, `ubuntu-latest`) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ **326 passed / 0 failed / 7 skipped**, 14.2 min — workflow run `42562594543` |
+| Playwright route specs (CI, `ubuntu-latest`) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ **326 passed / 0 failed / 7 skipped** — workflow run `42562594543` (14.2 min), re-confirmed in run `42568173838` (10.3 min) |
 
 The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037` (32 changed, 27 unchanged, 4 new — the 4 being baselines for two specs that had never captured one).
 
@@ -238,7 +238,7 @@ The route specs **now run in CI**. They previously never ran in the pipeline, wh
 
 ### Strengths
 
-1. **The layering is real, not aspirational.** The service layer holds the logic (93.14% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
+1. **The layering is real, not aspirational.** The service layer holds the logic (94.02% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
 2. **The PII boundary holds.** The citizen serializer strips `internalNote`, `assignedCrewId` and `reporterName`, anonymises trail actors to "সিটি কর্পোরেশন", and the public serializer strips `locationLabel` — which can carry a street address. No route returns a raw Prisma row.
 3. **The audit trail is genuinely immutable.** No code path updates or deletes an `AuditEntry`.
 4. **ADR-007 is implemented and tested against the real dependency graph**, not with mocks — and the shared transition route applies the ceremony *after* the ticket load and scope checks, exactly as the ADR specifies.
