@@ -16,12 +16,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -51,6 +53,15 @@ export default function AdminCitiesPage() {
   const { authenticated, session } = useSession();
   const [cities, setCities] = useState<AdminCity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ADR-007: creating a city is an admin write, so it needs a FRESH
+  // WebAuthn assertion — and the challenge is a one-shot nonce, so a
+  // refused write must be retried after a ceremony, not merely
+  // reported.
+  const stepUp = useWebAuthnStepUp();
+  // Ref to the write handler. `retryOnGateError` resolves a ref at
+  // retry time, so the retry always invokes the current handler.
+  const handleNewCityRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     const stored =
@@ -133,9 +144,21 @@ export default function AdminCitiesPage() {
       const data = (await res.json()) as { city: AdminCity };
       setCities((prev) => (prev ? [...prev, data.city] : [data.city]));
     } else {
-      setError(`http_${res.status}`);
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      };
+      if (stepUp.retryOnGateError(body?.error, handleNewCityRef)) {
+        setError(null);
+        return;
+      }
+      setError(body?.error ?? `http_${res.status}`);
     }
-  }, [lang]);
+  }, [lang, stepUp]);
+
+  // Register the handler so the step-up retry can invoke the CURRENT
+  // one (a ref is resolved at retry time).
+  handleNewCityRef.current = handleNewCity;
+  stepUp.registerWrite(handleNewCity);
 
   if (signedIn === null && !error) {
     return <AdminPageSkeleton lang={lang} />;
@@ -198,6 +221,50 @@ export default function AdminCitiesPage() {
             {error}
           </div>
         ) : null}
+
+        {/* ADR-007 step-up. The panel renders only after a gated
+            write was refused — the ceremony is offered because the
+            admin ASKED to make a change, not as a permanent button on
+            the page. */}
+        {(stepUp.stepUpNeeded || stepUp.stepUpNoCredential) && (
+          <div
+            data-testid="admin-webauthn-step-up-panel"
+            className="rounded border p-3"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
+          >
+            {stepUp.stepUpNoCredential ? (
+              <>
+                <p
+                  data-testid="admin-webauthn-step-up-register-hint"
+                  className="text-sm"
+                  style={{
+                    color: 'var(--color-ink-secondary)',
+                    marginBottom: 8,
+                  }}
+                >
+                  {t('admin.webauthn.step_up.register_hint', null, lang)}
+                </p>
+                <Link
+                  href="/admin"
+                  data-testid="admin-webauthn-step-up-register-link"
+                  className="admin-btn-primary px-4 py-2 rounded-md"
+                  style={{ display: 'inline-block' }}
+                >
+                  {t('admin.webauthn.register.title', null, lang)}
+                </Link>
+              </>
+            ) : (
+              <AdminWebAuthnStepUp
+                lang={lang}
+                onStateChange={stepUp.setStepUpInProgress}
+                onOutcome={stepUp.onStepUpOutcome}
+              />
+            )}
+          </div>
+        )}
         {!cities && !error ? (
           <SkeletonStatus lang={lang} className="admin-city-list-skeleton">
             {[0, 1, 2, 3, 4].map((row) => <div className="admin-city-skeleton-row" key={row}><SkeletonBlock style={{ width: `${34 + row % 3 * 12}%`, height: 15 }} /><SkeletonBlock style={{ width: 90, height: 22, borderRadius: 999 }} /><SkeletonBlock style={{ width: 58, height: 14 }} /><SkeletonBlock style={{ width: 92, height: 14 }} /></div>)}

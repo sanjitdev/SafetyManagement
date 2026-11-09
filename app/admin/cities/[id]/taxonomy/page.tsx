@@ -15,12 +15,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -64,6 +66,18 @@ export default function TaxonomyPage() {
   const [savingRadius, setSavingRadius] = useState(false);
   const [newDept, setNewDept] = useState({ slug: '', name: '' });
   const [newCat, setNewCat] = useState({ slug: '', name: '', departmentId: '' });
+
+  // ADR-007: every admin write needs a FRESH WebAuthn assertion,
+  // and the challenge is a one-shot nonce — so a refused write
+  // must be retried after a fresh ceremony, not merely reported.
+  const stepUp = useWebAuthnStepUp();
+  // Refs to the write handlers. `retryOnGateError` resolves a ref
+  // at retry time, so the retry always invokes the current handler.
+  const handleSaveRadiusRef = useRef<(() => Promise<void>) | null>(null);
+  const handleCreateDeptRef = useRef<(() => Promise<void>) | null>(null);
+  const handleDeleteDeptRef = useRef<((deptId: string) => Promise<void>) | null>(null);
+  const handleCreateCatRef = useRef<(() => Promise<void>) | null>(null);
+  const handleDeleteCatRef = useRef<((catId: string) => Promise<void>) | null>(null);
 
   useEffect(() => {
     const stored =
@@ -138,6 +152,10 @@ export default function TaxonomyPage() {
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         };
+        if (stepUp.retryOnGateError(data?.error, handleSaveRadiusRef)) {
+          setError(null);
+          return;
+        }
         setError(data?.error ?? `http_${res.status}`);
         return;
       }
@@ -145,7 +163,7 @@ export default function TaxonomyPage() {
     } finally {
       setSavingRadius(false);
     }
-  }, [city, id, refresh]);
+  }, [city, id, refresh, stepUp]);
 
   const handleCreateDept = useCallback(async () => {
     if (!newDept.slug || !newDept.name) return;
@@ -163,9 +181,13 @@ export default function TaxonomyPage() {
       await refresh();
     } else {
       const data = (await res.json().catch(() => null)) as { error?: string };
+      if (stepUp.retryOnGateError(data?.error, handleCreateDeptRef)) {
+        setError(null);
+        return;
+      }
       setError(data?.error ?? `http_${res.status}`);
     }
-  }, [newDept, id, refresh]);
+  }, [newDept, id, refresh, stepUp]);
 
   const handleDeleteDept = useCallback(
     async (deptId: string) => {
@@ -180,10 +202,14 @@ export default function TaxonomyPage() {
           error?: string;
           count?: number;
         };
+        if (stepUp.retryOnGateError(data?.error, handleDeleteDeptRef, deptId)) {
+          setError(null);
+          return;
+        }
         setError(data?.error ?? `http_${res.status}`);
       }
     },
-    [id, refresh],
+    [id, refresh, stepUp],
   );
 
   const handleCreateCat = useCallback(async () => {
@@ -207,9 +233,13 @@ export default function TaxonomyPage() {
       await refresh();
     } else {
       const data = (await res.json().catch(() => null)) as { error?: string };
+      if (stepUp.retryOnGateError(data?.error, handleCreateCatRef)) {
+        setError(null);
+        return;
+      }
       setError(data?.error ?? `http_${res.status}`);
     }
-  }, [newCat, id, refresh]);
+  }, [newCat, id, refresh, stepUp]);
 
   const handleDeleteCat = useCallback(
     async (catId: string) => {
@@ -223,11 +253,24 @@ export default function TaxonomyPage() {
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         };
+        if (stepUp.retryOnGateError(data?.error, handleDeleteCatRef, catId)) {
+          setError(null);
+          return;
+        }
         setError(data?.error ?? `http_${res.status}`);
       }
     },
-    [id, refresh],
+    [id, refresh, stepUp],
   );
+
+  // Register the handlers so the step-up retry can invoke the
+  // CURRENT one (a ref is resolved at retry time).
+  handleSaveRadiusRef.current = handleSaveRadius;
+  handleCreateDeptRef.current = handleCreateDept;
+  handleDeleteDeptRef.current = handleDeleteDept;
+  handleCreateCatRef.current = handleCreateCat;
+  handleDeleteCatRef.current = handleDeleteCat;
+  stepUp.registerWrite(handleSaveRadius);
 
   if (signedIn === null || (!city && !error)) {
     return <AdminPageSkeleton lang={lang} />;
@@ -286,6 +329,50 @@ export default function TaxonomyPage() {
             {error}
           </div>
         ) : null}
+
+        {/* ADR-007 step-up. The panel renders only after a gated
+            write was refused — the ceremony is offered because the
+            admin ASKED to make a change, not as a permanent button on
+            the page. */}
+        {(stepUp.stepUpNeeded || stepUp.stepUpNoCredential) && (
+          <div
+            data-testid="admin-webauthn-step-up-panel"
+            className="rounded border p-3"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
+          >
+            {stepUp.stepUpNoCredential ? (
+              <>
+                <p
+                  data-testid="admin-webauthn-step-up-register-hint"
+                  className="text-sm"
+                  style={{
+                    color: 'var(--color-ink-secondary)',
+                    marginBottom: 8,
+                  }}
+                >
+                  {t('admin.webauthn.step_up.register_hint', null, lang)}
+                </p>
+                <Link
+                  href="/admin"
+                  data-testid="admin-webauthn-step-up-register-link"
+                  className="admin-btn-primary px-4 py-2 rounded-md"
+                  style={{ display: 'inline-block' }}
+                >
+                  {t('admin.webauthn.register.title', null, lang)}
+                </Link>
+              </>
+            ) : (
+              <AdminWebAuthnStepUp
+                lang={lang}
+                onStateChange={stepUp.setStepUpInProgress}
+                onOutcome={stepUp.onStepUpOutcome}
+              />
+            )}
+          </div>
+        )}
         <div
           className="rounded-lg border p-6 space-y-3"
           style={panelStyle}

@@ -8,7 +8,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+**The open-issue count is re-derived from the registers — 2026-11-09**
+
+The production-readiness checklist's severity table did not reconcile with the two registers it claims to summarise. The total (28) was right; the composition was wrong.
+
+- **Low was 9, should be 10.** The checklist's Low list omitted **`GET /api/docs` is a public Swagger UI loaded from the unpkg CDN** (SECURITY_AUDIT #17) — a real, open, Low finding with no KNOWN_ISSUES counterpart.
+- **Medium listed `middleware` twice.** The Medium row ended `…; no `middleware`/baseline route guard` — a second mention of `no `middleware.ts``, which its second item already covers. That double-count is what made Medium read 13 when only 12 distinct Medium findings exist.
+- **`AuditEntry.actor` `onDelete: Restrict` was graded Low in the checklist and Medium in the register** (KNOWN_ISSUES #25). It is now in the Medium list, where the register puts it.
+
+The table now reads **Critical 3 / High 2 / Medium 13 / Low 10 = 28**, and it says *how* the number is derived. The two registers overlap — 39 open rows describe 28 distinct defects — so the checklist now spells out the two rules that produce the number: the higher severity wins where the registers disagree (the local blob 404 is Low in SECURITY_AUDIT and Medium in KNOWN_ISSUES, so it counts Medium), and a defect graded Medium in either register counts Medium.
+
+The counts were re-derived mechanically, not adjusted by hand: every one of the 39 open rows maps to a listed finding, and every listed finding maps to at least one open row. This is the project's recurring meta-finding — five times now, a hand-count has been wrong and a mechanical parse has been right.
+
 ### Added
+
+**The WebAuthn step-up affordance now reaches every gated admin page — 2026-11-09**
+
+KNOWN_ISSUES #32 is closed. Making the challenge a one-shot nonce (finding #6, below) turned a previously-cosmetic gap into a dead end: five admin pages perform gated writes — `/admin/cities` and `/admin/cities/[id]/{setup,taxonomy,wards,users}` — and none of them rendered the ceremony. The admin clicked "save", the server answered `401 webauthn_assertion_expired` correctly, and the page offered no way to satisfy the gate.
+
+- `components/useWebAuthnStepUp.ts` — **new**. A shared hook that holds the retry bookkeeping once. The retry is state and callbacks, not rendering, so it does not belong in a component — the page already owns the layout where the panel appears. Every gated page answers two questions: *"is this error a gate error?"* (`isWebAuthnGateError`) and *"what should I retry?"* (`retryOnGateError`). The hook stashes the pending write, opens the ceremony, and retries **exactly once** on a verified assertion; it retries **nothing** on `no_credential` (the admin must register a key first), `failed`, or `cancelled`.
+- `app/admin/cities/page.tsx`, `app/admin/cities/[id]/setup/page.tsx`, `taxonomy/page.tsx`, `wards/page.tsx`, `users/page.tsx` — the five pages now render `AdminWebAuthnStepUp` and route their refusals through the hook. 14 gated write calls in all.
+- `tests/unit/components/useWebAuthnStepUp.test.tsx` — **new**, 17 tests. They pin the retry contract, including two details a copy-paste into each page would have got wrong at least once: a write that takes an argument (a DELETE carries the row id) retries with the **same** argument, and a ref is resolved at **retry time**, so the retry invokes the current handler rather than the closure captured when the error was raised.
+- `tests/unit/admin/webauthn-step-up-parity.test.ts` — **new**, 4 tests. The durable fix: it compares the gated admin routes (the route files that call `requireWebAuthn`) against the admin pages that write to them, and fails if any such page lacks the affordance or the retry. The route file is the source of truth — the test reads it from disk and never imports a handler, because the contract under test is *which routes are gated*, which is a property of the source text. A non-vacuity block proves the detector is not vacuously passing.
+
+**The parity test found a fifth page.** The issue was originally written against four, because four was what a hand-count over `/admin/cities/[id]/` produced. Scanning the whole admin page tree against the whole gated-route tree found `/admin/cities` — the page that *creates* the city the other four configure, and the one an admin hits first.
 
 **The WebAuthn challenge is now a one-shot nonce — 2026-11-09**
 
@@ -20,7 +45,23 @@ SECURITY_AUDIT finding #6 (High) is closed. ADR-007's Decision says *"Every admi
 - `app/api/auth/webauthn/step-up/route.ts` — two comments corrected to describe the new behaviour.
 - `tests/unit/webauthn-challenge-consumption.test.ts` — **new**, 9 tests. They pin that the row is gone after a successful guard call, that a **second** admin write with the same session is refused, that a fresh ceremony authorises the next write again, that rejected calls consume nothing, that the delete is user-scoped, and that **two concurrent guard calls authorise exactly one write**. Non-vacuity is proven by mutation: removing the delete from the consume path turns 6 of the 9 tests red.
 
-One ceremony now authorises exactly one write. Because of that, every admin write needs its own ceremony — the pages that trigger a gated write must surface the `AdminWebAuthnStepUp` affordance.
+One ceremony now authorises exactly one write. Because of that, every admin write needs its own ceremony — the pages that trigger a gated write must surface the `AdminWebAuthnStepUp` affordance. That follow-up landed the same day; see the entry above.
+
+**CI run `42571017086` — 14/14 steps green — 2026-11-09**
+
+The pipeline that verifies the WebAuthn gate and the one-shot challenge is green end to end on commit `f21e32a`:
+
+| Step | Result |
+|---|---|
+| Lint | 0 errors, 56 warnings |
+| Typecheck | clean |
+| Unit tests | **115 files / 2,014 tests** passed (37.80 s) |
+| Coverage floor | **94.01% lines / 83.03% branches / 94.86% functions** — all above 80% |
+| Visual regression | **25/25** mockup baselines passed (23.2 s) |
+| Route specs | **326 passed** (9.7 min) |
+| Build | green |
+
+This is the authoritative measurement and the reference every CI figure in the documentation now points at. *(The suite has since grown to **117 files / 2,035 tests** with the step-up hook suite and the parity test added; the figures in this table are the ones run `42571017086` produced, and the next CI run supersedes them.)*
 
 **CI run `42568173838` — 14/14 steps green — 2026-11-09**
 
@@ -35,8 +76,6 @@ The pipeline that verifies the `PUT /api/profile` gate is green end to end on co
 | Visual regression | **25/25** mockup baselines passed (21.1 s) |
 | Route specs | **326 passed** (10.3 min) |
 | Build | green |
-
-This is the authoritative measurement and the reference every CI figure in the documentation now points at. *(The suite has since grown to **115 files / 2,014 tests** with the WebAuthn consumption suite added; the figures in this table are the ones run `42568173838` produced, and the next CI run supersedes them.)*
 
 **The `PUT /api/profile` WebAuthn gate — 2026-11-09**
 
@@ -388,7 +427,7 @@ Derived from [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.
 - [PROJECT_AUDIT.md](PROJECT_AUDIT.md) — the entry point
 - [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) — the go/no-go
 - [SECURITY_AUDIT.md](SECURITY_AUDIT.md) — the findings register
-- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 31 flags
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 33 flags
 - [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) — the concurrency and accountability evidence
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the layers
 - [API_DOCUMENTATION.md](API_DOCUMENTATION.md) — all 77 operations

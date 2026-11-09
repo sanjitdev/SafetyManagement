@@ -9,21 +9,25 @@
  * crew.
  *
  * Delete and bulk import require the hardware key — the API enforces
- * that (`requireWebAuthn`); the page surfaces the `webauthn_required`
- * error the API returns.
+ * that (`requireWebAuthn`). Since 2026-11-09 the challenge is a
+ * one-shot nonce, so EVERY gated write needs its own ceremony: the
+ * page surfaces the `AdminWebAuthnStepUp` panel when a write is
+ * refused and retries it once the assertion verifies.
  *
  * All user-facing copy goes through `t(...)`.
  */
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -123,6 +127,14 @@ export default function AdminCityUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // ADR-007: the challenge is a one-shot nonce, so every gated write
+  // needs its own ceremony. The hook holds the retry bookkeeping.
+  const stepUp = useWebAuthnStepUp();
+  // The retry needs to call the CURRENT handler, so the handlers are
+  // registered through refs rather than captured in a closure.
+  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const handleDeleteRef = useRef<(() => Promise<void>) | null>(null);
+  const handleImportRef = useRef<(() => Promise<void>) | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importCsv, setImportCsv] = useState('');
   const [importResult, setImportResult] = useState<{
@@ -272,6 +284,13 @@ export default function AdminCityUsersPage() {
       );
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
+        // The challenge is a one-shot nonce, so a gated write needs a
+        // fresh ceremony. Stash the write and open the panel; it is
+        // retried once the assertion verifies.
+        if (stepUp.retryOnGateError(body.error, handleSaveRef)) {
+          setError(null);
+          return;
+        }
         setError(body.error ?? `http_${res.status}`);
         return;
       }
@@ -282,7 +301,7 @@ export default function AdminCityUsersPage() {
     } finally {
       setBusy(false);
     }
-  }, [form, cityId, load]);
+  }, [form, cityId, load, stepUp]);
 
   const handleDelete = useCallback(async () => {
     if (!form.id) return;
@@ -296,6 +315,10 @@ export default function AdminCityUsersPage() {
       );
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
+        if (stepUp.retryOnGateError(body.error, handleDeleteRef)) {
+          setError(null);
+          return;
+        }
         setError(body.error ?? `http_${res.status}`);
         return;
       }
@@ -306,7 +329,7 @@ export default function AdminCityUsersPage() {
     } finally {
       setBusy(false);
     }
-  }, [form.id, cityId, load]);
+  }, [form.id, cityId, load, stepUp]);
 
   const handleImport = useCallback(async () => {
     setBusy(true);
@@ -326,6 +349,10 @@ export default function AdminCityUsersPage() {
         errors?: { rowNumber: number; errors: string[] }[];
       };
       if (!res.ok && body.error) {
+        if (stepUp.retryOnGateError(body.error, handleImportRef)) {
+          setError(null);
+          return;
+        }
         setError(body.error);
         return;
       }
@@ -340,7 +367,14 @@ export default function AdminCityUsersPage() {
     } finally {
       setBusy(false);
     }
-  }, [importCsv, cityId, load]);
+  }, [importCsv, cityId, load, stepUp]);
+
+  // Register the current handlers so the step-up retry can call the
+  // live version rather than a closure captured when the error fired.
+  handleSaveRef.current = handleSave;
+  handleDeleteRef.current = handleDelete;
+  handleImportRef.current = handleImport;
+  stepUp.registerWrite(handleSave);
 
   const downloadTemplate = useCallback(() => {
     const csv =
@@ -516,6 +550,55 @@ export default function AdminCityUsersPage() {
                 : error}
             </div>
           ) : null}
+
+          {/*
+            ADR-007: the WebAuthn step-up. The challenge is a one-shot
+            nonce, so a refused write needs its own ceremony. The
+            panel renders only after a gated write was refused — the
+            ceremony is offered because the admin ASKED to make a
+            change, not as a permanent button on the page.
+          */}
+          {(stepUp.stepUpNeeded || stepUp.stepUpNoCredential) && (
+            <div
+              data-testid="admin-webauthn-step-up-panel"
+              className="mb-3"
+              style={{
+                padding: 'var(--space-3)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-surface-raised)',
+              }}
+            >
+              {stepUp.stepUpNoCredential ? (
+                <>
+                  <p
+                    data-testid="admin-webauthn-step-up-register-hint"
+                    style={{
+                      fontSize: 'var(--text-body-sm)',
+                      color: 'var(--color-ink-secondary)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    {t('admin.webauthn.step_up.register_hint', null, lang)}
+                  </p>
+                  <Link
+                    href="/admin"
+                    data-testid="admin-webauthn-step-up-register-link"
+                    className="admin-btn-primary px-4 py-2 rounded-md"
+                    style={{ display: 'inline-block' }}
+                  >
+                    {t('admin.webauthn.register.title', null, lang)}
+                  </Link>
+                </>
+              ) : (
+                <AdminWebAuthnStepUp
+                  lang={lang}
+                  onStateChange={stepUp.setStepUpInProgress}
+                  onOutcome={stepUp.onStepUpOutcome}
+                />
+              )}
+            </div>
+          )}
 
           <div data-testid="admin-city-users-list" className="space-y-2">
             {!data && !error ? (

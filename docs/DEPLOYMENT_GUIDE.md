@@ -281,9 +281,9 @@ The app loads Noto Sans Bengali from Google Fonts. If `fonts.googleapis.com` is 
 ## 10. Related documents
 
 - [SECURITY_AUDIT.md](SECURITY_AUDIT.md) — the launch blockers this guide defers to
-- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 31 flags
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 33 flags
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the layers and the dev-store seam
 - [TESTING_REPORT.md](TESTING_REPORT.md) — what CI verifies before deploy
 - [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) — the overall go/no-go
 
-> **Note:** `docs/running.md` is the local-development-focused guide. It was rewritten during the 2026-11-08 audit and its route and script tables now match the codebase (62 handlers, 2,014 unit tests, 25 baselines). This document still supersedes it for production concerns — deployment, environment variables and rollback.
+> **Note:** `docs/running.md` is the local-development-focused guide. It was rewritten during the 2026-11-08 audit and its route and script tables now match the codebase (62 handlers, 2,035 unit tests, 25 baselines). This document still supersedes it for production concerns — deployment, environment variables and rollback.

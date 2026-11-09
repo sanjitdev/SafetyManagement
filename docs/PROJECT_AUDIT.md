@@ -22,7 +22,7 @@ It is the entry point to the other nine deliverables. Where this document summar
 | [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) | Ticket-state integrity and operational metrics |
 | [TESTING_REPORT.md](TESTING_REPORT.md) | Suites, coverage, gaps |
 | [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Hosting, env vars, runbooks |
-| [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | 31 flags |
+| [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | 33 flags |
 | [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) | The go/no-go |
 | [CHANGELOG.md](CHANGELOG.md) | The release history |
 
@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 5 |
 | i18n keys | 964 |
-| Unit test files | 115 (**2,014 tests**) |
+| Unit test files | 117 (**2,035 tests**) |
 | Playwright route specs | 34 files / **358 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -187,15 +187,15 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **115 files / 2,014 tests passed**, ~30 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **94.02% lines / 83.01% branches / 94.84% functions** (floor 80%) |
+| Unit tests | `npm run test:unit` | ✅ **117 files / 2,035 tests passed**, ~30 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **94.01% lines / 83.03% branches / 94.86% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 
 ### Verified on CI
 
 | Check | Run | Result |
 |---|---|---|
-| Full pipeline | `42568173838` on `0a71d64` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
+| Full pipeline | `42571017086` on `f21e32a` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
 | Visual regression | Same run | ✅ 25/25 baselines |
 
 ### Executed after the audit snapshot
@@ -203,7 +203,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | Check | Command | Result |
 |---|---|---|
 | Playwright route specs (first execution, Windows) | `npm test` | **321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min |
-| Playwright route specs (CI, `ubuntu-latest`) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ **326 passed / 0 failed / 7 skipped** — workflow run `42562594543` (14.2 min), re-confirmed in run `42568173838` (10.3 min) |
+| Playwright route specs (CI, `ubuntu-latest`) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ **326 passed / 0 failed / 7 skipped** — workflow run `42562594543` (14.2 min), re-confirmed in run `42571017086` (9.7 min) |
 
 The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037` (32 changed, 27 unchanged, 4 new — the 4 being baselines for two specs that had never captured one).
 
@@ -345,7 +345,7 @@ Four layers, each adding specialisation:
 - [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) — the go/no-go, item by item
 - [SECURITY_AUDIT.md](SECURITY_AUDIT.md) — the findings register
 - [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) — ticket-state integrity and operational metrics
-- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — 31 flags
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — 33 flags
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the layers and the data model
 - [API_DOCUMENTATION.md](API_DOCUMENTATION.md) — all 77 operations
 - [TESTING_REPORT.md](TESTING_REPORT.md) — the suites and the gaps

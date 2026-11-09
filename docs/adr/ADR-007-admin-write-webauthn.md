@@ -330,9 +330,9 @@ production posture).
 **Verification gates** (per `team.md` Mandated):
 
 - `npx tsc --noEmit` — clean, 0 errors.
-- `npm run test:unit` — 115 files / 2014 tests pass.
-- `npm run test:unit:coverage` — 94.02% lines / 83.01% branches /
-  94.84% functions, all above the 80% floor.
+- `npm run test:unit` — 117 files / 2035 tests pass.
+- `npm run test:unit:coverage` — 94.01% lines / 83.03% branches /
+  94.86% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
 
 ## Amendment 2026-11-09 — the ceremony affordance (step-up route)
@@ -539,10 +539,97 @@ path turns 6 of the 9 tests red.
 Because the challenge is now one-shot, every admin write needs its own
 ceremony. A page that triggers a gated write must therefore surface the
 `AdminWebAuthnStepUp` affordance — otherwise the admin dead-ends on a
-bare `401 webauthn_assertion_expired`. The pages that carry the
-affordance today are `app/admin/tickets/[id]/page.tsx` and
-`app/profile/page.tsx`; the admin city-configuration pages do not yet,
-and are recorded as an open known issue.
+bare `401 webauthn_assertion_expired`. The pages that carried the
+affordance when this amendment was written were `app/admin/tickets/[id]/
+page.tsx` and `app/profile/page.tsx`; the admin city-configuration pages
+did not, and were recorded as an open known issue.
+
+**Closed by the following amendment.** All five of those pages now carry
+the affordance, through a shared hook.
+
+## Amendment 2026-11-09 — the affordance, on every gated admin page
+
+**Status:** [KNOWN_ISSUES.md #32](../KNOWN_ISSUES.md) (Medium) is **CLOSED**.
+
+### What was missing
+
+Making the challenge one-shot turned a previously-cosmetic gap into a
+dead end. Five admin pages perform gated writes — `/admin/cities` and
+`/admin/cities/[id]/{setup,taxonomy,wards,users}` — and none of them
+rendered the ceremony. The admin clicked "save", the server answered
+`401 webauthn_assertion_expired` correctly, and the page offered no way
+to satisfy the gate: the write was gone and the ceremony was never
+offered.
+
+Nothing caught it. `tsc --noEmit` cannot see it — the missing affordance
+is a runtime behaviour, not a type error. The Playwright visual
+baselines cannot see it either — the panel renders only after a write is
+*refused*, and no baseline drives a refused write.
+
+### The amendment
+
+**A shared hook, `components/useWebAuthnStepUp.ts`.** The retry
+bookkeeping is not rendering, so it does not belong in a component — it
+belongs in a hook. The hook holds the state and the callbacks; the page
+already owns the layout where the panel appears, so the panel component
+stays where it was. Every gated page answers two questions:
+
+- *"is this error a gate error?"* — `isWebAuthnGateError(code)`
+- *"what should I retry?"* — `retryOnGateError(code, pending, ...args)`
+
+`retryOnGateError` returns `true` for a gate error (the ceremony is now
+open and the write is stashed, so the caller must **not** also surface it
+as a plain failure) and `false` for anything else (the caller handles it
+as usual).
+
+**The retry contract.** On `verified` the stashed write runs exactly
+once. On `no_credential` nothing is retried — no amount of retrying
+helps if the admin has no registered key, and the page is told to point
+at the registration mount point. On `failed` and `cancelled` nothing is
+retried either: a retry without a valid assertion would fail the same
+way.
+
+**Two details the hook exists to get right**, both of which a
+copy-paste into each page would have got wrong at least once:
+
+- *A write that takes an argument retries with the same argument.* A
+  DELETE carries the id of the row being removed; the stashed retry
+  re-issues it with that id, so the admin's click deletes the row they
+  clicked and not some other row.
+- *A ref is resolved at retry time.* The retry invokes the **current**
+  handler rather than the closure captured when the error was raised.
+
+**The guard ordering is preserved.** ADR-007's ordering rule — *"the
+ceremony must not fire before the cheap checks"* — still holds: the
+panel is opened by the *response* to a refusal, never before the request
+is sent.
+
+### Test plan (the amendment)
+
+`tests/unit/components/useWebAuthnStepUp.test.tsx` (17 tests) pins the
+retry contract: a gate error opens the ceremony and reports "handled"; a
+non-gate error reports "not handled" and opens nothing; `verified`
+retries exactly once; a second `verified` retries nothing (the write is
+spent); a write with an argument retries with the same argument; a ref
+is resolved at retry time, so the current handler runs; the registered
+write is the fallback; `no_credential`, `failed` and `cancelled` all
+retry nothing; and the in-progress flag is reported.
+
+`tests/unit/admin/webauthn-step-up-parity.test.ts` (4 tests) makes the
+fix durable. It compares the **gated admin routes** — the route files
+that call `requireWebAuthn` — against the **admin pages that write to
+them**, and fails if any such page lacks the affordance or the retry. The
+route file is the source of truth: the test reads it from disk and never
+imports a handler, because the contract under test is *which routes are
+gated*, which is a property of the source text. A non-vacuity block
+proves the detector is not vacuously passing.
+
+**The parity test found a fifth page.** The issue was originally
+written against four, because four was what a hand-count over
+`/admin/cities/[id]/` produced. The test scans the whole admin page
+tree against the whole gated-route tree and found `/admin/cities` — the
+page that *creates* the city the other four configure, and the one an
+admin hits first.
 
 ### What is unchanged
 

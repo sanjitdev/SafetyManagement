@@ -22,12 +22,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton, SkeletonBlock } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -74,6 +76,15 @@ export default function WardsPage() {
     name: '',
     polygonGeoJson: SAMPLE_POLYGON,
   });
+
+  // ADR-007: every admin write needs a FRESH WebAuthn assertion,
+  // and the challenge is a one-shot nonce — so a refused write
+  // must be retried after a fresh ceremony, not merely reported.
+  const stepUp = useWebAuthnStepUp();
+  // Refs to the write handlers. `retryOnGateError` resolves a ref
+  // at retry time, so the retry always invokes the current handler.
+  const handleCreateRef = useRef<(() => Promise<void>) | null>(null);
+  const handleDeleteRef = useRef<((wardId: string) => Promise<void>) | null>(null);
 
   useEffect(() => {
     const stored =
@@ -154,9 +165,13 @@ export default function WardsPage() {
       await refresh();
     } else {
       const data = (await res.json().catch(() => null)) as { error?: string };
+      if (stepUp.retryOnGateError(data?.error, handleCreateRef)) {
+        setError(null);
+        return;
+      }
       setError(data?.error ?? `http_${res.status}`);
     }
-  }, [newWard, id, refresh]);
+  }, [newWard, id, refresh, stepUp]);
 
   const handleDelete = useCallback(
     async (wardId: string) => {
@@ -170,11 +185,21 @@ export default function WardsPage() {
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         };
+        if (stepUp.retryOnGateError(data?.error, handleDeleteRef, wardId)) {
+          setError(null);
+          return;
+        }
         setError(data?.error ?? `http_${res.status}`);
       }
     },
-    [id, refresh],
+    [id, refresh, stepUp],
   );
+
+  // Register the handlers so the step-up retry can invoke the
+  // CURRENT one (a ref is resolved at retry time).
+  handleCreateRef.current = handleCreate;
+  handleDeleteRef.current = handleDelete;
+  stepUp.registerWrite(handleCreate);
 
   if (signedIn === null) {
     return <AdminPageSkeleton lang={lang} />;
@@ -215,6 +240,50 @@ export default function WardsPage() {
             {error}
           </div>
         ) : null}
+
+        {/* ADR-007 step-up. The panel renders only after a gated
+            write was refused — the ceremony is offered because the
+            admin ASKED to make a change, not as a permanent button on
+            the page. */}
+        {(stepUp.stepUpNeeded || stepUp.stepUpNoCredential) && (
+          <div
+            data-testid="admin-webauthn-step-up-panel"
+            className="rounded border p-3"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
+          >
+            {stepUp.stepUpNoCredential ? (
+              <>
+                <p
+                  data-testid="admin-webauthn-step-up-register-hint"
+                  className="text-sm"
+                  style={{
+                    color: 'var(--color-ink-secondary)',
+                    marginBottom: 8,
+                  }}
+                >
+                  {t('admin.webauthn.step_up.register_hint', null, lang)}
+                </p>
+                <Link
+                  href="/admin"
+                  data-testid="admin-webauthn-step-up-register-link"
+                  className="admin-btn-primary px-4 py-2 rounded-md"
+                  style={{ display: 'inline-block' }}
+                >
+                  {t('admin.webauthn.register.title', null, lang)}
+                </Link>
+              </>
+            ) : (
+              <AdminWebAuthnStepUp
+                lang={lang}
+                onStateChange={stepUp.setStepUpInProgress}
+                onOutcome={stepUp.onStepUpOutcome}
+              />
+            )}
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold" style={{ color: 'var(--color-ink)' }}>
             {t('admin.wards.title', null, lang)}

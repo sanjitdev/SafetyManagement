@@ -42,7 +42,8 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 29 | Four `Ticket` timestamps missing — 2 of 4 operational questions only partly answerable | Medium | Data | Open |
 | 30 | Adoption metrics collapse `null` to `0` — "no data" reads as "zero" | Medium | Admin | Open |
 | 31 | The OpenAPI spec documents two methods that do not exist | Low | Docs | ✅ Resolved 2026-11-08 — blocks deleted, parity test added |
-| 32 | The admin city-configuration pages have no WebAuthn step-up affordance | Medium | Admin UX | **Open — introduced 2026-11-09** by the challenge-consumption fix |
+| 32 | The admin city-configuration pages have no WebAuthn step-up affordance | Medium | Admin UX | ✅ Resolved 2026-11-09 — shared hook + parity test |
+| 33 | `GET /api/docs` is a public Swagger UI loaded from the unpkg CDN | Low | Docs | Open |
 
 ---
 
@@ -314,30 +315,40 @@ No `role` constraint. An admin, dispatcher or crew account can authenticate with
 
 ---
 
-### 32. The admin city-configuration pages have no WebAuthn step-up affordance
+### 32. The admin city-configuration pages have no WebAuthn step-up affordance — RESOLVED 2026-11-09
 
-**Evidence:** `app/admin/cities/[id]/setup/page.tsx`, `taxonomy/page.tsx`, `wards/page.tsx`, `users/page.tsx`; only `app/admin/tickets/[id]/page.tsx` and `app/profile/page.tsx` render `AdminWebAuthnStepUp`
+**Evidence:** `app/admin/cities/page.tsx`, `app/admin/cities/[id]/setup/page.tsx`, `taxonomy/page.tsx`, `wards/page.tsx`, `users/page.tsx`; only `app/admin/tickets/[id]/page.tsx` and `app/profile/page.tsx` rendered `AdminWebAuthnStepUp`
 
-**Status: open — introduced 2026-11-09 by the challenge-consumption fix.**
+**Status: closed 2026-11-09.**
 
-This issue is a *consequence* of closing #6, not a pre-existing defect. Before the fix, one WebAuthn ceremony satisfied the gate for five minutes, so an admin who stepped up once could perform many writes in that window without another prompt. The pages did not need an affordance because they did not need to ask.
+This issue was a *consequence* of closing #6, not a pre-existing defect. Before the fix, one WebAuthn ceremony satisfied the gate for five minutes, so an admin who stepped up once could perform many writes in that window without another prompt. The pages did not need an affordance because they did not need to ask.
 
-Now that the challenge is a one-shot nonce, **every** admin write needs its own ceremony. The four admin city-configuration pages make **13 gated write calls** and none of them surfaces the `AdminWebAuthnStepUp` panel:
+Now that the challenge is a one-shot nonce, **every** admin write needs its own ceremony. Five admin pages make **14 gated write calls** and none of them surfaced the `AdminWebAuthnStepUp` panel:
 
 | Page | Gated calls | Methods |
 |---|---:|---|
+| `app/admin/cities/page.tsx` | `POST /api/v1/admin/cities` | POST |
 | `app/admin/cities/[id]/setup/page.tsx` | `PATCH`/`POST /api/v1/admin/cities/{id}` | PATCH, POST |
 | `app/admin/cities/[id]/taxonomy/page.tsx` | `POST`/`PATCH`/`DELETE` on `/categories` and `/departments` | POST ×2, PATCH, DELETE ×2 |
 | `app/admin/cities/[id]/wards/page.tsx` | `POST`/`DELETE /api/v1/admin/cities/{id}/wards` | POST, DELETE |
 | `app/admin/cities/[id]/users/page.tsx` | `POST`/`DELETE /api/v1/admin/cities/{id}/users`, `POST .../users/import` | POST, DELETE |
 
-`app/admin/cities/[id]/users/page.tsx` already *detects* the refusal — it renders a message for `webauthn_required` and `webauthn_assertion_expired` — but it does not render the ceremony, so the admin is told the write was refused and given no way to satisfy it.
+> **The fifth page was found by the fix's own regression test, not by hand.** The issue was originally written against four pages, because four was the number a hand-count over `/admin/cities/[id]/` produced. The parity test (`tests/unit/admin/webauthn-step-up-parity.test.ts`) scans the whole admin page tree against the whole gated-route tree and found `/admin/cities` — the page that *creates* the city the other four configure, and the one an admin hits first.
 
-**Impact.** These four admin workflows **dead-end** on a bare `401 webauthn_assertion_expired`. The write is refused correctly; there is simply no path to retry it. This is the exact failure ADR-007 recorded as *"the admin ticket page has no ceremony affordance, so an admin who has not registered a key sees a bare error code with no path to fix it"* — the same class of defect, on the pages that were fixed later.
+`app/admin/cities/[id]/users/page.tsx` already *detected* the refusal — it rendered a message for `webauthn_required` and `webauthn_assertion_expired` — but it did not render the ceremony, so the admin was told the write was refused and given no way to satisfy it.
 
-**Fix:** render `AdminWebAuthnStepUp` on each of the four pages, following the pattern already established in `app/admin/tickets/[id]/page.tsx` and `app/profile/page.tsx` — stash the pending write, open the panel on a WebAuthn gate code, retry on a verified assertion.
+**Impact (as found).** These five admin workflows **dead-ended** on a bare `401 webauthn_assertion_expired`. The write is refused correctly; there was simply no path to retry it. This is the exact failure ADR-007 recorded as *"the admin ticket page has no ceremony affordance, so an admin who has not registered a key sees a bare error code with no path to fix it"* — the same class of defect, on the pages that were fixed later.
 
-**Note:** this is a UX gap, not a security gap. The gate refuses correctly in every case; the remedy is that the admin cannot proceed without completing a ceremony.
+**Fix.** A shared hook, `components/useWebAuthnStepUp.ts`, now holds the retry bookkeeping once, and all five pages use it. The hook answers the two questions every gated page has to answer: *"is this error a gate error?"* (`isWebAuthnGateError`) and *"what should I retry?"* (`retryOnGateError`). It stashes the pending write, opens the ceremony, and retries **exactly once** on a verified assertion. It retries **nothing** on `no_credential` (the admin must register a key first), `failed`, or `cancelled` — a retry without a valid assertion would fail the same way.
+
+Two details the hook exists to get right, both of which a copy-paste into each page would have got wrong at least once:
+
+- **A write that takes an argument retries with the same argument.** A DELETE carries the id of the row being removed; the stashed retry re-issues it with that id, so the admin's click deletes the row they clicked and not some other row.
+- **A ref is resolved at retry time.** The retry invokes the *current* handler rather than the closure captured when the error was raised.
+
+**Now enforced, not just fixed.** `tests/unit/admin/webauthn-step-up-parity.test.ts` compares the gated admin routes (the route files that call `requireWebAuthn`) against the admin pages that write to them, and fails if any such page lacks the affordance or the retry. `tests/unit/components/useWebAuthnStepUp.test.tsx` (17 tests) pins the retry contract itself. A new admin page that performs a gated write cannot land without the affordance — which is the point: the five pages that regressed were each individually reasonable when written.
+
+**Note:** this was a UX gap, not a security gap. The gate refused correctly in every case; the remedy was that the admin could not proceed without completing a ceremony.
 
 ---
 
@@ -561,6 +572,19 @@ A repo-wide search for `updateTicket` and `deleteTicket` outside the spec return
 The test was **verified non-vacuous**: renaming a live `PATCH` export to `PATCHX` turned the suite red with `PATCH /api/v1/dispatcher/tickets/{id} — documented but no handler exports it`, and restoring the file turned it green.
 
 If a future Bolt implements citizen report editing, it must add the handler **and** the spec block in the same commit.
+
+### 33. `GET /api/docs` is a public Swagger UI loaded from the unpkg CDN
+
+**Evidence:** `app/api/docs/route.ts:136` (the route serves the Swagger UI HTML); [SECURITY_AUDIT.md](SECURITY_AUDIT.md) finding #17 (Low)
+
+The route is public — no session, no role check — and it pulls the Swagger UI bundle from `https://unpkg.com`. Two consequences:
+
+- **The API surface is enumerable by anyone.** The spec documents every endpoint, including the admin city-configuration routes that are WebAuthn-gated server-side. The gate still holds — a caller without a valid session gets `401` — but the *shape* of the surface, including the admin routes, is public. The OpenAPI route-parity test (#31) already treats `/api/docs/**` as a deliberate exclusion.
+- **The page renders third-party JavaScript from a CDN**, so the app's own CSP has to carry `'unsafe-inline' 'unsafe-eval'` and an `unpkg.com` script source. That relaxation is what SECURITY_AUDIT finding #11 (Medium, CSP) points at: the Swagger UI's bundle is the only thing in the app that needs `unsafe-eval`.
+
+**Fix:** gate the route behind admin auth, or serve the Swagger assets locally (vendor them into the repo or self-host). Serving them locally is the stronger fix, because it removes the `unsafe-eval` requirement from the application CSP as well as the CDN dependency.
+
+**Recorded 2026-11-09** as part of the register reconciliation: this finding lived only in SECURITY_AUDIT (#17) and had no KNOWN_ISSUES row, so the production-readiness checklist's Low list omitted it and under-counted Low by one. See [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) §Issue counts.
 
 ---
 

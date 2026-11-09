@@ -10,19 +10,19 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 115 | — | — |
-| Unit tests passing | **2,014 / 2,014** | — | ✅ |
-| Coverage — lines | **94.02%** | 80% | ✅ |
-| Coverage — branches | **83.01%** | 80% | ✅ |
-| Coverage — functions | **94.84%** | 80% | ✅ |
-| Coverage — statements | **94.02%** | 80% | ✅ |
+| Unit test files | 117 | — | — |
+| Unit tests passing | **2,035 / 2,035** | — | ✅ |
+| Coverage — lines | **94.01%** | 80% | ✅ |
+| Coverage — branches | **83.03%** | 80% | ✅ |
+| Coverage — functions | **94.86%** | 80% | ✅ |
+| Coverage — statements | **94.01%** | 80% | ✅ |
 | Playwright route specs | 34 files / **358 specs** | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
 | ESLint | 0 errors, 56 warnings | 0 errors | ✅ |
 | CI pipeline | 14/14 steps green | all green | ✅ |
 
-**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42568173838` on commit `0a71d64` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
+**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42571017086` on commit `f21e32a` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
 
 **The route specs were executed for the first time on 2026-11-08.** They had never been run as a suite — the pipeline did not include them, and the audit recorded them as *"not executed"*. See §2.2 for the result and §6 for what the run exposed.
 
@@ -37,7 +37,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 115 files, 2,014 tests, 100% passing, ~30 s
+**Result:** 117 files, 2,035 tests, 100% passing, ~30 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -74,13 +74,35 @@ All six were **verified non-vacuous**. Neutering the compare-and-swap — forcin
 
 It is **verified non-vacuous**: removing the delete from the dev store's consume path turns 6 of the 9 tests red.
 
+#### The step-up affordance suites
+
+Closing finding #6 made the challenge one-shot, and that turned a cosmetic gap into a dead end: a page that performs a gated write and renders no ceremony leaves the admin with a bare `401 webauthn_assertion_expired` and no way to satisfy it. Two suites, added 2026-11-09, close it.
+
+**`tests/unit/components/useWebAuthnStepUp.test.tsx`** (17 tests) pins the retry contract of the shared hook:
+
+| What it pins | Why it matters |
+|---|---|
+| A gate error opens the ceremony and reports "handled"; a non-gate error reports "not handled" and opens nothing | The caller must not surface a gate error twice — once as a ceremony, once as a plain failure |
+| `verified` retries the stashed write **exactly once** | One ceremony authorises one write; the retry is spent afterwards |
+| A second `verified` retries nothing | The pending write was cleared — a retry loop would re-fire a write the admin already made |
+| A write that takes an argument retries with the **same** argument | A DELETE carries the row id; the retry must delete the row the admin clicked |
+| A ref is resolved at **retry time**, so the current handler runs | A plain function would capture the closure from when the error was raised |
+| The registered write is the fallback when no pending is given | The hook can be driven either way |
+| `no_credential` retries nothing and points at registration | No amount of retrying helps if the admin has no registered key |
+| `failed` and `cancelled` retry nothing | A retry without a valid assertion would fail the same way |
+| The in-progress flag is reported | The page disables its buttons — a second write would consume a challenge the first is about to spend |
+
+**`tests/unit/admin/webauthn-step-up-parity.test.ts`** (4 tests) makes the fix durable. It compares the **gated admin routes** — the route files that call `requireWebAuthn` — against the **admin pages that write to them**, and fails if any such page lacks the affordance or the retry. The route file is the source of truth: the test reads it from disk and never imports a handler, because the contract under test is *which routes are gated*, which is a property of the source text. A non-vacuity block proves the detector is not vacuously passing.
+
+**The parity test found a fifth page.** The issue was originally written against four, because four was what a hand-count over `/admin/cities/[id]/` produced. Scanning the whole admin page tree against the whole gated-route tree found `/admin/cities` — the page that *creates* the city the other four configure, and the one an admin hits first. A hand-count missed it; the mechanical comparison did not.
+
 ### 2.2 Route specs — Playwright
 
 **Command:** `npm test`
 **Config:** `playwright.config.ts`
 **Location:** `tests/*.spec.ts` — **33 route-spec files / 358 specs**, plus `tests/01-mockups.spec.ts` (the mockup family, §2.3), for **34 files** under `npm test`
 **Web server:** `npm run dev:feat` on `http://localhost:3000`, with `CITYFIX_DEV_STORE=1`, `DEV_SKIP_WEBAUTHN=1` and the pinned clock (`CITYFIX_SEED_NOW` **and** `NEXT_PUBLIC_CITYFIX_SEED_NOW`)
-**Result:** **326 passed / 0 failed / 7 skipped** on `ubuntu-latest` — CI run `42568173838` (10.3 min), the authoritative measurement because the visual baselines are asserted on that platform. The same result was first recorded in run `42562594543` (14.2 min). `workers: 1`, `fullyParallel: false`
+**Result:** **326 passed / 0 failed / 7 skipped** on `ubuntu-latest` — CI run `42571017086` (9.7 min), the authoritative measurement because the visual baselines are asserted on that platform. The same result was first recorded in run `42562594543` (14.2 min). `workers: 1`, `fullyParallel: false`
 
 The route specs walk the four personas through the real app: `02-live-audit`, `03-authenticated-flow`, `04-e2e-human-tester`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough`, `30-role-redirect`, `31-post-auth-target`.
 

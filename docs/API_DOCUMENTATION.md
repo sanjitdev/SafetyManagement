@@ -747,7 +747,7 @@ These are **live divergences**, not typos. They are documented rather than fixed
 | Illegal transition is **409** `invalid_transition` on `/api/tickets/{id}/transition` but **422** `illegal_transition` on the v1 dispatcher/crew transition routes | both trees |
 | `requireRole` failure returns **401** where 403 is expected, in the shared transition route | `app/api/tickets/[id]/transition/route.ts:79` |
 
-See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full list of 31 flags, including the dead `/api/blob` photo URLs and the adoption-export id/slug mismatch.
+See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for the full list of 33 flags, including the dead `/api/blob` photo URLs and the adoption-export id/slug mismatch.
 
 ---
 
@@ -774,5 +774,5 @@ Every state-changing operation writes an `AuditEntry` via `writeAudit(...)` (`li
 
 - [SECURITY_AUDIT.md](SECURITY_AUDIT.md) — the full findings register with evidence
 - [ARCHITECTURE.md](ARCHITECTURE.md) — layers, data model, and the request lifecycle
-- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 31 flags this document references
+- [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — the 33 flags this document references
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) — environment variables and hosting

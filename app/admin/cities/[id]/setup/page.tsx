@@ -19,12 +19,14 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 
@@ -50,6 +52,15 @@ export default function CitySetupPage() {
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // ADR-007: every admin write needs a FRESH WebAuthn assertion,
+  // and the challenge is a one-shot nonce — so a refused write
+  // must be retried after a fresh ceremony, not merely reported.
+  const stepUp = useWebAuthnStepUp();
+  // Refs to the write handlers. `retryOnGateError` resolves a ref
+  // at retry time, so the retry always invokes the current handler.
+  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const handleApplyTemplateRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     const stored =
@@ -108,11 +119,20 @@ export default function CitySetupPage() {
           defaultLanguage: city.defaultLanguage,
         }),
       });
-      if (!res.ok) setError(`http_${res.status}`);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        };
+        if (stepUp.retryOnGateError(data?.error, handleSaveRef)) {
+          setError(null);
+          return;
+        }
+        setError(data?.error ?? `http_${res.status}`);
+      }
     } finally {
       setSaving(false);
     }
-  }, [city, id]);
+  }, [city, id, stepUp]);
 
   const handleApplyTemplate = useCallback(async () => {
     if (!city) return;
@@ -167,7 +187,14 @@ export default function CitySetupPage() {
         }),
       });
       if (!res.ok) {
-        setError(`http_${res.status}`);
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        };
+        if (stepUp.retryOnGateError(data?.error, handleApplyTemplateRef)) {
+          setError(null);
+          return;
+        }
+        setError(data?.error ?? `http_${res.status}`);
         return;
       }
       // Reload this page's city (we
@@ -183,7 +210,13 @@ export default function CitySetupPage() {
     } finally {
       setApplying(false);
     }
-  }, [city, id]);
+  }, [city, id, stepUp]);
+
+  // Register the handlers so the step-up retry can invoke the
+  // CURRENT one (a ref is resolved at retry time).
+  handleSaveRef.current = handleSave;
+  handleApplyTemplateRef.current = handleApplyTemplate;
+  stepUp.registerWrite(handleSave);
 
   if (signedIn === null || (!city && !error)) {
     return <AdminPageSkeleton lang={lang} />;
@@ -232,6 +265,50 @@ export default function CitySetupPage() {
             {error}
           </div>
         ) : null}
+
+        {/* ADR-007 step-up. The panel renders only after a gated
+            write was refused — the ceremony is offered because the
+            admin ASKED to make a change, not as a permanent button on
+            the page. */}
+        {(stepUp.stepUpNeeded || stepUp.stepUpNoCredential) && (
+          <div
+            data-testid="admin-webauthn-step-up-panel"
+            className="rounded border p-3"
+            style={{
+              borderColor: 'var(--color-border)',
+              background: 'var(--color-surface-card)',
+            }}
+          >
+            {stepUp.stepUpNoCredential ? (
+              <>
+                <p
+                  data-testid="admin-webauthn-step-up-register-hint"
+                  className="text-sm"
+                  style={{
+                    color: 'var(--color-ink-secondary)',
+                    marginBottom: 8,
+                  }}
+                >
+                  {t('admin.webauthn.step_up.register_hint', null, lang)}
+                </p>
+                <Link
+                  href="/admin"
+                  data-testid="admin-webauthn-step-up-register-link"
+                  className="admin-btn-primary px-4 py-2 rounded-md"
+                  style={{ display: 'inline-block' }}
+                >
+                  {t('admin.webauthn.register.title', null, lang)}
+                </Link>
+              </>
+            ) : (
+              <AdminWebAuthnStepUp
+                lang={lang}
+                onStateChange={stepUp.setStepUpInProgress}
+                onOutcome={stepUp.onStepUpOutcome}
+              />
+            )}
+          </div>
+        )}
         <div
           className="rounded-lg border p-6 space-y-4"
           style={{
