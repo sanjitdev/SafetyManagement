@@ -198,7 +198,7 @@ All scripts are defined in `package.json`.
 | `npm run build` | `prisma generate && next build` | Production build |
 | `npm run start` | `node scripts/start-next.mjs` | Production server (after `build`); auto-picks a free port |
 | `npm run typecheck` | `tsc --noEmit` | TypeScript strict compile check |
-| `npm run lint` | `eslint .` | Lint (0 errors, 56 warnings) |
+| `npm run lint` | `eslint .` | Lint (0 errors, 55 warnings) |
 | `npm run lint:fix` | `eslint . --fix` | Autofix |
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |

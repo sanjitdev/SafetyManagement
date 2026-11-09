@@ -22,6 +22,11 @@ The table now reads **Critical 3 / High 2 / Medium 13 / Low 10 = 28**, and it sa
 
 The counts were re-derived mechanically, not adjusted by hand: every one of the 39 open rows maps to a listed finding, and every listed finding maps to at least one open row. This is the project's recurring meta-finding — five times now, a hand-count has been wrong and a mechanical parse has been right.
 
+**The registers are made symmetric, and the stale flag counts are swept — 2026-11-09**
+
+- `docs/KNOWN_ISSUES.md` gains **#33 — `GET /api/docs` is a public Swagger UI loaded from the unpkg CDN**. The finding lived only in SECURITY_AUDIT (#17) and had no KNOWN_ISSUES row, so the two registers disagreed about it. It now has both, and the detail section explains why serving the Swagger assets locally is the stronger fix — it removes the `unsafe-eval` requirement from the application CSP, which is what SECURITY_AUDIT #11 (Medium, CSP) points at.
+- The KNOWN_ISSUES flag count was cited as **31** in six places across five documents. The register had already grown to 32, and is now 33. All six citations are corrected to **33**, measured by parsing the index table rather than carried forward.
+
 ### Added
 
 **The WebAuthn step-up affordance now reaches every gated admin page — 2026-11-09**
@@ -47,6 +52,22 @@ SECURITY_AUDIT finding #6 (High) is closed. ADR-007's Decision says *"Every admi
 
 One ceremony now authorises exactly one write. Because of that, every admin write needs its own ceremony — the pages that trigger a gated write must surface the `AdminWebAuthnStepUp` affordance. That follow-up landed the same day; see the entry above.
 
+**CI run `42582180399` — 14/14 steps green — 2026-11-09**
+
+The pipeline that verifies the WebAuthn step-up affordance and the one-shot challenge is green end to end on commit `7828bd0`:
+
+| Step | Result |
+|---|---|
+| Lint | 0 errors, 55 warnings |
+| Typecheck | clean |
+| Unit tests | **117 files / 2,035 tests** passed (52.12 s) |
+| Coverage floor | **94.01% lines / 83.03% branches / 94.86% functions / 94.01% statements** — all above 80% |
+| Visual regression | **25/25** mockup baselines passed (27.5 s) |
+| Route specs | **326 passed** (11.9 min) |
+| Build | green |
+
+This is the authoritative measurement and the reference every CI figure in the documentation now points at. Every figure in the table was read from this run's own log, not carried forward from the previous one.
+
 **CI run `42571017086` — 14/14 steps green — 2026-11-09**
 
 The pipeline that verifies the WebAuthn gate and the one-shot challenge is green end to end on commit `f21e32a`:
@@ -60,8 +81,6 @@ The pipeline that verifies the WebAuthn gate and the one-shot challenge is green
 | Visual regression | **25/25** mockup baselines passed (23.2 s) |
 | Route specs | **326 passed** (9.7 min) |
 | Build | green |
-
-This is the authoritative measurement and the reference every CI figure in the documentation now points at. *(The suite has since grown to **117 files / 2,035 tests** with the step-up hook suite and the parity test added; the figures in this table are the ones run `42571017086` produced, and the next CI run supersedes them.)*
 
 **CI run `42568173838` — 14/14 steps green — 2026-11-09**
 

@@ -19,10 +19,10 @@
 | Playwright route specs | 34 files / **358 specs** | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
-| ESLint | 0 errors, 56 warnings | 0 errors | ✅ |
+| ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
 | CI pipeline | 14/14 steps green | all green | ✅ |
 
-**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42571017086` on commit `f21e32a` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
+**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42582180399` on commit `7828bd0` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
 
 **The route specs were executed for the first time on 2026-11-08.** They had never been run as a suite — the pipeline did not include them, and the audit recorded them as *"not executed"*. See §2.2 for the result and §6 for what the run exposed.
 
@@ -102,7 +102,7 @@ Closing finding #6 made the challenge one-shot, and that turned a cosmetic gap i
 **Config:** `playwright.config.ts`
 **Location:** `tests/*.spec.ts` — **33 route-spec files / 358 specs**, plus `tests/01-mockups.spec.ts` (the mockup family, §2.3), for **34 files** under `npm test`
 **Web server:** `npm run dev:feat` on `http://localhost:3000`, with `CITYFIX_DEV_STORE=1`, `DEV_SKIP_WEBAUTHN=1` and the pinned clock (`CITYFIX_SEED_NOW` **and** `NEXT_PUBLIC_CITYFIX_SEED_NOW`)
-**Result:** **326 passed / 0 failed / 7 skipped** on `ubuntu-latest` — CI run `42571017086` (9.7 min), the authoritative measurement because the visual baselines are asserted on that platform. The same result was first recorded in run `42562594543` (14.2 min). `workers: 1`, `fullyParallel: false`
+**Result:** **326 passed / 0 failed / 7 skipped** on `ubuntu-latest` — CI run `42582180399` (11.9 min), the authoritative measurement because the visual baselines are asserted on that platform. The same result was first recorded in run `42562594543` (14.2 min). `workers: 1`, `fullyParallel: false`
 
 The route specs walk the four personas through the real app: `02-live-audit`, `03-authenticated-flow`, `04-e2e-human-tester`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough`, `30-role-redirect`, `31-post-auth-target`.
 

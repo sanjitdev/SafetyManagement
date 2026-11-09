@@ -372,7 +372,7 @@ This is the same trade the dedup path accepted: a `Serializable` transaction wou
 | **Non-vacuity** | Neutering `atCapacity` to `false` turns **3 of 130** dispatcher assertions red; restoring it turns them green |
 | `npx tsc --noEmit` | clean |
 | `npm run test:unit` | **117 files / 2,035 tests**, 100% passing |
-| `npm run lint` | 0 errors, 56 warnings (all pre-existing) |
+| `npm run lint` | 0 errors, 55 warnings (all pre-existing) |
 
 The picker and the assign service read the **same** `CREW_CAPACITY_LIMIT` constant and the **same** status set, so the hint and the trust boundary cannot drift apart.
 
