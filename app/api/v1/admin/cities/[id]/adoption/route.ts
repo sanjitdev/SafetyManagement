@@ -69,8 +69,10 @@ export async function GET(
 
     // --- The window ---------------------------------------------------
     // Default: "since launch" — the city's creation date to now.
-    // `DevCity` has no `createdAt` column, so the dev path falls
-    // back to the epoch.
+    //
+    // `DevCity` now carries a `createdAt` (the seed order), so the
+    // dev path has a real window start instead of falling back to
+    // the epoch. The Prisma path reads the same column.
     const cityCreatedAt = toIsoOf(
       (city as { createdAt?: string | Date }).createdAt,
     );

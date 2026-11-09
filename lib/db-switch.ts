@@ -69,11 +69,19 @@ export const db = {
         : prismaClient.city.findMany(),
     findFirst: async (args: { orderBy?: { createdAt: 'asc' | 'desc' } } = {}) => {
       if (isDevStore()) {
-        // The dev store keeps a single seeded city; `findMany` already
-        // sorts by name, so the first entry is the canonical "primary"
-        // city the bootstrap endpoint hands back.
-        const rows = devDb.city.findMany();
-        return rows[0] ?? null;
+        // The dev store honours the SAME `orderBy` the Prisma path
+        // honours. This matters: the public activity feed calls
+        // `findFirst({ orderBy: { createdAt: 'asc' } })` to pick the
+        // platform's PRIMARY city for an anonymous visitor.
+        //
+        // `city.findMany` sorts by NAME, and "Chattogram City
+        // Corporation" sorts before "Dhaka North City Corporation" —
+        // so taking the first row of `findMany` would select
+        // Chattogram, which is seeded EMPTY. The public landing page
+        // would then render an empty feed in dev-store mode (the mode
+        // the Playwright suite runs in) while the Prisma path showed
+        // Dhaka North. Both paths now agree.
+        return devDb.city.findFirst(args);
       }
       return prismaClient.city.findFirst(args);
     },

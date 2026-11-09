@@ -48,6 +48,27 @@ export interface DevCity {
   nameBn: string | null;
   defaultLanguage: 'bn' | 'en';
   dedupRadiusMeters: number;
+  /**
+   * Seed order, as an ISO timestamp.
+   *
+   * The Prisma `City` model carries `createdAt`, and
+   * `db.city.findFirst({ orderBy: { createdAt: 'asc' } })` is how
+   * the public activity feed picks the platform's PRIMARY city.
+   * The dev store's `city.findMany` sorts by NAME, so without this
+   * field the dev-store path would pick "Chattogram City
+   * Corporation" (alphabetically first) while the Prisma path picks
+   * Dhaka North — and Chattogram is seeded empty, so the public
+   * landing page would show an empty feed in dev-store mode.
+   *
+   * The value is a monotonically increasing epoch offset from the
+   * pinned seed clock, so it orders the same way the Prisma
+   * `createdAt` column does.
+   *
+   * Typed `Date | string` because `lib/db-switch.ts` casts the
+   * Prisma row (a `Date`) into the dev shape — the same parity
+   * pattern the ticket serializer uses for `createdAt`/`resolvedAt`.
+   */
+  createdAt: Date | string;
 }
 
 export interface DevWard {
@@ -356,6 +377,19 @@ function seed(): Store {
   const citizenId = 'user_citizen_rahim';
 
   const cities = new Map<string, DevCity>();
+  /**
+   * The seed clock, for the cities' `createdAt`.
+   *
+   * `createdAt` is what `db.city.findFirst({ orderBy: { createdAt:
+   * 'asc' } })` sorts by to pick the platform's PRIMARY city (the
+   * public activity feed's anonymous default). The cities are seeded
+   * with descending offsets — Dhaka North is the OLDEST, so it stays
+   * the primary city, exactly as the Prisma seed's insert order makes
+   * it. Without this the dev store's name sort would pick Chattogram
+   * (alphabetically first), and Chattogram is seeded EMPTY — so the
+   * public landing page would render an empty feed.
+   */
+  const citySeedClock = nowMs();
   cities.set(cityId, {
     id: cityId,
     slug: 'dhaka-north',
@@ -363,6 +397,7 @@ function seed(): Store {
     nameBn: 'ঢাকা উত্তর সিটি কর্পোরেশন',
     defaultLanguage: 'bn',
     dedupRadiusMeters: 50,
+    createdAt: new Date(citySeedClock).toISOString(),
   });
   // Bolt 005-002 — two extra cities for
   // the admin's cities overview:
@@ -380,6 +415,7 @@ function seed(): Store {
     nameBn: 'ঢাকা দক্ষিণ সিটি কর্পোরেশন',
     defaultLanguage: 'bn',
     dedupRadiusMeters: 50,
+    createdAt: new Date(citySeedClock + 1000).toISOString(),
   });
   const chittagongId = 'city_chittagong';
   cities.set(chittagongId, {
@@ -389,6 +425,7 @@ function seed(): Store {
     nameBn: 'চট্টগ্রাম সিটি কর্পোরেশন',
     defaultLanguage: 'bn',
     dedupRadiusMeters: 50,
+    createdAt: new Date(citySeedClock + 2000).toISOString(),
   });
 
   const wards = new Map<string, DevWard>();
@@ -1215,6 +1252,40 @@ export const devDb = {
       list.sort((a, b) => a.name.localeCompare(b.name));
       return list;
     },
+    /**
+     * The FIRST city, honouring `orderBy.createdAt`.
+     *
+     * Mirrors the Prisma call the public activity feed makes:
+     * `db.city.findFirst({ orderBy: { createdAt: 'asc' } })` picks
+     * the platform's PRIMARY city for an anonymous visitor.
+     *
+     * The sort is on `createdAt`, NOT on `name` — `findMany` above
+     * sorts by name, and "Chattogram City Corporation" sorts before
+     * "Dhaka North City Corporation". Sorting the primary-city
+     * lookup by name would pick Chattogram, which is seeded empty,
+     * and the public landing page would render an empty feed.
+     *
+     * `desc` reverses the order. A city with no `createdAt` (a row
+     * created before this field existed) sorts last on an ascending
+     * query, which keeps the oldest seeded city first.
+     */
+    findFirst(args?: {
+      orderBy?: { createdAt: 'asc' | 'desc' };
+    }): DevCity | null {
+      const list = [...getStore().cities.values()];
+      const dir = args?.orderBy?.createdAt === 'desc' ? -1 : 1;
+      const ms = (value: Date | string | undefined): number => {
+        if (!value) return Number.POSITIVE_INFINITY;
+        return typeof value === 'string' ? Date.parse(value) : value.getTime();
+      };
+      list.sort((a, b) => {
+        const at = ms(a.createdAt);
+        const bt = ms(b.createdAt);
+        if (at === bt) return a.name.localeCompare(b.name);
+        return (at - bt) * dir;
+      });
+      return list[0] ?? null;
+    },
     create(args: {
       data: {
         slug: string;
@@ -1232,6 +1303,9 @@ export const devDb = {
         nameBn: args.data.nameBn,
         defaultLanguage: args.data.defaultLanguage,
         dedupRadiusMeters: args.data.dedupRadiusMeters,
+        // A city created at runtime is NEWER than every seeded city,
+        // so it never displaces the platform's primary city.
+        createdAt: new Date(nowMs() + 3000).toISOString(),
       };
       getStore().cities.set(id, city);
       return city;
