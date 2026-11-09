@@ -475,7 +475,7 @@ GET /api/dev/login?role=admin
 ```
 
 `GET /api/dev/reset` wipes the in-memory store and reseeds the Dhaka
-template (one city, 10 wards, 3 departments, 6 categories, one user
+template (one city, 50 wards, 3 departments, 5 categories, one user
 per role).
 
 ### Construction Verification Command

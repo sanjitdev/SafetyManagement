@@ -207,7 +207,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 2.7 | `Ticket` / `TicketTrailEntry` / `TicketPhoto` have uniqueness constraints | ❌ | None of the three has `@@unique` |
 | 2.8 | `AuditEntry` deletion does not block legitimate user deletion | ⚠️ | `onDelete: Restrict` (`schema.prisma:428-443`) vs `lib/admin/users-db.ts:436-460` — needs a live DB |
 | 2.9 | `Ticket` carries the timestamps honest metrics need | ❌ | No `routedAt`, `firstResponseAt`, `assignedAt`, `startedAt` — `prisma/schema.prisma:311-372` |
-| 2.10 | Seed data is idempotent | ✅ | `prisma/seed.ts` — Dhaka template: 1 city, 10 wards, 3 departments, 6 categories, 1 user per role |
+| 2.10 | Seed data is idempotent | ✅ | `prisma/seed.ts` — Dhaka template: 1 city, 50 wards, 3 departments, 5 categories, 1 user per role |
 | 2.11 | `SlaPolicy` is actually consulted by the product | ❌ | Defined and seeded, **never read**; `schema.prisma:123` claims otherwise |
 | 2.12 | Production DB guard rejects a loopback `DATABASE_URL` | ✅ | `lib/platform/db-guard.ts` — 100% line coverage; handles URL and libpq forms; latches on success |
 

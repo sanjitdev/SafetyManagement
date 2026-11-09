@@ -66,6 +66,35 @@ push fan-out — all served from one process.
 
 For a real run with persistent storage.
 
+> **"Real mode" does not need a hosted database.** Plain `npm run dev`
+> (no `CITYFIX_DEV_STORE=1`) already runs against the real Postgres —
+> the dev store is selected by that one env var. The db-guard's
+> loopback rule only fires under `NODE_ENV=production`, which is a
+> *deployment* concern. A hosted Neon `DATABASE_URL` is needed only for
+> an actual production deploy.
+
+### 0. The seeded personas
+
+`npm run db:seed` creates one user per role. Every seeded persona shares
+the password **`12345678`**:
+
+| Role | Name | Phone | `userId` |
+|---|---|---|---|
+| dispatcher | Habib | `+8801711000001` | `user_dispatcher_habib` |
+| crew | Rashid | `+8801711000002` | `user_crew_rashid` |
+| admin | Anwar | `+8801711000003` | `user_admin_anwar` |
+| crew | — | `+8801711000004` | — |
+| crew | — | `+8801711000005` | — |
+
+The admin persona is the one that matters for ADR-007: admin writes
+require a WebAuthn assertion. The **seed** creates no credential for
+`user_admin_anwar`, so a freshly-seeded database returns
+`401 webauthn_required` on an admin write until a key is registered.
+A database that has already run the Playwright route specs will have
+credentials on that user, so the gate behaves differently depending on
+the database's history — check `User.webAuthnCredentials` (a JSON
+column) before concluding the gate is broken.
+
 ### 1. Prereqs
 
 - **Node.js 22** (recommended; `>=20` is the runtime floor)
@@ -108,13 +137,29 @@ echo 'SESSION_SECRET="'"$(openssl rand -hex 32)"'"' >> .env
 
 ```sh
 # Apply migrations + seed the Dhaka template
-# (1 city, 10 wards, 3 departments, 6 categories, 1 user per role)
+# (1 city, 50 wards, 3 departments, 5 categories, 1 user per role)
 npm run db:setup
 ```
 
 `db:setup` = `db:migrate:deploy` then `db:seed`. For local schema
 iteration, `npm run db:migrate` (`prisma migrate dev`) authors a new
 migration.
+
+> **Run `db:migrate:deploy` before trusting any local real-mode
+> result.** A database that is behind the migrations fails in two
+> different shapes, and the quiet one is the dangerous one:
+>
+> - a **500** naming the missing column — `The column 'Ticket.version'
+>   does not exist` from `GET /api/v1/admin/tickets`. Easy to read.
+> - an **empty 200** — `GET /api/v1/activity/public` selects that same
+>   column, so the query fails, the error is swallowed, and the route
+>   reports "no tickets". This reads as *"there is no data yet"* rather
+>   than *"the database is broken"*, and it will mislead you for a long
+>   time.
+>
+> Check the applied set directly if you are unsure:
+> `SELECT migration_name, finished_at FROM "_prisma_migrations";` — a
+> row with a NULL `finished_at` is a migration that never completed.
 
 ### 4. Build + start
 

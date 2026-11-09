@@ -107,8 +107,8 @@ Open `http://localhost:3000`. The splash screen → register → home flow works
 # 1. Configure
 echo 'DATABASE_URL="postgresql://user:pass@localhost:5432/cityfix"' >> .env.local
 
-# 2. Migrate + seed (Dhaka template: 1 city, 10 wards, 3 departments,
-#    6 categories, 1 user per role)
+# 2. Migrate + seed (Dhaka template: 1 city, 50 wards, 3 departments,
+#    5 categories, 1 user per role)
 npm run db:setup
 
 # 3. Build + start
