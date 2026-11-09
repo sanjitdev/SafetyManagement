@@ -195,7 +195,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 
 | Check | Run | Result |
 |---|---|---|
-| Full pipeline | `42515694762` on `97cf0b4` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
+| Full pipeline | `42518322594` on `0d5fc13` | ✅ green end to end — lint, typecheck, unit, coverage, visual regression, build, route specs |
 | Visual regression | Same run | ✅ 25/25 baselines |
 
 ### Executed after the audit snapshot
@@ -203,12 +203,13 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | Check | Command | Result |
 |---|---|---|
 | Playwright route specs (first execution, Windows) | `npm test` | **321 passed / 35 failed / 2 skipped** across 33 files, 14.4 min |
-| Playwright route specs (Linux container) | `npm test` in the Playwright container | ✅ **324 passed / 2 failed / 7 skipped**, 11.2 min |
-| Playwright route specs (CI) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ green end to end — workflow run `42515694762` |
+| Playwright route specs (CI, `ubuntu-latest`) | `npx playwright test --grep-invert 'CityFix mockup baselines'` | ✅ **326 passed / 0 failed / 7 skipped**, 12.4 min — workflow run `42518322594` |
 
 The route specs had never been run as a suite before 2026-11-08 — they were not in the CI pipeline, and the audit recorded them as *"not executed"*. The first full run produced **61 failures**, all triaged. Closing them exposed **two product defects**: `serializeTicketForRole` dropped `closeReason`/`duplicateOfId` for every role, and the citizen compact header stripped the top-bar Report CTA that WO-001 lists as a required acceptance item. All functional failures are now closed; the 35 stale visual baselines were refreshed on `ubuntu-latest` by workflow run `42501672037` (32 changed, 27 unchanged, 4 new — the 4 being baselines for two specs that had never captured one).
 
-The Linux container is the **authoritative** measurement, because the visual baselines are asserted on `ubuntu-latest` and a Windows run cannot reproduce the asserting platform's rendering. It reduced the count to **2 failures**, and it exposed a defect no Windows run could see: the **seeded clock was the wall clock**, so every screenshot embedded the moment it was taken and no visual baseline could ever hold. The clock is now pinned end to end (`lib/format/clock.ts`) — the seed, the admin query windows, the chart axes, and the **client bundle**, the last of which needed the `NEXT_PUBLIC_` prefix because `process.env` is server-only and a server/client divergence fails the React hydration. The 2 remaining failures were the container comparing a pinned render against a **stale** committed PNG: the committed baselines were refreshed in `ebdba41` at 23:06 on 2026-11-08, and `d895242` had already put the pin into `playwright.config.ts` at 22:29 the same evening — so the refresh ran *with* the pin. The container archive that reported the failures was built before that refresh. Re-running the baseline workflow on `ubuntu-latest` (run `42517872827`) produced **63 PNGs byte-identical** to the committed baselines, which proves they are *stable*, not merely current.
+The `ubuntu-latest` run is the **authoritative** measurement, because the visual baselines are asserted on that platform and a Windows run cannot reproduce the asserting platform's rendering. It exposed a defect no Windows run could see: the **seeded clock was the wall clock**, so every screenshot embedded the moment it was taken and no visual baseline could ever hold. The clock is now pinned end to end (`lib/format/clock.ts`) — the seed, the admin query windows, the chart axes, and the **client bundle**, the last of which needed the `NEXT_PUBLIC_` prefix because `process.env` is server-only and a server/client divergence fails the React hydration.
+
+The final state is **326 passed / 0 failed / 7 skipped**. The baselines are **stable**, not merely current: re-running the baseline workflow on `ubuntu-latest` (run `42517872827`) produced **63 PNGs byte-identical** to the committed ones, which means a future baseline failure is a real regression rather than ambient drift. (The 2 failures reported by an intermediate container run were the container comparing a pinned render against a **stale** committed PNG — the committed baselines were refreshed in `ebdba41` at 23:06 on 2026-11-08, and `d895242` had already put the pin into `playwright.config.ts` at 22:29 the same evening, so the refresh ran *with* the pin; that container's archive predated the refresh.)
 
 The route specs **now run in CI**. They previously never ran in the pipeline, which is exactly how 61 stale assertions, a broken native-binding path and a moving clock went unnoticed. See `TESTING_REPORT.md` §2.2 for the full account.
 

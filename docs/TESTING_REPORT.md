@@ -22,7 +22,7 @@
 | ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
 | CI pipeline | 17/17 steps green | all green | ✅ |
 
-**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42515694762` on commit `97cf0b4` — 17 steps, up from 12 when the route specs were added.
+**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42518322594` on commit `0d5fc13` — 17 steps, up from 12 when the route specs were added.
 
 **The route specs were executed for the first time on 2026-11-08.** They had never been run as a suite — the pipeline did not include them, and the audit recorded them as *"not executed"*. See §2.2 for the result and §6 for what the run exposed.
 
@@ -62,7 +62,7 @@ All six were **verified non-vacuous**. Neutering the compare-and-swap — forcin
 **Config:** `playwright.config.ts`
 **Location:** `tests/*.spec.ts` — **33 route-spec files / 358 specs**, plus `tests/01-mockups.spec.ts` (the mockup family, §2.3), for **34 files** under `npm test`
 **Web server:** `npm run dev:feat` on `http://localhost:3000`, with `CITYFIX_DEV_STORE=1`, `DEV_SKIP_WEBAUTHN=1` and the pinned clock (`CITYFIX_SEED_NOW` **and** `NEXT_PUBLIC_CITYFIX_SEED_NOW`)
-**Result:** **324 passed / 2 failed / 7 skipped**, 11.2 min in the Linux container — the authoritative measurement, since the visual baselines are asserted on `ubuntu-latest`. The 2 failures were the container comparing a pinned render against a *stale* committed PNG; the committed baselines are in fact pinned-clock (the refresh in `ebdba41` ran after the pin landed in `playwright.config.ts`), and re-running the baseline workflow produced **63 byte-identical** PNGs. `workers: 1`, `fullyParallel: false`
+**Result:** **326 passed / 0 failed / 7 skipped**, 12.4 min on `ubuntu-latest` — CI run `42518322594`, the authoritative measurement because the visual baselines are asserted on that platform. `workers: 1`, `fullyParallel: false`
 
 The route specs walk the four personas through the real app: `02-live-audit`, `03-authenticated-flow`, `04-e2e-human-tester`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough`, `30-role-redirect`, `31-post-auth-target`.
 
@@ -89,11 +89,11 @@ After the fixes above, every remaining failure was a **visual-baseline mismatch*
 
 The baselines were refreshed on `ubuntu-latest` by workflow run `42501672037` and downloaded from its `refreshed-baselines` artifact: **32 changed, 27 unchanged, 4 new**. The 25 mockup baselines came through **byte-identical**, which is the proof that the refresh moved only what was stale and nothing else.
 
-#### Two of the "stale baselines" were not stale — the clock moved
+#### The "stale baselines" were not stale — the clock moved
 
-The first container run (the authoritative measurement, on Linux) reduced 276 passed / 50 failed to **324 passed / 2 failed**. The 48 that the argon2 fix resolved were the environment trap described below. The last **2** — `18-admin-audit-light` and `19-admin-tickets-light` — were expected to be baseline drift. They were not.
+The first container run reduced 276 passed / 50 failed to **324 passed / 2 failed**. The 48 that the argon2 fix resolved were the environment trap described below. The last **2** — `18-admin-audit-light` and `19-admin-tickets-light` — were expected to be baseline drift. They were not.
 
-The pixel diff showed the same rows, the same actors and the same payloads with one difference: the timestamp column. The expected baseline read `08:৫৫ PM`; the actual read `09:৪৪ PM`. Two causes, both real:
+The pixel diff showed the same rows, the same actors and the same payloads with one difference: the timestamp column. The expected baseline read `০৪:৫৫ PM` (16:55); the actual read `০৩:৪৩ PM` (15:43). Two causes, both real:
 
 1. **The seed clock was the wall clock.** Every seeded ticket, trail entry and audit row derived its timestamp from `Date.now()`, so a screenshot taken now could never match one captured earlier — or later. The symptom is a baseline test that fails no matter how many times it is regenerated; "regenerate the baseline" fixes it for exactly as long as nobody looks at it again.
 

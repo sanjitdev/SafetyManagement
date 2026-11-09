@@ -64,6 +64,8 @@ Also: the dev store, the admin query windows and the chart axes all read the pin
 
 **Proof that the baselines are now stable, not merely current.** Re-running the baseline-regeneration workflow on `ubuntu-latest` (run `42517872827`) produced **63 PNGs byte-identical** to the committed baselines — every one of them. A refresh that reproduces the committed files exactly is a stronger claim than "the baselines were refreshed": it means the visual regression suite is now *reproducible*, so a future failure is a real regression rather than ambient drift. The two PNGs that had failed in the Linux container were failing against a **stale committed copy**, because the archive that run used was built before the pinned-clock refresh landed.
 
+**The route specs are green on the platform that asserts the baselines.** CI run `42518322594` — every one of its 17 steps green — reports **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, with the unit suite at **111 files / 1,960 tests** and the mockup family at **25/25**. This is the authoritative measurement: `ubuntu-latest` is where the visual baselines are asserted, so a Windows run cannot stand in for it.
+
 **The slow-motion demo could not run headless — 2026-11-08.**
 
 `tests/22-slow-motion-e2e-demo.spec.ts` hardcoded `headless: false` in its `test.use` override. A headed Chromium needs an X server, and a GitHub runner has none, so the spec died with *"Missing X server or $DISPLAY"*. Because it is the last spec in the 358-test sweep, it failed the baseline-regeneration workflow and took the whole regenerated-baseline upload down with it — 350 regenerated PNGs discarded on the runner's disk.
