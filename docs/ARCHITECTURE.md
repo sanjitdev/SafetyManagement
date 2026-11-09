@@ -49,7 +49,7 @@ The product thesis is **civic observability**: visibility is what makes a city's
 ```
 app/**/page.tsx          React Server Components — presentation
 components/**            Shared UI (62 .tsx files)
-app/api/**/route.ts      HTTP boundary — parse, delegate, serialise  (61 files, 8,374 LOC)
+app/api/**/route.ts      HTTP boundary — parse, delegate, serialise  (62 files, 8,818 LOC)
 lib/**                   Service layer — all business logic            (23,521 LOC)
 prisma/schema.prisma     16 models
 ```

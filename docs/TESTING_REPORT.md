@@ -10,8 +10,8 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 111 | — | — |
-| Unit tests passing | **1,960 / 1,960** | — | ✅ |
+| Unit test files | 112 | — | — |
+| Unit tests passing | **1,978 / 1,978** | — | ✅ |
 | Coverage — lines | **92.59%** | 80% | ✅ |
 | Coverage — branches | **83.08%** | 80% | ✅ |
 | Coverage — functions | **93.66%** | 80% | ✅ |
@@ -37,7 +37,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 111 files, 1,960 tests, 100% passing, ~27 s
+**Result:** 112 files, 1,978 tests, 100% passing, ~29 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -255,7 +255,7 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 | `app/api` route handlers only | 0.00% | 0.00% | 0.00% (0/7,516 lines, 56 files) |
 | `lib/**` + `app/api` combined | 49.01% | 78.61% | 82.75% |
 
-The 56 (now 61) route files are thin HTTP boundary adapters: parse, delegate, serialise. They hold no business logic, and their behaviour is already covered end-to-end by the Playwright route specs. Unit-testing them would duplicate that coverage rather than add signal, and would force the 80% floor to be met by mock-heavy HTTP-shaping tests that assert nothing about product behaviour.
+The 56 (now 62) route files are thin HTTP boundary adapters: parse, delegate, serialise. They hold no business logic, and their behaviour is already covered end-to-end by the Playwright route specs. Unit-testing them would duplicate that coverage rather than add signal, and would force the 80% floor to be met by mock-heavy HTTP-shaping tests that assert nothing about product behaviour.
 
 **This is not a weakening of the threshold.** The mandated 80% floor is unchanged and still applies to the scope that holds the logic. The `app/api` figure is reported here so the trade-off stays visible rather than hidden.
 

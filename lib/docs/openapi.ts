@@ -1142,6 +1142,88 @@ export const openapiPaths: Record<string, PathItem> = {
       },
     },
   },
+  '/api/auth/webauthn/step-up': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Complete a session-authenticated WebAuthn step-up',
+      description:
+        'The step-up ceremony for an admin who is ALREADY signed in. Unlike `/api/auth/webauthn/assertion` (which mints a session and is the login flow), this route mints nothing: it verifies possession of the authenticator and refreshes the challenge ledger row that the `requireWebAuthn` guard reads, so the admin’s next gated write succeeds. The challenge is always bound to the session’s own user — a challenge issued for another user is rejected with 403.',
+      operationId: 'webauthnStepUp',
+      requestBody: jsonBody({
+        oneOf: [
+          {
+            type: 'object',
+            required: ['action'],
+            properties: { action: { type: 'string', enum: ['challenge'] } },
+          },
+          {
+            type: 'object',
+            required: ['action', 'challengeId', 'assertionResponse'],
+            properties: {
+              action: { type: 'string', enum: ['verify'] },
+              challengeId: { type: 'string', minLength: 1 },
+              assertionResponse: {
+                type: 'object',
+                description: 'The `navigator.credentials.get(...)` result — `id`, `rawId`, `response`, `type`, `clientExtensionResults`.',
+                additionalProperties: true,
+              },
+            },
+          },
+        ],
+      }),
+      responses: {
+        '200': jsonResponse(
+          'For `action: "challenge"`, the assertion ceremony options. For `action: "verify"`, the step-up completed.',
+          {
+            oneOf: [
+              {
+                type: 'object',
+                required: ['challengeId', 'challenge', 'rpId', 'allowCredentials', 'userVerification', 'timeout'],
+                properties: {
+                  challengeId: { type: 'string' },
+                  challenge: { type: 'string', description: 'Base64url nonce.' },
+                  rpId: { type: 'string' },
+                  allowCredentials: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        transports: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                  userVerification: { type: 'string', enum: ['preferred', 'required', 'discouraged'] },
+                  timeout: { type: 'integer' },
+                },
+              },
+              {
+                type: 'object',
+                required: ['ok'],
+                properties: { ok: { type: 'boolean', enum: [true] } },
+              },
+            ],
+          },
+        ),
+        '400': jsonResponse('Validation failed.', issuesBody('invalid_input')),
+        '401': jsonResponse('Not signed in, or the assertion failed.', {
+          oneOf: [
+            errorBody('not_authenticated'),
+            errorBody('webauthn_assertion_failed'),
+            errorBody('webauthn_assertion_expired'),
+          ],
+        }),
+        '403': jsonResponse('The session is not an admin, or the challenge belongs to another user.', {
+          oneOf: [errorBody('forbidden_role'), errorBody('webauthn_challenge_owner_mismatch')],
+        }),
+        '404': jsonResponse('The challenge or the credential does not exist.', {
+          oneOf: [errorBody('webauthn_challenge_not_found'), errorBody('webauthn_credential_not_found')],
+        }),
+        '409': jsonResponse('The admin has no registered WebAuthn credential.', errorBody('webauthn_no_credential')),
+        '500': jsonResponse('Unexpected server error.', errorBody('unhandled')),
+      },
+    },
+  },
   '/api/auth/webauthn/register/challenge': {
     post: {
       tags: ['Auth'],

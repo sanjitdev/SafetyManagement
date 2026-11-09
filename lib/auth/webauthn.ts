@@ -7,7 +7,8 @@
  *
  *   - issueChallenge(userId, kind)
  *   - verifyAttestation(userId, attestationResponse, credentialName)
- *   - verifyAssertion(userId, challengeId, assertionResponse)
+ *   - verifyAssertion(challengeId, assertionResponse)      — login: verify + mint a session
+ *   - verifyAssertionSignature(challengeId, assertionResponse) — step-up: verify only
  *   - revokeCredential(userId, credentialId)
  *
  * Signature verification is delegated to `@simplewebauthn/server` v10.
@@ -192,6 +193,22 @@ export interface AssertionSessionResult {
   cityId: string;
   cookieValue: string;
   expiresAt: Date;
+}
+
+/**
+ * The result of verifying an assertion signature WITHOUT minting a
+ * session. See `verifyAssertionSignature` for why the step-up flow
+ * needs this shape.
+ */
+export interface VerifiedAssertion {
+  /** The user the assertion was bound to (from the challenge row). */
+  userId: string;
+  /** The city of that user, needed by the session minting path. */
+  cityId: string;
+  /** The credential counter before the bump. */
+  previousCounter: number;
+  /** The credential counter after the bump. */
+  newCounter: number;
 }
 
 function bufferToBase64Url(buf: Uint8Array | ArrayBuffer): string {
@@ -454,6 +471,72 @@ export async function verifyAssertion(
   assertionResponse: unknown,
   requestHost?: string | null,
 ): Promise<AssertionSessionResult> {
+  const verified = await verifyAssertionSignature(
+    challengeId,
+    assertionResponse,
+    requestHost,
+  );
+
+  // Mint the session.
+  const { sessionId, cookieValue, expiresAt: sessionExpiresAt } =
+    await createSession({
+      userId: verified.userId,
+      cityId: verified.cityId,
+      wardId: null,
+      departmentId: null,
+    });
+
+  await writeAudit({
+    entityType: 'user',
+    entityId: verified.userId,
+    action: 'webauthn.assertion',
+    actorId: verified.userId,
+    beforeValue: { counter: verified.previousCounter },
+    afterValue: {
+      counter: verified.newCounter,
+      sessionId,
+      expiresAt: sessionExpiresAt.toISOString(),
+    },
+  });
+
+  return {
+    sessionId,
+    userId: verified.userId,
+    role: 'admin',
+    cityId: verified.cityId,
+    cookieValue,
+    expiresAt: sessionExpiresAt,
+  };
+}
+
+/**
+ * The verification half of `verifyAssertion`, without the session
+ * minting.
+ *
+ * Why this is split out: the **login** ceremony needs a session
+ * (the caller has no cookie yet — the assertion IS the login), but
+ * the **step-up** ceremony does not. A signed-in admin performing a
+ * gated write needs to prove possession of their authenticator
+ * without invalidating or replacing their existing session. Minting
+ * a second session for that would rotate the cookie under the admin's
+ * feet and leave the old session row dangling.
+ *
+ * So the step-up route verifies the signature here and then
+ * refreshes the challenge ledger row. The `requireWebAuthn` guard
+ * checks only that the most-recent challenge for the user is
+ * unexpired — it does not consume it — so a fresh challenge row IS
+ * the step-up proof, and the next gated write passes.
+ *
+ * On success: the credential's counter is bumped and the
+ * `webauthn.assertion` audit row is NOT written here — the caller
+ * decides which audit action applies (the login route's session
+ * mint, or the step-up route's `webauthn.step_up`).
+ */
+export async function verifyAssertionSignature(
+  challengeId: string,
+  assertionResponse: unknown,
+  requestHost?: string | null,
+): Promise<VerifiedAssertion> {
   assertWebAuthnProdConfig();
   if (
     !assertionResponse ||
@@ -530,35 +613,11 @@ export async function verifyAssertion(
   );
   await db.userWebAuthn.writeCredentials(userId, updated);
 
-  // Mint the session.
-  const { sessionId, cookieValue, expiresAt: sessionExpiresAt } =
-    await createSession({
-      userId: user.id,
-      cityId: user.cityId,
-      wardId: null,
-      departmentId: null,
-    });
-
-  await writeAudit({
-    entityType: 'user',
-    entityId: userId,
-    action: 'webauthn.assertion',
-    actorId: userId,
-    beforeValue: { counter: stored.counter },
-    afterValue: {
-      counter: newCounter,
-      sessionId,
-      expiresAt: sessionExpiresAt.toISOString(),
-    },
-  });
-
   return {
-    sessionId,
-    userId: user.id,
-    role: 'admin',
+    userId,
     cityId: user.cityId,
-    cookieValue,
-    expiresAt: sessionExpiresAt,
+    previousCounter: stored.counter,
+    newCounter,
   };
 }
 

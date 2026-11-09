@@ -10,6 +10,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The WebAuthn step-up ceremony — 2026-11-09**
+
+ADR-007 made the *enforcement* correct but left the *path to satisfaction* missing. `requireWebAuthn` accepts a fresh, unexpired challenge row as the proof — but the only route that could mint one for an already-signed-in admin was `POST /api/auth/webauthn/login`, which is anonymous and email-keyed (it is the login ceremony), and whose sibling `/api/auth/webauthn/assertion` **mints a new session**. So an admin already signed in with a password session and hitting a gated write received a bare `401 webauthn_required` and had exactly one way to satisfy it: log out and back in. For a signed-in admin that is a dead end, not a workflow. ADR-007 recorded this as a known risk.
+
+- `app/api/auth/webauthn/step-up/route.ts` — **new**. The session-authenticated ceremony. It binds the challenge to **the session's own user** (never a client-supplied identifier) and does **not** mint or replace the session — the admin's existing cookie keeps working, and what changes is that the challenge ledger holds a fresh, unexpired row, so the next gated write passes. A challenge belonging to another user is rejected with 403 `webauthn_challenge_owner_mismatch`; without that check a signed-in admin could complete someone else's challenge and have it recorded as their own step-up.
+- `lib/auth/webauthn.ts` — `verifyAssertion` split into `verifyAssertionSignature` (all the verification, no session minting) and `verifyAssertion` (the signature check plus session minting plus the `webauthn.assertion` audit row). The login path is unchanged; the step-up path mints nothing.
+- `components/AdminWebAuthnStepUp.tsx` — **new**. The browser ceremony. It deliberately does **not** reuse `WebAuthnCeremony`: that component drives the *login* ceremony and mints a session, which is the wrong shape for a step-up.
+- `app/admin/tickets/[id]/page.tsx` — a gated write no longer surfaces a bare error code. The transition / reassign handler detects `webauthn_required` or `webauthn_assertion_expired`, stashes the pending write, and opens the step-up panel; a verified assertion retries the write automatically. An admin with no registered credential is pointed at the registration mount point (`AdminSecurityKey`) instead of being asked for a retry.
+- `lib/i18n/keys.ts` — 7 new Bangla-first keys for the panel.
+- `tests/unit/webauthn-step-up.test.ts` — **new**, 12 tests. The cross-user ownership check is proven non-vacuous: disabling it turns the test red.
+- `docs/adr/ADR-007-admin-write-webauthn.md` — the "no ceremony affordance" risk is now **CLOSED**, with the amendment recording what changed and what deliberately did not.
+
 **Refreshed route-spec baselines — 2026-11-08**
 
 - `tests-mockups/baselines/` — **32 PNGs refreshed**, **4 added**. The refresh was produced on `ubuntu-latest` by workflow run `42501672037` and downloaded from its `refreshed-baselines` artifact; the 25 mockup baselines were unchanged, which proves the refresh moved only what was stale. The 4 new files are baselines for `11-dispatcher-detail-light.spec.ts` and `12-dispatcher-dedup-light.spec.ts`, two specs that had **never captured a baseline** and therefore could never have passed.
@@ -35,7 +47,7 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - `docs/PROJECT_AUDIT.md` — the entry point. Project identity, the product thesis, personas, history (135 commits), what exists, verification status, health assessment, governance, what is not built yet, and the three decisions that matter most.
 - `docs/PRODUCTION_READINESS_CHECKLIST.md` — the master go/no-go. **172 items across 12 stages**, each PASS / FAIL / NOT VERIFIED / NOT APPLICABLE with evidence. Carries the mandated Final Report Format: 44% overall, 76 passed, 67 failed, 28 not verified, 1 not applicable; 4 Critical / 5 High / 13 Medium / 9 Low issues; the security, performance and deployment assessments; the sixteen remaining blockers; and the explicit list of items that could not be verified and why.
 - `docs/SECURITY_AUDIT.md` — 17 findings (4 Critical, 4 High, 5 Medium, 4 Low) with file:line evidence, the auth and authorisation contract, and the remediation order. Verdict: not production-ready.
-- `docs/API_DOCUMENTATION.md` — all **77** operations across 61 route handlers, with the guard contract table, the error-code table, per-endpoint request/response schemas, the five documented API inconsistencies, and the two phantom operations found in the spec.
+- `docs/API_DOCUMENTATION.md` — all **77** operations across 62 route handlers, with the guard contract table, the error-code table, per-endpoint request/response schemas, the five documented API inconsistencies, and the two phantom operations found in the spec.
 - `docs/ARCHITECTURE.md` — the layers, the `lib/` map, the data model, the request lifecycle with the deliberate guard ordering, the dev-store seam, the CI pipeline, and nine known architectural weaknesses.
 - `docs/TESTING_REPORT.md` — the suites, the measured coverage and the weakest areas, the platform-specific baseline rule, the CI pipeline and the Node 22 rationale, and ten known testing gaps.
 - `docs/DEPLOYMENT_GUIDE.md` — Vercel + Neon hosting, the full environment-variable table including the three that must be unset in production, the production checklist, rollback procedures, monitoring gaps and four operational runbooks.
@@ -46,7 +58,7 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 
 - `docs/KNOWN_ISSUES.md` — index extended to cross-reference `CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md`; the concurrency findings are now reachable from the operational index rather than only from the dedicated document. Issue #26 (`docs/running.md` is stale) is marked **resolved**. Issue #31 records the phantom OpenAPI methods.
 - `docs/PROJECT_AUDIT.md` — the deliverable table now lists ten documents rather than nine; the "what could not be verified" table carries the concurrency-specific unknowns; the health assessment records the concurrency defect alongside the security findings; the operation count is corrected to 77.
-- **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 61 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
+- **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 62 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
 
@@ -64,7 +76,7 @@ Also: the dev store, the admin query windows and the chart axes all read the pin
 
 **Proof that the baselines are now stable, not merely current.** Re-running the baseline-regeneration workflow on `ubuntu-latest` (run `42517872827`) produced **63 PNGs byte-identical** to the committed baselines — every one of them. A refresh that reproduces the committed files exactly is a stronger claim than "the baselines were refreshed": it means the visual regression suite is now *reproducible*, so a future failure is a real regression rather than ambient drift. The two PNGs that had failed in the Linux container were failing against a **stale committed copy**, because the archive that run used was built before the pinned-clock refresh landed.
 
-**The route specs are green on the platform that asserts the baselines.** CI run `42518322594` — every one of its 17 steps green — reports **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, with the unit suite at **111 files / 1,960 tests** and the mockup family at **25/25**. This is the authoritative measurement: `ubuntu-latest` is where the visual baselines are asserted, so a Windows run cannot stand in for it.
+**The route specs are green on the platform that asserts the baselines.** CI run `42518322594` — every one of its 17 steps green — reports **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, with the unit suite at **112 files / 1,978 tests** and the mockup family at **25/25**. This is the authoritative measurement: `ubuntu-latest` is where the visual baselines are asserted, so a Windows run cannot stand in for it.
 
 **The slow-motion demo could not run headless — 2026-11-08.**
 
@@ -247,7 +259,7 @@ Recorded here so the changelog is useful on its own. Full evidence is in the lin
 
 This violated the spec module's own accuracy rule #1 (*"Where a route's own docblock disagrees with its code, THE CODE WINS"*), and `tsc --noEmit` cannot catch it — the type checker validates that a component reference is well-formed, not that a documented method has a handler behind it.
 
-**How it was found:** reconciling all 61 route files' exported method names against `openapiPaths` produced exactly one mismatch. The same reconciliation corrected this audit's own operation count from 80 to **77**.
+**How it was found:** reconciling all 62 route files' exported method names against `openapiPaths` produced exactly one mismatch. The same reconciliation corrected this audit's own operation count from 80 to **77**.
 
 **Fixed:** both spec blocks were deleted, `lib/docs/openapi.json` was regenerated, and `tests/unit/docs/openapi-route-parity.test.ts` now compares the spec against the route files mechanically on every unit run — so the two can no longer drift apart. See the "Fixed" section above.
 

@@ -19,6 +19,16 @@
  *      pure-reassign path. The shared route writes an audit row
  *      with `action: 'reassign.crew'`.
  *
+ * ADR-007: both writes are **admin writes**, so both are gated
+ * behind a fresh WebAuthn assertion by `requireWebAuthn`. When the
+ * API answers 401 `webauthn_required` / `webauthn_assertion_expired`,
+ * the page surfaces the step-up ceremony (`AdminWebAuthnStepUp`)
+ * instead of a bare error code, and retries the refused write once
+ * the ceremony verifies. The ceremony talks to
+ * `POST /api/auth/webauthn/step-up` — a session-authenticated route
+ * that binds the challenge to the session's own user and mints no
+ * new session.
+ *
  * The detail does NOT support editing the internal note or
  * reassigning ward/category — those operations live in the
  * dispatcher-only PATCH route (`PATCH /api/v1/dispatcher/tickets/[id]`)
@@ -28,7 +38,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -36,6 +46,7 @@ import { formatTimestamp } from '@/lib/format/datetime';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import { useSession } from '@/components/SessionProvider';
 
@@ -63,6 +74,16 @@ export default function AdminTicketDetailPage() {
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
 
   const [reassignId, setReassignId] = useState('');
+
+  // ADR-007: the admin's writes require a WebAuthn assertion. When
+  // the API answers 401 `webauthn_required` (or
+  // `webauthn_assertion_expired`), the page surfaces the step-up
+  // ceremony instead of a bare error code. `pendingWrite` remembers
+  // which write was refused so the ceremony can retry it.
+  const [stepUpNeeded, setStepUpNeeded] = useState(false);
+  const [stepUpInProgress, setStepUpInProgress] = useState(false);
+  const [stepUpNoCredential, setStepUpNoCredential] = useState(false);
+  const pendingWriteRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     const stored =
@@ -121,6 +142,20 @@ export default function AdminTicketDetailPage() {
     refetch();
   }, [signedIn, id, refetch]);
 
+  /**
+   * The WebAuthn gate codes that mean "you need to run the step-up
+   * ceremony, then retry".
+   *
+   * `webauthn_required` — the admin has no registered credential (or
+   * has one but no fresh challenge). `webauthn_assertion_expired` —
+   * the admin HAS a credential but the challenge is stale, so a new
+   * assertion is needed. Both are satisfied by the same ceremony; the
+   * difference is only in whether the admin needs to REGISTER a key
+   * first, which the challenge step reports as `no_credential`.
+   */
+  const isWebAuthnGate = (code: string | undefined): boolean =>
+    code === 'webauthn_required' || code === 'webauthn_assertion_expired';
+
   const onTransition = useCallback(
     async (toStatus: string) => {
       if (!id) return;
@@ -134,12 +169,21 @@ export default function AdminTicketDetailPage() {
           body: JSON.stringify({ toStatus }),
         });
         if (res.ok) {
+          setError(null);
           await refetch();
         } else {
           const body = (await res.json().catch(() => ({}))) as {
             error?: string;
           };
-          setError(body.error ?? `http_${res.status}`);
+          if (isWebAuthnGate(body.error)) {
+            // Remember the write so the ceremony can retry it.
+            pendingWriteRef.current = () => onTransition(toStatus);
+            setStepUpNeeded(true);
+            setStepUpNoCredential(false);
+            setError(null);
+          } else {
+            setError(body.error ?? `http_${res.status}`);
+          }
         }
       } finally {
         setActionInFlight(null);
@@ -161,18 +205,57 @@ export default function AdminTicketDetailPage() {
         body: JSON.stringify({ assignedCrewId: crewId }),
       });
       if (res.ok) {
+        setError(null);
         setReassignId('');
         await refetch();
       } else {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        setError(body.error ?? `http_${res.status}`);
+        if (isWebAuthnGate(body.error)) {
+          pendingWriteRef.current = () => onReassign();
+          setStepUpNeeded(true);
+          setStepUpNoCredential(false);
+          setError(null);
+        } else {
+          setError(body.error ?? `http_${res.status}`);
+        }
       }
     } finally {
       setActionInFlight(null);
     }
   }, [id, reassignId, refetch]);
+
+  /**
+   * The step-up ceremony completed. On `'verified'` the guard's
+   * challenge ledger now holds a fresh row, so the refused write is
+   * retried. The other outcomes do NOT retry — a retry without a
+   * valid assertion would fail the same way.
+   */
+  const onStepUpOutcome = useCallback(
+    (outcome: 'verified' | 'no_credential' | 'failed' | 'cancelled') => {
+      if (outcome === 'verified') {
+        setStepUpNeeded(false);
+        setStepUpNoCredential(false);
+        const retry = pendingWriteRef.current;
+        pendingWriteRef.current = null;
+        if (retry) void retry();
+        return;
+      }
+      if (outcome === 'no_credential') {
+        // No amount of retrying helps: the admin must REGISTER a key.
+        setStepUpNoCredential(true);
+        setStepUpNeeded(false);
+        pendingWriteRef.current = null;
+        return;
+      }
+      // 'failed' | 'cancelled' — clear the banner; the ceremony
+      // component renders its own error line.
+      setStepUpNeeded(false);
+      pendingWriteRef.current = null;
+    },
+    [],
+  );
 
   if (signedIn === null) {
     return (
@@ -463,7 +546,7 @@ export default function AdminTicketDetailPage() {
                     key={toStatus}
                     type="button"
                     data-testid={`admin-tickets-transition-${toStatus}`}
-                    disabled={busy}
+                    disabled={busy || stepUpInProgress}
                     onClick={() => onTransition(toStatus)}
                     style={{
                       minHeight: 36,
@@ -486,6 +569,54 @@ export default function AdminTicketDetailPage() {
                 );
               })}
             </div>
+
+            {/*
+              ADR-007: the WebAuthn step-up. This renders only after a
+              gated write was refused — the ceremony is offered
+              because the admin ASKED to make a change, not as a
+              permanent button on the page.
+            */}
+            {(stepUpNeeded || stepUpNoCredential) && (
+              <div
+                data-testid="admin-webauthn-step-up-panel"
+                style={{
+                  marginTop: 16,
+                  padding: 'var(--space-3)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-surface-raised)',
+                }}
+              >
+                {stepUpNoCredential ? (
+                  <>
+                    <p
+                      data-testid="admin-webauthn-step-up-register-hint"
+                      style={{
+                        fontSize: 'var(--text-body-sm)',
+                        color: 'var(--color-ink-secondary)',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {t('admin.webauthn.step_up.register_hint', null, lang)}
+                    </p>
+                    <Link
+                      href="/admin"
+                      data-testid="admin-webauthn-step-up-register-link"
+                      className="admin-btn-primary px-4 py-2 rounded-md"
+                      style={{ display: 'inline-block' }}
+                    >
+                      {t('admin.webauthn.register.title', null, lang)}
+                    </Link>
+                  </>
+                ) : (
+                  <AdminWebAuthnStepUp
+                    lang={lang}
+                    onStateChange={setStepUpInProgress}
+                    onOutcome={onStepUpOutcome}
+                  />
+                )}
+              </div>
+            )}
 
             <h2
               style={{
@@ -527,7 +658,12 @@ export default function AdminTicketDetailPage() {
                 type="button"
                 data-testid="admin-tickets-reassign-cta"
                 onClick={onReassign}
-                disabled={isTerminal || actionInFlight === 'reassign' || !reassignId.trim()}
+                disabled={
+                  isTerminal ||
+                  actionInFlight === 'reassign' ||
+                  stepUpInProgress ||
+                  !reassignId.trim()
+                }
                 style={{
                   minHeight: 36,
                   padding: '0 var(--space-3)',

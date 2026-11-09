@@ -17,7 +17,7 @@ It is the entry point to the other nine deliverables. Where this document summar
 |---|---|
 | **PROJECT_AUDIT.md** (this one) | The whole project — scope, structure, history, health |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, data model, request lifecycle, ADRs |
-| [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | All 77 operations across 61 route handlers |
+| [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | All 77 operations across 62 route handlers |
 | [SECURITY_AUDIT.md](SECURITY_AUDIT.md) | 17 findings, severity-ranked, with evidence |
 | [CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md](CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md) | Ticket-state integrity and operational metrics |
 | [TESTING_REPORT.md](TESTING_REPORT.md) | Suites, coverage, gaps |
@@ -120,7 +120,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Metric | Value |
 |---|---|
 | Commits | 135 |
-| Route handlers | 61 files, **77 operations** |
+| Route handlers | 62 files, **78 operations** |
 | `lib/` modules | 72 `.ts` + 1 `.tsx`, **23,521 LOC** |
 | `app/api/` route handlers | **8,374 LOC** |
 | `app/**/page.tsx` | 37 pages, **24,617 LOC** |
@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 5 |
 | i18n keys | 957 |
-| Unit test files | 111 (**1,960 tests**) |
+| Unit test files | 112 (**1,978 tests**) |
 | Playwright route specs | 34 files / **358 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -187,7 +187,7 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **111 files / 1,960 tests passed**, ~27 s |
+| Unit tests | `npm run test:unit` | ✅ **112 files / 1,978 tests passed**, ~27 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 83.08% branches / 93.66% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 

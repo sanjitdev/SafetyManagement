@@ -1471,6 +1471,359 @@
         }
       }
     },
+    "/api/auth/webauthn/step-up": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Complete a session-authenticated WebAuthn step-up",
+        "description": "The step-up ceremony for an admin who is ALREADY signed in. Unlike `/api/auth/webauthn/assertion` (which mints a session and is the login flow), this route mints nothing: it verifies possession of the authenticator and refreshes the challenge ledger row that the `requireWebAuthn` guard reads, so the admin’s next gated write succeeds. The challenge is always bound to the session’s own user — a challenge issued for another user is rejected with 403.",
+        "operationId": "webauthnStepUp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "action"
+                    ],
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "challenge"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "action",
+                      "challengeId",
+                      "assertionResponse"
+                    ],
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "verify"
+                        ]
+                      },
+                      "challengeId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "assertionResponse": {
+                        "type": "object",
+                        "description": "The `navigator.credentials.get(...)` result — `id`, `rawId`, `response`, `type`, `clientExtensionResults`.",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "For `action: \"challenge\"`, the assertion ceremony options. For `action: \"verify\"`, the step-up completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "challengeId",
+                        "challenge",
+                        "rpId",
+                        "allowCredentials",
+                        "userVerification",
+                        "timeout"
+                      ],
+                      "properties": {
+                        "challengeId": {
+                          "type": "string"
+                        },
+                        "challenge": {
+                          "type": "string",
+                          "description": "Base64url nonce."
+                        },
+                        "rpId": {
+                          "type": "string"
+                        },
+                        "allowCredentials": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "transports": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "userVerification": {
+                          "type": "string",
+                          "enum": [
+                            "preferred",
+                            "required",
+                            "discouraged"
+                          ]
+                        },
+                        "timeout": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "ok"
+                      ],
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "issues"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_input"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the assertion failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "not_authenticated"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "webauthn_assertion_failed"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "webauthn_assertion_expired"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session is not an admin, or the challenge belongs to another user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "forbidden_role"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "webauthn_challenge_owner_mismatch"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The challenge or the credential does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "webauthn_challenge_not_found"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "webauthn_credential_not_found"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The admin has no registered WebAuthn credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "webauthn_no_credential"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "unhandled"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/webauthn/register/challenge": {
       "post": {
         "tags": [

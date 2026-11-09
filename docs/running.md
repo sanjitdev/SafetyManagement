@@ -158,7 +158,7 @@ All scripts are defined in `package.json`.
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |
 | `npm test` | `playwright test` | Playwright route specs (34 files) |
-| `npm run test:unit` | `vitest run` | 1,960 unit tests across 111 files |
+| `npm run test:unit` | `vitest run` | 1,978 unit tests across 112 files |
 | `npm run test:unit:watch` | `vitest` | Vitest watch mode |
 | `npm run test:unit:coverage` | `vitest run --coverage` | Coverage + the 80% floor gate |
 | `npm run test:mockups` | `playwright test tests/01-mockups.spec.ts` | 25 visual baselines (gating) |
@@ -253,7 +253,7 @@ by `process.env.CITYFIX_DEV_STORE === '1'`).
 
 There is no separate backend service. The API surface is the
 `app/api/**/route.ts` files, served by the same Next.js process.
-**61 route handlers, 77 operations**, organised by role:
+**62 route handlers, 78 operations**, organised by role:
 
 ### Public & auth
 
@@ -324,6 +324,7 @@ There is no separate backend service. The API surface is the
 - `app/api/auth/webauthn/assertion/route.ts`
 - `app/api/auth/webauthn/revoke/route.ts`
 - `app/api/auth/webauthn/login/route.ts`
+- `app/api/auth/webauthn/step-up/route.ts` — the session-authenticated ceremony for an already-signed-in admin (does **not** mint a session)
 
 ### Misc
 
@@ -365,7 +366,7 @@ If all four pass, the project is healthy.
 | Step | Verifies |
 |---|---|
 | `npx tsc --noEmit` | TypeScript strict compile clean |
-| `npm run test:unit` | 1,960 unit tests pass (111 files) |
+| `npm run test:unit` | 1,978 unit tests pass (112 files) |
 | `npm run test:mockups` | 25 visual baselines match (gating) |
 | `curl -fs http://localhost:3000/` | Server returns 2xx on `/` |
 

@@ -155,10 +155,11 @@ const documentedRoutes = new Map<string, Set<Method>>(
 
 describe('the route-handler surface', () => {
   test('every route file was found', () => {
-    // 61 as of 2026-11-08. The exact number is asserted because a
-    // silent drop to zero (a bad glob, a moved directory) would make
-    // every parity test vacuously pass.
-    expect(liveRoutes.size).toBe(61);
+    // 62 as of 2026-11-09 (61 + the WebAuthn step-up route added by
+    // ADR-007's ceremony wiring). The exact number is asserted
+    // because a silent drop to zero (a bad glob, a moved directory)
+    // would make every parity test vacuously pass.
+    expect(liveRoutes.size).toBe(62);
   });
 
   test('every route file exports its handlers as named functions', () => {

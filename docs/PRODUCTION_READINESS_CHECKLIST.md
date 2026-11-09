@@ -91,7 +91,7 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **111 files / 1,960 tests passed**, ~27 s |
+| Unit tests | `npm run test:unit` | ✅ **112 files / 1,978 tests passed**, ~27 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **92.59% lines / 83.08% branches / 93.66% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 | Visual regression | CI run `42518322594` | ✅ 25/25 baselines |
@@ -189,7 +189,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 1.8 | `package.json` scripts cover the full lifecycle | ✅ | `dev`, `build`, `start`, `lint`, `test:unit`, `test:unit:coverage`, `test:mockups`, `db:*`, `docs:generate`, `check:i18n` |
 | 1.9 | `engines.node` declared | ✅ | `>=20.0.0` (runtime floor; CI pins 22 — see §5.3) |
 | 1.10 | No secrets committed to the repository | ✅ | `.env.example` holds placeholders only |
-| 1.11 | `docs/running.md` matches the current codebase | ✅ | **Rewritten during this audit** against the real stack — all 61 route files with their methods, all 26 `package.json` scripts, the Node 22 requirement, the visual-baseline platform rule. It previously claimed 40 handlers / 249 tests / 15 baselines. See [KNOWN_ISSUES.md #26](KNOWN_ISSUES.md#26-docsrunningmd-is-stale---resolved-during-this-audit) |
+| 1.11 | `docs/running.md` matches the current codebase | ✅ | **Rewritten during this audit** against the real stack — all 62 route files with their methods, all 26 `package.json` scripts, the Node 22 requirement, the visual-baseline platform rule. It previously claimed 40 handlers / 249 tests / 15 baselines. See [KNOWN_ISSUES.md #26](KNOWN_ISSUES.md#26-docsrunningmd-is-stale---resolved-during-this-audit) |
 | 1.12 | `.env.example` documents every variable `lib/` reads | ❌ | Missing `CITYFIX_DEV_PROMOTE_SECRET`, `DEV_SKIP_WEBAUTHN` and **all** `BLOB_*` |
 
 ---
@@ -346,7 +346,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 111 files, 1,960 tests, ~27 s |
+| 9.1 | A unit test suite exists | ✅ | 112 files, 1,978 tests, ~27 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
 | 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
 | 9.3 | Coverage exceeds the floor | ✅ | 92.59% lines / 83.08% branches / 93.66% functions — **re-measured** after the crew-capacity work |
@@ -410,7 +410,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 11.7 | The project is documented | ✅ | `docs/PROJECT_AUDIT.md` |
 | 11.8 | Concurrency and accountability are documented | ✅ | `docs/CONCURRENCY_AND_ACCOUNTABILITY_AUDIT.md` |
 | 11.9 | A change log exists | ✅ | `docs/CHANGELOG.md` |
-| 11.10 | `docs/running.md` is current | ✅ | **Rewritten during this audit** — all 61 route files, all 26 scripts, the Node 22 requirement and the visual-baseline rule now match the real stack |
+| 11.10 | `docs/running.md` is current | ✅ | **Rewritten during this audit** — all 62 route files, all 26 scripts, the Node 22 requirement and the visual-baseline rule now match the real stack |
 | 11.11 | ADRs exist for the architectural decisions in force | ⚠️ | `ADR-007` and `ADR-016` exist; **`ADR-006` is missing**, and its absence leaves the admin city-scope question undecidable |
 | 11.12 | The design artefacts are committed with the code | ✅ | `design-artifacts/` — 6 trees, the contract Mimir builds against |
 | 11.13 | The AIDLC state reflects reality | ❌ | `aidlc-state.md` is ~2 months stale; `Scope: mvp` vs `project.md`'s `feature` default |

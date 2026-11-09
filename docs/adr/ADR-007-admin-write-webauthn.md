@@ -226,6 +226,8 @@ dismiss the prompt.
   registration mount point (`AdminSecurityKey`) exists. Wiring the
   ceremony into the ticket page's write actions is a UI Bolt, not
   a gate change — the API is the enforcement point either way.
+  **CLOSED 2026-11-09** — the ceremony affordance now exists. See
+  the amendment below.
 - **Risk**: a future admin write route added outside
   `/api/v1/admin/*` skips the gate. **Mitigation**: the rule is now
   stated as a property of the **role**, not of the path. The
@@ -328,10 +330,90 @@ production posture).
 **Verification gates** (per `team.md` Mandated):
 
 - `npx tsc --noEmit` — clean, 0 errors.
-- `npm run test:unit` — 111 files / 1960 tests pass.
+- `npm run test:unit` — 112 files / 1978 tests pass.
 - `npm run test:unit:coverage` — 92.59% lines / 83.08% branches /
   93.66% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
+
+## Amendment 2026-11-09 — the ceremony affordance (step-up route)
+
+**Status:** the "no ceremony affordance" risk above is **CLOSED**.
+
+### What was missing
+
+This ADR made the *enforcement* correct but left the *path to
+satisfaction* missing. `requireWebAuthn` accepts a fresh, unexpired
+challenge row as the proof — but until 2026-11-09 the only route that
+could mint one for an already-signed-in admin was
+`POST /api/auth/webauthn/login`, which is **anonymous and
+email-keyed** (it is the login ceremony), and whose sibling
+`/api/auth/webauthn/assertion` **mints a new session** on success.
+
+So an admin who was already signed in with a password session and
+hit a gated write received a bare `401 webauthn_required` and had
+exactly one way to satisfy it: log out and back in through the login
+ceremony. For a signed-in admin that is a dead end, not a workflow.
+
+### The amendment
+
+`POST /api/auth/webauthn/step-up` is the session-authenticated
+ceremony:
+
+- it is **behind the session cookie**, and the challenge is bound to
+  **the session's own `userId`** — never to a client-supplied
+  identifier;
+- it **does not mint or replace the session**. The admin's existing
+  cookie keeps working; what changes is that the challenge ledger
+  holds a fresh, unexpired row, so the next gated write passes
+  `requireWebAuthn`;
+- it rejects a challenge belonging to another user with 403
+  `webauthn_challenge_owner_mismatch`. Without that check, a signed-in
+  admin could complete a *different* user's challenge and have it
+  recorded as their own step-up. The check is the point of the
+  route.
+
+The service layer was split to make this possible: `verifyAssertion`
+was factored into `verifyAssertionSignature` (all the verification —
+challenge lookup, expiry, credential lookup, signature check, counter
+bump — and no session minting) and `verifyAssertion` (the signature
+check plus session minting plus the `webauthn.assertion` audit row).
+The login path is unchanged; the step-up path mints nothing.
+
+### UI
+
+`components/AdminWebAuthnStepUp.tsx` drives the ceremony in the
+browser. It deliberately does **not** reuse `WebAuthnCeremony`: that
+component drives the *login* ceremony and mints a session, which is
+the wrong shape for a step-up.
+
+On the admin ticket detail page (`app/admin/tickets/[id]/page.tsx`),
+a gated write no longer surfaces a bare error code. The transition /
+reassign handler detects `webauthn_required` or
+`webauthn_assertion_expired`, stashes the pending write, and opens
+the step-up panel. On a verified assertion the pending write is
+retried automatically. If the admin has no registered credential the
+panel points at the registration mount point (`AdminSecurityKey`)
+instead of asking for a retry.
+
+### Test plan (the amendment)
+
+`tests/unit/webauthn-step-up.test.ts` (12 tests) pins the step-up
+contract: anonymous → 401; non-admin → 403; challenge → 200 and bound
+to the session's user; no credential → 409; **a challenge belonging to
+another user → 403**; unknown challenge → 404; malformed assertion →
+400; a forged signature → 401 and no ledger refresh; plus body
+validation.
+
+The ownership check is proven non-vacuous: disabling it makes the
+cross-user test fail (the forged path 404s rather than 403s).
+
+### What is unchanged
+
+- The guard itself is unchanged. `requireWebAuthn` still accepts a
+  fresh unexpired challenge row, and it still does not consume it.
+- The dev seam is unchanged.
+- The login ceremony is unchanged and still mints a session.
+- The rule remains a property of the **role**, not of a path.
 
 ## References
 
@@ -359,6 +441,12 @@ production posture).
   require proving possession of a possibly-compromised key).
 - `components/WebAuthnCeremony.tsx` — the browser ceremony.
 - `components/AdminSecurityKey.tsx` — the registration mount point.
+- `app/api/auth/webauthn/step-up/route.ts` — the session-authenticated
+  step-up ceremony (the 2026-11-09 amendment).
+- `components/AdminWebAuthnStepUp.tsx` — the step-up browser
+  ceremony.
+- `tests/unit/webauthn-step-up.test.ts` — the step-up regression
+  suite.
 - `app/admin/tickets/[id]/page.tsx` — the admin UI's `onTransition`
   and `onReassign` handlers, which POST to the shared route.
 - `app/admin/cities/[id]/users/page.tsx` — the page that surfaces

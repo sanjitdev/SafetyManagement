@@ -15,11 +15,11 @@ The two are kept in sync by a rule that is enforced by the type checker, not by 
 
 **Where this document and the OpenAPI spec disagree, the OpenAPI spec wins.** It is generated from typed code and is the closest thing to the live contract.
 
-**Coverage:** 61 route handler files, **77 HTTP operations**, under `app/api/**/route.ts`.
+**Coverage:** 62 route handler files, **78 HTTP operations**, under `app/api/**/route.ts`.
 
 | Group | Paths | Operations | Base path | Auth |
 |---|---:|---:|---|---|
-| Public / Auth | 11 | 11 | `/api/v1/auth/*`, `/api/auth/*` | Public (credential in body) |
+| Public / Auth | 12 | 12 | `/api/v1/auth/*`, `/api/auth/*` | Public (credential in body) |
 | Citizen tickets & misc | 8 | 11 | `/api/tickets/*`, `/api/profile`, `/api/report/*`, `/api/v1/push/*` | Session |
 | Activity feeds | 2 | 2 | `/api/v1/activity/*` | Mixed |
 | Dispatcher | 12 | 13 | `/api/v1/dispatcher/*` | Session + ward/dept scope |
@@ -27,11 +27,11 @@ The two are kept in sync by a rule that is enforced by the type checker, not by 
 | Admin | 16 | 27 | `/api/v1/admin/*` | Session + **WebAuthn on writes** |
 | Dev-only | 6 | 7 | `/api/dev/*` | Shared secret — **not for production** |
 | Docs | 2 | 2 | `/api/docs/*` | Public |
-| **Total** | **61** | **77** | | |
+| **Total** | **62** | **78** | | |
 
-Operation split by method across the whole surface: 30 GET, 32 POST, 8 DELETE, 6 PATCH, 1 PUT.
+Operation split by method across the whole surface: 30 GET, 33 POST, 8 DELETE, 6 PATCH, 1 PUT.
 
-> **The counts here are measured, not estimated.** They were produced by parsing `export {GET,POST,PUT,PATCH,DELETE}` declarations out of all 61 `route.ts` files and reconciling the result against `lib/docs/openapi.ts`. An earlier draft of this document claimed 80 operations; that figure was wrong and has been corrected. A later revision of this table carried a wrong *method split* (31 GET / 7 PATCH / 6 DELETE) while its totals were right; re-measuring on 2026-11-08 gave 30 GET / 6 PATCH / 8 DELETE.
+> **The counts here are measured, not estimated.** They were produced by parsing `export {GET,POST,PUT,PATCH,DELETE}` declarations out of all 62 `route.ts` files and reconciling the result against `lib/docs/openapi.ts`. An earlier draft of this document claimed 80 operations; that figure was wrong and has been corrected. A later revision of this table carried a wrong *method split* (31 GET / 7 PATCH / 6 DELETE) while its totals were right; re-measuring on 2026-11-08 gave 30 GET / 6 PATCH / 8 DELETE. Re-measuring again on 2026-11-09, after the WebAuthn step-up route was added, gave 62 files / 78 operations and 30 GET / 33 POST / 8 DELETE / 6 PATCH / 1 PUT.
 >
 > The reconciliation is now **enforced mechanically** — `tests/unit/docs/openapi-route-parity.test.ts` compares the spec against the route files in both directions on every unit run.
 
@@ -206,6 +206,23 @@ Complete a WebAuthn login or admin-write ceremony.
 **Request** — `{ id: string, rawId: string, response: {...}, type: "public-key" }` plus the server-side challenge
 
 **Responses** — `200` with a `cityfix_session` cookie · `401` `webauthn_assertion_expired` / `webauthn_verification_failed`
+
+---
+
+#### `POST /api/auth/webauthn/step-up`
+
+The **session-authenticated** ceremony for an admin who is already signed in. Two actions on one route, because the authenticator interaction sits between them.
+
+| Action | Request | Response |
+|---|---|---|
+| `challenge` | `{ action: "challenge" }` | `200` `{ challengeId, challenge, rpId, allowCredentials, timeout, userVerification }` |
+| `verify` | `{ action: "verify", challengeId: string, assertionResponse: {...} }` | `200` `{ ok: true }` |
+
+The challenge is bound to **the session's own user** — never to a client-supplied identifier — and a successful assertion does **not** mint or replace the session. The admin's existing cookie keeps working; what changes is that the challenge ledger holds a fresh, unexpired row, so the next gated write passes `requireWebAuthn`.
+
+**Responses** — `200` · `400` `invalid_input` · `401` `not_authenticated` / `webauthn_assertion_failed` / `webauthn_assertion_expired` · `403` `forbidden_role` / `webauthn_challenge_owner_mismatch` · `404` `webauthn_challenge_not_found` / `webauthn_credential_not_found` · `409` `webauthn_no_credential`
+
+> `webauthn_challenge_owner_mismatch` is the security-critical case: without it, a signed-in admin could complete a *different* user's challenge and have it recorded as their own step-up.
 
 ---
 

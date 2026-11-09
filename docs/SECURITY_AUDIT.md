@@ -3,7 +3,7 @@
 **Audit date:** 2026-11-08
 **Codebase:** `main` @ `be9f2b0`
 **Stack:** Next.js 14 App Router · TypeScript strict · Prisma 5.22 · PostgreSQL 16 · `@node-rs/argon2` (Argon2id) · `@simplewebauthn/server` v10
-**Method:** Static source review of all 61 route handlers under `app/api/**/route.ts`, `lib/auth/*`, `lib/platform/*`, `lib/serializers/*`, `lib/storage/*`, `lib/admin/*`, `prisma/schema.prisma`, `next.config.js`, `.env.example`, and the ADR-007 test suites.
+**Method:** Static source review of all 62 route handlers under `app/api/**/route.ts`, `lib/auth/*`, `lib/platform/*`, `lib/serializers/*`, `lib/storage/*`, `lib/admin/*`, `prisma/schema.prisma`, `next.config.js`, `.env.example`, and the ADR-007 test suites.
 
 **No files were modified by this audit.** Every finding below cites a file and line so it can be reproduced.
 
@@ -316,7 +316,7 @@ Confirmed by `tests/unit/transition-webauthn.test.ts:282-305` (*"allows a dispat
 
 ### 3.1 Zod coverage
 
-**Every route handler that accepts a body or query validates it with Zod.** Verified across all 61 handlers. The two dedup-flag routes (`confirm`, `dismiss`) take no body — their input is the path param, which is checked for existence and scope (`loadPendingFlagInScope`).
+**Every route handler that accepts a body or query validates it with Zod.** Verified across all 62 handlers. The two dedup-flag routes (`confirm`, `dismiss`) take no body — their input is the path param, which is checked for existence and scope (`loadPendingFlagInScope`).
 
 **One exception: `app/api/profile/route.ts:46-51`** uses hand-rolled validation (length + control-character regex) instead of a Zod schema. Functionally adequate but inconsistent with the team rule (Zod at every API boundary).
 
@@ -643,4 +643,4 @@ The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule
 
 All paths relative to the repository root.
 
-`docs/adr/ADR-007-admin-write-webauthn.md` · `lib/auth/{session,guards,otp,password,webauthn,login-lockout}.ts` · `lib/auth/otp-provider/{index,stub,twilio}.ts` · `lib/platform/{rate-limit,db-guard,audit,dedup,transitions,push}.ts` · `lib/serializers/{ticket,trail}.ts` · `lib/storage/blob.ts` · `lib/admin/{tickets-query,users-db}.ts` · `lib/format/photo-url.ts` · `lib/crew/upload-photo.ts` · `lib/db-switch.ts` · `prisma/schema.prisma` · `next.config.js` · `.env.example` · `tests/unit/{require-webauthn,transition-webauthn}.test.ts` · and all 61 handlers under `app/api/**/route.ts`.
+`docs/adr/ADR-007-admin-write-webauthn.md` · `lib/auth/{session,guards,otp,password,webauthn,login-lockout}.ts` · `lib/auth/otp-provider/{index,stub,twilio}.ts` · `lib/platform/{rate-limit,db-guard,audit,dedup,transitions,push}.ts` · `lib/serializers/{ticket,trail}.ts` · `lib/storage/blob.ts` · `lib/admin/{tickets-query,users-db}.ts` · `lib/format/photo-url.ts` · `lib/crew/upload-photo.ts` · `lib/db-switch.ts` · `prisma/schema.prisma` · `next.config.js` · `.env.example` · `tests/unit/{require-webauthn,transition-webauthn}.test.ts` · and all 62 handlers under `app/api/**/route.ts`.

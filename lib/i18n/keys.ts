@@ -1694,6 +1694,42 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Could not register the security key. Try again.',
   },
 
+  // Step-up ceremony (ADR-007). The admin is ALREADY signed in; the
+  // step-up proves possession of the authenticator for ONE write.
+  // The copy says "verify", not "sign in" — the admin is not signing
+  // in again, and telling them they were would be wrong.
+  'admin.webauthn.step_up.title': {
+    bn: 'নিরাপত্তা কী দিয়ে যাচাই করুন',
+    en: 'Verify with your security key',
+  },
+  'admin.webauthn.step_up.instruction': {
+    bn: 'নিরাপত্তা কী ঢোকান, তারপর বোতাম চাপুন',
+    en: 'Insert your security key, then tap the button',
+  },
+  'admin.webauthn.step_up.done': {
+    bn: 'যাচাই সম্পন্ন — এখন পরিবর্তনটি করা যাচ্ছে',
+    en: 'Verified — you can now make the change',
+  },
+  'admin.webauthn.step_up.error.no_credential': {
+    bn: 'কোনো নিরাপত্তা কী নিবন্ধিত নেই। প্রথমে নিরাপত্তা কী নিবন্ধন করুন।',
+    en: 'No security key registered. Register one first.',
+  },
+  'admin.webauthn.step_up.error.expired': {
+    bn: 'যাচাইকরণের মেয়াদ শেষ। আবার চেষ্টা করুন।',
+    en: 'Assertion expired. Try again.',
+  },
+  'admin.webauthn.step_up.error.failed': {
+    bn: 'নিরাপত্তা কী যাচাই করা যায়নি। আবার চেষ্টা করুন।',
+    en: 'Could not verify the security key. Try again.',
+  },
+  // The banner shown above a gated write once the admin has no
+  // credential at all — it points at the registration mount point
+  // rather than leaving a bare error code with no path forward.
+  'admin.webauthn.step_up.register_hint': {
+    bn: 'প্রশাসকীয় পরিবর্তনের জন্য প্রথমে নিরাপত্তা কী নিবন্ধন করুন।',
+    en: 'Register a security key first to make admin changes.',
+  },
+
   // Intent 005 (Unit 002) — Admin city-config surfaces
   'admin.cities.title': { bn: 'শহরসমূহ', en: 'Cities' },
   'admin.cities.subtitle': {
