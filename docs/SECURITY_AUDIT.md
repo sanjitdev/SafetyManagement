@@ -29,7 +29,7 @@ The strongest part of this codebase is the discipline around the `/api/v1/admin/
 | # | Severity | Finding | Evidence | Remediation |
 |---|---|---|---|---|
 | 1 | **Critical** | OTP plaintext is returned in the API response **in every environment** | `app/api/v1/auth/send-otp/route.ts:160-167`; `lib/auth/otp-provider/index.ts:31` | Guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `'twilio'` in prod |
-| 2 | **Critical** | OTP attempt limit is **never enforced** — `attempts` is written but never read | `app/api/v1/auth/verify-otp/route.ts:109-112`; `lib/auth/otp.ts:32` (`OTP_MAX_ATTEMPTS` never imported) | Read `attempts`; on `>= OTP_MAX_ATTEMPTS` return 429 and lock the row |
+| 2 | **Critical** | OTP attempt limit was **never enforced** — `attempts` was written but never read | `app/api/v1/auth/verify-otp/route.ts`; `lib/auth/otp.ts:32` | **CLOSED 2026-11-09** — the counter is read back before verification; `429 too_many_attempts` at the limit. Covered by `tests/unit/otp-attempt-limit.test.ts` |
 | 3 | **Critical** | Four production-reachable `/api/dev/*` endpoints gated only on a shared secret, not on `isDevStore()` | `app/api/dev/{bootstrap-admin:52,issue-session:35,list-users:37,promote-admin:43}/route.ts` | Add `if (!isDevStore()) return 404` to all four, before the secret check |
 | 4 | **Critical** | `bootstrap-admin` + `issue-session` mint a full admin session, bypassing password and WebAuthn entirely | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` | Same as #3; delete both routes before production |
 | 5 | **High** | Admin write path **not** WebAuthn-gated: `PUT /api/profile` has no role check and no ceremony | `app/api/profile/route.ts:26-59` | Call `await requireWebAuthn(session)` when `session.role === 'admin'`; add a role/ownership guard; convert to Zod |
@@ -122,12 +122,14 @@ const name = process.env.OTP_PROVIDER ?? 'stub';
 
 So a deployment that sets `DATABASE_URL`, `SESSION_SECRET`, and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full citizen account takeover, no credential theft required. The stub provider also logs the code: `lib/auth/otp-provider/stub.ts:21` → `console.info('[otp:stub] code=${code} phone=${phone}')`.
 
-**Finding #2 (Critical) — the attempt limit is dead code.** `app/api/v1/auth/verify-otp/route.ts:109-112` increments `attempts` and then never reads it. `OTP_MAX_ATTEMPTS` is exported from `lib/auth/otp.ts:32` and **imported nowhere** (verified by repo-wide grep — the only hit is the definition). The route's own docstring describes behaviour that does not exist:
+**Finding #2 (Critical) — the attempt limit was dead code. CLOSED 2026-11-09.** `app/api/v1/auth/verify-otp/route.ts` used to increment `attempts` and then never read it. `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere** (verified by repo-wide grep — the only hit was the definition). The route's own docstring described behaviour that did not exist:
 
-- L10: *"429 → too many attempts (5 within 10 minutes)"*
-- L15: *"on the 5th failure we mark the account as soft-locked"*
+- *"429 → too many attempts (5 within 10 minutes)"*
+- *"on the 5th failure we mark the account as soft-locked"*
 
-The per-IP rate limit is the only thing standing between an attacker and an unlimited guessing loop. It is in-process (`lib/platform/rate-limit.ts:17`), capacity 1/s in production — trivially defeated by distributing requests across source IPs, or across instances.
+The per-IP rate limit was the only thing standing between an attacker and an unlimited guessing loop. It is in-process (`lib/platform/rate-limit.ts:17`), capacity 1/s in production — trivially defeated by distributing requests across source IPs, or across instances.
+
+**Closed.** The route now reads the counter back before verifying and returns `429 too_many_attempts` once it reaches `OTP_MAX_ATTEMPTS`. The counter is persisted on the `OtpCode` row (so it survives a restart, unlike the per-IP limiter), the check happens before the argon2 hash, and the correct code is refused too once locked out. The counter is scoped to the code rather than the account — `send-otp` issues a fresh row with `attempts = 0`, so a citizen is never locked out permanently (the 60-second resend cooldown is the only wait). Covered by `tests/unit/otp-attempt-limit.test.ts` (9 tests; non-vacuity proven by neutering the guard, which fails exactly the 3 lockout tests).
 
 **Finding #14 (Low) — `Math.random()` for OTP generation.** `lib/auth/otp.ts:35-39`. `Math.random()` is not cryptographically secure and its internal state is recoverable from observed outputs. For a 6-digit code that materially shortens the search space. Use `crypto.randomInt`.
 
@@ -578,7 +580,7 @@ Note also: `action` is a free-form string with no enum constraint and no server-
 ### Critical
 
 1. **OTP plaintext in the response** (`send-otp/route.ts:160-167`) combined with the **stub provider default** (`otp-provider/index.ts:31`). Remediation: guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `'twilio'`; never let the stub provider be selected in production.
-2. **OTP attempt limit never enforced** (`verify-otp/route.ts:109-112`; `OTP_MAX_ATTEMPTS` unused). Remediation: read `attempts`, return 429 at the limit, lock the row. This also makes the route docstring's promised 429/soft-lock behaviour real.
+2. ~~**OTP attempt limit never enforced**~~ — **CLOSED 2026-11-09.** The route now reads `attempts` back before verifying and returns `429 too_many_attempts` at the limit; the counter is persisted on the `OtpCode` row, the correct code is refused once locked out, and the counter is per-code so a citizen is never locked out permanently. Regression test: `tests/unit/otp-attempt-limit.test.ts`.
 3. **Four `/api/dev/*` routes reachable in production** (gated on a shared secret, not on `isDevStore()`). Remediation: add `if (!isDevStore()) return 404` to `bootstrap-admin`, `issue-session`, `promote-admin`, `list-users` — matching what `dev/login` and `dev/reset` already do. Then delete `bootstrap-admin` and `issue-session` before launch.
 
 ### High
@@ -615,7 +617,7 @@ The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule
 
 1. **Check the production env vars.** Determine whether `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, and `CITYFIX_DEV_PROMOTE_SECRET` are set in the deployed environment. This determines whether findings #1–#4 are theoretical or live.
 2. **Add the `isDevStore()` guard to the four `/api/dev/*` promote routes** — a four-line change that closes the largest hole.
-3. **Fix the OTP path** — guard `dev_code` on env, enforce `OTP_MAX_ATTEMPTS`, switch to `crypto.randomInt`.
+3. **Fix the OTP path** — guard `dev_code` on env, enforce `OTP_MAX_ATTEMPTS`, switch to `crypto.randomInt`. *(The attempt limit is done — closed 2026-11-09. The `dev_code` leak and the `Math.random()` generator remain.)*
 4. **Consume WebAuthn challenges** — restores the platform's core assumption.
 5. **Gate `PUT /api/profile`** and resolve the admin city-scope question against ADR-006.
 6. **Document the missing env vars** and add a production guard on `CITYFIX_DEV_STORE`.

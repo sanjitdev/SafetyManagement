@@ -857,7 +857,7 @@
             }
           },
           "401": {
-            "description": "The code is wrong.",
+            "description": "The code is wrong. `attempts` is how many wrong guesses have been made against this code and `remaining` is how many are left before it is locked out.",
             "content": {
               "application/json": {
                 "schema": {
@@ -871,6 +871,14 @@
                       "enum": [
                         "wrong_code"
                       ]
+                    },
+                    "attempts": {
+                      "type": "integer",
+                      "description": "Wrong guesses made against this code so far."
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "description": "Guesses left before the code is locked out."
                     }
                   }
                 }
@@ -938,26 +946,49 @@
             }
           },
           "429": {
-            "description": "Rate limited. The `Retry-After` header carries the wait in seconds.",
+            "description": "Either the IP rate limit was hit, or the code was locked out after too many wrong guesses. The `Retry-After` header carries the wait in seconds.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "rate_limited"
-                      ]
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "rate_limited"
+                          ]
+                        },
+                        "retryAfterMs": {
+                          "type": "integer"
+                        }
+                      }
                     },
-                    "retryAfterMs": {
-                      "type": "integer",
-                      "description": "Milliseconds until the next request is allowed."
+                    {
+                      "type": "object",
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "too_many_attempts"
+                          ]
+                        },
+                        "attempts": {
+                          "type": "integer"
+                        },
+                        "maxAttempts": {
+                          "type": "integer"
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
               }
             },

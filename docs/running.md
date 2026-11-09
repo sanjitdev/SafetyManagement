@@ -198,12 +198,12 @@ All scripts are defined in `package.json`.
 | `npm run build` | `prisma generate && next build` | Production build |
 | `npm run start` | `node scripts/start-next.mjs` | Production server (after `build`); auto-picks a free port |
 | `npm run typecheck` | `tsc --noEmit` | TypeScript strict compile check |
-| `npm run lint` | `eslint .` | Lint (0 errors, 55 warnings) |
+| `npm run lint` | `eslint .` | Lint (0 errors, 56 warnings) |
 | `npm run lint:fix` | `eslint . --fix` | Autofix |
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |
 | `npm test` | `playwright test` | Playwright route specs (34 files) |
-| `npm run test:unit` | `vitest run` | 1,978 unit tests across 112 files |
+| `npm run test:unit` | `vitest run` | 1,987 unit tests across 113 files |
 | `npm run test:unit:watch` | `vitest` | Vitest watch mode |
 | `npm run test:unit:coverage` | `vitest run --coverage` | Coverage + the 80% floor gate |
 | `npm run test:mockups` | `playwright test tests/01-mockups.spec.ts` | 25 visual baselines (gating) |
@@ -411,7 +411,7 @@ If all four pass, the project is healthy.
 | Step | Verifies |
 |---|---|
 | `npx tsc --noEmit` | TypeScript strict compile clean |
-| `npm run test:unit` | 1,978 unit tests pass (112 files) |
+| `npm run test:unit` | 1,987 unit tests pass (113 files) |
 | `npm run test:mockups` | 25 visual baselines match (gating) |
 | `curl -fs http://localhost:3000/` | Server returns 2xx on `/` |
 

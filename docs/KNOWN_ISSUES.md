@@ -12,7 +12,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | # | Issue | Severity | Area | Status |
 |---|---|---|---|---|
 | 1 | OTP plaintext returned in every environment | **Critical** | Auth | Open |
-| 2 | OTP attempt limit never enforced | **Critical** | Auth | Open |
+| 2 | OTP attempt limit never enforced | **Critical** | Auth | **Closed 2026-11-09** |
 | 3 | Four `/api/dev/*` routes not dev-store-gated | **Critical** | Auth | Open |
 | 4 | `bootstrap-admin` + `issue-session` mint admin sessions | **Critical** | Auth | Open |
 | 5 | `PUT /api/profile` is an ungated admin write | **High** | AuthZ | Open |
@@ -147,23 +147,59 @@ A deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials b
 
 ---
 
-### 2. OTP attempt limit never enforced
+### 2. OTP attempt limit never enforced — **CLOSED 2026-11-09**
 
-**Evidence:** `app/api/v1/auth/verify-otp/route.ts:111`; `lib/auth/otp.ts:32`
+**Original evidence:** `app/api/v1/auth/verify-otp/route.ts:111`; `lib/auth/otp.ts:32`
 
 ```ts
 data: { attempts: (otp.attempts ?? 0) + 1 },
 ```
 
-`attempts` is incremented and never read. `OTP_MAX_ATTEMPTS` is exported from `lib/auth/otp.ts:32` and **imported nowhere** — the only hit repo-wide is the definition.
+`attempts` was incremented and never read. `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere** — the only hit repo-wide was the definition.
 
-The route's own docstring promises behaviour that does not exist:
-- L10: *"429 → too many attempts (5 within 10 minutes)"*
-- L15: *"on the 5th failure we mark the account as soft-locked"*
+The route's own docstring promised behaviour that did not exist:
+- *"429 → too many attempts (5 within 10 minutes)"*
+- *"on the 5th failure we mark the account as soft-locked"*
 
-The per-IP rate limit (1/s) is the only thing standing between an attacker and an unlimited guessing loop, and it is in-process — trivially defeated across source IPs or instances.
+The per-IP rate limit (1/s) was the only thing standing between an attacker and an unlimited guessing loop, and it is in-process — trivially defeated across source IPs or instances.
 
-**Fix:** read `attempts`; return 429 at the limit and lock the row. This also makes the docstring true.
+**The fix.** The route now reads the counter back before verifying:
+
+```ts
+const attempts = otp.attempts ?? 0;
+if (attempts >= OTP_MAX_ATTEMPTS) {
+  return NextResponse.json(
+    { error: 'too_many_attempts', attempts, maxAttempts: OTP_MAX_ATTEMPTS },
+    { status: 429, headers: { 'Retry-After': String(Math.ceil(OTP_TTL_MS / 1000)) } },
+  );
+}
+```
+
+Properties of the fix:
+
+- **Persisted.** The counter lives on the `OtpCode` row, so it survives a process
+  restart — it is not an in-memory counter like the per-IP limiter.
+- **Checked before hashing.** A locked-out code is never verified, so the
+  argon2 work is skipped as well.
+- **The correct code is refused too.** A lockout that still accepts the right
+  answer is not a lockout.
+- **Scoped to the code, not the account.** `send-otp` creates a fresh row
+  (`attempts` defaults to 0), so a citizen who burns their allowance is not
+  locked out forever — they wait out the 60-second resend cooldown and get a
+  new code with a fresh counter.
+- **The counter is not incremented on a locked-out request**, so the reported
+  `attempts` value is stable.
+
+The `401` body now carries `attempts` and `remaining` so the client can tell
+the citizen how many tries are left.
+
+**Coverage:** `tests/unit/otp-attempt-limit.test.ts` — 9 tests covering the
+counter, the lockout, the refusal of the correct code, and the per-row scoping.
+Non-vacuity is proven: with the guard disabled, exactly the 3 lockout tests
+fail.
+
+**Still open in this area:** the OTP plaintext leak (issue #1) and the
+`Math.random()` generator (issue #11) are separate findings and remain open.
 
 ---
 

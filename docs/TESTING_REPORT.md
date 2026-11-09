@@ -10,8 +10,8 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 112 | — | — |
-| Unit tests passing | **1,978 / 1,978** | — | ✅ |
+| Unit test files | 113 | — | — |
+| Unit tests passing | **1,987 / 1,987** | — | ✅ |
 | Coverage — lines | **93.94%** | 80% | ✅ |
 | Coverage — branches | **82.91%** | 80% | ✅ |
 | Coverage — functions | **94.46%** | 80% | ✅ |
@@ -19,7 +19,7 @@
 | Playwright route specs | 34 files / **358 specs** | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
-| ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
+| ESLint | 0 errors, 56 warnings | 0 errors | ✅ |
 | CI pipeline | 14/14 steps green | all green | ✅ |
 
 **All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42562594543` on commit `871f218` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
@@ -37,7 +37,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 112 files, 1,978 tests, 100% passing, ~29 s
+**Result:** 113 files, 1,987 tests, 100% passing, ~29 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -366,7 +366,7 @@ This workflow was extended on 2026-11-08 to cover the **route-spec** baseline fa
 | 1 | `lib/map/osm-raster.ts` at 0% | Medium | Tile URL construction is untested; a regression is a blank map |
 | 2 | No `middleware.ts`, so no integration test for "a route with no guard" | High | The absence of a baseline guard is only detectable by reading every route |
 | 3 | `PUT /api/profile` has no WebAuthn test | High | The gap in [SECURITY_AUDIT.md finding #5](SECURITY_AUDIT.md) is invisible to the suite because the suite asserts what the code does, not what the ADR says it should |
-| 4 | No test for the OTP attempt limit | Medium | The limit is dead code, so there is nothing to test — but a test *should* exist and fail |
+| 4 | ~~No test for the OTP attempt limit~~ | **Closed 2026-11-09** | The limit was dead code, so there was nothing to test. It is now enforced *and* tested — `tests/unit/otp-attempt-limit.test.ts` (9 tests). Non-vacuity proven: neutering the guard fails exactly the 3 lockout tests |
 | 5 | No cross-city admin test | Medium | Finding #7 — the two admin surfaces disagree, and no test pins either behaviour |
 | 6 | No live-database test run | Medium | Every test runs on the dev store; Prisma-specific behaviour (e.g. `AuditEntry.actor` `onDelete: Restrict` vs user deletion) is never exercised. The dedup index's behaviour was checked against a real PostgreSQL 16 by hand on 2026-11-08, which is a spot check, not a CI job |
 | 7 | No WebAuthn hardware test | Medium | Attestation, assertion and counter-clone detection are read, not executed |

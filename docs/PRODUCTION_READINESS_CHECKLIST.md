@@ -50,7 +50,7 @@ The 56% is a completeness score against the production-readiness surface, **not*
 
 | Severity | Count | Detail |
 |---|---:|---|
-| **Critical** | **4** | OTP plaintext in every environment; OTP attempt limit never enforced; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions |
+| **Critical** | **3** | OTP plaintext in every environment; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions. *(The fourth Critical finding — the unenforced OTP attempt limit — was **closed on 2026-11-09**: the limit is now read back from the `OtpCode` row and enforced, with a regression test.)* |
 | **High** | **4** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted. *(The fifth High finding — concurrency control — was **closed on 2026-11-08**: all five named scenarios now have a guard and a CI-enforced regression test.)* |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
 | **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
@@ -90,8 +90,8 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 | Check | Command | Result |
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
-| Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **112 files / 1,978 tests passed**, ~27 s |
+| Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
+| Unit tests | `npm run test:unit` | ✅ **113 files / 1,987 tests passed**, ~27 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **93.94% lines / 82.91% branches / 94.46% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 | Visual regression | CI run `42562594543` | ✅ 25/25 baselines |
@@ -114,7 +114,7 @@ The auth stack is genuinely well built at the component level: Argon2id with OWA
 **The failures are all at the seams**, and all are configuration-reachable rather than theoretical:
 
 - `OTP_PROVIDER` **defaults to `stub`** (`lib/auth/otp-provider/index.ts:31`), and `dev_code` is returned **unconditionally** (`app/api/v1/auth/send-otp/route.ts:164`). A deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full account takeover with no credential theft.
-- `OTP_MAX_ATTEMPTS` is exported from `lib/auth/otp.ts:32` and **imported nowhere**. `attempts` is incremented at `app/api/v1/auth/verify-otp/route.ts:111` and never read. The route's own docstring promises a 5-attempt lockout that does not exist.
+- `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere**. `attempts` was incremented at `app/api/v1/auth/verify-otp/route.ts` and never read. The route's own docstring promised a 5-attempt lockout that did not exist. **Closed 2026-11-09** — the counter is now read back and enforced.
 - Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check, unlike their two correctly-gated siblings. Two of them mint **admin sessions**, bypassing both the password and WebAuthn. A single leaked static secret yields unauthenticated privilege escalation.
 - `PUT /api/profile` has no `requireRole`, no `requireWebAuthn` and no Zod schema.
 - WebAuthn challenges are **never consumed**. One ceremony authorises every admin write for the next five minutes, which is not what ADR-007's threat model assumes.
@@ -153,10 +153,9 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 |---|---|---|---|
 | 1 | Four `/api/dev/*` routes not `isDevStore()`-gated; two mint admin sessions | Critical | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
 | 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
-| 3 | `OTP_MAX_ATTEMPTS` never enforced | Critical | `app/api/v1/auth/verify-otp/route.ts:111`; `lib/auth/otp.ts:32` |
-| 4 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
-| 5 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
-| 6 | `PUT /api/profile` is an ungated admin write | High | `app/api/profile/route.ts:26-59` |
+| 3 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
+| 4 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
+| 5 | `PUT /api/profile` is an ungated admin write | High | `app/api/profile/route.ts:26-59` |
 | 7 | WebAuthn challenges never consumed | High | `lib/auth/guards.ts:113-125` |
 | 8 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
 | 9 | Password login is not role-restricted | High | `app/api/v1/auth/login/route.ts:137-139` |
@@ -183,7 +182,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 1.2 | TypeScript strict mode enabled, `tsc --noEmit` clean | ✅ | `npx tsc --noEmit` → clean |
 | 1.3 | `isolatedModules: true`; no const-enum access | ✅ | `tsconfig.json`; enforced by `project.md` Forbidden |
 | 1.4 | Path alias `@/` → repo root resolves | ✅ | `tsconfig.json` |
-| 1.5 | ESLint configured and run in CI | ✅ | `npm run lint` → 0 errors, 55 warnings |
+| 1.5 | ESLint configured and run in CI | ✅ | `npm run lint` → 0 errors, 56 warnings |
 | 1.6 | Lint gate blocks the pipeline | ✅ | `.github/workflows/ci.yml` step 5 |
 | 1.7 | Prettier / formatter configured | ➖ | No Prettier config in the repo; ESLint is the formatter of record per `org.md` |
 | 1.8 | `package.json` scripts cover the full lifecycle | ✅ | `dev`, `build`, `start`, `lint`, `test:unit`, `test:unit:coverage`, `test:mockups`, `db:*`, `docs:generate`, `check:i18n` |
@@ -224,7 +223,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 3.5 | OTP delivery has a real provider | ✅ | `twilio` provider with 3-attempt backoff `[100,200,400]ms` and 4xx-as-permanent |
 | 3.6 | `OTP_PROVIDER` defaults to a safe value in production | ❌ | Defaults to `'stub'` — `lib/auth/otp-provider/index.ts:31` |
 | 3.7 | OTP code is never returned in a response in production | ❌ | `dev_code: code` returned unconditionally — `app/api/v1/auth/send-otp/route.ts:164` |
-| 3.8 | OTP attempt limit is enforced | ❌ | `attempts` incremented, never read — `verify-otp/route.ts:111`; `OTP_MAX_ATTEMPTS` imported nowhere |
+| 3.8 | OTP attempt limit is enforced | ✅ | **Fixed 2026-11-09.** The `attempts` column on the `OtpCode` row is read back before verification; at `OTP_MAX_ATTEMPTS` the code is locked out with `429 too_many_attempts` and even the correct code is refused. The counter is persisted (it survives a restart) and scoped to the code, not the account — a new code starts a fresh counter. Covered by `tests/unit/otp-attempt-limit.test.ts` (9 tests, non-vacuity proven by neutering the guard) |
 | 3.9 | Account lockout after repeated failures | ❌ | Documented in the route docstring, absent in the code |
 | 3.10 | OTP code uses a CSPRNG | ❌ | `Math.random()` — `lib/auth/otp.ts` |
 | 3.11 | WebAuthn registration and assertion work | ✅ | `@simplewebauthn/server` v10; RP ID/origin guards in production |
@@ -346,7 +345,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 112 files, 1,978 tests, ~27 s |
+| 9.1 | A unit test suite exists | ✅ | 113 files, 1,987 tests, ~27 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
 | 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
 | 9.3 | Coverage exceeds the floor | ✅ | 93.94% lines / 82.91% branches / 94.46% functions — **re-measured** after the crew-capacity work |
@@ -355,7 +354,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.6 | Playwright route specs cover all four roles | ✅ | **34 files / 358 specs** — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
 | 9.7 | The route specs run in CI | ✅ | **Added 2026-11-08.** CI runs them as a separate step (`npx playwright test --grep-invert 'CityFix mockup baselines'`) with the dev-store, WebAuthn-seam and pinned-clock env vars. The job timeout went 25 → 45 minutes to fit the ~11-minute suite. The per-test coordinate isolation the dev store lacked is handled by `resetDevStore()` in the shared fixtures |
 | 9.8 | The route specs pass | ✅ | **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, 14.2 min on `ubuntu-latest` — CI run `42562594543`. The first execution (Windows, 2026-11-08) produced 61 failures; all were triaged, and closing them exposed two product defects — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA. The `ubuntu-latest` measurement then exposed a third class of defect: the **seeded clock was the wall clock**, so no baseline could ever hold. The clock is now pinned end-to-end — seed, query windows, chart axes, and the **client bundle**, which needed the `NEXT_PUBLIC_` prefix because `process.env` is server-only and a client/server divergence fails the hydration. Re-running the baseline workflow produced **63 byte-identical** PNGs, so the suite is reproducible rather than merely current (§2.2 of the testing report) |
-| 9.10 | A test exists for the OTP attempt limit | ❌ | The limit is dead code, so there is nothing to test — **but a test should exist and fail** |
+| 9.10 | A test exists for the OTP attempt limit | ✅ | **Added 2026-11-09** — `tests/unit/otp-attempt-limit.test.ts` (9 tests). Pins the counter, the lockout, that the correct code is ALSO refused once locked out, and that the counter is per-row. Non-vacuity proven: with the guard disabled, exactly the 3 lockout tests fail |
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
 | 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write, submit and crew-capacity paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct), and `devDb.ticket.findMany` filters on `assignedCrewId` with Prisma's NULL semantics so the capacity count is real. Four concurrency suites exercise them in CI. `ticketPhoto.create`'s push-then-sort is still unsafe — that one is a photo-ordering question, not a race guard |

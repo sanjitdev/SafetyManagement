@@ -169,11 +169,11 @@ Request an SMS OTP.
 
 Exchange an OTP for a session.
 
-**Request** — `{ phone: string, code: string, cityId?: string }`
+**Request** — `{ phone: string, code: string, citySlug?: string, scope?: 'registration' | 'login' | 'password-reset' }`
 
-**Responses** — `200` with a `cityfix_session` cookie · `400` `invalid_otp` / `otp_expired` · `429` rate limited
+**Responses** — `200` with a `cityfix_session` cookie · `400` `invalid_input` · `401` `wrong_code` (with `attempts` and `remaining`) · `404` `city_not_found` / `no_pending_verification` · `410` `expired` · `429` `rate_limited` / `too_many_attempts`
 
-> ⚠️ The 5-attempt limit is declared (`OTP_MAX_ATTEMPTS`) but **never enforced** — `attempts` is incremented and never read. See finding #2, Critical.
+> ✅ **The 5-attempt limit is enforced** (fixed 2026-11-09). The `attempts` column on the `OtpCode` row is incremented on each wrong guess and read back before verification; once it reaches `OTP_MAX_ATTEMPTS` the code is locked out with `429 too_many_attempts`, and even the correct code is refused. The counter lives on the row, so it survives a restart. It is scoped to the code, not the account: issuing a new code starts a fresh counter (the `send-otp` route has a 60-second resend cooldown). See `tests/unit/otp-attempt-limit.test.ts`.
 
 ---
 

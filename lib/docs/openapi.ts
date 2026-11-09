@@ -1011,12 +1011,40 @@ export const openapiPaths: Record<string, PathItem> = {
           },
         }),
         '400': jsonResponse('Validation failed.', issuesBody('invalid_input')),
-        '401': jsonResponse('The code is wrong.', errorBody('wrong_code')),
+        '401': jsonResponse(
+          'The code is wrong. `attempts` is how many wrong guesses have been made against this code and `remaining` is how many are left before it is locked out.',
+          errorBody('wrong_code', {
+            attempts: { type: 'integer', description: 'Wrong guesses made against this code so far.' },
+            remaining: { type: 'integer', description: 'Guesses left before the code is locked out.' },
+          }),
+        ),
         '404': jsonResponse('The city does not exist, or there is no pending verification for this phone.', {
           oneOf: [errorBody('city_not_found'), errorBody('no_pending_verification')],
         }),
         '410': jsonResponse('The code has expired.', errorBody('expired')),
-        '429': rateLimitedResponse(),
+        '429': {
+          description:
+            'Either the IP rate limit was hit, or the code was locked out after too many wrong guesses. The `Retry-After` header carries the wait in seconds.',
+          content: {
+            [JSON_CONTENT]: {
+              schema: {
+                oneOf: [
+                  errorBody('rate_limited', { retryAfterMs: { type: 'integer' } }),
+                  errorBody('too_many_attempts', {
+                    attempts: { type: 'integer' },
+                    maxAttempts: { type: 'integer' },
+                  }),
+                ],
+              },
+            },
+          },
+          headers: {
+            'Retry-After': {
+              description: 'Whole seconds until the next request is allowed.',
+              schema: { type: 'integer' },
+            },
+          },
+        },
       },
     },
   },

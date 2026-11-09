@@ -5,15 +5,18 @@
  *   - 200 → user authenticated; the response is `{ ok: true, userId }` and
  *     the cookie is refreshed (existing session kept, or a new citizen
  *     session minted on the registration path).
- *   - 401 → wrong code
+ *   - 401 → wrong code. The response carries `attempts` and `remaining`
+ *     so the client can tell the citizen how many tries are left.
  *   - 410 → expired
- *   - 429 → too many attempts (5 within 10 minutes)
+ *   - 429 → too many attempts (5 per OTP code)
  *   - 5xx → server error / SMS provider failure
  *
  * The OtpCode model is used: hash the code with argon2, store the hash,
- * and verify with constant-time compare. Lockout is enforced by counting
- * recent (userId, scope) attempts; on the 5th failure we mark the
- * account as soft-locked (no need for a separate model in v1).
+ * and verify with constant-time compare. Lockout is enforced by the
+ * `attempts` column on the OtpCode row: each wrong code increments it,
+ * and once it reaches `OTP_MAX_ATTEMPTS` the code is locked out (429)
+ * until the row expires. The counter lives on the row, so it survives a
+ * process restart — it is not an in-memory counter.
  *
  * In dev mode the SMS provider is stubbed — the code is still generated
  * and hashed, but no SMS is sent. The dev log shows the code so the QA
@@ -24,7 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db-switch';
-import { verifyOtp } from '@/lib/auth/otp';
+import { verifyOtp, OTP_MAX_ATTEMPTS, OTP_TTL_MS } from '@/lib/auth/otp';
 import { createSession, SESSION_COOKIE } from '@/lib/auth/session';
 import { writeAudit } from '@/lib/platform/audit';
 import { rateLimit } from '@/lib/platform/rate-limit';
@@ -102,15 +105,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'expired' }, { status: 410 });
   }
 
+  // Attempt limit. The counter is persisted on the OtpCode row, so it
+  // survives a restart. It is scoped to the ROW, not the account: the
+  // lock below applies to this code only, and `send-otp` issues a new
+  // row with attempts = 0 — so a citizen who burns their allowance is
+  // not locked out permanently. Checked BEFORE verifying so a locked
+  // code is never even hashed.
+  const attempts = otp.attempts ?? 0;
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    return NextResponse.json(
+      {
+        error: 'too_many_attempts',
+        attempts,
+        maxAttempts: OTP_MAX_ATTEMPTS,
+      },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(OTP_TTL_MS / 1000)) } },
+    );
+  }
+
   // Verify
   const matches = await verifyOtp(otp.codeHash, code);
   if (!matches) {
-    // Bump attempt count. After 5 within 10 minutes, soft-lock.
+    // Bump attempt count. After OTP_MAX_ATTEMPTS, the code is locked
+    // out (see the guard above) until the row expires.
+    const nextAttempts = attempts + 1;
     await db.otp.update({
       where: { id: otp.id },
-      data: { attempts: (otp.attempts ?? 0) + 1 },
+      data: { attempts: nextAttempts },
     });
-    return NextResponse.json({ error: 'wrong_code' }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: 'wrong_code',
+        attempts: nextAttempts,
+        remaining: OTP_MAX_ATTEMPTS - nextAttempts,
+      },
+      { status: 401 },
+    );
   }
 
   // Mark as used

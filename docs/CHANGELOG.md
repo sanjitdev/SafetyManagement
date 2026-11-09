@@ -10,6 +10,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The OTP attempt limit is now enforced — 2026-11-09**
+
+`lib/auth/otp.ts` has exported `OTP_MAX_ATTEMPTS = 5` since the platform layer was written, and the verify-otp route's own docblock promised *"After 5 within 10 minutes, soft-lock"*. Neither was true. The route incremented the `attempts` column on the `OtpCode` row after a wrong guess and then **never read it back** — the counter was write-only dead state, and `OTP_MAX_ATTEMPTS` had zero references outside its own declaration.
+
+The practical consequence: a 6-digit OTP could be worked through without limit. The per-IP rate limit bounds the *rate* of guesses, not their *number* — an attacker who stays under the rate ceiling could still brute-force a code.
+
+- `app/api/v1/auth/verify-otp/route.ts` — the counter is read back **before** verification; at `OTP_MAX_ATTEMPTS` the code is locked out with `429 too_many_attempts` (and a `Retry-After` header), and **the correct code is refused too** — a lockout that still accepts the right answer is not a lockout. The check happens before the argon2 hash, so a locked-out code is never even verified. The `401` body now carries `attempts` and `remaining` so the client can tell the citizen how many tries are left.
+- The counter is **persisted** on the `OtpCode` row, so it survives a process restart — unlike the per-IP limiter, which is in-process and trivially defeated across source IPs or instances.
+- The counter is scoped to the **code**, not the account. `send-otp` issues a fresh row with `attempts = 0`, so a citizen who burns their allowance is not locked out permanently — they wait out the 60-second resend cooldown and get a new code with a fresh counter.
+- `tests/unit/otp-attempt-limit.test.ts` — **new**, 9 tests. Non-vacuity is proven by mutation: disabling the guard turns exactly the 3 lockout tests red.
+- `lib/docs/openapi.ts` + `lib/docs/openapi.json` — the `verify-otp` responses now document the `attempts`/`remaining` fields and the `too_many_attempts` body.
+
 **The WebAuthn step-up ceremony — 2026-11-09**
 
 ADR-007 made the *enforcement* correct but left the *path to satisfaction* missing. `requireWebAuthn` accepts a fresh, unexpired challenge row as the proof — but the only route that could mint one for an already-signed-in admin was `POST /api/auth/webauthn/login`, which is anonymous and email-keyed (it is the login ceremony), and whose sibling `/api/auth/webauthn/assertion` **mints a new session**. So an admin already signed in with a password session and hitting a gated write received a bare `401 webauthn_required` and had exactly one way to satisfy it: log out and back in. For a signed-in admin that is a dead end, not a workflow. ADR-007 recorded this as a known risk.
@@ -61,6 +73,10 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 62 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
+
+**The OTP attempt limit was never enforced — 2026-11-09.**
+
+`OTP_MAX_ATTEMPTS` was exported but imported nowhere; the `attempts` column was written on a wrong guess and never read back. The verify-otp route's own docblock promised a 5-attempt lockout that did not exist, so a 6-digit code could be worked through without limit — the per-IP rate limit bounds the *rate* of guesses, not their *number*. The route now reads the counter back before verification and returns `429 too_many_attempts` at the limit, refusing even the correct code once locked out. Full detail under **Added** above; regression test `tests/unit/otp-attempt-limit.test.ts`.
 
 **The rendered clock moved, so no visual baseline could ever hold — 2026-11-08.**
 
@@ -235,7 +251,7 @@ Recorded here so the changelog is useful on its own. Full evidence is in the lin
 | Finding | Evidence |
 |---|---|
 | `dev_code` is returned in the OTP response **in every environment**, and `OTP_PROVIDER` defaults to `stub` | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
-| The OTP attempt limit is **never enforced** — `attempts` is incremented and never read; `OTP_MAX_ATTEMPTS` is imported nowhere | `app/api/v1/auth/verify-otp/route.ts:111`; `lib/auth/otp.ts:32` |
+| ~~The OTP attempt limit is **never enforced** — `attempts` is incremented and never read; `OTP_MAX_ATTEMPTS` is imported nowhere~~ — **closed 2026-11-09** | `app/api/v1/auth/verify-otp/route.ts`; `lib/auth/otp.ts:32` |
 | Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
 | `bootstrap-admin` and `issue-session` mint **admin sessions**, bypassing both the password and WebAuthn | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` |
 

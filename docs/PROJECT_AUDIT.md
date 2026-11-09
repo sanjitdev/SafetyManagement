@@ -128,7 +128,7 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Prisma models | 16 |
 | Migrations | 5 |
 | i18n keys | 957 |
-| Unit test files | 112 (**1,978 tests**) |
+| Unit test files | 112 (**1,987 tests**) |
 | Playwright route specs | 34 files / **358 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -186,8 +186,8 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 | Check | Command | Result |
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
-| Lint | `npm run lint` | ✅ 0 errors, 55 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **112 files / 1,978 tests passed**, ~27 s |
+| Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
+| Unit tests | `npm run test:unit` | ✅ **113 files / 1,987 tests passed**, ~27 s |
 | Coverage | `npm run test:unit:coverage` | ✅ **93.94% lines / 82.91% branches / 94.46% functions** (floor 80%) |
 | i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
 
