@@ -380,6 +380,9 @@ const PUBLIC_TICKET_SCHEMA: JsonSchema = {
     wardName: { type: ['string', 'null'] },
     wardNameBn: { type: ['string', 'null'] },
     categoryId: { type: 'string' },
+    categorySlug: { type: ['string', 'null'] },
+    categoryName: { type: ['string', 'null'] },
+    categoryNameBn: { type: ['string', 'null'] },
     status: TICKET_STATUS_SCHEMA,
     locationLng: { type: 'number' },
     locationLat: { type: 'number' },
@@ -2377,11 +2380,17 @@ export const openapiPaths: Record<string, PathItem> = {
       parameters: [
         queryParam('cityId', 'The city to show. Defaults to the session’s city, then to the first city by creation date.', { type: 'string', minLength: 1 }),
         queryParam('limit', 'Maximum rows to return.', { type: 'integer', minimum: 1, maximum: 50, default: 20 }),
+        queryParam('status', 'A status group to narrow the feed to. The groups are what a citizen thinks in, not the internal status enum: "new" = submitted + routed, "active" = in_progress, "resolved" = resolved + closed + cancelled.', {
+          type: 'string',
+          enum: ['all', 'new', 'active', 'resolved'],
+          default: 'all',
+        }),
+        queryParam('ward', 'A ward to narrow the feed to — the ward number ("14") or the ward id. Filters over the city’s full ticket list, combined with `status` using AND. An unknown ward yields an empty feed rather than an error.', { type: 'string', minLength: 1 }),
       ],
       responses: {
         '200': jsonResponse('The public feed.', {
           type: 'object',
-          required: ['tickets', 'categories'],
+          required: ['tickets', 'categories', 'wards', 'stats'],
           properties: {
             tickets: { type: 'array', items: { $ref: '#/components/schemas/PublicSerializedTicket' } },
             categories: {
@@ -2393,6 +2402,41 @@ export const openapiPaths: Record<string, PathItem> = {
                   slug: { type: 'string' },
                   name: { type: 'string' },
                   nameBn: { type: ['string', 'null'] },
+                },
+              },
+            },
+            wards: {
+              type: 'array',
+              description:
+                'The city’s ward list, with each ward’s report count computed over the FULL ticket set (so it does not change with the active status filter).',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  number: { type: 'integer' },
+                  name: { type: 'string' },
+                  nameBn: { type: ['string', 'null'] },
+                  count: { type: 'integer' },
+                },
+              },
+            },
+            stats: {
+              type: 'object',
+              description:
+                'The city-wide counters behind the landing page’s stats row and filter chips. The chip counts do NOT change with the active filter — they describe the whole city.',
+              properties: {
+                reportsThisMonth: { type: 'integer' },
+                resolvedThisMonth: { type: 'integer' },
+                resolutionRate: { type: 'integer', description: 'Percentage, 0-100.' },
+                avgDaysToResolve: { type: 'number' },
+                counts: {
+                  type: 'object',
+                  properties: {
+                    all: { type: 'integer' },
+                    new: { type: 'integer' },
+                    active: { type: 'integer' },
+                    resolved: { type: 'integer' },
+                  },
                 },
               },
             },

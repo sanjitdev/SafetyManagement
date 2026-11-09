@@ -389,6 +389,22 @@ export interface PublicSerializedTicket {
   wardName: string | null;
   wardNameBn: string | null;
   categoryId: string;
+  /**
+   * Human-readable category name(s) for the public feed card.
+   *
+   * The public card previously rendered only a status pill, a free
+   * text note and a ward — so a citizen browsing the landing page
+   * could not tell WHAT kind of problem a report was about ("Broken
+   * streetlight" vs "Drainage blocked"). The category is public city
+   * configuration (the same list the city's own taxonomy page shows),
+   * so exposing the name leaks nothing.
+   *
+   * Populated by `getTicketWithTrail`; `null` when the join is
+   * absent, and consumers must fall back to `categoryId`.
+   */
+  categorySlug: string | null;
+  categoryName: string | null;
+  categoryNameBn: string | null;
   status: TicketStatus;
   locationLng: number;
   locationLat: number;
@@ -410,6 +426,9 @@ export function serializeTicketForPublic(
     wardName: ticket.wardName ?? null,
     wardNameBn: ticket.wardNameBn ?? null,
     categoryId: ticket.categoryId,
+    categorySlug: ticket.categorySlug ?? null,
+    categoryName: ticket.categoryName ?? null,
+    categoryNameBn: ticket.categoryNameBn ?? null,
     status: ticket.status,
     locationLng: ticket.locationLng,
     locationLat: ticket.locationLat,

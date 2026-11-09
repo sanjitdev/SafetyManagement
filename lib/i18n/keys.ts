@@ -103,6 +103,110 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Private · secure',
   },
 
+  // --- Public landing: stats row (mockup 11-public-landing) ---
+  // The three counters are backed by real city data via
+  // `computeStats` in app/api/v1/activity/public/route.ts, not
+  // authored constants. The labels are static; the values are not.
+  'public.stats.reports_this_month': {
+    bn: 'এই মাসে রিপোর্ট',
+    en: 'Reports this month',
+  },
+  'public.stats.resolved': {
+    bn: 'সমাধান হয়েছে',
+    en: 'Resolved',
+  },
+  'public.stats.avg_time': {
+    bn: 'গড় সময়',
+    en: 'Average time',
+  },
+  'public.stats.reports_this_month.foot': {
+    bn: 'গত মাসের তুলনায় আরও বেশি',
+    en: 'More than last month',
+  },
+  'public.stats.resolved.foot': {
+    bn: '%{rate}% সমাধান, লক্ষ্য ৮৫%',
+    en: '%{rate}% resolved, target 85%',
+  },
+  'public.stats.avg_time.foot': {
+    bn: 'রিপোর্ট থেকে সমাধান',
+    en: 'From report to resolution',
+  },
+  'public.stats.days': {
+    bn: '%{value} দিন',
+    en: '%{value} days',
+  },
+
+  // --- Public landing: trust cards (mockup 11-public-landing) ---
+  'public.trust.government.title': {
+    bn: 'সরকার পরিচালিত',
+    en: 'Government run',
+  },
+  'public.trust.government.desc': {
+    bn: 'ঢাকা উত্তর সিটি কর্পোরেশনের সরকারি সেবা।',
+    en: 'An official service of Dhaka North City Corporation.',
+  },
+  'public.trust.privacy.title': {
+    bn: 'তথ্য সুরক্ষিত',
+    en: 'Privacy protected',
+  },
+  'public.trust.privacy.desc': {
+    bn: 'আপনার পরিচয় প্রকাশ্যে যায় না, কখনোই।',
+    en: 'Your identity is never made public.',
+  },
+  'public.trust.bilingual.title': {
+    bn: 'বাংলা · English',
+    en: 'বাংলা · English',
+  },
+  'public.trust.bilingual.desc': {
+    bn: 'দুই ভাষাতেই পুরো সেবা।',
+    en: 'The full service in both languages.',
+  },
+
+  // --- Public landing: filter chips (mockup 11-public-landing) ---
+  'public.filter.all': { bn: 'সব', en: 'All' },
+  'public.filter.new': { bn: 'নতুন', en: 'New' },
+  'public.filter.active': { bn: 'চলমান', en: 'Active' },
+  'public.filter.resolved': { bn: 'সমাধান', en: 'Resolved' },
+
+  // --- Public landing: location (ward) filter ---
+  'public.location.label': { bn: 'এলাকা', en: 'Location' },
+  'public.location.all': { bn: 'সব এলাকা', en: 'All areas' },
+  'public.location.ward': { bn: 'ওয়ার্ড %{number}', en: 'Ward %{number}' },
+  'public.location.empty': {
+    bn: 'এই এলাকায় এখনো কোনো রিপোর্ট নেই।',
+    en: 'No reports in this area yet.',
+  },
+
+  // --- Public landing: activity card ---
+  'public.card.category_unknown': { bn: 'সাধারণ সমস্যা', en: 'General issue' },
+  'public.card.no_note': {
+    bn: 'কোনো বিবরণ দেওয়া হয়নি।',
+    en: 'No description was provided.',
+  },
+  'public.card.photos': { bn: '%{count}টি ছবি', en: '%{count} photos' },
+
+  // --- Public landing: map badge + legend ---
+  'public.map.badge': {
+    bn: 'ঢাকা উত্তর · লাইভ',
+    en: 'Dhaka North · Live',
+  },
+  'public.map.legend.new': { bn: 'নতুন', en: 'New' },
+  'public.map.legend.active': { bn: 'চলমান', en: 'Active' },
+  'public.map.legend.resolved': { bn: 'সমাধান', en: 'Resolved' },
+
+  // --- Public landing: footer (mockup 11-public-landing) ---
+  'public.footer.note': {
+    bn: 'CityFix — ঢাকা উত্তর সিটি কর্পোরেশনের নাগরিক সেবা পোর্টাল। মানচিত্রের তথ্য © OpenStreetMap অবদানকারীদের, MapLibre-এর মাধ্যমে প্রদর্শিত।',
+    en: 'CityFix — the citizen service portal of Dhaka North City Corporation. Map data © OpenStreetMap contributors, displayed via MapLibre.',
+  },
+  'public.footer.help': { bn: 'সহায়তা কেন্দ্র', en: 'Help centre' },
+  'public.footer.terms': { bn: 'শর্তাবলী', en: 'Terms' },
+  'public.footer.privacy': { bn: 'গোপনীয়তা নীতি', en: 'Privacy policy' },
+  'public.footer.hotline': {
+    bn: 'হেল্পলাইন ০১৯৯০০০০০০০',
+    en: 'Hotline 0199000000',
+  },
+
   // WO-001 1.3 Registration
   'register.title': { bn: 'অ্যাকাউন্ট তৈরি করুন', en: 'Create account' },
   'register.subtitle': {

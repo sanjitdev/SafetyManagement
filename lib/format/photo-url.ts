@@ -159,6 +159,114 @@ export function thumbnailBackground(
 }
 
 /**
+ * True when `url` points at an INLINE image whose pixels are too
+ * small to be evidence of anything.
+ *
+ * ── Why this exists ────────────────────────────────────────────
+ *
+ * The seeded and test-generated rows carry 1×1 or 2×2 PNGs — a
+ * transparent pixel for "a photo exists but we have no bytes", a
+ * solid magenta pixel for "the thumbnail pipeline must paint this
+ * square". Both are technically valid `data:image/png` URLs, so
+ * `isRenderablePhotoUrl` accepts them and the card renders an
+ * 80×80 white or magenta square where a citizen expects to see
+ * their own evidence.
+ *
+ * A citizen looking at the public landing page sees a wall of
+ * magenta tiles and concludes the app is broken. The tiles are real
+ * rows; they are just not photographs.
+ *
+ * ── How the detection works ────────────────────────────────────
+ *
+ * The IHDR chunk of a PNG sits at a fixed offset: bytes 0-7 are the
+ * signature, bytes 8-11 are the chunk length, bytes 12-15 are the
+ * type "IHDR", and bytes 16-19 (big-endian) are the width, bytes
+ * 20-23 the height. The payload is base64, so we decode the first
+ * few base64 characters and read the header out of the decoded
+ * bytes.
+ *
+ * The rule is on the SHORTEST side: an image whose width OR height
+ * is 2 pixels or less is a swatch, not a photograph. A 2×4 tile
+ * carries four pixels — no more evidence than a 1×1, and it is
+ * exactly the shape the magenta fixture ships as. Conversely a
+ * 1×4000 banner strip has one dimension that IS large; it is
+ * rejected too, because a 1-pixel-wide image is a divider line,
+ * not a photo of a streetlight.
+ *
+ * JPEG, WebP and every non-inline URL return `false` — we do not
+ * decode them client-side, and the server never produced a 1×1
+ * JPEG fixture.
+ */
+export function isDegenerateInlineImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed.toLowerCase().startsWith('data:image/png;base64,')) return false;
+
+  // 16 base64 chars = 12 bytes = exactly the PNG signature + the
+  // length/type words. We need 24 bytes to read width and height,
+  // so pull 32 characters (24 bytes, with padding to a 4-char
+  // boundary).
+  const payload = trimmed.slice('data:image/png;base64,'.length);
+  if (payload.length < 32) return true; // truncated → not a real photo
+
+  let header: Uint8Array;
+  try {
+    const binary = atob(payload.slice(0, 32));
+    header = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      header[i] = binary.charCodeAt(i);
+    }
+  } catch {
+    return false; // not valid base64 — leave it to the <img> to fail
+  }
+
+  // PNG signature check: 89 50 4E 47 0D 0A 1A 0A
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (let i = 0; i < signature.length; i += 1) {
+    if (header[i] !== signature[i]) return false; // not a PNG
+  }
+  // "IHDR" chunk type at bytes 12-15.
+  if (
+    header[12] !== 0x49 || // I
+    header[13] !== 0x48 || // H
+    header[14] !== 0x44 || // D
+    header[15] !== 0x52 // R
+  ) {
+    return false;
+  }
+
+  const width =
+    (header[16] << 24) | (header[17] << 16) | (header[18] << 8) | header[19];
+  const height =
+    (header[20] << 24) | (header[21] << 16) | (header[22] << 8) | header[23];
+
+  // Either side 2px or less → a colour swatch, not a photograph.
+  return width <= 2 || height <= 2;
+}
+
+/**
+ * The first photo URL in a list that is worth rendering — i.e. one
+ * that is a usable image source AND is not a degenerate 1×1/2×2
+ * colour swatch.
+ *
+ * This is the check the PUBLIC feed card should use. `firstRenderablePhotoUrl`
+ * remains the right check for surfaces whose thumbnails are a
+ * deliberate "a photo was attached" signal (the citizen's own report
+ * flow, where even a swatch proves the bytes round-tripped).
+ */
+export function firstDisplayablePhotoUrl(
+  urls: readonly string[] | null | undefined,
+): string | null {
+  if (!urls) return null;
+  for (const url of urls) {
+    if (!isRenderablePhotoUrl(url)) continue;
+    if (isDegenerateInlineImage(url)) continue;
+    return url.trim();
+  }
+  return null;
+}
+
+/**
  * True when `url` is an acceptable photo source at an API boundary
  * (i.e. a value we are willing to persist and later render).
  *
