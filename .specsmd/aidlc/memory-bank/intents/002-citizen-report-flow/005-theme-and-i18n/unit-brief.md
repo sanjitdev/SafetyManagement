@@ -2,7 +2,7 @@
 unit: 005-theme-and-i18n
 intent: 002-citizen-report-flow
 phase: inception
-status: ready
+status: complete
 created: 2026-10-04T00:00:00Z
 updated: 2026-10-11T18:00:00Z
 ---

@@ -1,7 +1,7 @@
 ---
 intent: 007-citizen-resolution-visibility
 phase: inception
-status: in-progress
+status: complete
 created: 2026-10-13T20:10:00Z
 updated: 2026-10-13T20:10:00Z
 ---

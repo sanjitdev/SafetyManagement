@@ -1,7 +1,7 @@
 ---
 intent: 006-citizen-home-and-report-redesign
 phase: inception
-status: in-progress
+status: complete
 created: 2026-10-13T18:10:00Z
 updated: 2026-10-13T18:10:00Z
 ---

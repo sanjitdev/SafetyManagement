@@ -2,7 +2,7 @@
 unit: 003-ticket-detail-and-resolve
 intent: 004-field-crew-app
 phase: construction
-status: ready
+status: complete
 created: 2026-10-12T01:30:00Z
 updated: 2026-10-12T01:30:00Z
 ---

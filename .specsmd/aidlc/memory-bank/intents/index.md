@@ -3,7 +3,7 @@ standard: intents-index
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-27T00:00:00Z
+updated: 2026-11-09T00:00:00Z
 ---
 
 # Intents Index
@@ -26,6 +26,7 @@ in its own folder and ships a `requirements.md`,
 | [006-citizen-home-and-report-redesign](006-citizen-home-and-report-redesign/requirements.md) | Citizen Home + Report Redesign (v1.1) | **complete** | 3 | 5 |
 | [007-citizen-resolution-visibility](007-citizen-resolution-visibility/requirements.md) | Citizen Resolution Visibility (Bolt 007) | **complete** | 3 | 5 |
 | [008-ux-polish-from-demo](008-ux-polish-from-demo/requirements.md) | UX Polish from Slow-motion Demo | **complete** | 3 | 5 |
+| [009-ui-redesign](009-ui-redesign/requirements.md) | UI Redesign (31 routes, Swiss/Minimal civic) | **in-progress** | 8 | 18 |
 
 Intent 002 closed on 2026-10-11: all 5 bolts
 (002-001 through 002-005) shipped to `done`;
@@ -59,7 +60,27 @@ Four more deferred surfaces shipped in a
 2026-10-27 batch build, adding two units to
 Intent 003 and two to Intent 005:
 
-Intent 009 (**UI Redesign**) opened 2026-11-02 as a brown-field
+- **Bolt 008-013** — dispatcher live monitor
+  (Intent 003 Unit 006, story DISP-008).
+- **Bolt 008-014** — dispatcher performance
+  reporting (Intent 003 Unit 007, story
+  DISP-009).
+- **Bolt 008-015** — admin user management
+  (Intent 005 Unit 005, story ADM-008).
+- **Bolt 008-016** — admin adoption dashboard
+  (Intent 005 Unit 006, story ADM-009).
+
+The same build landed the platform-layer gaps
+(blob storage, the crew offline write queue, and the `Crew` / `SlaPolicy`
+schema) and the CI + coverage tooling the team policy required. The
+Prisma migration `20261027140000_platform_gaps`
+is authored but **not applied** — the configured
+Neon instance was unreachable (`P1001`); apply
+with `npx prisma migrate deploy`.
+
+## Intent 009 — UI Redesign
+
+Intent 009 opened 2026-11-02 as a brown-field
 frontend feature: a full-surface redesign of all 31 routes in the
 locked Accessible + Swiss/Minimal civic direction. The 8-unit
 decomposition is one unit per wave — CI unblock, design foundation,
@@ -67,6 +88,10 @@ auth + public, citizen, dispatcher, crew, admin, verification. Waves
 0 and 1 have shipped (commits `45062d1` and `b279228`); the Wave 2
 mockups (`08`–`12`) are authored and baselined, and the Wave 2 page
 implementation awaits human mockup approval.
+
+Unit status as of 2026-11-09: 001 and 002 shipped,
+003 mockups shipped with page implementation pending,
+004–008 not started.
 
 - **Bolt 008-013** — dispatcher live monitor
   (Intent 003 Unit 006, story DISP-008).
@@ -108,10 +133,8 @@ with `npx prisma migrate deploy`.
 5. **Intent 005** (Admin City Setup) — fourth persona
    WO; gates on Intent 004.
 
-For CityFix, Intents 001-004 are now substantially
-built (5/5, 4/4, 4/4, and the platform layer
-respectively). Intent 005 is the last persona WO
-and is currently in active build as of 2026-10-12.
+For CityFix, Intents 001-008 are closed. Intent 009
+(UI Redesign) is the active build as of 2026-11-09.
 
 ## Cross-references
 

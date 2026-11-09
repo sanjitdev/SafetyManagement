@@ -500,3 +500,53 @@ The design intent was recorded but never implemented — `design-artifacts/E-Dev
 | Build | `npm run build` | green |
 
 **Recorded defect worth keeping**: the `11-public-landing` baseline drifted by 82–156px of page height between runs. The cause is the Google Fonts web font loading at different metrics, not a layout change. Recapturing fixed it, but the durable fix is to self-host Noto Sans Bengali before the Wave 7 baseline regeneration. Tracked as an open decision in the intent's inception log.
+
+---
+
+## 2026-11-09T00:00:00Z - Status Integrity Fix (memory-bank drift across Intents 002-009)
+
+**Triggered by**: Master Agent `/specsmd-master-agent` "what are the most important tasks that are remaining" → deliverables audit; the status drift surfaced while reconciling the route-spec measurement against the memory-bank.
+
+**Reason**: One rule was applied inconsistently across two layers of the memory-bank: **a unit's status says whether its bolt shipped, and an intent's status is the aggregate of its units.** The drift:
+
+- 21 unit briefs under Intents 002/003/004/005 still said `ready` or `done` even though their bolt shipped.
+- 6 intent `units.md` files (002-008) still said `in-progress` even though every unit beneath them was complete.
+- `intents/index.md` listed only Intents 001-008 — **Intent 009 had no table row at all**, even though the 2026-11-02 entry above recorded creating one.
+
+**Ground truth: the bolt record, not the unit brief.** Every unit in Intents 001-008 has a shipped bolt — including the ones whose bolt was numbered under a *later* intent (Intent 006's `002-home-activity-redesign` shipped as `006-002-home-and-shell`; Intent 003's `006-live-monitor` shipped as `008-013-dispatcher-live-monitor`). Each bolt record carries a `unit:` field naming its originating unit, so the unit→bolt mapping is mechanical rather than inferential.
+
+Two `unit:` field shapes had to be handled: the legacy intent-prefixed form (`unit: 003-dispatcher-queue/001-auth-and-scope`) and the newer bare-slug form (`unit: 006-live-monitor`). Both are indexed by the trailing slug.
+
+**A rejected approach worth recording**: the first attempt derived each unit's status from the *other units' briefs*, which produced a regression — Intent 005 flipped `complete` → `in-progress` because its `001-webauthn-and-auth` brief said `ready`. The tree was restored with `git checkout -- .specsmd/aidlc/memory-bank/` and the script rewritten against the bolt records. A status field cannot be its own ground truth.
+
+| Layer | Old | New | Count |
+|---|---|---|---|
+| Unit briefs (002/003/004/005) | `ready` | `complete` | 16 |
+| Unit briefs (003/005) | `done` | `complete` | 5 |
+| Intent `units.md` (002-008) | `in-progress` | `complete` | 6 |
+| `intents/index.md` | Intent 009 row absent | row added: `in-progress`, 8 units, 18 stories | 1 |
+
+### Resulting state (verified by re-reading every file)
+
+| Layer | Value |
+|---|---|
+| Intents 001-008 | `complete` |
+| Intent 009 | `in-progress` |
+| Unit briefs | **37 complete / 1 in-progress / 5 not-started** |
+
+The unit-brief tally is exactly Intent 009's real position: Units 001-002 shipped, Unit 003 mockups shipped with page implementation pending (`in-progress`), Units 004-008 not started.
+
+### Also corrected in `intents/index.md`
+
+- The trailing prose had Intent 009's description stranded mid-paragraph inside the "Four more deferred surfaces" section; it is now its own `## Intent 009 — UI Redesign` section.
+- "Intents 001-004 are now substantially built… Intent 005 is the last persona WO and is currently in active build as of 2026-10-12" — stale by a month. Now: "Intents 001-008 are closed. Intent 009 (UI Redesign) is the active build as of 2026-11-09."
+- `updated:` timestamp bumped to `2026-11-09T00:00:00Z`.
+
+### Not changed, deliberately
+
+- **`REFINEMENT.md`** — a dated snapshot (`updated: 2026-10-11`), not a live status layer. Its gaps (G1-G6) are a historical audit against the code as it stood that day. Reconciling it would rewrite history rather than fix drift.
+- **`aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/aidlc-state.md`** — `team.md` forbids editing `aidlc-state.md` directly: *"only the engine's state-transition hooks write state."* That file is genuinely stale (2026-10-06, `Scope: mvp` against `project.md`'s `feature` default, phase stuck at IDEATION while work is through Intent 009), but it is the engine's to reconcile, not the memory-bank's to rewrite.
+- **`story-index.md`** — re-read and confirmed already correct: Intent 009's section lists all 18 stories with the right statuses (7 done / 1 ready / 10 draft).
+- **The 17 legacy bolts** using `ddd-01-bolt-record.md` / `ddd-04-bolt-record.md` instead of `bolt.md`, and carrying no `stories:` array — a separate structural inconsistency, not a status drift.
+
+No source code touched. No tests touched. No PRD/spec/design changed. This pass is entirely frontmatter + status-line reconciliation in the memory-bank.

@@ -2,7 +2,7 @@
 unit: 001-webauthn-and-auth
 intent: 005-admin-city-setup
 phase: construction
-status: ready
+status: complete
 created: 2026-10-12T05:30:00Z
 updated: 2026-10-12T05:30:00Z
 ---

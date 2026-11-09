@@ -1,7 +1,7 @@
 ---
 intent: 008-ux-polish-from-demo
 phase: inception
-status: in-progress
+status: complete
 created: 2026-10-14T18:10:00Z
 updated: 2026-10-14T18:10:00Z
 ---

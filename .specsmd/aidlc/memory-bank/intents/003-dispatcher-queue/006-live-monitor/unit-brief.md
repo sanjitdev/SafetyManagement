@@ -2,7 +2,7 @@
 unit: 006-live-monitor
 intent: 003-dispatcher-queue
 phase: construction
-status: done
+status: complete
 created: 2026-10-27T00:00:00Z
 updated: 2026-10-27T00:00:00Z
 ---

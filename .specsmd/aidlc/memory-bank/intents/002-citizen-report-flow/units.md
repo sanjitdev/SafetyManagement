@@ -1,7 +1,7 @@
 ---
 intent: 002-citizen-report-flow
 phase: inception
-status: in-progress
+status: complete
 updated: 2026-10-11T18:00:00Z
 ---
 

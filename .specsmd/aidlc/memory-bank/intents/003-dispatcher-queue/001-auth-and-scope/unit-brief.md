@@ -2,7 +2,7 @@
 unit: 001-auth-and-scope
 intent: 003-dispatcher-queue
 phase: inception
-status: ready
+status: complete
 created: 2026-10-11T23:55:00Z
 updated: 2026-10-11T23:55:00Z
 ---

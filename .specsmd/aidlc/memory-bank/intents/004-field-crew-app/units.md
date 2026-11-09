@@ -1,7 +1,7 @@
 ---
 intent: 004-field-crew-app
 phase: construction
-status: in-progress
+status: complete
 updated: 2026-10-12T04:00:00Z
 ---
 

@@ -2,7 +2,7 @@
 unit: 006-adoption-dashboard
 intent: 005-admin-city-setup
 phase: construction
-status: done
+status: complete
 created: 2026-10-27T00:00:00Z
 updated: 2026-10-27T00:00:00Z
 ---
