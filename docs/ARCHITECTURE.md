@@ -365,7 +365,7 @@ checkout → setup-node (22) → npm ci → prisma generate
 
 `engines.node` in `package.json` stays `>=20.0.0` because that is the *runtime* floor for the deployed app. The jsdom dependency is a *test-time* requirement only and is stricter. If the runtime floor is ever raised, raise the CI pin in the same commit.
 
-**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **92.59% lines / 83.08% branches / 93.66% functions**.
+**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **93.94% lines / 82.91% branches / 94.46% functions**.
 
 The floor is never weakened to make a run green — the correct response to a threshold failure is to add real tests for the uncovered path.
 

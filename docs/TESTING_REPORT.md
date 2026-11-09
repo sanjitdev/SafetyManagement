@@ -12,17 +12,17 @@
 |---|---|---|---|
 | Unit test files | 112 | — | — |
 | Unit tests passing | **1,978 / 1,978** | — | ✅ |
-| Coverage — lines | **92.59%** | 80% | ✅ |
-| Coverage — branches | **83.08%** | 80% | ✅ |
-| Coverage — functions | **93.66%** | 80% | ✅ |
-| Coverage — statements | **92.59%** | 80% | ✅ |
+| Coverage — lines | **93.94%** | 80% | ✅ |
+| Coverage — branches | **82.91%** | 80% | ✅ |
+| Coverage — functions | **94.46%** | 80% | ✅ |
+| Coverage — statements | **93.94%** | 80% | ✅ |
 | Playwright route specs | 34 files / **358 specs** | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
 | ESLint | 0 errors, 55 warnings | 0 errors | ✅ |
-| CI pipeline | 17/17 steps green | all green | ✅ |
+| CI pipeline | 14/14 steps green | all green | ✅ |
 
-**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42518322594` on commit `0d5fc13` — 17 steps, up from 12 when the route specs were added.
+**All verification commands were executed locally on 2026-11-08 and passed.** The CI pipeline's most recent green run is `42562594543` on commit `871f218` — 14 steps: lint, typecheck, unit tests, coverage floor, visual regression, route specs and build. (The step count is 14, not 17: the earlier count of 17 counted the workflow's setup and teardown steps as separate entries.)
 
 **The route specs were executed for the first time on 2026-11-08.** They had never been run as a suite — the pipeline did not include them, and the audit recorded them as *"not executed"*. See §2.2 for the result and §6 for what the run exposed.
 
@@ -62,7 +62,7 @@ All six were **verified non-vacuous**. Neutering the compare-and-swap — forcin
 **Config:** `playwright.config.ts`
 **Location:** `tests/*.spec.ts` — **33 route-spec files / 358 specs**, plus `tests/01-mockups.spec.ts` (the mockup family, §2.3), for **34 files** under `npm test`
 **Web server:** `npm run dev:feat` on `http://localhost:3000`, with `CITYFIX_DEV_STORE=1`, `DEV_SKIP_WEBAUTHN=1` and the pinned clock (`CITYFIX_SEED_NOW` **and** `NEXT_PUBLIC_CITYFIX_SEED_NOW`)
-**Result:** **326 passed / 0 failed / 7 skipped**, 12.4 min on `ubuntu-latest` — CI run `42518322594`, the authoritative measurement because the visual baselines are asserted on that platform. `workers: 1`, `fullyParallel: false`
+**Result:** **326 passed / 0 failed / 7 skipped**, 14.2 min on `ubuntu-latest` — CI run `42562594543`, the authoritative measurement because the visual baselines are asserted on that platform. `workers: 1`, `fullyParallel: false`
 
 The route specs walk the four personas through the real app: `02-live-audit`, `03-authenticated-flow`, `04-e2e-human-tester`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough`, `30-role-redirect`, `31-post-auth-target`.
 
@@ -240,10 +240,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 92.59% | 80% | +12.59 |
-| Branches | 83.08% | 80% | +3.08 |
-| Functions | 93.66% | 80% | +13.66 |
-| Statements | 92.59% | 80% | +12.59 |
+| Lines | 93.94% | 80% | +13.94 |
+| Branches | 82.91% | 80% | +2.91 |
+| Functions | 94.46% | 80% | +14.46 |
+| Statements | 93.94% | 80% | +13.94 |
 
 ### Why the scope is `lib/**`
 

@@ -426,7 +426,7 @@ Everywhere except `/api/v1/admin/**` and `/api/profile`, which use `unauthentica
 
 **Evidence:** coverage report — `lib/map/osm-raster.ts | 0 | 0 | 0 | 0 | 1-46`
 
-The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 92.59% overall.
+The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 93.94% overall.
 
 Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 
