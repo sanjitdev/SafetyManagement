@@ -10,6 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+**The `PUT /api/profile` WebAuthn gate — 2026-11-09**
+
+`PUT /api/profile` was the one admin-reachable write outside the ADR-007 gate. It is now closed: the admin write requires a fresh WebAuthn assertion, the body is Zod-validated, the write is scoped to the caller's own row, and every write lands an audit row.
+
+- `app/api/profile/route.ts` — the gate, the Zod schema, the ownership scope and the audit row.
+- `app/profile/page.tsx` — the client half. The page now distinguishes the three 401s the route can return: a missing session redirects to the login screen, while `webauthn_required` / `webauthn_assertion_expired` open the `AdminWebAuthnStepUp` panel and retry the save once the assertion lands.
+- `tests/unit/profile-webauthn-gate.test.ts` — **new**, 18 tests.
+
 **The OTP attempt limit is now enforced — 2026-11-09**
 
 `lib/auth/otp.ts` has exported `OTP_MAX_ATTEMPTS = 5` since the platform layer was written, and the verify-otp route's own docblock promised *"After 5 within 10 minutes, soft-lock"*. Neither was true. The route incremented the `attempts` column on the `OtpCode` row after a wrong guess and then **never read it back** — the counter was write-only dead state, and `OTP_MAX_ATTEMPTS` had zero references outside its own declaration.
@@ -73,6 +81,19 @@ Ten documents created in `docs/`. All are new files; no source code was changed.
 - **`docs/running.md` — rewritten against the real stack.** This was the standing instruction *"update the doc to match the real stack"*, and it was materially wrong on five counts: 40 route handlers vs 61, 249 unit tests vs 1,853, 15 visual baselines vs 25, 19 route specs vs 34, and Node 20 vs the CI-pinned Node 22. The rewrite lists all 62 route files with their methods, all 26 `package.json` scripts with what they actually do, the Node 22 requirement with its reason, the visual-baseline platform rule, and the dev-route gating caveat. It now cross-links the audit deliverables instead of duplicating them.
 
 ### Fixed
+
+**`PUT /api/profile` was an ungated admin write — 2026-11-09.**
+
+ADR-007 states its rule as a property of the **role**, not of the path: *"Every admin write path requires a fresh WebAuthn assertion… gated for the `admin` role only."* `PUT /api/profile` sat outside the `/api/v1/admin/*` tree but was reachable by an admin session and performed a write — exactly the class of miss ADR-007:229-234 predicted. It had no `requireRole`, no `requireWebAuthn`, hand-rolled validation instead of a Zod schema, and no audit row.
+
+- `app/api/profile/route.ts` — the admin write now calls `await requireWebAuthn(session)`; a citizen / dispatcher / crew write to their **own** profile is deliberately **not** gated, because those are not admin writes (ADR-007 says so explicitly). The body is validated by a Zod schema. The write targets `session.userId`, so one user can never edit another. The session check, the body parse and the Zod validation all run **before** the ceremony (ADR-007: *"the ceremony must not fire before the cheap checks"*), so a malformed body gets a 400 rather than a pointless hardware-key prompt. Every successful write lands a `user.update_profile` audit row with the before/after names.
+- `app/profile/page.tsx` — an admin save refused by the gate now surfaces the existing `AdminWebAuthnStepUp` ceremony and **retries the save** once the assertion lands, instead of showing a bare error code. A plain 401 still redirects to the login screen.
+- `tests/unit/profile-webauthn-gate.test.ts` — **new**, 18 tests. Non-vacuity is proven by mutation: disabling the guard turns exactly the 5 gate tests red.
+- `lib/docs/openapi.ts` + `lib/docs/openapi.json` — the `PUT /api/profile` responses now document the WebAuthn gate codes and the `invalid_input` Zod body, replacing the four hand-rolled error codes the spec used to advertise.
+
+**The checklist header counts were carried forward, not re-measured — 2026-11-09.**
+
+`docs/PRODUCTION_READINESS_CHECKLIST.md` says its figures are *"measured, not asserted… re-measured after each — never adjusted by hand."* That was true through round 6 and false from round 7 on: the header claimed **97 passed / 56%** while the rows had actually said **98** (row 9.7 moved to ✅) and then **100** (rows 3.8 and 9.10 moved to ✅). Three rounds of row changes had left the header untouched. The counts are now re-measured from the rows with a code-point-aware parser, and the parser was run against every recorded snapshot in the file's history to catch exactly this class of drift. The figures are **173 / 104 / 40 / 28 / 1, 60%**.
 
 **The OTP attempt limit was never enforced — 2026-11-09.**
 

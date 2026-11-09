@@ -26,7 +26,7 @@ Run these after every change. The first three are already green in the current t
 
 ```bash
 npx tsc --noEmit      # typecheck — must be clean
-npm run test:unit     # Vitest — 113 files / 1987 tests
+npm run test:unit     # Vitest — 114 files / 2005 tests
 npm run test:mockups  # Playwright visual regression baselines (needs the dev server)
 npm run check:i18n    # i18n key registry consistency
 npm run lint          # ESLint
@@ -118,7 +118,7 @@ The application is **substantially built**. Treat these as leads to verify, not 
 - **65 API route handlers** under `app/api/**/route.ts`.
 - **17 Prisma models** + 3 enums: `City`, `Ward`, `Department`, `Crew`, `SlaPolicy`, `Category`, `User`, `OtpCode`, `WebAuthnChallenge`, `Session`, `PushSubscription`, `Ticket`, `TicketTrailEntry`, `TicketPhoto`, `AuditEntry`, `DedupFlag`; enums `Role`, `TicketStatus`, `DedupFlagStatus`.
 - **3 migrations** in `prisma/migrations/`.
-- **Vitest**: 113 test files / 1987 tests under `tests/unit/`.
+- **Vitest**: 114 test files / 2005 tests under `tests/unit/`.
 - **Playwright**: 34 route-spec files / 358 specs under `tests/` plus mockup visual baselines.
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, unit, coverage, visual, build, and the route specs.
 - **Security headers** (CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) are configured in `next.config.js`.
@@ -752,7 +752,7 @@ Test with:
 
 # PHASE 14: Testing & Quality Assurance
 
-**Existing infrastructure:** Vitest unit suite under `tests/unit/` (113 files / 1987 tests, currently green). Playwright route specs under `tests/` (34 spec files / 358 specs, `testMatch: '*.spec.ts'` so the Vitest files are not swept in). Visual baselines for the design mockups. CI in `.github/workflows/ci.yml`.
+**Existing infrastructure:** Vitest unit suite under `tests/unit/` (114 files / 2005 tests, currently green). Playwright route specs under `tests/` (34 spec files / 358 specs, `testMatch: '*.spec.ts'` so the Vitest files are not swept in). Visual baselines for the design mockups. CI in `.github/workflows/ci.yml`.
 
 **Audit the tests themselves** — a green suite that asserts nothing is a false PASS. Check that assertions are meaningful, that they would fail on a regression, and that no test is a tautology.
 

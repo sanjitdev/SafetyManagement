@@ -203,13 +203,13 @@ All scripts are defined in `package.json`.
 | `npm run format` | `prettier --write .` | Format |
 | `npm run format:check` | `prettier --check .` | Format check |
 | `npm test` | `playwright test` | Playwright route specs (34 files) |
-| `npm run test:unit` | `vitest run` | 1,987 unit tests across 113 files |
+| `npm run test:unit` | `vitest run` | 2,005 unit tests across 114 files |
 | `npm run test:unit:watch` | `vitest` | Vitest watch mode |
 | `npm run test:unit:coverage` | `vitest run --coverage` | Coverage + the 80% floor gate |
 | `npm run test:mockups` | `playwright test tests/01-mockups.spec.ts` | 25 visual baselines (gating) |
 | `npm run test:update-baselines` | Same with `--update-snapshots` | Re-capture mockup PNGs (**CI only — see below**) |
 | `npm run test:report` | `playwright show-report` | Open last Playwright HTML report |
-| `npm run check:i18n` | `node scripts/check-i18n-keys.mjs` | Fail if `app/**` references an unregistered i18n key (957 keys) |
+| `npm run check:i18n` | `node scripts/check-i18n-keys.mjs` | Fail if `app/**` references an unregistered i18n key (964 keys) |
 | `npm run docs:generate` | `tsx scripts/generate-openapi.ts` | Regenerate the OpenAPI spec |
 | `npm run db:generate` | `prisma generate` | Prisma client codegen |
 | `npm run db:migrate` | `prisma migrate dev` | Author + apply a migration |
@@ -411,7 +411,7 @@ If all four pass, the project is healthy.
 | Step | Verifies |
 |---|---|
 | `npx tsc --noEmit` | TypeScript strict compile clean |
-| `npm run test:unit` | 1,987 unit tests pass (113 files) |
+| `npm run test:unit` | 2,005 unit tests pass (114 files) |
 | `npm run test:mockups` | 25 visual baselines match (gating) |
 | `curl -fs http://localhost:3000/` | Server returns 2xx on `/` |
 

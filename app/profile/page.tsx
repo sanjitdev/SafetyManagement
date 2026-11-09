@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
+import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import type { Appearance } from '@/lib/theme/appearance';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -75,6 +76,17 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<'load' | 'save' | 'name' | 'name_bn' | null>(null);
+
+  // ADR-007: an ADMIN profile write is an admin write, so the API
+  // refuses it with 401 `webauthn_required` /
+  // `webauthn_assertion_expired` until a fresh assertion is made.
+  // When that happens the page surfaces the step-up ceremony and
+  // retries the save once the assertion lands. Citizen / dispatcher /
+  // crew writes are not admin writes and are never gated, so this
+  // panel only ever appears for an admin.
+  const [stepUpNeeded, setStepUpNeeded] = useState(false);
+  const [stepUpNoCredential, setStepUpNoCredential] = useState(false);
+  const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
 
   // The sidebar's "Settings" item deep-links to `/profile?tab=settings`.
   // The tab lives in the URL so the nav item can highlight correctly and
@@ -157,6 +169,71 @@ export default function ProfilePage() {
     name.trim() !== profile.name || nameBn.trim() !== (profile.nameBn ?? '')
   )), [name, nameBn, profile]);
 
+  /**
+   * The ADR-007 gate codes that mean "run the step-up ceremony, then
+   * retry this write". `webauthn_required` — the admin has no
+   * registered credential (or has one but no fresh challenge).
+   * `webauthn_assertion_expired` — the admin HAS a credential but the
+   * challenge is stale, so a new assertion is needed. Both are
+   * satisfied by the same ceremony; the difference is only whether
+   * the admin must REGISTER a key first, which the ceremony reports
+   * as `no_credential`.
+   */
+  const isWebAuthnGate = (code: string | undefined): boolean =>
+    code === 'webauthn_required' || code === 'webauthn_assertion_expired';
+
+  /**
+   * Persist the profile. Shared by the initial submit and by the
+   * retry the step-up ceremony triggers — the retry re-issues the
+   * SAME body, which is why the two callbacks are the same function.
+   */
+  const saveProfile = useCallback(async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), nameBn: nameBn.trim() }),
+      });
+
+      if (response.status === 401) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        if (isWebAuthnGate(body.error)) {
+          // Remember the write so the ceremony can retry it.
+          pendingSaveRef.current = () => saveProfile();
+          setStepUpNeeded(true);
+          setStepUpNoCredential(false);
+          return;
+        }
+        // A plain 401 is an expired / missing session — send the
+        // citizen back to the login screen.
+        router.replace('/login?next=%2Fprofile');
+        return;
+      }
+
+      if (!response.ok) throw new Error('profile_save_failed');
+      const payload = (await response.json()) as { profile: Profile };
+      // Refresh the module-scope cache so a remount reads the SAVED
+      // profile rather than the pre-save snapshot.
+      profileResult = payload;
+      setProfile(payload.profile);
+      setName(payload.profile.name);
+      setNameBn(payload.profile.nameBn ?? '');
+      setSaved(true);
+      setStepUpNeeded(false);
+      setStepUpNoCredential(false);
+      window.dispatchEvent(new Event('cityfix:profile-updated'));
+    } catch {
+      setError('save');
+    } finally {
+      setSaving(false);
+    }
+  }, [name, nameBn, router]);
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaved(false);
@@ -171,35 +248,39 @@ export default function ProfilePage() {
       return;
     }
 
-    setError(null);
-    setSaving(true);
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: normalizedName, nameBn: normalizedNameBn }),
-      });
-      if (response.status === 401) {
-        router.replace('/login?next=%2Fprofile');
+    await saveProfile();
+  }
+
+  /**
+   * The step-up ceremony completed. On `'verified'` the guard's
+   * challenge ledger now holds a fresh row, so the refused save is
+   * retried. The other outcomes do NOT retry — a retry without a
+   * valid assertion would fail the same way.
+   */
+  const onStepUpOutcome = useCallback(
+    (outcome: 'verified' | 'no_credential' | 'failed' | 'cancelled') => {
+      if (outcome === 'verified') {
+        setStepUpNeeded(false);
+        setStepUpNoCredential(false);
+        const retry = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (retry) void retry();
         return;
       }
-      if (!response.ok) throw new Error('profile_save_failed');
-      const payload = (await response.json()) as { profile: Profile };
-      // Refresh the module-scope cache so a remount reads the SAVED
-      // profile rather than the pre-save snapshot.
-      profileResult = payload;
-      setProfile(payload.profile);
-      setName(payload.profile.name);
-      setNameBn(payload.profile.nameBn ?? '');
-      setSaved(true);
-      window.dispatchEvent(new Event('cityfix:profile-updated'));
-    } catch {
-      setError('save');
-    } finally {
-      setSaving(false);
-    }
-  }
+      if (outcome === 'no_credential') {
+        // No amount of retrying helps: the admin must REGISTER a key.
+        setStepUpNoCredential(true);
+        setStepUpNeeded(false);
+        pendingSaveRef.current = null;
+        return;
+      }
+      // 'failed' | 'cancelled' — clear the banner; the ceremony
+      // component renders its own error line.
+      setStepUpNeeded(false);
+      pendingSaveRef.current = null;
+    },
+    [],
+  );
 
   const returnHref = profile?.role === 'dispatcher'
     ? '/dispatcher'
@@ -321,6 +402,52 @@ export default function ProfilePage() {
                 <p role={error === 'save' ? 'alert' : 'status'} aria-live="polite" style={{ margin: 0, padding: 'var(--space-3)', borderRadius: 'var(--radius-input)', background: error === 'save' ? 'var(--color-danger-soft)' : 'var(--color-success-soft)', color: error === 'save' ? 'var(--color-danger)' : 'var(--color-success)', fontSize: 'var(--text-body-sm)' }}>
                   {t(error === 'save' ? 'profile.error.save' : 'profile.saved', null, lang)}
                 </p>
+              )}
+
+              {/*
+                ADR-007: the WebAuthn step-up. This renders only after
+                a gated ADMIN save was refused — the ceremony is
+                offered because the admin ASKED to make a change, not
+                as a permanent button on the page.
+              */}
+              {(stepUpNeeded || stepUpNoCredential) && (
+                <div
+                  data-testid="profile-webauthn-step-up-panel"
+                  style={{
+                    padding: 'var(--space-3)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-input)',
+                    background: 'var(--color-surface-raised)',
+                  }}
+                >
+                  {stepUpNoCredential ? (
+                    <>
+                      <p
+                        data-testid="profile-webauthn-step-up-register-hint"
+                        style={{
+                          fontSize: 'var(--text-body-sm)',
+                          color: 'var(--color-ink-secondary)',
+                          marginBottom: 8,
+                        }}
+                      >
+                        {t('admin.webauthn.step_up.register_hint', null, lang)}
+                      </p>
+                      <Link
+                        href="/admin"
+                        data-testid="profile-webauthn-step-up-register-link"
+                        className="admin-btn-primary px-4 py-2 rounded-md"
+                        style={{ display: 'inline-block' }}
+                      >
+                        {t('admin.webauthn.register.title', null, lang)}
+                      </Link>
+                    </>
+                  ) : (
+                    <AdminWebAuthnStepUp
+                      lang={lang}
+                      onOutcome={onStepUpOutcome}
+                    />
+                  )}
+                </div>
               )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

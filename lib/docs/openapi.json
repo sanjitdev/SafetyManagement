@@ -6849,7 +6849,7 @@
           "Misc"
         ],
         "summary": "Update the signed-in user’s profile",
-        "description": "Only the display names are writable. `nameBn` is effectively required — omitting it is rejected — but an empty string clears it.",
+        "description": "Only the display names are writable, and only on the caller’s OWN row — the write is scoped to the session’s user, so one user can never edit another’s profile.\n\nADR-007: an ADMIN write is an admin write wherever it lives, so it requires a fresh WebAuthn assertion. A citizen / dispatcher / crew write to their own profile is NOT an admin write and is not gated. The body is validated BEFORE the ceremony (ADR-007 guard ordering), so a malformed request gets a 400 rather than being sent through a hardware-key prompt it could never satisfy.",
         "operationId": "updateProfile",
         "requestBody": {
           "required": true,
@@ -6858,8 +6858,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "name",
-                  "nameBn"
+                  "name"
                 ],
                 "properties": {
                   "name": {
@@ -6873,7 +6872,7 @@
                       "null"
                     ],
                     "maxLength": 80,
-                    "description": "Trimmed. `null` or empty clears it."
+                    "description": "Trimmed. Optional; `null` or empty clears it."
                   }
                 }
               }
@@ -6900,7 +6899,49 @@
             }
           },
           "400": {
-            "description": "The body or the names were invalid.",
+            "description": "The body was invalid. The Zod issues are in `issues`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "issues"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_input"
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session, or the admin’s WebAuthn gate refused the write.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6914,7 +6955,7 @@
                         "error": {
                           "type": "string",
                           "enum": [
-                            "invalid_json"
+                            "unauthenticated"
                           ]
                         }
                       }
@@ -6928,7 +6969,7 @@
                         "error": {
                           "type": "string",
                           "enum": [
-                            "invalid_profile"
+                            "webauthn_required"
                           ]
                         }
                       }
@@ -6942,47 +6983,12 @@
                         "error": {
                           "type": "string",
                           "enum": [
-                            "invalid_name"
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "error"
-                      ],
-                      "properties": {
-                        "error": {
-                          "type": "string",
-                          "enum": [
-                            "invalid_name_bn"
+                            "webauthn_assertion_expired"
                           ]
                         }
                       }
                     }
                   ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No session. This route reports a missing session as `unauthenticated`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "enum": [
-                        "unauthenticated"
-                      ]
-                    }
-                  }
                 }
               }
             }

@@ -330,9 +330,9 @@ production posture).
 **Verification gates** (per `team.md` Mandated):
 
 - `npx tsc --noEmit` — clean, 0 errors.
-- `npm run test:unit` — 113 files / 1987 tests pass.
-- `npm run test:unit:coverage` — 93.94% lines / 82.91% branches /
-  94.46% functions, all above the 80% floor.
+- `npm run test:unit` — 114 files / 2005 tests pass.
+- `npm run test:unit:coverage` — 93.14% lines / 83% branches /
+  94.07% functions, all above the 80% floor.
 - `npm run lint` — 0 errors.
 
 ## Amendment 2026-11-09 — the ceremony affordance (step-up route)
@@ -415,6 +415,69 @@ cross-user test fail (the forged path 404s rather than 403s).
 - The login ceremony is unchanged and still mints a session.
 - The rule remains a property of the **role**, not of a path.
 
+## Amendment 2026-11-09 — the predicted miss, closed
+
+**Status:** the risk recorded above as *"a future admin write route
+added outside `/api/v1/admin/*` skips the gate"* is **CLOSED** for
+the one route it had already happened to.
+
+### What was missing
+
+`PUT /api/profile` was an admin write route outside
+`/api/v1/admin/*`. It had no `requireRole`, no `requireWebAuthn`, a
+hand-rolled body check instead of the Zod boundary, and wrote no
+audit row. An admin could change their display name — an admin
+write — with no ceremony and no trace. It was found by the
+[SECURITY_AUDIT.md](../SECURITY_AUDIT.md) audit (finding #5), not by
+the test suite, because the suite asserted what the code *did* rather
+than what this ADR said it *should*.
+
+### The amendment
+
+The route now applies the canonical admin-write pattern, and applies
+it **conditionally on the role**, which is what this ADR actually
+requires:
+
+- the body is validated with Zod **before** the ceremony, so a
+  malformed request gets a `400` rather than a hardware-key prompt it
+  could never satisfy;
+- if and only if `session.role === 'admin'`, `await
+  requireWebAuthn(session)` runs;
+- the write is scoped to `session.userId` — the caller's own row;
+- the change lands a `user.update_profile` audit row with before and
+  after values.
+
+A citizen, dispatcher or crew member editing **their own** profile is
+**not** an admin write and stays ungated. The rule is a property of
+the role, so the gate follows the role.
+
+On the client (`app/profile/page.tsx`), a gated write no longer
+surfaces a bare error code: a `401` carrying `webauthn_required` or
+`webauthn_assertion_expired` stashes the pending save and opens the
+`AdminWebAuthnStepUp` panel, retrying the write on a verified
+assertion. Any other `401` still redirects to login.
+
+### Test plan (the amendment)
+
+`tests/unit/profile-webauthn-gate.test.ts` (18 tests) pins the
+contract: an admin write with no credential → `401
+webauthn_required` and **the name is not changed**; no challenge → `401
+webauthn_assertion_expired`; an expired challenge → `401`; credential
+plus a fresh challenge → `200`. Citizen / dispatcher / crew writes to
+their own row → `200`, ungated. The admin's row is untouched when the
+gate refuses. The body is rejected before the ceremony. `nameBn: null`
+is accepted. An audit row is written on success and **none** on a
+gate rejection. `GET /api/profile` is unaffected — reads are exempt.
+
+The gate is proven non-vacuous: neutering it (`if (session.role ===
+'admin' && false)`) turns exactly the 5 gate assertions red.
+
+### What is unchanged
+
+- The guard, the dev seam and the challenge TTL are unchanged.
+- The step-up ceremony is unchanged.
+- The rule remains a property of the **role**, not of a path.
+
 ## References
 
 - `lib/auth/guards.ts` — `requireWebAuthn` (`:95-127`); the
@@ -457,6 +520,11 @@ cross-user test fail (the forged path 404s rather than 403s).
   and the dev-seam production-posture pin.
 - `tests/unit/transition-webauthn.test.ts` — this ADR's regression
   suite.
+- `app/api/profile/route.ts` — the role-conditional admin gate
+  (the 2026-11-09 amendment closing the predicted miss).
+- `tests/unit/profile-webauthn-gate.test.ts` — the profile gate's
+  regression suite (18 tests).
+- `app/profile/page.tsx` — the profile page's step-up affordance.
 - `.specsmd/aidlc/memory-bank/standards/decision-index.md` — the
   ADR register; ADR-007's canonical entry ("Admin write paths
   require WebAuthn").

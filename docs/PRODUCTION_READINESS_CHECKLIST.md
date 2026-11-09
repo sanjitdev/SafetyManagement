@@ -23,20 +23,20 @@ Every PASS cites the file or command that proves it. Every FAIL cites the file a
 
 | Metric | Value |
 |---|---|
-| **Overall completion** | **56%** (97 of 173 items PASS) |
+| **Overall completion** | **60%** (104 of 173 items PASS) |
 | Total checklist items | **173** |
-| ✅ Passed | **97** |
-| ❌ Failed | **45** |
-| ⚠️ Not verified | **30** |
+| ✅ Passed | **104** |
+| ❌ Failed | **40** |
+| ⚠️ Not verified | **28** |
 | ➖ Not applicable | **1** |
 
-The 56% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed. The route specs were also executed for the first time on 2026-11-08 and now pass, apart from stale visual baselines.
+The 60% is a completeness score against the production-readiness surface, **not** a quality score. The code that exists is largely well built — the layering, the PII boundary, the audit immutability and the i18n discipline all hold. The failures cluster in three places: **configuration-reachable auth defects**, **operations that have never been exercised against real infrastructure**, and **the concurrency scenarios that no longer exist** — all five named ones are now closed. The route specs were also executed for the first time on 2026-11-08 and now pass, apart from stale visual baselines.
 
 > **The counts are measured, not asserted.** They were produced by parsing the status column of every item row in this document. An earlier draft of this file claimed 126 items and 58% — that was an estimate made before the checklist was written out, and it was wrong on every axis. The stage count below is 12; the item count is 173.
 >
-> **The item count was itself wrong until 2026-11-08.** This table claimed 172 items across 20 rounds of edits, but the document has always carried **173** rows. The parser that produced the original figures counted row 9.14 as unparseable: that row's status marker is `U+2760` (⚠ WARNING SIGN), while every other not-verified row uses `U+26A0` (⚠️ HIGH VOLTAGE SIGN). The two render identically and differ only in code point, so the count silently dropped one ⚠️ row. The current figures are 173 / 97 / 45 / 30 / 1, re-measured by code point. **A "measured" number that drops a row because of a code point is not measured.**
+> **The item count was itself wrong until 2026-11-08.** This table claimed 172 items across 20 rounds of edits, but the document has always carried **173** rows. The parser that produced the original figures counted row 9.14 as unparseable: that row's status marker is `U+2760` (⚠ WARNING SIGN), while every other not-verified row uses `U+26A0` (⚠️ HIGH VOLTAGE SIGN). The two render identically and differ only in code point, so the count silently dropped one ⚠️ row. **A "measured" number that drops a row because of a code point is not measured.**
 >
-> **Six rounds of rows have changed since the audit was written, and the figures above were re-measured after each — never adjusted by hand.**
+> **Nine rounds of rows have changed since the audit was written.** The figures above were re-measured after rounds 1–8 — never adjusted by hand. Round 9 found that rounds 7 and 8 had in fact been *carried forward* rather than re-measured, which is the same failure this table was written to prevent; the round-9 entry below records the correction.
 >
 > 1. **2026-11-08 — the phantom OpenAPI methods.** Rows 6.1 and 6.13 moved to ✅ when the two spec blocks that documented non-existent endpoints were deleted and a mechanical parity test was added — see [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08). Counts moved 44% → 44% (76 passed).
 > 2. **2026-11-08 — the concurrent-transition lost update.** The worst concurrency finding is closed at source: a compare-and-swap write on `(status, version)`, one transaction around the status update + trail insert + audit write, and a CI-enforced regression test. Rows 5.1, 5.2, 5.3, 5.4, 5.10, 5.11, 5.12, 5.14, 9.9 and 12.8 moved to ✅; rows 9.13 and 12.12 moved to ⚠️ (partially verified). Counts moved 44% → **51%** (76 → 87 passed, 67 → 54 failed, 28 → 30 not verified).
@@ -45,19 +45,23 @@ The 56% is a completeness score against the production-readiness surface, **not*
 > 5. **2026-11-08 — the crew capacity rule.** The last of the five named concurrency scenarios. The audit framed it as an open *product* question, but the answer was already written down in the UX spec (a red load badge above 5, a load-based sort, a 409 "crew just took another job"), so it was an unimplemented specification. `lib/dispatcher/crew-capacity.ts` now enforces the limit and the assign endpoint refuses a member at it with **409 `crew_at_capacity`**; the picker reports the same count. Rows 5.9 and 12.11 moved to ✅. Counts moved 55% → **56%** (94 → 96 passed, 47 → 45 failed, 30 not verified unchanged). **All five named concurrency scenarios are now closed.**
 > 6. **2026-11-08 — the route specs were executed.** Row 9.8 moved from ⚠️ to ✅ and row 9.6 was re-measured (33 files / 333 specs). The suite had never been run as a whole; the first execution produced **61 failures**, and closing them exposed **two product defects** — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen compact header that stripped the top-bar Report CTA WO-001 requires. Counts moved 55% → **56%** (96 → 97 passed, 45 failed unchanged, 31 → 30 not verified). The item total was corrected 172 → **173** on the same pass, for the code-point reason recorded above.
 > 7. **2026-11-08 — the route specs run in CI, and the clock is pinned.** Row 9.7 moved from ❌ to ✅. The `ubuntu-latest` measurement — the only platform the visual baselines are asserted on — exposed a defect no Windows run could see: the **seeded clock was the wall clock**, so every screenshot embedded the moment it was taken and no baseline could ever hold. The clock is now pinned end to end (`lib/format/clock.ts`) — seed, query windows, chart axes, and the **client bundle**, which needed `NEXT_PUBLIC_` because `process.env` is server-only and a server/client divergence fails the React hydration. The suite now runs in CI: workflow run `42562594543` is green end to end, with the route specs at **326 passed / 0 failed / 7 skipped**.
+> 8. **2026-11-09 — the ungated `PUT /api/profile` admin write.** Rows 3.13, 4.7, 6.3 and 9.11 moved to ✅ (2 from ❌, 2 from ⚠️) — the admin write is WebAuthn-gated, Zod-validated, ownership-scoped and audited, with an 18-test regression suite. See [KNOWN_ISSUES.md #5](KNOWN_ISSUES.md#5-put-apiprofile-is-an-ungated-admin-write--closed-2026-11-09).
+> 9. **2026-11-09 — the header counts were carried forward, not re-measured.** Re-measuring for round 8 exposed that the header had claimed **97 passed / 56%** since round 6, while the rows had actually said **98** (from round 7, when row 9.7 moved to ✅) and then **100** (from the OTP round, when rows 3.8 and 9.10 moved to ✅). Three rounds of row changes had left the header untouched. The document says *"the counts are measured, not asserted… re-measured after each — never adjusted by hand"* — that was true when it was written and false by round 9. The figures are now **re-measured from the rows** with the same code-point-aware parser rather than carried forward, and the parser was run against every recorded snapshot in this file's history to catch exactly this class of drift.
+>
+> **The current figures are 173 / 104 / 40 / 28 / 1, re-measured by code point.**
 
 ### Issue counts
 
 | Severity | Count | Detail |
 |---|---:|---|
 | **Critical** | **3** | OTP plaintext in every environment; four `/api/dev/*` routes not dev-store-gated; `bootstrap-admin` + `issue-session` mint admin sessions. *(The fourth Critical finding — the unenforced OTP attempt limit — was **closed on 2026-11-09**: the limit is now read back from the `OtpCode` row and enforced, with a regression test.)* |
-| **High** | **4** | `PUT /api/profile` is an ungated admin write; WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted. *(The fifth High finding — concurrency control — was **closed on 2026-11-08**: all five named scenarios now have a guard and a CI-enforced regression test.)* |
+| **High** | **3** | WebAuthn challenges never consumed; admin city-scoped routes skip the city check; password login is not role-restricted. *(Two further High findings were closed: concurrency control on **2026-11-08** — all five named scenarios now have a guard and a CI-enforced regression test; and the ungated `PUT /api/profile` admin write on **2026-11-09** — the write is now WebAuthn-gated for admins, Zod-validated, ownership-scoped and audited, with an 18-test regression suite.)* |
 | **Medium** | **13** | In-process rate limiter; no `middleware.ts`; CSP `unsafe-inline`/`unsafe-eval`; incomplete `.env.example`; `sessionId` echoed; local blob photos 404; adoption export passes the city id as a slug; city-create swallows template failure; `osm-raster.ts` at 0% coverage; `SlaPolicy` never consulted; four missing `Ticket` timestamps; `null` collapsed to `0` in adoption metrics; no `middleware`/baseline route guard |
 | **Low** | **9** | Four API contract divergences; `requireRole` returns 401 where 403 is expected; OTP generated with `Math.random()`; missing COOP/CORP/DNS-prefetch headers; stale `SlaPolicy` comments; audit `action` is a free-form string; `AuditEntry.actor` `onDelete: Restrict` unverified; `lib/ui/map-colors.ts` at 0%; `AuditEntry`/`Trail` have no `@@unique` |
 
-**Total open issues: 30.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, and the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open.)
+**Total open issues: 29.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open — and the ungated `PUT /api/profile` admin write was closed on 2026-11-09.)
 
-The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 13 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 45 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
+The severity counts are the **findings register** — 17 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) plus 13 in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) that are not security findings. They do not equal the 40 failed checklist items: a single finding can fail several checklist rows, and one failed row (10.22, the production-mode run) is a consequence of the environment rather than a distinct defect.
 
 ### Features completed during the audit
 
@@ -91,9 +95,9 @@ The two code-level remediations from the prior session (the Node 22 CI pin and t
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **113 files / 1,987 tests passed**, ~27 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **93.94% lines / 82.91% branches / 94.46% functions** (floor 80%) |
-| i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
+| Unit tests | `npm run test:unit` | ✅ **114 files / 2,005 tests passed**, ~29 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **93.14% lines / 83% branches / 94.07% functions** (floor 80%) |
+| i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 | Visual regression | CI run `42562594543` | ✅ 25/25 baselines |
 | Full pipeline | CI run `42562594543` | ✅ 14/14 steps green |
 
@@ -116,7 +120,7 @@ The auth stack is genuinely well built at the component level: Argon2id with OWA
 - `OTP_PROVIDER` **defaults to `stub`** (`lib/auth/otp-provider/index.ts:31`), and `dev_code` is returned **unconditionally** (`app/api/v1/auth/send-otp/route.ts:164`). A deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full account takeover with no credential theft.
 - `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere**. `attempts` was incremented at `app/api/v1/auth/verify-otp/route.ts` and never read. The route's own docstring promised a 5-attempt lockout that did not exist. **Closed 2026-11-09** — the counter is now read back and enforced.
 - Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check, unlike their two correctly-gated siblings. Two of them mint **admin sessions**, bypassing both the password and WebAuthn. A single leaked static secret yields unauthenticated privilege escalation.
-- `PUT /api/profile` has no `requireRole`, no `requireWebAuthn` and no Zod schema.
+- `PUT /api/profile` had no `requireRole`, no `requireWebAuthn` and no Zod schema. **Closed 2026-11-09** — the admin write is WebAuthn-gated, the body is Zod-validated, the write is scoped to the session's own user, and every write lands an audit row.
 - WebAuthn challenges are **never consumed**. One ceremony authorises every admin write for the next five minutes, which is not what ADR-007's threat model assumes.
 - `CITYFIX_DEV_STORE` has **no production guard**. One env var disables the database, unsigns the session cookie and bypasses WebAuthn.
 
@@ -155,22 +159,21 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
 | 3 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
 | 4 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
-| 5 | `PUT /api/profile` is an ungated admin write | High | `app/api/profile/route.ts:26-59` |
-| 7 | WebAuthn challenges never consumed | High | `lib/auth/guards.ts:113-125` |
-| 8 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
-| 9 | Password login is not role-restricted | High | `app/api/v1/auth/login/route.ts:137-139` |
-| 10 | The four production env vars are unverified | Critical | — |
+| 5 | WebAuthn challenges never consumed | High | `lib/auth/guards.ts:113-125` |
+| 6 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
+| 7 | Password login is not role-restricted | High | `app/api/v1/auth/login/route.ts:137-139` |
+| 8 | The four production env vars are unverified | Critical | — |
 
 **Blocks a *correct* launch, not merely a safe one:**
 
 | # | Blocker | Severity | Evidence |
 |---|---|---|---|
-| 11 | `SlaPolicy` is defined, seeded and never consulted; its schema comment claims otherwise | Medium | `prisma/schema.prisma:123` |
-| 12 | Four `Ticket` timestamps missing — two of four operational questions are only partially answerable | Medium | `prisma/schema.prisma:311-372` |
-| 13 | `null` collapsed to `0` in adoption metrics — "no data" is indistinguishable from "zero" | Medium | `lib/admin/adoption.ts:548-566` |
-| 14 | No `/api/blob` route — local photos are dead links | Medium | `lib/storage/blob.ts:180` |
-| 15 | No `middleware.ts` — the structural cause of #6 and #8 | Medium | — |
-| 16 | `lib/map/osm-raster.ts` at 0% coverage — a regression is a blank map | Medium | coverage report |
+| 9 | `SlaPolicy` is defined, seeded and never consulted; its schema comment claims otherwise | Medium | `prisma/schema.prisma:123` |
+| 10 | Four `Ticket` timestamps missing — two of four operational questions are only partially answerable | Medium | `prisma/schema.prisma:311-372` |
+| 11 | `null` collapsed to `0` in adoption metrics — "no data" is indistinguishable from "zero" | Medium | `lib/admin/adoption.ts:548-566` |
+| 12 | No `/api/blob` route — local photos are dead links | Medium | `lib/storage/blob.ts:180` |
+| 13 | No `middleware.ts` — the structural cause of the missing route-level guards | Medium | — |
+| 14 | `lib/map/osm-raster.ts` at 0% coverage — a regression is a blank map | Medium | coverage report |
 
 ---
 
@@ -228,7 +231,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 3.10 | OTP code uses a CSPRNG | ❌ | `Math.random()` — `lib/auth/otp.ts` |
 | 3.11 | WebAuthn registration and assertion work | ✅ | `@simplewebauthn/server` v10; RP ID/origin guards in production |
 | 3.12 | WebAuthn challenges are consumed on use | ❌ | No `delete`/`update` on `webAuthnChallenge` anywhere — `lib/auth/guards.ts:113-125` |
-| 3.13 | Admin writes require a fresh WebAuthn assertion | ⚠️ | ADR-007 is enforced on `/api/v1/admin/*` and the shared transition route — but **not** on `PUT /api/profile` |
+| 3.13 | Admin writes require a fresh WebAuthn assertion | ✅ | ADR-007 is enforced on `/api/v1/admin/*`, the shared transition route, and — since **2026-11-09** — `PUT /api/profile`. Every admin-reachable write in the tree is gated |
 | 3.14 | Password login is role-restricted | ❌ | No `role` constraint — `app/api/v1/auth/login/route.ts:137-139` |
 | 3.15 | Dev-only auth bypasses are `isDevStore()`-gated | ❌ | `DEV_SKIP_WEBAUTHN` is double-gated, but four `/api/dev/*` routes are secret-gated only |
 | 3.16 | `CITYFIX_DEV_STORE` cannot be set in production | ❌ | **No production guard exists** |
@@ -247,7 +250,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 4.4 | Admin city-scoped routes check the caller's city | ❌ | 12 routes under `/api/v1/admin/cities/[id]/**` skip the check; `/api/v1/admin/tickets/[id]` enforces it. **Needs ADR-006** |
 | 4.5 | ADR-006 exists | ⚠️ | Not present in `docs/adr/`. Its absence leaves 4.4 undecidable from the code |
 | 4.6 | A baseline route guard exists | ❌ | **No `middleware.ts`** — a route is protected only if its author remembered |
-| 4.7 | `PUT /api/profile` requires a role and, for admins, WebAuthn | ❌ | Neither guard present — `app/api/profile/route.ts:26-59` |
+| 4.7 | `PUT /api/profile` requires a role and, for admins, WebAuthn | ✅ | **Closed 2026-11-09** — the admin write calls `requireWebAuthn`; the write is scoped to `session.userId` (ownership), and the non-admin write stays ungated per ADR-007 |
 | 4.8 | The dev-privilege routes are gated on the dev store | ❌ | `bootstrap-admin`, `issue-session`, `promote-admin`, `list-users` — secret-only |
 | 4.9 | `requireScope` correctly exempts admins | ✅ | ADR-007:26-33 — an admin session is city-wide authority |
 | 4.10 | Dispatcher and crew writes are correctly *not* admin writes | ✅ | ADR-007 scope — the shared transition route does not demand WebAuthn from them |
@@ -288,7 +291,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 |---|---|---|---|
 | 6.1 | Every route has an OpenAPI entry | ✅ | 53 paths / 68 operations of 77 live. The 8 dev/docs route files are excluded **by design**. The spec's 2 phantom methods (`PATCH`/`DELETE` on `/api/tickets/{id}`) were **deleted on 2026-11-08** and the JSON artifact regenerated. See [KNOWN_ISSUES.md #31](KNOWN_ISSUES.md#31-the-openapi-spec-documents-two-methods-that-do-not-exist---resolved-2026-11-08) |
 | 6.2 | The OpenAPI spec is type-checked | ✅ | `lib/docs/openapi.ts` is typed code — `tsc` catches a malformed component reference |
-| 6.3 | Every API boundary validates input with Zod | ⚠️ | Holds across `app/api/**` except `app/api/profile/route.ts` (hand-rolled validation at `:46-51`) |
+| 6.3 | Every API boundary validates input with Zod | ✅ | Holds across `app/api/**`. `app/api/profile/route.ts` was the last holdout — it converted to a Zod schema on **2026-11-09** |
 | 6.4 | Error codes are consistent across the surface | ❌ | 5 live divergences — see [KNOWN_ISSUES.md §17-21](KNOWN_ISSUES.md#api-consistency) |
 | 6.5 | `requireRole` error status matches the body | ❌ | Body says `403 forbidden_role`, status is 401 |
 | 6.6 | Service-layer functions return `Result<T,E>` and never throw | ✅ | Team rule, verified across `lib/` |
@@ -308,7 +311,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 |---|---|---|---|
 | 7.1 | All four role surfaces are implemented | ✅ | 37 pages — citizen 10, dispatcher 6, crew 4, admin 10, plus public 2, auth 3, dev 1 |
 | 7.2 | The citizen report flow is complete | ✅ | 5-step flow with photo capture and location map |
-| 7.3 | All user-facing copy goes through `lib/i18n/keys.ts` | ✅ | 957 keys, typed registry, `npm run check:i18n` fails on an unregistered key |
+| 7.3 | All user-facing copy goes through `lib/i18n/keys.ts` | ✅ | 964 keys, typed registry, `npm run check:i18n` fails on an unregistered key |
 | 7.4 | The design system is committed alongside the code | ✅ | `design-artifacts/D-Design-System/` — tokens, icon registry, primitives, 12 mockups |
 | 7.5 | Visual regression baselines exist and gate the pipeline | ✅ | 25 baselines; CI step 10 |
 | 7.6 | The baselines are deterministic on the asserting platform | ✅ | Regenerated on `ubuntu-latest`; `regenerate-baselines.yml` workflow |
@@ -345,17 +348,17 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 9.1 | A unit test suite exists | ✅ | 113 files, 1,987 tests, ~27 s |
+| 9.1 | A unit test suite exists | ✅ | 114 files, 2,005 tests, ~29 s |
 | 9.2 | The coverage floor is enforced in CI | ✅ | 80%, `all: true` so an untested file counts against the threshold |
 | 9.9 | A concurrency test suite exists | ✅ | `tests/unit/transitions-concurrency.test.ts` (13) + `tests/unit/writes-concurrency.test.ts` (10) + `tests/unit/platform/transaction.test.ts` (16) + `tests/unit/dedup-concurrency.test.ts` (18) + `tests/unit/dedup-route-race.test.ts` (6) + `tests/unit/dispatcher/crew-capacity.test.ts` (14) — drive concurrent transitions, concurrent field writes, concurrent duplicate submissions and the crew-capacity rule against the real dev store and assert exactly one winner |
-| 9.3 | Coverage exceeds the floor | ✅ | 93.94% lines / 82.91% branches / 94.46% functions — **re-measured** after the crew-capacity work |
+| 9.3 | Coverage exceeds the floor | ✅ | 93.14% lines / 83% branches / 94.07% functions — **re-measured** after the crew-capacity work |
 | 9.4 | The CI pipeline is green | ✅ | Run `42562594543` on `871f218` — 14/14 steps |
 | 9.5 | The pipeline runs on the same Node version as documented | ✅ | Node 22 pinned — `jsdom@30` → `undici@8` needs `>=22.19.0` |
 | 9.6 | Playwright route specs cover all four roles | ✅ | **34 files / 358 specs** — `02-live-audit`, `09-dispatcher-auth`, `13-crew-auth`, `16-admin-webauthn`, `28-role-walkthrough` |
 | 9.7 | The route specs run in CI | ✅ | **Added 2026-11-08.** CI runs them as a separate step (`npx playwright test --grep-invert 'CityFix mockup baselines'`) with the dev-store, WebAuthn-seam and pinned-clock env vars. The job timeout went 25 → 45 minutes to fit the ~11-minute suite. The per-test coordinate isolation the dev store lacked is handled by `resetDevStore()` in the shared fixtures |
 | 9.8 | The route specs pass | ✅ | **326 passed / 0 failed / 7 skipped** across 34 files / 358 specs, 14.2 min on `ubuntu-latest` — CI run `42562594543`. The first execution (Windows, 2026-11-08) produced 61 failures; all were triaged, and closing them exposed two product defects — a serializer that dropped `closeReason`/`duplicateOfId` for every role, and a citizen header that stripped the required top-bar Report CTA. The `ubuntu-latest` measurement then exposed a third class of defect: the **seeded clock was the wall clock**, so no baseline could ever hold. The clock is now pinned end-to-end — seed, query windows, chart axes, and the **client bundle**, which needed the `NEXT_PUBLIC_` prefix because `process.env` is server-only and a client/server divergence fails the hydration. Re-running the baseline workflow produced **63 byte-identical** PNGs, so the suite is reproducible rather than merely current (§2.2 of the testing report) |
 | 9.10 | A test exists for the OTP attempt limit | ✅ | **Added 2026-11-09** — `tests/unit/otp-attempt-limit.test.ts` (9 tests). Pins the counter, the lockout, that the correct code is ALSO refused once locked out, and that the counter is per-row. Non-vacuity proven: with the guard disabled, exactly the 3 lockout tests fail |
-| 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ❌ | The suite asserts what the code does, not what ADR-007 says it should — the same class of miss ADR-007:229-234 predicted |
+| 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ✅ | **Added 2026-11-09** — `tests/unit/profile-webauthn-gate.test.ts` (18 tests). Pins that an admin write is refused without a credential and without a fresh challenge, that the name is NOT changed when refused, that a citizen / dispatcher / crew write is NOT gated, that the write is scoped to the session's own user, that a bad body is rejected BEFORE the ceremony, and that a successful write lands an audit row. Non-vacuity proven: with the guard disabled, exactly the 5 gate tests fail |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
 | 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write, submit and crew-capacity paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct), and `devDb.ticket.findMany` filters on `assignedCrewId` with Prisma's NULL semantics so the capacity count is real. Four concurrency suites exercise them in CI. `ticketPhoto.create`'s push-then-sort is still unsafe — that one is a photo-ordering question, not a race guard |
 | 9.14 | The test suite runs against a live database | ❠️ | No database-backed CI job |

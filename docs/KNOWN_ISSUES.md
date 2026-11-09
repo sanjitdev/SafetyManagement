@@ -15,7 +15,7 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 | 2 | OTP attempt limit never enforced | **Critical** | Auth | **Closed 2026-11-09** |
 | 3 | Four `/api/dev/*` routes not dev-store-gated | **Critical** | Auth | Open |
 | 4 | `bootstrap-admin` + `issue-session` mint admin sessions | **Critical** | Auth | Open |
-| 5 | `PUT /api/profile` is an ungated admin write | **High** | AuthZ | Open |
+| 5 | `PUT /api/profile` is an ungated admin write | **High** | AuthZ | **Closed 2026-11-09** |
 | 6 | WebAuthn challenges never consumed | **High** | Auth | Open |
 | 7 | Admin city-scoped routes skip the city check | **High** | AuthZ | Open — needs ADR-006 |
 | 8 | Password login is not role-restricted | **High** | Auth | Open |
@@ -237,15 +237,26 @@ Neither needs a prior session. A single leaked static secret yields **unauthenti
 
 ## Security — High
 
-### 5. `PUT /api/profile` is an ungated admin write
+### 5. `PUT /api/profile` is an ungated admin write — **CLOSED 2026-11-09**
 
-**Evidence:** `app/api/profile/route.ts:26-59`
+**Evidence:** `app/api/profile/route.ts`; covered by `tests/unit/profile-webauthn-gate.test.ts` (18 tests)
 
-Verified by reading the file: there is **no `requireRole`**, **no `requireWebAuthn`**, and no Zod schema — validation is hand-rolled (L46-51 rejects empty, >80 chars, and control characters). It writes `name` / `nameBn`.
+**What was wrong.** Verified by reading the file: there was **no `requireRole`**, **no `requireWebAuthn`**, and no Zod schema — validation was hand-rolled (the old L46-51 rejected empty, >80 chars, and control characters). It wrote `name` / `nameBn`.
 
 ADR-007:87-89 states *"Every admin write path requires a fresh WebAuthn assertion"* (ADR-007:143-147). The scope table (L183-189) lists only path-prefixed rows, so it never considered a route outside `/api/v1/admin/*` other than the shared transition route — exactly the class of miss ADR-007:229-234 predicted.
 
-**Fix:** call `await requireWebAuthn(session)` when `session.role === 'admin'`; add a role/ownership guard; convert to Zod.
+**The fix.** The route now:
+
+- **Gates the admin write.** `await requireWebAuthn(session)` runs when `session.role === 'admin'`. An admin with no registered credential gets `401 webauthn_required`; one with a credential but no fresh challenge gets `401 webauthn_assertion_expired`.
+- **Does not gate the non-admin write.** A citizen / dispatcher / crew write to their OWN profile is not an admin write and is not gated — their writes still succeed with no hardware key. This is ADR-007's own rule (*"Dispatcher and crew writes are not admin writes and are not gated"*) applied literally.
+- **Scopes the write to the caller.** The update targets `session.userId`, so one user can never edit another user's profile.
+- **Validates with Zod** at the boundary, replacing the hand-rolled string checks. The control-character rule is carried over as a `refine` on the schema.
+- **Orders the guards cheaply.** The session check, the body parse, and the Zod validation all run BEFORE the ceremony (ADR-007: *"The ceremony must not fire before the cheap checks"*), so a malformed body gets a 400 rather than being sent through a hardware-key prompt it could never satisfy.
+- **Writes an audit row** (`user.update_profile`) with the before/after names.
+
+The client half is wired too: `app/profile/page.tsx` now surfaces the existing `AdminWebAuthnStepUp` ceremony when the API refuses an admin save with a WebAuthn gate code, and retries the save once the assertion lands. A plain 401 still sends the user to the login screen.
+
+**Non-vacuity.** The gate is proven non-vacuous by mutation: neutering the `requireWebAuthn` call turns exactly the 5 gate tests red. If the guard were removed and the suite stayed green, the file would be worthless.
 
 ---
 
@@ -462,7 +473,7 @@ Everywhere except `/api/v1/admin/**` and `/api/profile`, which use `unauthentica
 
 **Evidence:** coverage report — `lib/map/osm-raster.ts | 0 | 0 | 0 | 0 | 1-46`
 
-The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 93.94% overall.
+The module builds the tile URLs the map depends on. A regression there is a blank map in production, and the coverage floor does not catch it because the whole file is uncovered and `lib/**` is still at 93.14% overall.
 
 Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 

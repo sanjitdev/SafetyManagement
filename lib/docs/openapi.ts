@@ -2514,14 +2514,15 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Misc'],
       summary: 'Update the signed-in user’s profile',
       description:
-        'Only the display names are writable. `nameBn` is effectively required — omitting it is rejected — but an empty string clears it.',
+        'Only the display names are writable, and only on the caller’s OWN row — the write is scoped to the session’s user, so one user can never edit another’s profile.\n\n' +
+        'ADR-007: an ADMIN write is an admin write wherever it lives, so it requires a fresh WebAuthn assertion. A citizen / dispatcher / crew write to their own profile is NOT an admin write and is not gated. The body is validated BEFORE the ceremony (ADR-007 guard ordering), so a malformed request gets a 400 rather than being sent through a hardware-key prompt it could never satisfy.',
       operationId: 'updateProfile',
       requestBody: jsonBody({
         type: 'object',
-        required: ['name', 'nameBn'],
+        required: ['name'],
         properties: {
           name: { type: 'string', maxLength: 80, description: 'Trimmed. Must be non-empty and free of control characters.' },
-          nameBn: { type: ['string', 'null'], maxLength: 80, description: 'Trimmed. `null` or empty clears it.' },
+          nameBn: { type: ['string', 'null'], maxLength: 80, description: 'Trimmed. Optional; `null` or empty clears it.' },
         },
       }),
       responses: {
@@ -2530,15 +2531,14 @@ export const openapiPaths: Record<string, PathItem> = {
           required: ['profile'],
           properties: { profile: { $ref: '#/components/schemas/Profile' } },
         }),
-        '400': jsonResponse('The body or the names were invalid.', {
+        '400': jsonResponse('The body was invalid. The Zod issues are in `issues`.', issuesBody('invalid_input')),
+        '401': jsonResponse('No session, or the admin’s WebAuthn gate refused the write.', {
           oneOf: [
-            errorBody('invalid_json'),
-            errorBody('invalid_profile'),
-            errorBody('invalid_name'),
-            errorBody('invalid_name_bn'),
+            errorBody('unauthenticated'),
+            errorBody('webauthn_required'),
+            errorBody('webauthn_assertion_expired'),
           ],
         }),
-        '401': jsonResponse('No session. This route reports a missing session as `unauthenticated`.', errorBody('unauthenticated')),
         '404': jsonResponse('The session’s user no longer exists.', errorBody('user_not_found')),
       },
     },

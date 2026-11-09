@@ -13,12 +13,14 @@
 
 | Severity | Count | Blockers for production launch? |
 |---|---|---|
-| Critical | 4 | Yes — 3 of the 4 are reachable without any credential |
-| High | 4 | Yes — each independently breaks the ADR-007 threat model |
+| Critical | 3 | Yes — 2 of the 3 are reachable without any credential |
+| High | 3 | Yes — each independently breaks the ADR-007 threat model |
 | Medium | 5 | Should fix before scale-out, not before pilot |
 | Low | 4 | No |
 
-**Verdict: NOT production-ready.** The four Critical findings are all *configuration-reachable* rather than theoretical — they only become harmless if the deployment's environment variables are set exactly right, and nothing in the codebase enforces that. The single highest-leverage fix is adding an `isDevStore()` guard to four `/api/dev/*` routes (four lines of code).
+*Counts are the OPEN findings. Two have been closed since the audit: the unenforced OTP attempt limit (Critical #2) and the ungated `PUT /api/profile` admin write (High #5), both on 2026-11-09.*
+
+**Verdict: NOT production-ready.** The three open Critical findings are all *configuration-reachable* rather than theoretical — they only become harmless if the deployment's environment variables are set exactly right, and nothing in the codebase enforces that. The single highest-leverage fix is adding an `isDevStore()` guard to four `/api/dev/*` routes (four lines of code).
 
 The strongest part of this codebase is the discipline around the `/api/v1/admin/*` tree: every one of those write handlers calls `requireRole` → `await requireWebAuthn` → `writeAudit`, and the ADR-007 test suite exercises the shared transition route through its real dependency graph rather than with mocks. The weakness is the one ADR-007 itself predicted (lines 229–234): the rule was enforced by *convention* (path layout) before it was enforced by *role*.
 
@@ -32,7 +34,7 @@ The strongest part of this codebase is the discipline around the `/api/v1/admin/
 | 2 | **Critical** | OTP attempt limit was **never enforced** — `attempts` was written but never read | `app/api/v1/auth/verify-otp/route.ts`; `lib/auth/otp.ts:32` | **CLOSED 2026-11-09** — the counter is read back before verification; `429 too_many_attempts` at the limit. Covered by `tests/unit/otp-attempt-limit.test.ts` |
 | 3 | **Critical** | Four production-reachable `/api/dev/*` endpoints gated only on a shared secret, not on `isDevStore()` | `app/api/dev/{bootstrap-admin:52,issue-session:35,list-users:37,promote-admin:43}/route.ts` | Add `if (!isDevStore()) return 404` to all four, before the secret check |
 | 4 | **Critical** | `bootstrap-admin` + `issue-session` mint a full admin session, bypassing password and WebAuthn entirely | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` | Same as #3; delete both routes before production |
-| 5 | **High** | Admin write path **not** WebAuthn-gated: `PUT /api/profile` has no role check and no ceremony | `app/api/profile/route.ts:26-59` | Call `await requireWebAuthn(session)` when `session.role === 'admin'`; add a role/ownership guard; convert to Zod |
+| 5 | **High** | Admin write path **not** WebAuthn-gated: `PUT /api/profile` has no role check and no ceremony | `app/api/profile/route.ts` | **CLOSED 2026-11-09** — the admin write calls `requireWebAuthn`; the body is Zod-validated; the write is scoped to `session.userId`; every write lands an audit row. Covered by `tests/unit/profile-webauthn-gate.test.ts` |
 | 6 | **High** | WebAuthn challenges are **never consumed** — one assertion satisfies the gate for many writes | No `webAuthnChallenge.delete` anywhere; `lib/auth/guards.ts:113-125` | Mark the challenge consumed on use (delete/rotate) |
 | 7 | **High** | Admin city-scoped routes never verify `params.id === session.cityId` — cross-city read + write | `app/api/v1/admin/cities/[id]/**` (only `requireRole('admin')`); `app/api/v1/admin/cities/[id]/adoption/route.ts:50` | Resolve ADR-006, then add `requireSameCity(session, params.id)` consistently |
 | 8 | **High** | Staff can authenticate with a **password only** — the WebAuthn key is not a login requirement | `app/api/v1/auth/login/route.ts:137-139` (no role filter) | Restrict the password login to `role: 'citizen'`; force admin login through `/api/auth/webauthn/login` |
@@ -210,7 +212,7 @@ Every route handler with a write method, and its enforcement. The WebAuthn colum
 | `/api/tickets/[id]/transition` | POST | dispatcher/crew/admin | city + ward/dept (admin bypass) | ✅ **admin only** | ✅ |
 | `/api/tickets/[id]/photos/[idx]` | DELETE | citizen | ownership | n/a | ✅ |
 | `/api/tickets/[id]/feedback` | POST | citizen | ownership | n/a | ✅ |
-| `/api/profile` | **PUT** | **none** | **none** | **❌ NO** | ⚠️ hand-rolled |
+| `/api/profile` | **PUT** | citizen/dispatcher/crew (own row); admin gated | **own row** (`session.userId`) | ✅ **admin only** | ✅ |
 | `/api/v1/push/subscribe` | POST/DELETE | citizen | own | n/a | ✅ |
 | `/api/v1/crew/tickets/[id]/photos` | POST | crew | scope + assignment | n/a | ✅ |
 | `/api/v1/crew/tickets/[id]/transition` | POST | crew | scope + assignment | n/a | ✅ |
@@ -233,11 +235,15 @@ Every route handler with a write method, and its enforcement. The WebAuthn colum
 | `/api/v1/admin/cities/[id]/users/import` | POST | admin | **❌ none** | ✅ | ✅ |
 | `/api/auth/webauthn/revoke` | DELETE | admin | own | ⚠️ deliberate exception | ✅ |
 
-**Finding #5 (High) — `PUT /api/profile` is an ungated admin write.** `app/api/profile/route.ts:26-59`. No `requireRole`, no `requireWebAuthn`, and validation is hand-rolled rather than Zod (L46-51 rejects empty, >80 chars, and control characters). It writes `name`/`nameBn` via `db.user.updateProfile`.
+**Finding #5 (High) — `PUT /api/profile` is an ungated admin write — CLOSED 2026-11-09.** `app/api/profile/route.ts`. No `requireRole`, no `requireWebAuthn`, and validation is hand-rolled rather than Zod (L46-51 rejects empty, >80 chars, and control characters). It writes `name`/`nameBn` via `db.user.updateProfile`.
 
 Impact is bounded — a name is not city configuration — but it is a direct contradiction of ADR-007's central claim. ADR-007:87-89 states: *"`requireWebAuthn` is enforced on every write handler under `/api/v1/admin/*` — 16 handlers, zero gaps."* That is true of the `/api/v1/admin/*` tree, but the *rule* as stated at ADR-007:143-147 is about the **role**: *"Every admin write path requires a fresh WebAuthn assertion."* `PUT /api/profile` is reachable by an admin session and performs a write. The gap is that the ADR's scope table (L183-189) lists only path-prefixed rows and never considers routes outside the `/api/v1/admin/*` tree other than the shared transition route — exactly the class of miss ADR-007:229-234 predicted (*"a future admin write route added outside `/api/v1/admin/*` skips the gate"*).
 
 An admin session is obtainable without a hardware key via finding #8, so this is reachable in practice.
+
+**The fix.** The route now calls `await requireWebAuthn(session)` when `session.role === 'admin'`; the body is validated by a Zod schema; the write targets `session.userId` (so one user can never edit another); the cheap checks run before the ceremony, per ADR-007's guard ordering; and every successful write lands an audit row. A citizen / dispatcher / crew write to their own profile is deliberately **not** gated — those are not admin writes, and ADR-007 says so explicitly. `app/profile/page.tsx` surfaces the existing `AdminWebAuthnStepUp` ceremony when an admin save is refused, and retries the save once the assertion lands.
+
+**Non-vacuity.** `tests/unit/profile-webauthn-gate.test.ts` (18 tests) proves the gate does something by mutation: neutering the `requireWebAuthn` call turns exactly the 5 gate tests red.
 
 **Finding #7 (High) — admin city-scoped routes never check the city.** Every route under `/api/v1/admin/cities/[id]/**` calls `requireRole(session, 'admin')` and **nothing else** before acting on `params.id`. The route file itself documents this as intentional — `app/api/v1/admin/cities/[id]/users/route.ts:9-10`: *"Admins bypass the cross-city check (per ADR-006)."*
 
@@ -320,7 +326,7 @@ Confirmed by `tests/unit/transition-webauthn.test.ts:282-305` (*"allows a dispat
 
 **Every route handler that accepts a body or query validates it with Zod.** Verified across all 62 handlers. The two dedup-flag routes (`confirm`, `dismiss`) take no body — their input is the path param, which is checked for existence and scope (`loadPendingFlagInScope`).
 
-**One exception: `app/api/profile/route.ts:46-51`** uses hand-rolled validation (length + control-character regex) instead of a Zod schema. Functionally adequate but inconsistent with the team rule (Zod at every API boundary).
+**The last exception was closed on 2026-11-09:** `app/api/profile/route.ts` used hand-rolled validation (length + control-character regex) instead of a Zod schema. It now uses one, with the control-character rule carried over as a `refine`. Zod coverage is now total.
 
 ### 3.2 Raw SQL / Prisma in route handlers
 
@@ -585,7 +591,7 @@ Note also: `action` is a free-form string with no enum constraint and no server-
 
 ### High
 
-4. **`PUT /api/profile` is an ungated admin write** — contradicts ADR-007's stated rule. Remediation: call `requireWebAuthn` for the admin role; add a role/ownership guard; convert to Zod.
+4. ~~**`PUT /api/profile` is an ungated admin write**~~ — **CLOSED 2026-11-09.** The admin write now calls `requireWebAuthn`; the body is Zod-validated; the write is scoped to `session.userId`; the cheap checks run before the ceremony; and every write lands an audit row. The non-admin write stays ungated, per ADR-007. Regression test: `tests/unit/profile-webauthn-gate.test.ts`.
 5. **WebAuthn challenges are never consumed** — one ceremony authorises all writes for 5 minutes. Remediation: consume the challenge on use. This is the single highest-leverage fix to the platform's core threat model.
 6. **Admin city-scoped routes have no city check** — `requireRole('admin')` only, while `admin/tickets/[id]` *does* call `requireSameCity`. Remediation: resolve ADR-006, then apply the answer consistently to all 12 routes under `cities/[id]`.
 7. **Password login is not role-restricted** — an admin can authenticate with a password. Remediation: restrict the password path to `role: 'citizen'`; force admin login through the WebAuthn route.
@@ -609,7 +615,7 @@ Note also: `action` is a free-form string with no enum constraint and no server-
 
 The strongest pattern in this codebase is the discipline around the `/api/v1/admin/*` tree: every one of those write handlers calls `requireRole` then `await requireWebAuthn` then `writeAudit`, and the ADR-007 test suite exercises the shared transition route through its real dependency graph rather than with mocks. That is good work.
 
-The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule was enforced by *convention* (path layout) before it was enforced by *role*. ADR-007 moved the transition route under the role rule but did not sweep the rest of the codebase for routes that an admin session can reach. `PUT /api/profile` is that route. There may be others in future Bolts — which is why a `middleware.ts` baseline and a route-level audit checklist (as ADR-007:231-234 recommends) are the durable fix.
+The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule was enforced by *convention* (path layout) before it was enforced by *role*. ADR-007 moved the transition route under the role rule but did not sweep the rest of the codebase for routes that an admin session can reach. `PUT /api/profile` was that route; it is now gated and audited (finding #5, closed 2026-11-09). There may be others in future Bolts — which is why a `middleware.ts` baseline and a route-level audit checklist (as ADR-007:231-234 recommends) are the durable fix.
 
 ---
 
@@ -619,7 +625,7 @@ The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule
 2. **Add the `isDevStore()` guard to the four `/api/dev/*` promote routes** — a four-line change that closes the largest hole.
 3. **Fix the OTP path** — guard `dev_code` on env, enforce `OTP_MAX_ATTEMPTS`, switch to `crypto.randomInt`. *(The attempt limit is done — closed 2026-11-09. The `dev_code` leak and the `Math.random()` generator remain.)*
 4. **Consume WebAuthn challenges** — restores the platform's core assumption.
-5. **Gate `PUT /api/profile`** and resolve the admin city-scope question against ADR-006.
+5. **Gate `PUT /api/profile`** *(done — closed 2026-11-09)* **and resolve the admin city-scope question against ADR-006.**
 6. **Document the missing env vars** and add a production guard on `CITYFIX_DEV_STORE`.
 
 ---

@@ -365,7 +365,7 @@ checkout → setup-node (22) → npm ci → prisma generate
 
 `engines.node` in `package.json` stays `>=20.0.0` because that is the *runtime* floor for the deployed app. The jsdom dependency is a *test-time* requirement only and is stricter. If the runtime floor is ever raised, raise the CI pin in the same commit.
 
-**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **93.94% lines / 82.91% branches / 94.46% functions**.
+**Coverage floor: 80%** lines / branches / functions / statements, scoped to `lib/**/*.ts` with `all: true` (so an untested file still counts against the threshold). Current: **93.14% lines / 83% branches / 94.07% functions**.
 
 The floor is never weakened to make a run green — the correct response to a threshold failure is to add real tests for the uncovered path.
 
@@ -380,7 +380,7 @@ The floor is never weakened to make a run green — the correct response to a th
 
 **ADR-007 in force.** Every write under `/api/v1/admin/*` calls `requireRole` → `await requireWebAuthn` → `writeAudit`, in that order. The shared transition route applies the same rule to admins only, after the ticket load and scope checks. The ADR's own test suite exercises the route through its real dependency graph rather than with mocks.
 
-ADR-007:229-234 predicted the remaining exposure: *"a future admin write route added outside `/api/v1/admin/*` skips the gate."* `PUT /api/profile` is exactly that route — found and reported in [SECURITY_AUDIT.md finding #5](SECURITY_AUDIT.md).
+ADR-007:229-234 predicted the remaining exposure: *"a future admin write route added outside `/api/v1/admin/*` skips the gate."* `PUT /api/profile` was exactly that route — found and reported in [SECURITY_AUDIT.md finding #5](SECURITY_AUDIT.md), and **closed on 2026-11-09**: the route now applies the same `requireRole` → `requireWebAuthn` → `writeAudit` sequence for the admin role, and `tests/unit/profile-webauthn-gate.test.ts` asserts it.
 
 ---
 

@@ -197,7 +197,7 @@ Run through this before the first production traffic.
 - [ ] The four `/api/dev/*` promote routes are `isDevStore()`-gated (finding #3) — **or the routes are deleted**
 - [ ] `dev_code` is not returned in the OTP response (finding #1)
 - [x] `OTP_MAX_ATTEMPTS` is enforced (finding #2) — **done 2026-11-09**
-- [ ] `PUT /api/profile` is WebAuthn-gated (finding #5)
+- [x] `PUT /api/profile` is WebAuthn-gated (finding #5) — **done 2026-11-09**
 - [ ] WebAuthn challenges are consumed on use (finding #6)
 
 ### Verification
@@ -286,4 +286,4 @@ The app loads Noto Sans Bengali from Google Fonts. If `fonts.googleapis.com` is 
 - [TESTING_REPORT.md](TESTING_REPORT.md) — what CI verifies before deploy
 - [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.md) — the overall go/no-go
 
-> **Note:** `docs/running.md` is the local-development-focused guide. It was rewritten during the 2026-11-08 audit and its route and script tables now match the codebase (62 handlers, 1,987 unit tests, 25 baselines). This document still supersedes it for production concerns — deployment, environment variables and rollback.
+> **Note:** `docs/running.md` is the local-development-focused guide. It was rewritten during the 2026-11-08 audit and its route and script tables now match the codebase (62 handlers, 2,005 unit tests, 25 baselines). This document still supersedes it for production concerns — deployment, environment variables and rollback.

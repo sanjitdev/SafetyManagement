@@ -649,9 +649,9 @@ Audit trail query.
 
 Read / update the calling user's profile (`name`, `nameBn`).
 
-**Responses** — `200` · `400` `invalid_input` · `401` `not_authenticated`
+**Responses** — `200` · `400` `invalid_input` · `401` `unauthenticated` · `401` `webauthn_required` · `401` `webauthn_assertion_expired` · `404` `user_not_found`
 
-> ⚠️ `PUT /api/profile` has **no role check and no WebAuthn ceremony**, and hand-rolled validation instead of Zod. It is the one admin-reachable write outside the ADR-007 gate. See finding #5, High.
+> ✅ **Fixed 2026-11-09.** `PUT /api/profile` used to have no role check, no WebAuthn ceremony and hand-rolled validation. It now calls `requireWebAuthn` for an **admin** session, validates the body with Zod, scopes the write to the caller's own row, and lands an audit row. A citizen / dispatcher / crew write to their own profile is **not** gated — ADR-007 applies the rule to the *role*, and those writes are not admin writes. See finding #5 (closed).
 
 ---
 

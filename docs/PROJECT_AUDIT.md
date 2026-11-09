@@ -127,8 +127,8 @@ The durable fix is a workflow — `regenerate-baselines.yml` — plus a rule now
 | Components | 62 `.tsx` files |
 | Prisma models | 16 |
 | Migrations | 5 |
-| i18n keys | 957 |
-| Unit test files | 112 (**1,987 tests**) |
+| i18n keys | 964 |
+| Unit test files | 114 (**2,005 tests**) |
 | Playwright route specs | 34 files / **358 specs** |
 | Mockup baselines | 25 (12 mockups) |
 | Design artefacts | `design-artifacts/` — 6 trees, committed alongside the code |
@@ -168,7 +168,7 @@ The citizen page count is `/home` (1) + `/report/*` (6) + `/reports/*` (2) + `/p
 | Serializers | `lib/serializers/` | Complete — the PII boundary holds |
 | Blob storage | `lib/storage/blob.ts` | Complete for S3; **the local provider's URLs are dead** |
 | DB guard | `lib/platform/db-guard.ts` | Complete and strong |
-| i18n | `lib/i18n/keys.ts` | Complete — 957 keys, all registered |
+| i18n | `lib/i18n/keys.ts` | Complete — 964 keys, all registered |
 | OpenAPI | `lib/docs/openapi.ts` | Complete — typed, so `tsc` catches drift |
 
 ### 4.4 The design system
@@ -187,9 +187,9 @@ The token system was rebuilt for AA contrast with dark as the default. The Metri
 |---|---|---|
 | TypeScript | `npx tsc --noEmit` | ✅ clean |
 | Lint | `npm run lint` | ✅ 0 errors, 56 warnings (all unused-vars in test files) |
-| Unit tests | `npm run test:unit` | ✅ **113 files / 1,987 tests passed**, ~27 s |
-| Coverage | `npm run test:unit:coverage` | ✅ **93.94% lines / 82.91% branches / 94.46% functions** (floor 80%) |
-| i18n keys | `npm run check:i18n` | ✅ 957 keys, all registered |
+| Unit tests | `npm run test:unit` | ✅ **114 files / 2,005 tests passed**, ~29 s |
+| Coverage | `npm run test:unit:coverage` | ✅ **93.14% lines / 83% branches / 94.07% functions** (floor 80%) |
+| i18n keys | `npm run check:i18n` | ✅ 964 keys, all registered |
 
 ### Verified on CI
 
@@ -238,12 +238,12 @@ The route specs **now run in CI**. They previously never ran in the pipeline, wh
 
 ### Strengths
 
-1. **The layering is real, not aspirational.** The service layer holds the logic (93.94% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
+1. **The layering is real, not aspirational.** The service layer holds the logic (93.14% covered); the route handlers are thin adapters (0% by design, covered by Playwright instead). No raw SQL or direct Prisma in any route handler — verified by repo-wide search for `$queryRaw` / `$executeRawUnsafe`.
 2. **The PII boundary holds.** The citizen serializer strips `internalNote`, `assignedCrewId` and `reporterName`, anonymises trail actors to "সিটি কর্পোরেশন", and the public serializer strips `locationLabel` — which can carry a street address. No route returns a raw Prisma row.
 3. **The audit trail is genuinely immutable.** No code path updates or deletes an `AuditEntry`.
 4. **ADR-007 is implemented and tested against the real dependency graph**, not with mocks — and the shared transition route applies the ceremony *after* the ticket load and scope checks, exactly as the ADR specifies.
 5. **The DB guard is strong.** It handles both URL and libpq connection-string forms, covers 127.0.0.0/8, and latches only on success so a failed check keeps throwing.
-6. **The i18n discipline is complete.** 957 keys, a typed registry, and a check script that fails if `app/**` references an unregistered key.
+6. **The i18n discipline is complete.** 964 keys, a typed registry, and a check script that fails if `app/**` references an unregistered key.
 7. **The OpenAPI spec is typed code**, so `tsc --noEmit` catches a malformed component reference. It has no phantom paths.
 
 ### Weaknesses
@@ -253,7 +253,7 @@ The route specs **now run in CI**. They previously never ran in the pipeline, wh
 3. **No `middleware.ts`.** A route is protected only if its author remembered. This is the structural cause of two of the High findings — and ADR-007 predicted it.
 4. **No production guard on `CITYFIX_DEV_STORE`.** One env var disables the database, unsigns the session cookie and bypasses WebAuthn. A single guard would close the whole class.
 5. **The API is not internally consistent** — five documented divergences in error codes, field names and status codes. Documented rather than normalised because clients depend on the current behaviour.
-6. **The i18n registry is 2,900 lines** — a single file with 957 keys. At 100% line coverage but 75% branch coverage, it is the largest untested surface in the codebase.
+6. **The i18n registry is 2,900 lines** — a single file with 964 keys. At 100% line coverage but 75% branch coverage, it is the largest untested surface in the codebase.
 7. **`docs/running.md` was materially stale** — it described 40 route handlers, 249 unit tests and 15 baselines against a reality of 61, 1,886 and 25. **Rewritten during this audit**; the standing instruction *"update the doc to match the real stack"* is now discharged.
 8. **Wave 2 of the UI redesign is 8 of 12 mockups unbuilt**, and page implementation is blocked on human mockup approval.
 9. **The metrics are honest but incomplete.** No metric uses placeholder data — but `SlaPolicy` is defined, seeded and never consulted, and four `Ticket` timestamps are missing, so two of the four operational questions are only partially answerable.
@@ -266,7 +266,7 @@ ADR-007:229-234 said so itself:
 
 > *"a future admin write route added outside `/api/v1/admin/*` skips the gate"*
 
-`PUT /api/profile` is that route. It was found by this audit, not by the test suite — because the suite asserts what the code *does*, not what the ADR says it *should*.
+`PUT /api/profile` was that route. It was found by this audit, not by the test suite — because the suite asserts what the code *does*, not what the ADR says it *should*. **It was closed on 2026-11-09**: the route now validates its body with Zod, gates the admin write with `requireWebAuthn`, scopes the write to `session.userId` and lands an audit row. `tests/unit/profile-webauthn-gate.test.ts` (18 tests) now asserts the rule the ADR states, and its non-vacuity was proven by mutation — neutering the guard turned exactly the 5 gate assertions red.
 
 **The concurrency defect was the same pattern in a different dimension.** Nothing was left to convention for authorisation — concurrency was simply never expressed anywhere, not even in a convention. The rule that a transition must be based on the status the caller *saw* is implicit in every other part of the codebase, and absent from the one place it matters.
 

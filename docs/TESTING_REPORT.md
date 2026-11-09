@@ -10,12 +10,12 @@
 
 | Metric | Value | Floor | Status |
 |---|---|---|---|
-| Unit test files | 113 | — | — |
-| Unit tests passing | **1,987 / 1,987** | — | ✅ |
-| Coverage — lines | **93.94%** | 80% | ✅ |
-| Coverage — branches | **82.91%** | 80% | ✅ |
-| Coverage — functions | **94.46%** | 80% | ✅ |
-| Coverage — statements | **93.94%** | 80% | ✅ |
+| Unit test files | 114 | — | — |
+| Unit tests passing | **2,005 / 2,005** | — | ✅ |
+| Coverage — lines | **93.14%** | 80% | ✅ |
+| Coverage — branches | **83%** | 80% | ✅ |
+| Coverage — functions | **94.07%** | 80% | ✅ |
+| Coverage — statements | **93.14%** | 80% | ✅ |
 | Playwright route specs | 34 files / **358 specs** | — | ✅ |
 | Mockup visual baselines | 25 | — | ✅ |
 | TypeScript `tsc --noEmit` | clean | clean | ✅ |
@@ -37,7 +37,7 @@
 **Location:** `tests/unit/**/*.test.ts` and `*.test.tsx`
 **Environment:** `node` by default; component tests opt in to `jsdom` via a `@vitest-environment jsdom` docblock
 **Alias:** `@/` → repo root
-**Result:** 113 files, 1,987 tests, 100% passing, ~29 s
+**Result:** 114 files, 2,005 tests, 100% passing, ~29 s
 
 The suite runs with `CITYFIX_DEV_STORE=1` by default, so it needs **no Postgres** — the in-memory dev store is the same seam the Playwright route specs use.
 
@@ -240,10 +240,10 @@ Playwright's diff ratio is rounded **up** (`Math.ceil(ratio * 100) / 100`), so a
 
 | Metric | Value | Floor | Margin |
 |---|---|---|---|
-| Lines | 93.94% | 80% | +13.94 |
-| Branches | 82.91% | 80% | +2.91 |
-| Functions | 94.46% | 80% | +14.46 |
-| Statements | 93.94% | 80% | +13.94 |
+| Lines | 93.14% | 80% | +13.14 |
+| Branches | 83% | 80% | +3 |
+| Functions | 94.07% | 80% | +14.07 |
+| Statements | 93.14% | 80% | +13.14 |
 
 ### Why the scope is `lib/**`
 
@@ -365,14 +365,14 @@ This workflow was extended on 2026-11-08 to cover the **route-spec** baseline fa
 |---|---|---|---|
 | 1 | `lib/map/osm-raster.ts` at 0% | Medium | Tile URL construction is untested; a regression is a blank map |
 | 2 | No `middleware.ts`, so no integration test for "a route with no guard" | High | The absence of a baseline guard is only detectable by reading every route |
-| 3 | `PUT /api/profile` has no WebAuthn test | High | The gap in [SECURITY_AUDIT.md finding #5](SECURITY_AUDIT.md) is invisible to the suite because the suite asserts what the code does, not what the ADR says it should |
+| 3 | ~~`PUT /api/profile` has no WebAuthn test~~ | **Closed 2026-11-09** | The gate was missing, so there was nothing to test. It is now enforced *and* tested — `tests/unit/profile-webauthn-gate.test.ts` (18 tests). Non-vacuity proven: neutering the guard fails exactly the 5 gate tests |
 | 4 | ~~No test for the OTP attempt limit~~ | **Closed 2026-11-09** | The limit was dead code, so there was nothing to test. It is now enforced *and* tested — `tests/unit/otp-attempt-limit.test.ts` (9 tests). Non-vacuity proven: neutering the guard fails exactly the 3 lockout tests |
 | 5 | No cross-city admin test | Medium | Finding #7 — the two admin surfaces disagree, and no test pins either behaviour |
 | 6 | No live-database test run | Medium | Every test runs on the dev store; Prisma-specific behaviour (e.g. `AuditEntry.actor` `onDelete: Restrict` vs user deletion) is never exercised. The dedup index's behaviour was checked against a real PostgreSQL 16 by hand on 2026-11-08, which is a spot check, not a CI job |
 | 7 | No WebAuthn hardware test | Medium | Attestation, assertion and counter-clone detection are read, not executed |
 | 8 | No load test | Low | The rate limiter's per-instance limit is established from source, not measured |
 | 9 | `lib/storage/blob.ts` S3 path at 66% | Low | The S3 upload path needs an S3-compatible endpoint to test properly |
-| 10 | 55 ESLint warnings | Low | All are unused-variable warnings in test files; no errors, so the gate is green |
+| 10 | 56 ESLint warnings | Low | All are unused-variable warnings in test files; no errors, so the gate is green |
 | 11 | Concurrency tested only against the dev store | Medium | The transition path's compare-and-swap is now exercised (`tests/unit/transitions-concurrency.test.ts`), the concurrent field writes too (`tests/unit/writes-concurrency.test.ts`), the duplicate-submission race (`tests/unit/dedup-concurrency.test.ts`) and the crew-capacity rule (`tests/unit/dispatcher/crew-capacity.test.ts`) — but all against the dev store's guard, never against a real Postgres under concurrent load |
 | 12 | No concurrency test for crew capacity | **Closed 2026-11-08** | Duplicate submission was in this gap and was closed first (`tests/unit/dedup-concurrency.test.ts`, `tests/unit/dedup-route-race.test.ts`); crew capacity was closed last (`tests/unit/dispatcher/crew-capacity.test.ts`, 14 tests). Both are now covered against the real dev store |
 | 13 | Photo ordering within a Postgres timestamp window is arbitrary | Low | Two photos uploaded in the same timestamp window get an arbitrary order. Photos are **appended, not overwritten**, so nothing is lost — but the ordering is not deterministic. A schema question (a `slot` column or a deterministic tiebreak), not a race guard |
