@@ -42,9 +42,17 @@ All 16/17 stories shipped in Bolts 002-001
 through 002-005. Story `016-push-subscribe`
 remains `pending` (v1.1 deferred — VAPID
 keys are empty in the prod env; the
-push-subscribe endpoint is scaffolded in
-`lib/platform/push.ts` but the wire call
-is v1.1).
+push-subscribe route ships at
+`app/api/v1/push/subscribe/route.ts` over the
+`lib/platform/push.ts` scaffold, but the
+outbound wire call is v1.1).
+
+Status reconciled 2026-11-09: the 16 stories
+below carried `status: in-progress` in their own
+frontmatter while this index, the intent's
+`units.md` and the code all recorded them as
+shipped. Each was flipped to `done` after its code
+reality was probed.
 
 | Story | Unit | Status | Title | Path |
 |-------|------|--------|-------|------|
@@ -76,6 +84,13 @@ bolt-progress note. The live monitor (DISP-008)
 and performance reporting (DISP-009) were also
 v1.1 deferred; both shipped in the 2026-10-27
 batch build.
+
+Status reconciled 2026-11-09: DISP-001 and DISP-002
+carried `status: in-progress` and DISP-007 carried
+`status: ready` in their own frontmatter while this
+index and the code recorded all three as shipped.
+Each was flipped to `done` after its code reality was
+probed.
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|

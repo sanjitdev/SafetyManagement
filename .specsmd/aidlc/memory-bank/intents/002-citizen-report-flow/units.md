@@ -168,8 +168,26 @@ order:
 
 ## Status
 
-This intent is **in-progress**. All 17 stories have
-working code on the happy path; the geofence UX
-rejection path on 1.7 and the push-subscribe endpoint
-remain open. The next active work is the bolt plan in
-`memory-bank/bolts/` (planned, not yet authored).
+This intent is **complete**. 16 of 17 stories shipped;
+story `016-push-subscribe` remains `pending` (v1.1
+deferred — VAPID keys are empty in the prod env; the
+endpoint is scaffolded at `app/api/v1/push/subscribe/route.ts`
+but the wire call is v1.1).
+
+The two items this section previously listed as open are
+both closed. The **geofence UX rejection path** (1.7)
+ships: `lib/report-geofence.ts` exports `inGeofence` and
+`clampToGeofence` against a defensive bbox, and
+`app/report/(create)/location/page.tsx` renders the
+"out-of-bounds" card with a "move to nearest in-boundary"
+recovery. The polygon read from `ward.polygonGeoJson` is
+the v1.1 upgrade to that bbox, deferred by design (Gap G1
+in `REFINEMENT.md`) — the helper API does not change. The
+**push-subscribe endpoint** ships at
+`app/api/v1/push/subscribe/route.ts`; only the outbound
+push call is deferred.
+
+Status reconciled 2026-11-09: the 16 stories that still
+carried `status: in-progress` in their own frontmatter
+were flipped to `done` after each one's code reality was
+probed.

@@ -2,10 +2,10 @@
 id: 004-home-activity
 unit: 002-home-and-activity
 intent: 002-citizen-report-flow
-status: in-progress
+status: done
 priority: must
 created: 2026-10-04T00:00:00Z
-updated: 2026-10-11T18:00:00Z
+updated: 2026-11-09T00:00:00Z
 assigned_bolt: null
 implemented: true
 ---

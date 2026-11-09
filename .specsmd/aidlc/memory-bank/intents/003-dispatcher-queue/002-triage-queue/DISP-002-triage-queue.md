@@ -3,9 +3,9 @@ story: DISP-002-triage-queue
 unit: 002-triage-queue
 intent: 003-dispatcher-queue
 phase: inception
-status: in-progress
+status: done
 created: 2026-10-11T23:55:00Z
-updated: 2026-10-11T23:55:00Z
+updated: 2026-11-09T00:00:00Z
 ---
 
 # Story: DISP-002 — Triage Queue

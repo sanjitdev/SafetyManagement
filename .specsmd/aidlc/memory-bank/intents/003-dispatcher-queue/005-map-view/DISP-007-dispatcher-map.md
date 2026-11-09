@@ -3,9 +3,9 @@ story: DISP-007-dispatcher-map
 unit: 005-map-view
 intent: 003-dispatcher-queue
 phase: construction
-status: ready
+status: done
 created: 2026-10-11T23:55:00Z
-updated: 2026-10-12T05:00:00Z
+updated: 2026-11-09T00:00:00Z
 ---
 
 # Story: DISP-007 — Dispatcher Map View
