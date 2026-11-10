@@ -141,6 +141,13 @@ For CityFix, Intents 001-008 are closed. Intent 009
 - **Standards**: `../standards/index.md`.
 - **Story index**: `../story-index.md`.
 - **Bolt plan**: `../bolts/` (Construction-Agent-managed).
+- **Ideation trail — Intent 002**: `002-citizen-report-flow/ideation/` —
+  the Ideation-phase artifacts (intent capture, feasibility, scope
+  definition, rough mockups) for WO-001, moved in from the AIDLC lane
+  on 2026-11-10 when that stale intent directory was retired. These
+  record *why* v1 looks the way it does; `requirements.md` and
+  `units.md` one level up record *what* was built. See that folder's
+  `README.md`.
 
 ## Design system
 

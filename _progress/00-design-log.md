@@ -246,6 +246,8 @@ The AIDLC intent `261004-wo-001-citizen-report-fl` reached the rough-mockups sta
 - `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/rough-mockups/rough-mockups-questions.md` — answered.
 - `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/rough-mockups/memory.md` — interpretations, deviations, tradeoffs, open questions.
 
+> **Moved 2026-11-10.** The AIDLC intent `261004-wo-001-citizen-report-fl` was retired and its Ideation artifacts were moved to the specsmd bank. These three files now live at `.specsmd/aidlc/memory-bank/intents/002-citizen-report-flow/ideation/rough-mockups/{rough-mockups,rough-mockups-questions,memory}.md`.
+
 **Decisions forwarded to Refined Mockups + Domain Design:**
 - /report/summary is a new route (1.10b) that the IA + Refined Mockups must adopt; Domain Design must model the dedup prompt as a pre-submit summary state, not a modal.
 - The geofence reject UX (Q5-C) is the R-1 mitigation; Domain Design should expose the city boundary on a debug overlay for the WO-002 dispatcher.
@@ -3236,8 +3238,7 @@ The `.specsmd/` tree was previously gitignored as
 "per-developer AI agent tooling" (line 42 of
 `.gitignore`). That policy was wrong for this
 project: the **memory bank** under
-`.specsmd/aidlc/memory-bank/` (and the legacy
-`.specsmd/memory-bank/`) IS the team's durable
+`.specsmd/aidlc/memory-bank/` IS the team's durable
 specsmd record — intent briefs, unit briefs,
 bolt records, story index, decision log,
 standards, ADRs, design log. The other
@@ -3270,7 +3271,12 @@ Files changed:
   maintenance-log.md, project.yaml,
   HANDOFF.md, README.md, REFINEMENT.md) and
   the 1 legacy story file under
-  `.specsmd/memory-bank/`.
+  `.specsmd/memory-bank/` (removed 2026-11-10 —
+  it was a byte-identical duplicate of the copy at
+  `.specsmd/aidlc/memory-bank/intents/001-platform-foundation/003-platform-and-endpoints/007-dedup-prefilter.md`,
+  and the schema in `.specsmd/aidlc/memory-bank.yaml`
+  resolves relative to `.specsmd/aidlc/`, so only one
+  memory-bank path exists).
 
 Why two separate commits (A1 then A2)?
 
@@ -5446,3 +5452,141 @@ impeccable detect app components lib   0 findings
 ```
 
 **No audit row was written for this change.** The audit log is the platform's record of state-changing operations — every `writeAudit(...)` call in the codebase is a real data mutation by a real actor, with an `actorId` foreign key to `User`. A UI refactor changes no ticket, no city and no user; there is no entity, no actor and no before/after state to record. Writing a row here would mean inventing a user id and filing a code change as a data operation, which is the one thing an append-only audit log must not do. The change is recorded here instead.
+
+### 2026-11-10 — Removed the stray `.specsmd/memory-bank/` duplicate
+
+The specsmd tree carried **two** memory banks:
+
+| Path | Files | Role |
+|---|---:|---|
+| `.specsmd/aidlc/memory-bank/` | 293 | **canonical** — 9 intents, 39 bolts, 7 standards, operations context, story index |
+| `.specsmd/memory-bank/` | 1 | stray duplicate of a single story file |
+
+The schema in `.specsmd/aidlc/memory-bank.yaml` resolves every path
+relative to `.specsmd/aidlc/` (`intents: "memory-bank/intents/{intent-name}/"`,
+`bolts: "memory-bank/bolts/{bolt-id}/"`, `standards: "memory-bank/standards/"`),
+so `.specsmd/aidlc/memory-bank/` is the only path the agents ever read. The
+second directory was never a live bank.
+
+Its one file, `intents/001-platform-foundation/003-platform-and-endpoints/007-dedup-prefilter.md`,
+was **byte-identical** to the copy under the canonical bank (verified by
+`diff` before and after the change). Both were added in the same commit —
+`803e41a` (2026-10-13, *"chore(specsmd): promote memory bank to version control"*) —
+so this was a path typo during that promotion, not a deliberate second
+bank. The `.gitignore` comment at the time advertised both paths, which is
+how the ambiguity persisted.
+
+**Why it mattered.** A path lookup at the stub location returns one story
+file and no `standards/`, which reads as *"the specsmd lane is empty and
+abandoned."* That is the opposite of the truth: the lane is live and
+maintained, and its most recent commit (`0107cf3`, 2026-11-09) was itself a
+reconciliation of stale story statuses in the memory bank. A wrong path
+produced a wrong conclusion about the project's own tooling lane.
+
+**Changed:**
+
+- `.specsmd/memory-bank/` — deleted (1 tracked file, byte-identical
+  duplicate). The canonical copy at
+  `.specsmd/aidlc/memory-bank/intents/001-platform-foundation/003-platform-and-endpoints/007-dedup-prefilter.md`
+  is untouched.
+- `.gitignore` — the note now names only `.specsmd/aidlc/memory-bank/**`,
+  records that the schema resolves relative to `.specsmd/aidlc/`, and notes
+  the removal so the stray path is not recreated.
+- `_progress/00-design-log.md` — the 2026-10-13 entry no longer claims the
+  legacy path is part of the durable record; the file count there reads
+  "187 new files" with the split explained.
+
+**Verified after the change:** the canonical bank still holds 293 files;
+every path the schema declares resolves (`intents`, `bolts`, `standards`,
+`operations`, `story-index.md`, `standards/decision-index.md`); `project.yaml`,
+`maintenance-log.md`, `HANDOFF.md`, `README.md` and `REFINEMENT.md` are
+present; the specsmd runtime cache (`agents/`, `skills/`, `scripts/`,
+`templates/`, `memory-bank.yaml`, `context-config.yaml`) is intact; no code
+or configuration referenced the removed path; `npx tsc --noEmit` is clean.
+
+**No audit row was written for this change.** The audit log is the platform's
+record of state-changing *data* operations by a real actor. This change
+removes a duplicate documentation file and corrects three prose references;
+it mutates no ticket, no city and no user, so there is no entity, no actor
+and no before/after state to record. The change is recorded here instead.
+
+### 2026-11-10 — The AIDLC lane's stale intent retired; the method tree kept
+
+The question was "can we remove the root `aidlc`?" The honest answer was
+**not the whole thing** — the folder held two very different things, and
+only one of them was dead.
+
+| Path | Files | Verdict |
+|---|---:|---|
+| `aidlc/spaces/default/memory/` | 6 | 🔴 **live, load-bearing — kept** |
+| `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/` | 47 | 🟡 stale — retired |
+| `aidlc/active-space`, `.aidlc-clone-id`, `intents.json`, `active-intent` | 4 | ⬛ cursors — retired with it |
+
+**Why the method tree stayed.** `.puku-cli/rules/aidlc.md` is a committed
+`@`-import stub — it is how the method reaches ambient context in *every*
+session:
+
+```
+@../../aidlc/spaces/default/memory/org.md
+@../../aidlc/spaces/default/memory/team.md
+@../../aidlc/spaces/default/memory/project.md
+@../../aidlc/spaces/default/memory/phases/{ideation,inception,construction,operation}.md
+```
+
+Delete that tree and every session silently loses the org / team / project
+rules — the testing posture, the deployment policy, the code-style rules,
+the four phase guardrails — and the 13 `/aidlc` agent skills break, because
+the engine resolves its space paths from the same place
+(`aidlc-state.ts:6832`: *"resolver reads (aidlc/spaces/<space>/memory/)"*).
+The stub's own comment says it plainly: *"Edit the METHOD at
+aidlc/spaces/default/memory/*, never here."*
+
+**Why the intent directory went.** Its `aidlc-state.md` was last written
+`2026-10-06` and still read `Lifecycle Phase: IDEATION`,
+`Current Stage: rough-mockups`, `Scope: mvp` — against `project.md`'s
+`feature` default — while the project had shipped through Intent 009. It
+was about two months behind. The 2026-11-09 memory-bank reconciliation
+had explicitly deferred it: *"it is the engine's to reconcile, not the
+memory-bank's to rewrite."* Retiring the directory resolves that by
+removal instead.
+
+**What was preserved, and how.** The 24 Ideation-phase artifacts (intent
+capture, feasibility, market-research questions, scope definition, rough
+mockups) had no specsmd equivalent — specsmd intent 002 absorbed the
+*intent*, not the *ideation trail*. They were copied to
+`.specsmd/aidlc/memory-bank/intents/002-citizen-report-flow/ideation/`
+before the source was deleted, with two mechanical edits and nothing else:
+
+1. Self-referential paths rewritten to the new prefix — 9 files, 9 distinct
+   targets, zero references left behind.
+2. A provenance header prepended to all 22 markdown files.
+
+Both JSON files were re-validated as parseable. Content parity was then
+proved mechanically — each source file diffed against its destination with
+the path prefix normalised back, showing **no difference beyond the two
+intended edits** across all 22.
+
+**Why the trail was kept rather than dropped.** Several durable decisions
+in `project.md` trace back to files in that folder — the 50 m dedup radius,
+the city-boundary geofence, indefinite photo retention with
+citizen-initiated delete, the bilingual toggle at splash, the
+Mapbox-free-to-paid choice. The feasibility Q&A and the RAID log are where
+the *reasoning* sits, as distinct from the decision. That reasoning is not
+reproducible from the decision records alone.
+
+**Also updated.** `intents/index.md` (cross-reference entry),
+`maintenance-log.md` (dated entry), and this log's 2026-10-13 entry, which
+no longer claims the legacy path is part of the durable record.
+
+**Verified after the change:** `aidlc/` now holds 8 files — the method
+tree only; all 7 `@`-imports in `.puku-cli/rules/aidlc.md` resolve; the
+AIDLC CLI still runs (`aidlc 2.10.0`); `aidlc doctor` reports 34 project
+checks passed and its only failures are pre-existing frontmatter defects in
+the untracked `.puku-cli/agents/specsmd-construction-agent.md` (dated
+2026-10-11, unrelated to this pass); `npx tsc --noEmit` clean.
+
+**No audit row was written for this change.** The audit log is the platform's
+record of state-changing *data* operations by a real actor. This change
+moves documentation between lanes and removes a stale tooling directory; it
+mutates no ticket, no city and no user, so there is no entity, no actor
+and no before/after state to record. The change is recorded here instead.

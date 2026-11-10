@@ -63,12 +63,17 @@ next-env.d.ts
 # and would be reinstalled per-developer via their respective installers.
 #
 # Note on .specsmd/: the canonical specsmd memory bank
-# (.specsmd/aidlc/memory-bank/** and .specsmd/memory-bank/**) IS
+# (.specsmd/aidlc/memory-bank/**) IS
 # committed to main as the team's durable brief artefact (intent
 # briefs, unit briefs, bolt records, story index, decision log,
 # standards). Only the per-developer runtime cache (agents, scripts,
 # skills, templates) stays gitignored, as a re-pull of the specsmd
 # framework replaces those locally without touching the briefs.
+#
+# The paths in .specsmd/aidlc/memory-bank.yaml resolve relative to
+# .specsmd/aidlc/, so `.specsmd/aidlc/memory-bank/` is the only
+# memory-bank path. A stray `.specsmd/memory-bank/` once held one
+# duplicate of a story file; it was removed 2026-11-10.
 .puku-cli/
 
 # specsmd runtime cache (per-developer; re-installed by the specsmd

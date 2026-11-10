@@ -550,3 +550,78 @@ The unit-brief tally is exactly Intent 009's real position: Units 001-002 shippe
 - **The 17 legacy bolts** using `ddd-01-bolt-record.md` / `ddd-04-bolt-record.md` instead of `bolt.md`, and carrying no `stories:` array — a separate structural inconsistency, not a status drift.
 
 No source code touched. No tests touched. No PRD/spec/design changed. This pass is entirely frontmatter + status-line reconciliation in the memory-bank.
+
+---
+
+## 2026-11-10T11:55:00Z - AIDLC stale-intent retired; WO-001 ideation trail moved into Intent 002
+
+**Triggered by**: user (Master Agent route → "can we remove the root aidlc")
+
+**Reason**: The AIDLC lane at `aidlc/` carried two very different things, and only one of them was dead:
+
+| Path | Files | Status |
+|---|---:|---|
+| `aidlc/spaces/default/memory/` | 6 | **live and load-bearing** — retained |
+| `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/` | 47 | stale — retired |
+| `aidlc/active-space`, `.aidlc-clone-id`, `intents.json` | 3 | cursors — retired with it |
+
+The **method tree** was kept because `.puku-cli/rules/aidlc.md` `@`-imports
+`aidlc/spaces/default/memory/{org,team,project}.md` and the four phase rule
+files into every session's ambient context, and because the AIDLC engine
+resolves its space paths from the same place (`aidlc-state.ts:6832`). Deleting
+it would have dropped the standing org/team/project rules and broken all 13
+`/aidlc` agent skills.
+
+The **intent directory** was stale by roughly two months: its `aidlc-state.md`
+was last written `2026-10-06` and still showed `Lifecycle Phase: IDEATION` /
+`Current Stage: rough-mockups` / `Scope: mvp` (against `project.md`'s
+`feature` default), while the project had shipped through Intent 009. This is
+the file the 2026-11-09 reconciliation pass explicitly deferred: *"it is the
+engine's to reconcile, not the memory-bank's to rewrite."* Retiring the
+directory resolves it by removal instead.
+
+### Moved
+
+The 24 Ideation-phase artifacts were copied to
+`intents/002-citizen-report-flow/ideation/` before the source was deleted:
+
+| Stage | Files | Notable |
+|---|---:|---|
+| `intent-capture/` | 6 | intent statement, stakeholder map, review-01 |
+| `feasibility/` | 6 | GO verdict, Q1–Q8 assumptions, constraint register, RAID log (incl. R-1) |
+| `market-research/` | 2 | questions only — stage was skipped in scope `1.2` |
+| `scope-definition/` | 6 | scope document, intent backlog, 3 swarm contributions |
+| `rough-mockups/` | 3 | 12 wireframes for pages 1.1–1.12, flow diagram, IA outline |
+
+Plus a new `ideation/README.md` explaining what the folder is and why it was
+kept.
+
+### Mechanical edits applied during the move
+
+1. **Self-referential paths** rewritten from
+   `aidlc/spaces/default/intents/261004-wo-001-citizen-report-fl/ideation/...`
+   to `.specsmd/aidlc/memory-bank/intents/002-citizen-report-flow/ideation/...`.
+   9 files affected, 9 distinct targets — verified zero remaining references.
+2. **Provenance header** prepended to all 22 markdown files, marking the
+   origin lane and the move date.
+3. **Both `learnings-selections.json` files** re-validated as parseable JSON.
+
+No prose, decision, table or figure was otherwise altered.
+
+### Also updated
+
+- `intents/index.md` — added the ideation-trail entry under `## Cross-references`.
+- `_progress/00-design-log.md` — dated entry for the whole removal.
+
+### Not changed, deliberately
+
+- **`aidlc/spaces/default/memory/*`** — the method tree. Still live, still
+  imported, still the standing rules. Untouched.
+- **`.puku-cli/rules/aidlc.md`** — the `@`-import stub still resolves; no
+  re-pointing needed because the target tree did not move.
+- **`.puku-cli/tools/aidlc*.ts`** — the engine still resolves `aidlc/spaces/`
+  paths. Only the retired intent's directory is gone, and it was the engine's
+  own stale record.
+
+No source code touched. No tests touched. No PRD/spec/design changed. This
+pass is entirely memory-bank + tooling-lane consolidation.
