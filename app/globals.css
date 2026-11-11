@@ -150,9 +150,6 @@
 .admin-side-subnav { display: grid; gap: 2px; margin: -2px 0 4px 42px; }
 .admin-side-subnav a { padding: 8px 10px; border-radius: 7px; color: var(--color-rail-ink-muted); text-decoration: none; font-size: 12px; }
 .admin-side-subnav a:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
-.admin-sidebar-account { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--color-rail-border); }
-.usermenu-sidebar .usermenu-trigger:hover, .usermenu-sidebar .usermenu-trigger[aria-expanded="true"] { background: var(--color-rail-hover) !important; }
-.usermenu-sidebar .usermenu-panel { left: 8px; right: auto !important; width: calc(100% - 16px) !important; min-width: 0; }
 .admin-dashboard-main { min-width: 0; }
 .admin-dashboard-topbar { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 34px; background: var(--admin-surface); border-bottom: 1px solid var(--admin-line); }
 .admin-searchbox { width: min(440px, 48%); min-width: 260px; height: 40px; display: flex; align-items: center; gap: 11px; padding: 0 13px; color: var(--color-ink-tertiary); border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-raised); }
@@ -255,9 +252,7 @@
 .role-sidebar-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .role-sidebar-link:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
 .role-sidebar-link.is-active { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; }
-.role-sidebar-footer { position: relative; z-index: 1; display: grid; gap: 12px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--color-rail-border); }
 .role-sidebar-cityline { z-index: 0; }
-.role-sidebar-tagline { max-width: 120px; padding: 0 10px; color: var(--color-rail-ink-muted); font-size: var(--text-micro); line-height: 1.5; }
 .role-sidebar-cityline { position: absolute; right: 0; bottom: 64px; left: 0; height: 80px; opacity: .12; pointer-events: none; background: linear-gradient(to top, var(--color-rail-accent) 0 12px, transparent 12px), linear-gradient(to top, transparent 0 14px, var(--color-rail-accent) 14px 48px, transparent 48px), linear-gradient(to top, transparent 0 9px, var(--color-rail-accent) 9px 64px, transparent 64px); background-size: 100% 100%, 25% 100%, 19% 100%; background-position: 0 0, 18% 0, 72% 0; background-repeat: no-repeat; }
 .role-sidebar-cityline--front { height: 48px; bottom: 62px; opacity: .09; background-size: 100% 100%, 31% 100%, 25% 100%; background-position: 0 0, 38% 0, 79% 0; }
 .role-app-main { min-width: 0; min-height: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
@@ -286,7 +281,12 @@
  */
 .appheader-root[data-compact="true"][data-role="staff"] > div:first-of-type, .appheader-root[data-compact="true"][data-role="staff"] > .appheader-cta { display: none !important; }
 .appheader-root[data-compact="true"][data-role="staff"] .appheader-burger { display: none !important; }
-.appheader-root[data-compact="true"][data-role="staff"] .usermenu-root { display: none !important; }
+/* The staff header keeps the user menu in the top-right corner, like
+ * the citizen header. It used to be hidden here and duplicated into the
+ * role sidebar's footer, which put the account control at the bottom
+ * left for dispatcher, crew and admin — the only personas whose menu
+ * was not top right, against all four UX specs and the mockups. The
+ * sidebar copy was removed instead of the header's. */
 /* The citizen compact header sits beside the role sidebar, which
  * already carries the brand lockup (mark + wordmark + tagline). Showing
  * the header's wordmark as well put two "CityFix" marks side by side.
@@ -373,21 +373,85 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .admin-dashboard-content { padding: 18px 14px 28px !important; }
   .admin-dashboard-topbar { gap: 6px; padding-inline: 10px !important; }
   .admin-topbar-actions { gap: 3px; }
-  .admin-searchbox { min-width: 0 !important; flex: 1; }
+  /* The searchbox takes its own row on the wrapped topbar (see the
+   * budget note below), so it keeps a real minimum width instead of
+   * being squeezed to nothing by the five action controls. */
+  .admin-searchbox { min-width: 120px !important; flex: 1 1 auto; }
   .admin-searchbox input { width: 100%; }
-  .admin-range-select { gap: 4px; padding-inline: 7px; }
-  .admin-range-select > svg:first-child { display: none; }
-  .admin-range-select select { max-width: 76px; }
   .admin-language-toggle { width: 44px; padding-inline: 6px; }
   .admin-language-long { display: none; }
   .admin-language-short { display: inline; }
   .admin-report-age { display: none; }
   .admin-status-chip { display: none; }
   .admin-crew-content { justify-content: center; gap: 22px !important; }
-}
-@media (max-width: 380px) {
-  .admin-dashboard-topbar { height: auto; flex-wrap: wrap; padding-block: 8px; }
-  .admin-topbar-actions { flex: 1 0 100%; justify-content: flex-end; }
+  /* The admin topbar carries six controls (search, notifications,
+   * range, language, theme, user menu) and they overflowed a 390px
+   * phone: the user menu was pushed ~50px past the right edge and
+   * its name was clipped.
+   *
+   * The trims below free the space WITHOUT removing a capability.
+   * An earlier attempt collapsed the range `<select>` to a 0x0
+   * `opacity: 0` box behind a decorative icon — that kept the DOM
+   * node but broke the control for real users: a label-forwarded
+   * collapsed select never opens its native dropdown, so the icon
+   * was a dead button that merely looked like one.
+   *
+   * So the `<select>` stays VISIBLE and directly clickable (that is
+   * what opens the native dropdown), and the space comes from the
+   * decorative chrome instead: the leading city icon goes, the
+   * user menu keeps the top-right corner showing just the avatar,
+   * and the range keeps a readable "Last 30 days" label.
+   *
+   * Space budget at 390px (measured, not estimated): the topbar
+   * content box is 390 - 20 (padding) = 370px. The actions cluster
+   * needs 44 (notifications) + 3 + 103 (range: a 76px select, the
+   * chevron, and the control's own padding) + 3 + 44 (language) +
+   * 3 + 44 (theme) + 3 + 44 (user menu, avatar only) = 291px. The
+   * mobile-menu button takes 44 and the two topbar gaps take 12,
+   * leaving 370 - 291 - 44 - 12 = 23px for the searchbox — which is
+   * LESS than the searchbox's own chrome (20px icon + 11px gap +
+   * 26px padding = 57px). A search field with no room for the input
+   * is not a search field.
+   *
+   * So the topbar WRAPS at phone widths: the mobile-menu button and
+   * the searchbox share the first row (the searchbox gets ~320px at a
+   * 390px viewport), and the five action controls sit on the row
+   * below, right-aligned. Nothing is hidden — every control the
+   * admin had is still on screen and still operable.
+   */
+  .admin-dashboard-topbar { flex-wrap: wrap; row-gap: 8px; padding-block: 8px; height: auto; }
+  .admin-mobile-menu { order: 0; flex-shrink: 0; }
+  .admin-searchbox { order: 1; flex: 1 1 auto; min-width: 120px !important; }
+  .admin-topbar-actions { order: 2; flex: 1 0 100%; justify-content: flex-end; }
+  /* Only the leading city icon goes. The trailing chevron STAYS: with
+   * the icon gone it is the only signal that the box opens a list. */
+  .admin-range-select { gap: 3px; padding-inline: 4px; min-width: 0; }
+  .admin-range-select > svg:first-child { display: none; }
+  .admin-range-select > svg:last-child { display: inline-flex; flex-shrink: 0; }
+  /* The `<select>` stays a REAL, visible, clickable control — that is
+   * what opens the native dropdown. It is never collapsed: an earlier
+   * attempt gave it `width: 0; opacity: 0`, which kept the DOM node
+   * but made the control unusable by a real user (a label-forwarded
+   * zero-size select never opens its dropdown).
+   *
+   * 76px at 12px fits the longest label ("Last 30 days" measures
+   * ~64.5px) with the text drawn whole — a `<select>` paints its
+   * selected option through the native widget path, so `text-overflow:
+   * ellipsis` never applies to it; the text would be hard-clipped
+   * mid-glyph. Sizing to fit the text is the only way to keep it
+   * legible at a glance. */
+  .admin-range-select select { width: 76px; max-width: 76px; font-size: 12px; }
+  .admin-topbar-actions .usermenu-label { display: none; }
+  /* The user menu keeps the top-right corner showing just the avatar,
+   * as the citizen and crew headers do. Its trailing chevron goes with
+   * the name: the trigger is a round avatar button, so the shape and
+   * the border already say "this opens a menu" — unlike the range
+   * box, which is a bordered rectangle that would otherwise read as
+   * a text field. Dropping the chevron also returns 22px to the
+   * action row, which is what keeps a 320px phone inside its
+   * viewport now that the range control is wider. */
+  .admin-topbar-actions .usermenu-trigger > svg:last-child { display: none; }
+  .admin-topbar-actions .usermenu-trigger { padding-inline: 6px !important; }
 }
 
 /* The reference dashboard uses a dark operations workspace as its default.

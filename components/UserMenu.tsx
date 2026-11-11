@@ -9,7 +9,6 @@ type Role = SessionRole;
 
 interface UserMenuProps {
   lang?: Language;
-  variant?: 'header' | 'sidebar';
 }
 
 const ROLE_KEY: Record<Role, keyof typeof import('@/lib/i18n/keys').TRANSLATIONS> = {
@@ -45,8 +44,7 @@ function LogoutIcon() {
   );
 }
 
-export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
-  const sidebar = variant === 'sidebar';
+export function UserMenu({ lang = 'bn' }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +99,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
   const name = lang === 'bn' ? user?.nameBn || user?.name : user?.name || user?.nameBn;
 
   return (
-    <div ref={containerRef} className={`usermenu-root${sidebar ? ' usermenu-sidebar' : ''}`} style={{ position: 'relative', display: 'inline-flex', width: sidebar ? '100%' : undefined }}>
+    <div ref={containerRef} className="usermenu-root" style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         ref={buttonRef}
         type="button"
@@ -113,17 +111,16 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
           setOpen((wasOpen) => !wasOpen);
         }}
         style={{
-          minWidth: sidebar ? 0 : 44,
-          width: sidebar ? '100%' : undefined,
-          height: sidebar ? 58 : 44,
-          padding: sidebar ? 'var(--space-2)' : '0 var(--space-2)',
-          border: sidebar ? '1px solid transparent' : (open ? '1px solid var(--color-border-strong)' : '1px solid var(--color-border)'),
-          borderRadius: sidebar ? 'var(--radius-md)' : 'var(--radius-pill)',
-          background: sidebar ? 'transparent' : (open ? 'var(--color-surface-raised)' : 'var(--color-surface-card)'),
-          color: sidebar ? '#f7f9ff' : 'var(--color-ink)',
+          minWidth: 44,
+          height: 44,
+          padding: '0 var(--space-2)',
+          border: open ? '1px solid var(--color-border-strong)' : '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-pill)',
+          background: open ? 'var(--color-surface-raised)' : 'var(--color-surface-card)',
+          color: 'var(--color-ink)',
           display: 'inline-flex',
           alignItems: 'center',
-          justifyContent: sidebar ? 'flex-start' : 'center',
+          justifyContent: 'center',
           gap: 'var(--space-2)',
           cursor: 'pointer',
           fontFamily: 'inherit',
@@ -133,8 +130,8 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         <span
           aria-hidden
           style={{
-            width: sidebar ? 38 : 28,
-            height: sidebar ? 38 : 28,
+            width: 28,
+            height: 28,
             flexShrink: 0,
             borderRadius: '50%',
             background: 'var(--color-primary-soft)',
@@ -147,11 +144,10 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
         >
           {initialsOf(name) ?? <ProfileIcon />}
         </span>
-        <span className="usermenu-label" style={{ minWidth: 0, maxWidth: sidebar ? 150 : 112, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: sidebar ? 'normal' : 'nowrap', display: sidebar ? 'flex' : undefined, flexDirection: sidebar ? 'column' : undefined, alignItems: sidebar ? 'flex-start' : undefined, gap: sidebar ? 3 : undefined, marginInlineStart: sidebar ? 'var(--space-2)' : undefined, flex: sidebar ? 1 : undefined, fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>
+        <span className="usermenu-label" style={{ minWidth: 0, maxWidth: 112, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-caption)', fontWeight: 'var(--weight-semibold)' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{name ?? t('user.menu.open_menu', null, lang)}</span>
-          {sidebar && user?.role ? <span style={{ color: 'var(--color-rail-ink-muted)', fontSize: 11, fontWeight: 'var(--weight-regular)' }}>{t(ROLE_KEY[user.role], null, lang)}</span> : null}
         </span>
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: sidebar ? 'auto' : undefined }}>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false">
           <path d={open ? 'm5 12 5-5 5 5' : 'm5 8 5 5 5-5'} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
@@ -164,8 +160,7 @@ export function UserMenu({ lang = 'bn', variant = 'header' }: UserMenuProps) {
           className="usermenu-panel"
           style={{
             position: 'absolute',
-            top: sidebar ? undefined : 'calc(100% + var(--space-2))',
-            bottom: sidebar ? 'calc(100% + var(--space-2))' : undefined,
+            top: 'calc(100% + var(--space-2))',
             right: 0,
             width: 'min(304px, calc(100vw - 24px))',
             boxSizing: 'border-box',

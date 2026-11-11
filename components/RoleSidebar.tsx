@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CityFixMark } from '@/components/CityFixMark';
-import { UserMenu } from '@/components/UserMenu';
 import { useSession } from '@/components/SessionProvider';
 import { ICONS } from '@/lib/ui/icon-map';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -187,10 +186,6 @@ export function RoleSidebar({
           );
         })}
       </nav>
-      <div className="role-sidebar-footer">
-        <div className="role-sidebar-tagline">{t('shell.brand.tagline', null, lang)}</div>
-        <UserMenu lang={lang} variant="sidebar" />
-      </div>
       <span className="role-sidebar-cityline" aria-hidden="true" />
       <span className="role-sidebar-cityline role-sidebar-cityline--front" aria-hidden="true" />
     </aside>

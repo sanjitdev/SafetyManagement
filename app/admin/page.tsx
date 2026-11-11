@@ -417,9 +417,6 @@ function AdminHomePageInner() {
             <ICONS.city.icon size={21} aria-hidden /><span>{t('admin.dashboard.nav.settings', null, lang)}</span>
           </Link>
         </nav>
-        <div className="admin-sidebar-account">
-          <UserMenu lang={lang} variant="sidebar" />
-        </div>
       </aside>
 
       <div className="admin-dashboard-main">
@@ -458,6 +455,7 @@ function AdminHomePageInner() {
               <span className="admin-language-short" aria-hidden="true">{lang === 'bn' ? 'EN' : 'বাং'}</span>
             </button>
             <ThemeToggle lang={lang} />
+            <UserMenu lang={lang} />
           </div>
         </header>
 
