@@ -37,6 +37,7 @@
 
 import { PrismaClient, type Role } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
+import { seedTickets } from './seed-tickets';
 
 const prisma = new PrismaClient();
 
@@ -136,13 +137,27 @@ const DHAKA_CREWS = [
     nameBn: 'মিরপুর রোডস টিম',
     departmentSlug: 'roads-drainage',
   },
+  {
+    // The waste team's crew row. The city has three departments and
+    // three crew members; without a waste team the admin console's
+    // crew list would show no team that can work a "Garbage not
+    // collected" report. See the `user_crew_jamal` persona below.
+    name: 'Mirpur Waste Team',
+    nameBn: 'মিরপুর বর্জ্য ব্যবস্থাপনা টিম',
+    departmentSlug: 'waste-management',
+  },
 ];
 
 /**
- * The per-category resolution SLA. `SlaPolicy` is not consulted by
- * the current surfaces (see `lib/admin/adoption.ts`), but the model
- * exists and the admin surfaces report on it, so the seed populates
- * it to keep the schema exercised rather than empty.
+ * The per-category resolution SLA. `SlaPolicy` is NOT consulted by
+ * any current surface (see `lib/admin/adoption.ts` and
+ * `lib/admin/users.ts`) — the "avg time to resolve" stat is computed
+ * from the ticket rows themselves (`resolvedAt - createdAt`). The model
+ * exists and the seed populates it to keep the schema exercised rather
+ * than empty, but the modelled SLA is **not enforced**: the policy rows
+ * are written and never read.
+ *
+ * See `docs/PRODUCTION_READINESS_CHECKLIST.md` blocker 9.
  */
 const DHAKA_SLA_POLICIES = [
   { categorySlug: 'streetlight', resolveHours: 72 },
@@ -256,8 +271,26 @@ const PERSONAS: PersonaSeed[] = [
     email: null,
     // A different ward, so the cross-ward reject path is testable.
     wardNumber: 20,
-    departmentSlug: 'streetlight-maintenance',
-    crewName: 'Mirpur Streetlight Team',
+    // Jamal is the WASTE-MANAGEMENT crew — the third department.
+    //
+    // The city's three departments are streetlight maintenance, roads
+    // & drainage, and waste management. Rashid covers streetlight,
+    // Karim covers roads & drainage, and without a third crew member
+    // NOBODY could work a "Garbage not collected" report: the crew
+    // list filters on the ticket's category department
+    // (`app/api/v1/crew/tickets/route.ts:169-175`), and
+    // `assign-crew` refuses a crew member whose department differs
+    // from the ticket's (`lib/dispatcher/assign-crew.ts:143-153`). A
+    // waste ticket assigned to a streetlight or roads crew member
+    // would VANISH from that member's own list.
+    //
+    // He was a second streetlight crew member, which duplicated
+    // Rashid and left the waste department with nobody. He stays in
+    // ward 20 — that is what keeps the cross-ward reject path
+    // testable — so the seeded waste reports live in ward 20 with
+    // him (`prisma/seed-tickets.ts` → `wardForReport`).
+    departmentSlug: 'waste-management',
+    crewName: 'Mirpur Waste Team',
     status: 'active',
   },
 ];
@@ -432,6 +465,58 @@ async function main() {
     .map(([role, n]) => `${role}=${n}`)
     .join(' ');
   console.log(`  Personas: ${summary}`);
+
+  // The demo reports.
+  //
+  // The old reports are cleared, then the spec dataset is written (see
+  // `prisma/seed-tickets.ts`). Both phases run inside ONE transaction:
+  //
+  //   - The clear alone would leave the city with zero reports if the
+  //     write failed — a demo with no data.
+  //   - The write alone would leave the old reports in place if it
+  //     failed — a demo with 58 stale tickets plus a partial dataset.
+  //
+  // One transaction means the database is either the old dataset or
+  // the new one, never a mixture. The ticket seed's own assertions
+  // (the final ticket count, the spec distribution) run inside it
+  // too, so a failure rolls the whole thing back.
+  console.log('Clearing existing reports…');
+  await prisma.$transaction(async (tx) => {
+    // Audit rows are deleted before the tickets they reference. The
+    // audit row's `entityType` names the audited ENTITY, while
+    // `actorId` names who acted — both must be handled, because
+    // `AuditEntry.actorId` is `Restrict` and would otherwise block the
+    // user deletes below.
+    await tx.auditEntry.deleteMany({ where: { entityType: 'ticket' } });
+    await tx.auditEntry.deleteMany({ where: { entityType: 'dedupFlag' } });
+    // Deleting the tickets cascades their trail entries, photos and
+    // dedup flags.
+    await tx.ticket.deleteMany({ where: { cityId: dhaka.id } });
+
+    // The "Probe" test users left behind by earlier manual testing.
+    // Their audit rows must go first — `AuditEntry.actorId` is
+    // `Restrict`, so a probe user cannot be deleted while it still
+    // appears as an actor.
+    const probeIds = (
+      await tx.user.findMany({
+        where: { cityId: dhaka.id, name: { startsWith: 'Probe ' } },
+        select: { id: true },
+      })
+    ).map((u) => u.id);
+    if (probeIds.length > 0) {
+      await tx.auditEntry.deleteMany({ where: { actorId: { in: probeIds } } });
+      await tx.session.deleteMany({ where: { userId: { in: probeIds } } });
+      await tx.user.deleteMany({ where: { id: { in: probeIds } } });
+      console.log(`  Removed ${probeIds.length} probe users`);
+    }
+
+    // The write phase, in the SAME transaction.
+    await seedTickets(tx, {
+      cityId: dhaka.id,
+      wardByNumber: wardMap,
+      categoryBySlug: categoryMap,
+    });
+  });
 
   console.log(`  Demo password for every persona: ${DEMO_PASSWORD}`);
   console.log('Done.');

@@ -394,8 +394,10 @@ describe('assignCrew — audit row shape', () => {
     );
     // Reassign to a different crew member in the SAME department.
     // `user_crew_karim` is bound to `dept_roads`, so he cannot be
-    // given a streetlight ticket; the seeded second streetlight
-    // crew member stands in for the "different crew" case.
+    // given a streetlight ticket; `user_crew_jamal` is the waste
+    // crew in another ward, so he cannot be given one either. A
+    // synthetic same-department crew member stands in for the
+    // "different crew" case.
     const sameDeptCrew = 'user_crew_jamal_alt';
     const rashid = devDb.user.findUnique({ where: { id: DEV_CREW_ID } })!;
     devDb.user.create({

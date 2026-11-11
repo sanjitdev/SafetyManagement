@@ -619,6 +619,17 @@ function seed(): Store {
   // ward_14 today, but adding this row does not require any
   // city config — the user row is enough to exercise the
   // service-layer check.
+  //
+  // Jamal is the WASTE crew. The city has three departments and
+  // three crew members: Rashid covers streetlight, Karim covers
+  // roads & drainage, and the waste department had nobody — so a
+  // "Garbage not collected" ticket could not be worked by anyone
+  // (the crew list filters on the ticket's category department, and
+  // `assign-crew` refuses a cross-department assignment). He was a
+  // second streetlight crew member, which duplicated Rashid.
+  //
+  // Mirrors `prisma/seed.ts` → `user_crew_jamal` exactly, so the two
+  // backends stay interchangeable.
   const crewIdOther = 'user_crew_jamal';
   users.set(crewIdOther, {
     id: crewIdOther,
@@ -630,7 +641,7 @@ function seed(): Store {
     email: null,
     passwordHash: DEMO_PASSWORD_HASH,
     wardId: 'ward_other',
-    departmentId: deptIds.streetlight,
+    departmentId: deptIds.waste,
     languageOverride: null,
     webAuthnCredentials: null,
     webAuthnChallenge: null,
