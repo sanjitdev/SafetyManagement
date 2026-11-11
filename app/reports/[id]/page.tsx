@@ -29,6 +29,7 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import { useLanguage } from '@/components/useLanguage';
+import { useSession } from '@/components/SessionProvider';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -48,15 +49,7 @@ import type { FeedbackRating } from '@/lib/citizen/feedback-rating';
 type SerializedTicket = ApiSerializedTicket;
 type TicketStatus = SerializedTicket['status'];
 
-interface CategoryOption {
-  id: string;
-  slug: string;
-  name: string;
-  nameBn: string | null;
-}
-
-const STATUS_ORDER: SerializedTicket['status'][] = [
-  'submitted',
+const STATUS_ORDER: SerializedTicket['status'][] = [  'submitted',
   'routed',
   'in_progress',
   'resolved',
@@ -116,25 +109,29 @@ function timeAgoLabel(iso: string, lang: Language): string {
   return `${value} ${t(unitKey as 'time.minutes_ago', null, lang)}`;
 }
 
-// Look up the human-readable category name for a ticket. The
-// categoryId is a Prisma cuid; we map it through the categories
-// list returned by /api/report/bootstrap. Bangla-first per project
-// policy; falls back to the slug, then to a generic "Other" label
-// if the category isn't in the list (e.g. it was deleted after the
-// ticket was filed).
-function categoryLabel(
-  categoryId: string,
-  categories: CategoryOption[],
-  lang: Language,
-): string {
-  const match = categories.find((c) => c.id === categoryId);
-  if (!match) {
-    return t('category.other', null, lang);
-  }
-  if (lang === 'bn') {
-    return match.nameBn ?? match.name;
-  }
-  return match.name;
+// Look up the human-readable category name for a ticket.
+//
+// The category name is denormalised ONTO the ticket by the backend
+// (`getTicketWithTrail` joins `category` and the serializer exposes
+// `categoryName` / `categoryNameBn` / `categorySlug` — see
+// lib/serializers/ticket.ts). The page used to fetch the whole city
+// category list from /api/report/bootstrap and look the id up
+// client-side, but that endpoint is CITIZEN-ONLY, so on this shared
+// surface it 403'd for every staff role and took the whole page down
+// with it.
+//
+// Reading the name off the ticket is one fewer round-trip, works for
+// every role, and cannot disagree with the ticket's own data.
+//
+// Bangla-first per project policy; falls back to the slug, then to a
+// generic "Other" label if the category was deleted after the ticket
+// was filed (the join then yields null).
+function categoryLabel(ticket: SerializedTicket, lang: Language): string {
+  const label =
+    lang === 'bn'
+      ? ticket.categoryNameBn ?? ticket.categoryName ?? ticket.categorySlug
+      : ticket.categoryName ?? ticket.categorySlug;
+  return label ?? t('category.other', null, lang);
 }
 
 export default function MyReportDetailPage() {
@@ -151,7 +148,6 @@ export default function MyReportDetailPage() {
   const LANG = lang;
 
   const [ticket, setTicket] = useState<SerializedTicket | null>(null);
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -164,6 +160,26 @@ export default function MyReportDetailPage() {
   const [pendingDeleteIdx, setPendingDeleteIdx] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  /**
+   * The signed-in role, from the shared `SessionProvider`.
+   *
+   * `/reports/:id` is a SHARED surface (see `CITIZEN_ONLY_SURFACES`
+   * in lib/role-home.ts — `/report` is citizen-only, `/reports` is
+   * not), so a dispatcher, crew member or admin may land here and
+   * read the report. But two affordances on this page are
+   * CITIZEN-ONLY writes, enforced server-side by
+   * `requireRole(session, 'citizen')`:
+   *
+   *   - POST /api/tickets/:id/feedback      (the feel-heard rating)
+   *   - DELETE /api/tickets/:id/photos/:idx (the photo delete)
+   *
+   * Rendering them for a staff viewer would offer a button that is
+   * guaranteed to 401. The role gate below hides them instead.
+   */
+  const { session } = useSession();
+  const role = session?.role ?? null;
+  const isCitizen = role === 'citizen';
+
   // Guard against React strict mode double-mount racing the rate limiter.
   const fetchedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -171,17 +187,30 @@ export default function MyReportDetailPage() {
     if (fetchedFor.current === id) return; // already fetched for this id
     fetchedFor.current = id;
     (async () => {
-      const authRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
-      if (!authRes.ok) {
-        setAuthed(false);
-        return;
-      }
-      const boot = (await authRes.json()) as { categories?: CategoryOption[] };
-      // /api/report/bootstrap returns the category list scoped to the
-      // citizen's city. We use it to translate the ticket's categoryId
-      // (a Prisma cuid) into a human-readable Bangla/English name.
-      setCategories(boot.categories ?? []);
-      setAuthed(true);
+      // WHY THERE IS NO SEPARATE AUTH PROBE HERE
+      // -----------------------------------------
+      // This page used to gate itself on `GET /api/report/bootstrap`
+      // — the REPORT FORM's bootstrap, which is deliberately
+      // citizen-only:
+      //
+      //   if (session.role !== 'citizen') {
+      //     return NextResponse.json({ error: 'citizen_only' }, { status: 403 });
+      //   }
+      //
+      // It treated a non-OK response as "not signed in" and rendered
+      // "You need to sign in to view this report." — so EVERY staff
+      // role that opened a report was told to sign in, even though
+      // `GET /api/tickets/:id` (below) authorizes them perfectly
+      // well: staff are scoped by city + ward/department, citizens by
+      // ownership.
+      //
+      // The ticket endpoint is the authority on whether this viewer
+      // may see this ticket. It already distinguishes 401 (no
+      // session) from 403 (a session, but not one that may see
+      // this ticket), and `refresh()` below maps those onto
+      // `authed === false` and the `forbidden` error respectively.
+      // So there is exactly ONE authorization decision on this page,
+      // and it is made by the endpoint that actually serves the data.
       await refresh();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,14 +223,22 @@ export default function MyReportDetailPage() {
       const url = `/api/tickets/${id}`;
       const res = await fetch(url, { credentials: 'include' });
       if (res.status === 401) {
+        // No session at all. This is the ONLY case that means "you
+        // need to sign in" — a 403 means the session exists but is
+        // not scoped to this ticket, which is a different message.
         setAuthed(false);
         return;
       }
       if (res.status === 403) {
+        // A session, but this viewer may not see this ticket (a
+        // citizen opening someone else's report, or a dispatcher
+        // outside their ward / department).
+        setAuthed(true);
         setError('forbidden');
         return;
       }
       if (res.status === 404) {
+        setAuthed(true);
         setError('not_found');
         return;
       }
@@ -216,20 +253,24 @@ export default function MyReportDetailPage() {
           const body = await retry.json();
           setTicket(body.ticket);
           setFeedbackRating(body.feedback_rating ?? null);
+          setAuthed(true);
           return;
         }
         // Still rate-limited or otherwise failing; surface a transient
         // message rather than a permanent error.
+        setAuthed(true);
         setError('rate_limited');
         return;
       }
       if (!res.ok) {
+        setAuthed(true);
         setError(`failed (${res.status})`);
         return;
       }
       const body = await res.json();
       setTicket(body.ticket);
       setFeedbackRating(body.feedback_rating ?? null);
+      setAuthed(true);
     } finally {
       setLoading(false);
     }
@@ -403,7 +444,7 @@ export default function MyReportDetailPage() {
                 lineHeight: 1.2,
               }}
             >
-              {categoryLabel(ticket.categoryId, categories, LANG)}
+              {categoryLabel(ticket, LANG)}
             </h1>
             <div
               style={{
@@ -507,27 +548,29 @@ export default function MyReportDetailPage() {
                           'var(--color-surface-raised)',
                       }}
                     >
-                      <button
-                        type="button"
-                        aria-label={t('detail.photo.delete_aria', null, LANG)}
-                        onClick={() => handleDeletePhoto(idx)}
-                        disabled={deletingIdx === idx}
-                        style={{
-                          position: 'absolute',
-                          top: 6,
-                          right: 6,
-                          width: 28,
-                          height: 28,
-                          borderRadius: '50%',
-                          border: 'none',
-                          background: 'rgba(0,0,0,0.6)',
-                          color: '#fff',
-                          fontSize: 14,
-                          cursor: deletingIdx === idx ? 'wait' : 'pointer',
-                        }}
-                      >
-                        {deletingIdx === idx ? '…' : '×'}
-                      </button>
+                      {isCitizen && (
+                        <button
+                          type="button"
+                          aria-label={t('detail.photo.delete_aria', null, LANG)}
+                          onClick={() => handleDeletePhoto(idx)}
+                          disabled={deletingIdx === idx}
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            border: 'none',
+                            background: 'rgba(0,0,0,0.6)',
+                            color: '#fff',
+                            fontSize: 14,
+                            cursor: deletingIdx === idx ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {deletingIdx === idx ? '…' : '×'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -775,7 +818,7 @@ export default function MyReportDetailPage() {
             >
               <MetaCell
                 label={t('detail.meta.category', null, LANG)}
-                value={categoryLabel(ticket.categoryId, categories, LANG)}
+                value={categoryLabel(ticket, LANG)}
                 lang={LANG}
               />
               <MetaCell label={t('detail.meta.ward', null, LANG)} value={wardLabel} lang={LANG} />
@@ -792,7 +835,7 @@ export default function MyReportDetailPage() {
             </div>
           </div>
 
-          {ticket.status === 'resolved' && (
+          {ticket.status === 'resolved' && isCitizen && (
             <div
               style={{
                 background: 'var(--color-primary-soft)',

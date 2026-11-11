@@ -43,6 +43,36 @@
  *   - the shared pages must NOT call the citizen-only endpoint
  *   - the report flow must STILL call it
  *   - the endpoint must STILL reject staff
+ *
+ * ## The same bug, one level down: the report DETAIL page
+ *
+ * `app/reports/[id]/page.tsx` had the same coupling, but as an AUTH
+ * GATE rather than a config fetch. It called
+ * `/api/report/bootstrap` first and treated a non-OK response as
+ * "not signed in":
+ *
+ * ```ts
+ * const authRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
+ * if (!authRes.ok) {
+ *   setAuthed(false);
+ *   return;
+ * }
+ * ```
+ *
+ * For a dispatcher that 403s (`citizen_only`), so the page rendered
+ * "You need to sign in to view this report." — for EVERY report,
+ * even though `GET /api/tickets/:id` authorizes staff by city +
+ * ward/department and would have served them the ticket.
+ *
+ * The ticket endpoint is now the single authority on this page. It
+ * already distinguishes 401 (no session → "sign in") from 403 (a
+ * session that may not see this ticket → "forbidden"), so the page
+ * just renders what the endpoint says.
+ *
+ * The category name is read off the ticket instead: the serializer
+ * already denormalises `categoryName` / `categoryNameBn` onto it
+ * (`lib/serializers/ticket.ts`), so the extra category-list fetch was
+ * both redundant and the thing that broke staff access.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -55,7 +85,9 @@ function read(...segments: string[]): string {
 
 const HOME_PAGE = read('app', 'home', 'page.tsx');
 const REPORTS_PAGE = read('app', 'reports', 'page.tsx');
+const REPORT_DETAIL_PAGE = read('app', 'reports', '[id]', 'page.tsx');
 const BOOTSTRAP_ROUTE = read('app', 'api', 'report', 'bootstrap', 'route.ts');
+const TICKET_BY_ID_ROUTE = read('app', 'api', 'tickets', '[id]', 'route.ts');
 const REPORT_LOCATION_PAGE = read('app', 'report', '(create)', 'location', 'page.tsx');
 
 /**
@@ -105,6 +137,82 @@ describe('the report flow still uses the report bootstrap', () => {
     // place the citizen-only endpoint is correct.
     expect(stripComments(REPORT_LOCATION_PAGE)).toMatch(
       /['"`]\/api\/report\/bootstrap['"`]/,
+    );
+  });
+});
+
+/**
+ * The report DETAIL page (`/reports/:id`) is under the SHARED
+ * `/reports` prefix, so every role may open it. It used to gate
+ * itself on `/api/report/bootstrap` — the citizen-only report-form
+ * bootstrap — and treated a non-OK response as "not signed in". A
+ * dispatcher therefore got "You need to sign in to view this report."
+ * for every report, even though `GET /api/tickets/:id` authorizes
+ * staff perfectly well.
+ *
+ * The ticket endpoint is now the single authority: it distinguishes
+ * 401 (no session → sign in) from 403 (a session that may not see
+ * this ticket → forbidden).
+ */
+describe('the shared report detail page does not gate on the citizen-only bootstrap', () => {
+  it('/reports/:id does not fetch /api/report/bootstrap', () => {
+    expect(stripComments(REPORT_DETAIL_PAGE)).not.toMatch(
+      /['"`]\/api\/report\/bootstrap['"`]/,
+    );
+  });
+
+  it('/reports/:id reads the ticket from the role-aware ticket endpoint', () => {
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/['"`]\/api\/tickets\/\$\{id\}/);
+  });
+
+  it('/reports/:id reads the category name off the ticket, not a category list', () => {
+    // The serializer already denormalises categoryName /
+    // categoryNameBn onto the ticket (lib/serializers/ticket.ts), so
+    // a second category-list fetch is both redundant and the thing
+    // that broke staff access.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/categoryLabel\(ticket,/);
+  });
+
+  it('/reports/:id maps 401 to "sign in" and 403 to "forbidden"', () => {
+    // The two states must stay distinct: a 401 means there is no
+    // session; a 403 means there IS one but it may not see this
+    // ticket. Collapsing them (the old behaviour) is what told a
+    // dispatcher to sign in.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(
+      /res\.status\s*===\s*401[\s\S]{0,160}setAuthed\(false\)/,
+    );
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(
+      /res\.status\s*===\s*403[\s\S]{0,160}setError\('forbidden'\)/,
+    );
+  });
+
+  it('/reports/:id hides the citizen-only write affordances from staff', () => {
+    // POST /api/tickets/:id/feedback and DELETE
+    // /api/tickets/:id/photos/:idx both enforce
+    // `requireRole(session, 'citizen')`. Offering them to a staff
+    // viewer would render a button that can only fail.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/isCitizen\s*&&\s*\(/);
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(
+      /ticket\.status\s*===\s*'resolved'\s*&&\s*isCitizen/,
+    );
+  });
+});
+
+describe('the ticket endpoint keeps its per-role authorization', () => {
+  it('rejects an unauthenticated request with 401', () => {
+    expect(TICKET_BY_ID_ROUTE).toMatch(/not_authenticated[\s\S]{0,80}status:\s*401/);
+  });
+
+  it('scopes dispatcher and crew reads by ward / department', () => {
+    expect(TICKET_BY_ID_ROUTE).toMatch(
+      /session\.role\s*===\s*'dispatcher'\s*\|\|\s*session\.role\s*===\s*'crew'/,
+    );
+    expect(TICKET_BY_ID_ROUTE).toMatch(/requireScope\(/);
+  });
+
+  it('scopes citizen reads to their own reports', () => {
+    expect(TICKET_BY_ID_ROUTE).toMatch(
+      /session\.role\s*===\s*'citizen'\s*&&\s*ticket\.reporterId\s*!==\s*session\.userId/,
     );
   });
 });
