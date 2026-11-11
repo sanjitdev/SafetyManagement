@@ -75,21 +75,41 @@ interface ActivityItem {
   isOwnReport: boolean;
 }
 
-interface Bootstrap {
-  city: { id: string; name: string; nameBn: string | null };
-  ward: { id: string; name: string; nameBn: string | null; number: number } | null;
+/**
+ * The city configuration the page renders against.
+ *
+ * WHY NOT /api/report/bootstrap
+ * -----------------------------
+ * That endpoint is the REPORT FORM's bootstrap and is deliberately
+ * citizen-only — its OpenAPI contract says "Only citizens file reports".
+ * This page used to call it for the category and ward config, which
+ * meant a dispatcher (or crew, or admin) who landed here got a 403 and
+ * the page fell into its "could not load feed" error state.
+ *
+ * The two endpoints disagreed about who may read the city's config,
+ * because the page was using a report-form endpoint as a general
+ * city-config endpoint. `/api/v1/activity/public` is the endpoint that
+ * actually serves that purpose: it works for every role (it is
+ * public), and it already returns the city's `categories` and `wards`
+ * in the same response as the feed.
+ *
+ * The citizen's OWN ward no longer comes from here either — the
+ * session already carries `wardId` / `wardName` / `wardNameBn`, so
+ * there is no need for a second round-trip to learn it.
+ */
+interface CityConfig {
   categories: Array<{
     id: string;
     slug: string;
     name: string;
     nameBn: string | null;
   }>;
-  // Note: /api/report/bootstrap returns only the citizen's own ward
-  // (`ward`, singular), not the full ward list. The home page used to
-  // declare `wards` here and read it, which silently threw at runtime
-  // and surfaced the "feed.error" state. We now use the citizen's own
-  // ward for the row's ward label, matching v1 semantics (cross-ward
-  // filing is deferred to v1.1).
+  wards: Array<{
+    id: string;
+    number: number;
+    name: string;
+    nameBn: string | null;
+  }>;
 }
 
 function formatAge(iso: string, lang: Language): string {
@@ -110,7 +130,7 @@ export default function HomePage() {
   const router = useRouter();
   const { lang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [config, setConfig] = useState<CityConfig | null>(null);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -134,7 +154,7 @@ export default function HomePage() {
     }
   }, []);
 
-  // Auth check + bootstrap
+  // Auth check
   //
   // The session comes from the shared `SessionProvider` (the AppShell
   // layout owns it), so this page does NOT issue its own
@@ -143,43 +163,60 @@ export default function HomePage() {
   // the sidebar's and the user menu's.
   useEffect(() => {
     if (authenticated === null) return; // still loading
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!authenticated) {
-          setSignedIn(false);
-          return;
-        }
-        setSignedIn(true);
-        setUserId(session?.userId ?? null);
-        setUserName(session?.name ?? null);
-
-        const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
-        if (!bootRes.ok) {
-          setError('home.feed.error');
-          setLoading(false);
-          return;
-        }
-        const boot = (await bootRes.json()) as Bootstrap;
-        if (cancelled) return;
-        setBootstrap(boot);
-      } catch {
-        setError('home.feed.error');
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (!authenticated) {
+      setSignedIn(false);
+      return;
+    }
+    setSignedIn(true);
+    setUserId(session?.userId ?? null);
+    setUserName(session?.name ?? null);
   }, [authenticated, session]);
 
-  // Activity polling
+  // Activity polling + city config
+  //
+  // The city config (categories + wards) comes from
+  // `/api/v1/activity/public`, which serves every role. It used to
+  // come from `/api/report/bootstrap`, a citizen-only endpoint, so a
+  // dispatcher landing here got a 403 and the page fell into its
+  // "could not load feed" error state.
+  //
+  // Both requests are issued together, and the config is fetched ONCE
+  // (it does not change between polls) rather than on every tick.
   useEffect(() => {
     if (!signedIn) return;
     let cancelled = false;
     let timer: number | null = null;
+    let cfg: CityConfig | null = null;
+
+    const fetchConfig = async (): Promise<CityConfig | null> => {
+      const res = await fetch('/api/v1/activity/public?limit=1', {
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        categories: CityConfig['categories'];
+        wards: CityConfig['wards'];
+      };
+      const next: CityConfig = {
+        categories: data.categories ?? [],
+        wards: data.wards ?? [],
+      };
+      if (!cancelled) setConfig(next);
+      return next;
+    };
+
     const fetchActivity = async () => {
       try {
+        if (!cfg) {
+          cfg = await fetchConfig();
+          if (!cfg) {
+            if (!cancelled) {
+              setError('home.feed.error');
+              setLoading(false);
+            }
+            return;
+          }
+        }
         const res = await fetch('/api/v1/activity?limit=20', { credentials: 'include' });
         if (cancelled) return;
         if (!res.ok) {
@@ -192,6 +229,8 @@ export default function HomePage() {
           status: ActivityItem['status'];
           categoryId: string;
           wardId: string;
+          wardName?: string | null;
+          wardNameBn?: string | null;
           locationLat: number;
           locationLng: number;
           note: string | null;
@@ -200,10 +239,13 @@ export default function HomePage() {
           reporterId: string;
         }> };
         if (cancelled) return;
+        const activeCfg = cfg;
         const items: ActivityItem[] = data.tickets.map((t) => {
-          const cat = bootstrap?.categories.find((c) => c.id === t.categoryId);
-          // v1: surface the citizen's own ward as the row's ward label.
-          const ward = bootstrap?.ward;
+          const cat = activeCfg?.categories.find((c) => c.id === t.categoryId);
+          // The row's ward is the ward the ticket was FILED IN, which is
+          // what the serializer already returns. The city's ward list is
+          // the fallback for a row whose ward was not hydrated.
+          const ward = activeCfg?.wards.find((w) => w.id === t.wardId);
           return {
             id: t.id,
             status: t.status,
@@ -211,8 +253,8 @@ export default function HomePage() {
             categoryName: cat?.name,
             categoryNameBn: cat?.nameBn ?? cat?.name,
             wardId: t.wardId,
-            wardName: ward?.name,
-            wardNameBn: ward?.nameBn ?? ward?.name,
+            wardName: t.wardName ?? ward?.name,
+            wardNameBn: t.wardNameBn ?? ward?.nameBn ?? ward?.name,
             locationLat: t.locationLat,
             locationLng: t.locationLng,
             note: t.note,
@@ -248,7 +290,7 @@ export default function HomePage() {
       cancelled = true;
       if (timer) window.clearInterval(timer);
     };
-  }, [signedIn, bootstrap, userId]);
+  }, [signedIn, userId]);
 
   const filteredTickets = useMemo(
     () => applyStatusFilter(tickets, filter),
@@ -320,10 +362,15 @@ export default function HomePage() {
     );
   }
 
-  const wardDisplay = bootstrap?.ward
+  // The signed-in user's own ward, straight from the session.
+  //
+  // It used to come from /api/report/bootstrap's `ward` field, which
+  // is why this page was coupled to a citizen-only endpoint. The
+  // session already carries the ward the user is scoped to.
+  const wardDisplay = session?.wardName
     ? lang === 'bn'
-      ? bootstrap.ward.nameBn ?? bootstrap.ward.name
-      : bootstrap.ward.name
+      ? session.wardNameBn ?? session.wardName
+      : session.wardName
     : '';
 
   return (

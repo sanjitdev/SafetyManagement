@@ -54,15 +54,26 @@ interface ActivityItem {
   reporterId: string;
 }
 
-interface Bootstrap {
-  city: { id: string; name: string; nameBn: string | null };
+/**
+ * The city configuration the page renders against.
+ *
+ * WHY NOT /api/report/bootstrap
+ * -----------------------------
+ * That endpoint is the REPORT FORM's bootstrap and is deliberately
+ * citizen-only — its OpenAPI contract says "Only citizens file reports".
+ * This page used to call it for the category list, which meant a
+ * dispatcher (or crew, or admin) who landed here got a 403 and the
+ * page fell into its "reports.error" state — even though the list
+ * itself is explicitly designed to show staff every report filed in
+ * the session's city (see the `isStaff` filter below).
+ *
+ * `/api/v1/activity/public` is the endpoint that actually serves the
+ * city-config purpose: it works for every role, and it already returns
+ * the city's `categories` and `wards` alongside the feed.
+ */
+interface CityConfig {
   categories: Array<{ id: string; name: string; nameBn: string | null }>;
-  // The /api/report/bootstrap endpoint returns the citizen's own ward
-  // (`ward`, singular) plus the category list — it does NOT enumerate
-  // every ward. The /reports list is filtered to this citizen's own
-  // reports, so showing the citizen's ward name from `ward` is sufficient
-  // for the v1 surface. Future v1.1 work can add a wards endpoint.
-  ward: { id: string; name: string; nameBn: string | null } | null;
+  wards: Array<{ id: string; number: number; name: string; nameBn: string | null }>;
 }
 
 function formatAge(iso: string, lang: Language): string {
@@ -128,7 +139,7 @@ export default function ReportsListPage() {
   const [role, setRole] = useState<'citizen' | 'dispatcher' | 'crew' | 'admin' | null>(
     null,
   );
-  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [config, setConfig] = useState<CityConfig | null>(null);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -141,10 +152,16 @@ export default function ReportsListPage() {
     setSearchQuery(new URLSearchParams(window.location.search).get('q') ?? '');
   }, []);
 
-  // Auth + bootstrap + ticket fetch
+  // Auth + city config + ticket fetch
   //
   // The session comes from the shared `SessionProvider`; this page
   // reads it instead of issuing its own `/api/auth/status` request.
+  //
+  // The city config comes from `/api/v1/activity/public`, which serves
+  // every role. It used to come from `/api/report/bootstrap`, a
+  // citizen-only endpoint — so a dispatcher landing here got a 403 and
+  // the page fell into its "reports.error" state, even though the list
+  // below is explicitly designed to show staff every report in the city.
   useEffect(() => {
     if (authenticated === null) return; // still loading
     let cancelled = false;
@@ -158,23 +175,20 @@ export default function ReportsListPage() {
         setUserId(session?.userId ?? null);
         setRole(session?.role ?? null);
 
-        const bootRes = await fetch('/api/report/bootstrap', { credentials: 'include' });
-        if (!bootRes.ok) {
+        const cfgRes = await fetch('/api/v1/activity/public?limit=1', {
+          credentials: 'include',
+        });
+        if (!cfgRes.ok) {
           setError('reports.error');
           setLoading(false);
           return;
         }
-        const boot = (await bootRes.json()) as {
-          city: Bootstrap['city'];
-          categories: Bootstrap['categories'];
-          ward: Bootstrap['ward'];
+        const cfg = (await cfgRes.json()) as {
+          categories: CityConfig['categories'];
+          wards: CityConfig['wards'];
         };
         if (cancelled) return;
-        setBootstrap({
-          city: boot.city,
-          categories: boot.categories,
-          ward: boot.ward,
-        });
+        setConfig({ categories: cfg.categories ?? [], wards: cfg.wards ?? [] });
 
         const actRes = await fetch('/api/v1/activity?limit=50', { credentials: 'include' });
         if (!actRes.ok) {
@@ -188,6 +202,8 @@ export default function ReportsListPage() {
             status: TicketStatus;
             categoryId: string;
             wardId: string;
+            wardName?: string | null;
+            wardNameBn?: string | null;
             note: string | null;
             photoUrls: string[];
             createdAt: string;
@@ -196,11 +212,14 @@ export default function ReportsListPage() {
         };
         if (cancelled) return;
         const items: ActivityItem[] = data.tickets.map((t) => {
-          const cat = boot.categories.find((c) => c.id === t.categoryId);
-          // For v1 the citizen's own reports are always filed in the
-          // citizen's own ward (cross-ward filing is a v1.1 surface), so
-          // we surface the citizen's ward as the row's ward label.
-          const ward = boot.ward;
+          // The locally-fetched config, not the state: the state is
+          // still null on this first pass, and the category/ward names
+          // would come out blank.
+          const cat = cfg.categories.find((c) => c.id === t.categoryId);
+          // The row's ward is the ward the ticket was FILED IN, which
+          // is what the serializer already returns. The city's ward list
+          // is the fallback for a row whose ward was not hydrated.
+          const ward = cfg.wards.find((w) => w.id === t.wardId);
           return {
             id: t.id,
             status: t.status,
@@ -208,8 +227,8 @@ export default function ReportsListPage() {
             categoryName: cat?.name,
             categoryNameBn: cat?.nameBn ?? cat?.name,
             wardId: t.wardId,
-            wardName: ward?.name,
-            wardNameBn: ward?.nameBn ?? ward?.name,
+            wardName: t.wardName ?? ward?.name,
+            wardNameBn: t.wardNameBn ?? ward?.nameBn ?? ward?.name,
             note: t.note,
             photoUrls: t.photoUrls,
             createdAt: t.createdAt,
