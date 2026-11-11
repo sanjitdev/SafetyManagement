@@ -188,6 +188,114 @@ describe('computeStats — average days to resolve', () => {
   });
 });
 
+describe('computeStats — the month-over-month trend', () => {
+  /**
+   * The trend line under "reports this month" used to be a FIXED
+   * string — "More than last month" — shown regardless of what the
+   * data said. These tests pin the replacement: the direction is
+   * derived from a real comparison against the previous calendar
+   * month.
+   */
+  test('counts the previous month separately', () => {
+    const stats = computeStats(
+      [
+        ticket({ createdAt: '2026-11-05T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-11-08T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-20T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-25T00:00:00.000Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.reportsThisMonth).toBe(2);
+    expect(stats.reportsLastMonth).toBe(2);
+  });
+
+  test('reports "up" when this month has more reports', () => {
+    const stats = computeStats(
+      [
+        ticket({ createdAt: '2026-11-05T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-11-06T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-11-07T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-20T00:00:00.000Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.trend).toBe('up');
+  });
+
+  test('reports "down" when this month has fewer reports', () => {
+    const stats = computeStats(
+      [
+        ticket({ createdAt: '2026-11-05T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-20T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-21T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-22T00:00:00.000Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.trend).toBe('down');
+  });
+
+  test('reports "flat" when the two months hold the same number', () => {
+    const stats = computeStats(
+      [
+        ticket({ createdAt: '2026-11-05T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-20T00:00:00.000Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.trend).toBe('flat');
+  });
+
+  test('reports "none" when there is no previous month to compare against', () => {
+    // The case a naive signed-number comparison gets wrong: 0 against
+    // 0 is the ABSENCE of a comparison, not a flat one. The card must
+    // not claim "same as last month" about a month with no data.
+    const stats = computeStats(
+      [ticket({ createdAt: '2026-11-05T00:00:00.000Z' })],
+      NOW,
+    );
+    expect(stats.reportsLastMonth).toBe(0);
+    expect(stats.trend).toBe('none');
+    expect(stats.trend).not.toBe('flat');
+  });
+
+  test('an empty city reports "none", not "flat"', () => {
+    const stats = computeStats([], NOW);
+    expect(stats.trend).toBe('none');
+  });
+
+  test('the previous month is the calendar month, not a 30-day window', () => {
+    // "Last month" has to mean the whole calendar month before this
+    // one. A 30-day subtraction would miss the tail of October and
+    // count part of September instead.
+    const stats = computeStats(
+      [
+        // 2026-10-01 — first day of last month. Counts.
+        ticket({ createdAt: '2026-10-01T00:00:00.000Z' }),
+        // 2026-09-30 — two months ago. Does not.
+        ticket({ createdAt: '2026-09-30T23:59:59.999Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.reportsLastMonth).toBe(1);
+  });
+
+  test('the last-month count does not leak into the this-month count', () => {
+    const stats = computeStats(
+      [
+        ticket({ createdAt: '2026-11-05T00:00:00.000Z' }),
+        ticket({ createdAt: '2026-10-05T00:00:00.000Z' }),
+      ],
+      NOW,
+    );
+    expect(stats.reportsThisMonth).toBe(1);
+    expect(stats.reportsLastMonth).toBe(1);
+    // The chip counts still cover every ticket.
+    expect(stats.counts.all).toBe(2);
+  });
+});
+
 describe('computeStats — chip counts', () => {
   test('groups the statuses the way the chips claim', () => {
     const stats = computeStats(

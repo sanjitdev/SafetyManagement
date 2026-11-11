@@ -86,6 +86,25 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'public.feed.ward': { bn: 'ওয়ার্ড', en: 'Ward' },
   'public.feed.no_photo': { bn: 'ছবি নেই', en: 'No photo' },
+  /**
+   * The pagination affordance under the landing's activity grid.
+   *
+   * "Load older" is the same affordance the /feed page already
+   * ships (`feed.load_older`) — it is a separate key because the
+   * landing is an anonymous, Bangla-first public surface and the
+   * /feed page is a signed-in one, so the two are free to diverge
+   * in wording without one breaking the other.
+   *
+   * `public.feed.showing` uses the `{name}` placeholder spelling —
+   * braces only. `interpolate()` matches `/\{(\w+)\}/g`; the `%{name}`
+   * form is not supported anywhere in this registry.
+   */
+  'public.feed.load_older': { bn: 'আরও পুরোনো দেখুন', en: 'Load older' },
+  'public.feed.showing': {
+    bn: '{shown} / {total} দেখানো হচ্ছে',
+    en: 'Showing {shown} of {total}',
+  },
+  'public.feed.show_all': { bn: 'সব দেখুন', en: 'Show all' },
   'public.activity.cta': {
     bn: 'রিপোর্ট করতে নিবন্ধন করুন',
     en: 'Register to file a report',
@@ -120,20 +139,45 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Average time',
   },
   'public.stats.reports_this_month.foot': {
+    /**
+     * The trend line under "reports this month".
+     *
+     * This was a FIXED string — "More than last month" — with nothing
+     * behind it. The API now reports `reportsLastMonth` and a
+     * `trend` direction, so the copy below is chosen from the real
+     * month-over-month comparison instead of asserting a trend the
+     * data may not support.
+     */
     bn: 'গত মাসের তুলনায় আরও বেশি',
     en: 'More than last month',
   },
+  'public.stats.trend.up': {
+    bn: 'গত মাসের তুলনায় {count} বেশি',
+    en: '{count} more than last month',
+  },
+  'public.stats.trend.down': {
+    bn: 'গত মাসের তুলনায় {count} কম',
+    en: '{count} fewer than last month',
+  },
+  'public.stats.trend.flat': {
+    bn: 'গত মাসের সমান',
+    en: 'Same as last month',
+  },
+  'public.stats.trend.none': {
+    bn: 'এই মাসের তুলনা নেই',
+    en: 'No month-over-month comparison yet',
+  },
   'public.stats.resolved.foot': {
-    bn: '%{rate}% সমাধান, লক্ষ্য ৮৫%',
-    en: '%{rate}% resolved, target 85%',
+    bn: '{rate}% সমাধান, লক্ষ্য ৮৫%',
+    en: '{rate}% resolved, target 85%',
   },
   'public.stats.avg_time.foot': {
     bn: 'রিপোর্ট থেকে সমাধান',
     en: 'From report to resolution',
   },
   'public.stats.days': {
-    bn: '%{value} দিন',
-    en: '%{value} days',
+    bn: '{value} দিন',
+    en: '{value} days',
   },
 
   // --- Public landing: trust cards (mockup 11-public-landing) ---
@@ -171,7 +215,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   // --- Public landing: location (ward) filter ---
   'public.location.label': { bn: 'এলাকা', en: 'Location' },
   'public.location.all': { bn: 'সব এলাকা', en: 'All areas' },
-  'public.location.ward': { bn: 'ওয়ার্ড %{number}', en: 'Ward %{number}' },
+  'public.location.ward': { bn: 'ওয়ার্ড {number}', en: 'Ward {number}' },
   'public.location.empty': {
     bn: 'এই এলাকায় এখনো কোনো রিপোর্ট নেই।',
     en: 'No reports in this area yet.',
@@ -183,7 +227,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'কোনো বিবরণ দেওয়া হয়নি।',
     en: 'No description was provided.',
   },
-  'public.card.photos': { bn: '%{count}টি ছবি', en: '%{count} photos' },
+  'public.card.photos': { bn: '{count}টি ছবি', en: '{count} photos' },
 
   // --- Public landing: map badge + legend ---
   'public.map.badge': {

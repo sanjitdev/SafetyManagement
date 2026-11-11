@@ -2386,11 +2386,12 @@ export const openapiPaths: Record<string, PathItem> = {
           default: 'all',
         }),
         queryParam('ward', 'A ward to narrow the feed to — the ward number ("14") or the ward id. Filters over the city’s full ticket list, combined with `status` using AND. An unknown ward yields an empty feed rather than an error.', { type: 'string', minLength: 1 }),
+        queryParam('cursor', 'An opaque pagination token taken from the previous page’s `nextCursor`. Omit it for the first page. A malformed cursor falls back to the first page rather than erroring.', { type: 'string', minLength: 1 }),
       ],
       responses: {
         '200': jsonResponse('The public feed.', {
           type: 'object',
-          required: ['tickets', 'categories', 'wards', 'stats'],
+          required: ['tickets', 'categories', 'wards', 'stats', 'nextCursor', 'total'],
           properties: {
             tickets: { type: 'array', items: { $ref: '#/components/schemas/PublicSerializedTicket' } },
             categories: {
@@ -2429,6 +2430,17 @@ export const openapiPaths: Record<string, PathItem> = {
                 resolvedThisMonth: { type: 'integer' },
                 resolutionRate: { type: 'integer', description: 'Percentage, 0-100.' },
                 avgDaysToResolve: { type: 'number' },
+                reportsLastMonth: {
+                  type: 'integer',
+                  description:
+                    'Reports created in the previous calendar month — the comparison base for the landing page’s month-over-month trend line.',
+                },
+                trend: {
+                  type: 'string',
+                  enum: ['up', 'down', 'flat', 'none'],
+                  description:
+                    'The month-over-month direction derived from reportsThisMonth vs reportsLastMonth. "none" means there was no previous month to compare against, so no trend is claimed — it is NOT the same as "flat".',
+                },
                 counts: {
                   type: 'object',
                   properties: {
@@ -2439,6 +2451,16 @@ export const openapiPaths: Record<string, PathItem> = {
                   },
                 },
               },
+            },
+            nextCursor: {
+              type: ['string', 'null'],
+              description:
+                'The opaque pagination token for the next page, or null when this is the last page. Pass it back as the `cursor` query parameter to continue. The token encodes a ticket’s creation timestamp AND its id — the timestamp alone is not unique, so a cursor without the id would either drop or repeat the tickets that share a timestamp.',
+            },
+            total: {
+              type: 'integer',
+              description:
+                'How many tickets the active filter matches — the denominator for the feed’s "showing X of Y" line. Unlike the chip counts in `stats`, this is scoped to the active `status`/`ward` filter.',
             },
           },
         }),

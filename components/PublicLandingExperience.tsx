@@ -29,7 +29,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import CityActivityMap, {
   type CityActivityPin,
@@ -41,6 +41,16 @@ import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
 const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
+/**
+ * How many cards one page of the activity feed holds.
+ *
+ * The UX scenario specs call for 20 per page ("Pagination: 20 items
+ * per page … 'Load older' trigger at bottom"), and that is what the
+ * server's `limit` means here. The landing page used to ask for 30
+ * in one shot, which hid the pagination affordance entirely — the
+ * visitor never learned there was more to see.
+ */
+const PAGE_SIZE = 20;
 const DHAKA_CENTER = { lat: 23.8069, lng: 90.3687 };
 
 type PublicStatus =
@@ -109,6 +119,19 @@ interface PublicActivityStats {
   resolvedThisMonth: number;
   resolutionRate: number;
   avgDaysToResolve: number;
+  /**
+   * Reports in the previous calendar month — the comparison base for
+   * the trend line under "reports this month".
+   */
+  reportsLastMonth: number;
+  /**
+   * The month-over-month direction.
+   *
+   * `none` means there was no previous month to compare against, so
+   * the card shows no trend claim at all — distinct from `flat`,
+   * which means the two months held the same number.
+   */
+  trend: 'up' | 'down' | 'flat' | 'none';
   counts: { all: number; new: number; active: number; resolved: number };
 }
 
@@ -123,6 +146,8 @@ const EMPTY_STATS: PublicActivityStats = {
   resolvedThisMonth: 0,
   resolutionRate: 0,
   avgDaysToResolve: 0,
+  reportsLastMonth: 0,
+  trend: 'none',
   counts: { all: 0, new: 0, active: 0, resolved: 0 },
 };
 
@@ -187,6 +212,18 @@ export default function PublicLandingExperience() {
   const [ward, setWard] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  /**
+   * Pagination state.
+   *
+   * `nextCursor` is the server's token for the page AFTER the rows we
+   * hold — null means we have reached the end. `total` is how many
+   * rows the active filter matches, so the UI can say "showing 30 of
+   * 58" and know whether a "show all" escape hatch is worth offering.
+   */
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  /** True while a "Load older" request is in flight. */
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     try {
@@ -210,6 +247,26 @@ export default function PublicLandingExperience() {
   // BEFORE the slice, so "Ward 1 + New" returns the newest New
   // reports in Ward 1 — not the ones that happened to fall inside
   // the first 30 rows of the unfiltered feed.
+  //
+  // ── Pagination ─────────────────────────────────────────────────
+  //
+  // The feed is paged by an opaque server cursor (`?cursor=`). Two
+  // things use it, and they behave differently on purpose:
+  //
+  //   - The POLL replaces the list with page 1. New reports appear
+  //     at the top, and the older pages the visitor paged through
+  //     are dropped — they will re-fetch if they page down again.
+  //
+  //   - "Load older" APPENDS the next page. It must not clobber
+  //     the rows already on screen, or the visitor loses their
+  //     place every time they ask for more.
+  //
+  // The poll's cursor is read from a ref rather than from state so
+  // that the polling effect does not re-subscribe every time the
+  // cursor changes — otherwise paging down would restart the poll
+  // and reset the list.
+  const cursorRef = useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     let timer: number | null = null;
@@ -217,7 +274,7 @@ export default function PublicLandingExperience() {
     const fetchOnce = async () => {
       try {
         const params = new URLSearchParams({
-          limit: '30',
+          limit: String(PAGE_SIZE),
           status: filter,
         });
         if (ward !== null) params.set('ward', ward);
@@ -235,11 +292,16 @@ export default function PublicLandingExperience() {
           tickets: PublicTicket[];
           wards?: PublicWard[];
           stats?: PublicActivityStats;
+          nextCursor?: string | null;
+          total?: number;
         };
         if (cancelled) return;
         setTickets(data.tickets ?? []);
         setWards(data.wards ?? []);
         setStats(data.stats ?? EMPTY_STATS);
+        setNextCursor(data.nextCursor ?? null);
+        setTotal(data.total ?? data.tickets?.length ?? 0);
+        cursorRef.current = data.nextCursor ?? null;
         setError(false);
         setLoading(false);
       } catch {
@@ -257,6 +319,51 @@ export default function PublicLandingExperience() {
       if (timer) window.clearInterval(timer);
     };
   }, [filter, ward]);
+
+  /**
+   * Fetch the next page and APPEND it to the rows on screen.
+   *
+   * The rows already shown are not re-requested: the server's cursor
+   * points past the last one, so the response is exactly the rows
+   * the visitor has not seen. The append is keyed by ticket id and
+   * de-duplicated, because a poll may have landed in between and
+   * inserted a row that the new page also carries.
+   */
+  const loadOlder = async () => {
+    const cursor = nextCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        status: filter,
+        cursor,
+      });
+      if (ward !== null) params.set('ward', ward);
+      const res = await fetch(`/api/v1/activity/public?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        tickets?: PublicTicket[];
+        nextCursor?: string | null;
+      };
+      setTickets((prev) => {
+        const seen = new Set(prev.map((t) => t.id));
+        const incoming = (data.tickets ?? []).filter((t) => !seen.has(t.id));
+        return incoming.length > 0 ? [...prev, ...incoming] : prev;
+      });
+      const next = data.nextCursor ?? null;
+      setNextCursor(next);
+      cursorRef.current = next;
+    } catch {
+      // A failed "load older" leaves the cursor where it was, so the
+      // visitor can simply press the button again. The list stays
+      // exactly as it was — a broken page must not empty the feed.
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -518,8 +625,8 @@ export default function PublicLandingExperience() {
               icon={<FileIcon />}
               label={t('public.stats.reports_this_month', null, lang)}
               value={formatNumber(stats.reportsThisMonth, lang)}
-              foot={t('public.stats.reports_this_month.foot', null, lang)}
-              footTone="up"
+              foot={renderTrendFoot(stats, lang)}
+              footTone={stats.trend === 'down' ? 'down' : 'up'}
             />
             <StatCard
               icon={<CheckCircleIcon />}
@@ -1041,21 +1148,123 @@ export default function PublicLandingExperience() {
             </div>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 'var(--space-3)',
-            }}
-          >
-            {tickets.map((ticket) => (
-              <PublicActivityCard
-                key={ticket.id}
-                ticket={ticket}
-                lang={lang}
-              />
-            ))}
-          </div>
+          <>
+            <div
+              aria-busy={loadingMore}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 'var(--space-3)',
+              }}
+            >
+              {tickets.map((ticket) => (
+                <PublicActivityCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  lang={lang}
+                />
+              ))}
+            </div>
+
+            {/*
+              Skeleton cards below the current list while the next
+              page loads — the UX spec calls for exactly this
+              ("Skeleton items below the current list during
+              pagination"). The placeholders sit BELOW the real cards
+              so the grid does not reflow under the visitor's eyes.
+            */}
+            {loadingMore && (
+              <div
+                aria-hidden="true"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: 'var(--space-3)',
+                  marginTop: 'var(--space-3)',
+                }}
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height: '148px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--color-surface-raised)',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/*
+              The pagination affordance.
+
+              "Load older" is the primary control — the UX scenario
+              specs name it explicitly ("'Load older' trigger at
+              bottom"), and it is the same affordance the /feed page
+              already ships. It appears only when the server says
+              there is another page, and disappears at the end of the
+              list, so its presence always means "there is more".
+
+              The "Showing X of Y" line is the honest summary of how
+              much of the city the visitor is actually looking at.
+              Without it the grid looks like the whole city — which
+              is exactly the bug this pagination fixes.
+            */}
+            {(nextCursor !== null || total > tickets.length) && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  marginTop: 'var(--space-5)',
+                }}
+              >
+                <p
+                  aria-live="polite"
+                  lang={lang}
+                  style={{
+                    margin: 0,
+                    fontSize: 'var(--text-caption)',
+                    color: 'var(--color-ink-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {t(
+                    'public.feed.showing',
+                    { shown: tickets.length, total },
+                    lang,
+                  )}
+                </p>
+
+                {nextCursor !== null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void loadOlder();
+                    }}
+                    disabled={loadingMore}
+                    lang={lang}
+                    style={{
+                      padding: 'var(--space-2) var(--space-5)',
+                      background: 'transparent',
+                      color: 'var(--color-primary)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: 'var(--text-body-sm)',
+                      fontWeight: 'var(--weight-semibold)',
+                      cursor: loadingMore ? 'progress' : 'pointer',
+                      opacity: loadingMore ? 0.6 : 1,
+                    }}
+                  >
+                    {t('public.feed.load_older', null, lang)}
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -1173,6 +1382,53 @@ function formatNumber(value: number, lang: Language): string {
 }
 
 /**
+ * The trend line under the "reports this month" counter.
+ *
+ * This used to be a fixed string — "More than last month" — shown
+ * whatever the data said. That is a claim the platform could not
+ * back: a city whose reports fell, or whose previous month was
+ * empty, still showed "more than last month".
+ *
+ * The API now returns `reportsLastMonth` and a `trend` direction, and
+ * the copy is chosen from those:
+ *
+ * - `up`    — more reports than last month, by the difference
+ * - `down`  — fewer reports than last month, by the difference
+ * - `flat`  — exactly the same number of reports
+ * - `none`  — there was no previous month to compare against, so no
+ *             trend is claimed at all
+ *
+ * The `none` case is why `trend` is a four-value enum rather than a
+ * signed number: 0 against 0 is the ABSENCE of a comparison, not a
+ * flat one, and dressing it up as "same as last month" would be a
+ * claim about a month the city has no data for.
+ */
+function renderTrendFoot(
+  stats: PublicActivityStats,
+  lang: Language,
+): string {
+  switch (stats.trend) {
+    case 'up':
+      return t(
+        'public.stats.trend.up',
+        { count: formatNumber(stats.reportsThisMonth - stats.reportsLastMonth, lang) },
+        lang,
+      );
+    case 'down':
+      return t(
+        'public.stats.trend.down',
+        { count: formatNumber(stats.reportsLastMonth - stats.reportsThisMonth, lang) },
+        lang,
+      );
+    case 'flat':
+      return t('public.stats.trend.flat', null, lang);
+    case 'none':
+    default:
+      return t('public.stats.trend.none', null, lang);
+  }
+}
+
+/**
  * Render the ward pill's text.
  *
  * The seeded ward names ALREADY carry their ward number in the
@@ -1256,7 +1512,14 @@ function StatCard({
   label: string;
   value: string;
   foot: string;
-  footTone?: 'default' | 'up';
+  /**
+   * The colour of the foot line.
+   *
+   * `up` is the success green — a rise in reports is a GOOD thing
+   * for a city (citizens are engaging). `down` is the warning tone,
+   * for the month-over-month fall. `default` is the muted ink.
+   */
+  footTone?: 'default' | 'up' | 'down';
 }) {
   return (
     <div
@@ -1300,7 +1563,9 @@ function StatCard({
           color:
             footTone === 'up'
               ? 'var(--color-status-resolved)'
-              : 'var(--color-ink-tertiary)',
+              : footTone === 'down'
+                ? 'var(--color-warning)'
+                : 'var(--color-ink-tertiary)',
         }}
       >
         {foot}

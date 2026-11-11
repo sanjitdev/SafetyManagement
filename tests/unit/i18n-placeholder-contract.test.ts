@@ -59,6 +59,125 @@ function placeholders(template: string): string[] {
   return [...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
 }
 
+/**
+ * ── The `%{name}` spelling ───────────────────────────────────────
+ *
+ * `interpolate` matches `/\{(\w+)\}/g` — braces only. Five public
+ * landing templates were authored as `%{rate}`, `%{value}`,
+ * `%{number}` and `%{count}`, so the `%` survived the substitution
+ * and the visitor saw:
+ *
+ * ```text
+ * %0 days
+ * %0% resolved, target 85%
+ * ```
+ *
+ * The braces still matched, so the number went in and the stray `%`
+ * stayed — which is why the card read as a number with a typo rather
+ * than as a broken template. `tests/unit/i18n.test.ts` asserts every
+ * referenced key is REGISTERED; registration is not correctness, and
+ * a key registered with the wrong placeholder spelling passes that
+ * check.
+ *
+ * So the guard below is registry-wide: no template may use the `%`
+ * prefix, because `interpolate` has never supported it.
+ */
+describe('the registry uses the {name} placeholder spelling only', () => {
+  it('has no template with a %-prefixed placeholder', () => {
+    const offenders: Array<{ key: string; locale: string; template: string }> = [];
+    for (const [key, entry] of Object.entries(TRANSLATIONS)) {
+      for (const locale of ['bn', 'en'] as const) {
+        const template = entry[locale];
+        if (/%\{(\w+)\}/.test(template)) {
+          offenders.push({ key, locale, template });
+        }
+      }
+    }
+    expect(
+      offenders,
+      `templates use the unsupported %-prefixed placeholder spelling:\n${offenders
+        .map((o) => `  ${o.key} (${o.locale}): ${o.template}`)
+        .join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('renders the public landing stats row without a stray %', () => {
+    // The exact strings a visitor saw before the fix.
+    expect(t('public.stats.days', { value: 0 }, 'en')).toBe('0 days');
+    expect(t('public.stats.days', { value: 3.4 }, 'en')).toBe('3.4 days');
+    expect(t('public.stats.resolved.foot', { rate: 0 }, 'en')).toBe(
+      '0% resolved, target 85%',
+    );
+    expect(t('public.stats.resolved.foot', { rate: 82 }, 'en')).toBe(
+      '82% resolved, target 85%',
+    );
+    // Bangla too — the `%` was leaking in both locales.
+    expect(t('public.stats.days', { value: 0 }, 'bn')).toBe('0 দিন');
+    expect(t('public.stats.resolved.foot', { rate: 0 }, 'bn')).toBe(
+      '0% সমাধান, লক্ষ্য ৮৫%',
+    );
+  });
+
+  it('leaves no literal placeholder or stray % in the stats row', () => {
+    const rendered = [
+      t('public.stats.reports_this_month', null, 'en'),
+      t('public.stats.resolved', null, 'en'),
+      t('public.stats.avg_time', null, 'en'),
+      t('public.stats.days', { value: 2.5 }, 'en'),
+      t('public.stats.resolved.foot', { rate: 50 }, 'en'),
+    ];
+    for (const out of rendered) {
+      expect(out).not.toContain('{');
+      expect(out).not.toContain('%{');
+      expect(out).not.toMatch(/^\s*%|\s%(?!\s)/);
+    }
+  });
+
+  it('renders the unused-but-registered ward and photo keys correctly', () => {
+    // `public.location.ward` and `public.card.photos` have no call
+    // site yet, so nothing rendered them — but they were registered
+    // with the same wrong spelling and would break the moment a
+    // caller appeared.
+    expect(t('public.location.ward', { number: 14 }, 'en')).toBe('Ward 14');
+    expect(t('public.location.ward', { number: 14 }, 'bn')).toBe('ওয়ার্ড 14');
+    expect(t('public.card.photos', { count: 2 }, 'en')).toBe('2 photos');
+    expect(t('public.card.photos', { count: 2 }, 'bn')).toBe('2টি ছবি');
+  });
+
+  it('renders the landing feed pagination keys correctly', () => {
+    // The feed's "Showing X of Y" line interpolates two numbers. It
+    // uses the same `{name}` spelling as every other key — a `%`
+    // here would leak a stray percent sign into the page, which is
+    // exactly the defect this file exists to catch.
+    expect(t('public.feed.showing', { shown: 20, total: 58 }, 'en')).toBe(
+      'Showing 20 of 58',
+    );
+    expect(t('public.feed.showing', { shown: 58, total: 58 }, 'en')).toBe(
+      'Showing 58 of 58',
+    );
+    expect(t('public.feed.showing', { shown: 0, total: 0 }, 'en')).toBe(
+      'Showing 0 of 0',
+    );
+    const bangla = t('public.feed.showing', { shown: 20, total: 58 }, 'bn');
+    expect(bangla).toContain('20');
+    expect(bangla).toContain('58');
+    expect(bangla).not.toContain('{');
+    expect(bangla).not.toContain('%');
+  });
+
+  it('leaves no literal placeholder in the pagination controls', () => {
+    const rendered = [
+      t('public.feed.load_older', null, 'en'),
+      t('public.feed.load_older', null, 'bn'),
+      t('public.feed.showing', { shown: 20, total: 58 }, 'en'),
+    ];
+    for (const out of rendered) {
+      expect(out).not.toContain('{');
+      expect(out).not.toContain('%{');
+    }
+  });
+});
+
 describe('report.photo.counter — the live counter renders numbers', () => {
   it('renders the count and the cap, not a literal placeholder', () => {
     // The exact string a citizen saw before the fix.

@@ -29,7 +29,8 @@
  *
  * Response shape:
  *   { tickets: PublicSerializedTicket[], categories: CategoryStub[],
- *     wards: PublicWardStub[], stats: PublicActivityStats }
+ *     wards: PublicWardStub[], stats: PublicActivityStats,
+ *     nextCursor: string | null, total: number }
  *
  * The `categories` array is the city's category list (id, slug, name,
  * nameBn). The /feed page used to call /api/report/bootstrap just to
@@ -52,12 +53,32 @@
  *   - `ward`    — optional ward id (or ward number as a string) to
  *                 narrow the feed to one locality. Omit for the whole
  *                 city. Combined with `status` (AND).
+ *   - `cursor`  — opaque pagination token from the previous page's
+ *                 `nextCursor`. Omit for the first page. A malformed
+ *                 cursor falls back to the first page rather than
+ *                 erroring.
  *
  * The ward filter is applied over the city's FULL ticket set, not
  * over the returned page — a citizen who picks "Ward 14" then
  * narrows to "New" must still be choosing from every Ward-14 report
  * the city holds, not just the 30 rows that happened to be on
  * screen.
+ *
+ * Pagination:
+ *   The feed is paginated by cursor, not offset. `nextCursor` is
+ *   null on the last page; `total` is how many rows the active
+ *   filter matches. The order of operations is
+ *
+ *     order → filter → cursor → slice
+ *
+ *   and that order is load-bearing. Filtering before slicing is what
+ *   makes "Ward 14 + New" mean every New report in Ward 14. The
+ *   cursor is applied AFTER the filter because a cursor is a
+ *   position in the filtered list — applying it before the filter
+ *   would skip rows that the filter later brings back.
+ *
+ *   The cursor carries a ticket's id as well as its timestamp,
+ *   because `createdAt` is not unique. See `encodeCursor`.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -88,6 +109,17 @@ const PublicActivityInput = z.object({
    * error banner on a public page.
    */
   ward: z.string().min(1).optional(),
+  /**
+   * Pagination cursor — the opaque token from the previous page's
+   * `nextCursor`. Omit it for the first page.
+   *
+   * A malformed cursor is NOT a 400: it decodes to null and the
+   * request falls back to the first page, matching the "unknown ward
+   * resolves to no rows, not an error" stance above. A stale or
+   * hand-edited bookmark should land the visitor on the top of the
+   * feed, not on an error banner.
+   */
+  cursor: z.string().min(1).optional(),
 });
 
 /**
@@ -123,6 +155,30 @@ export interface PublicActivityStats {
   resolutionRate: number;
   /** Mean days from creation to resolution over resolved tickets. */
   avgDaysToResolve: number;
+  /**
+   * Tickets created in the PREVIOUS calendar month.
+   *
+   * This is the denominator for the month-over-month trend the
+   * landing page shows under "reports this month". It was missing
+   * entirely before, which is why that line used to read as a fixed
+   * "More than last month" claim with nothing behind it.
+   */
+  reportsLastMonth: number;
+  /**
+   * The month-over-month direction, derived from the two counts
+   * above.
+   *
+   * - `up`   — more reports this month than last
+   * - `down` — fewer reports this month than last
+   * - `flat` — exactly the same count
+   * - `none` — there is no last month to compare against (the city
+   *   had no reports then), so no trend can be claimed either way
+   *
+   * `none` is the case a naive comparison gets wrong: 0 reports this
+   * month against 0 last month is NOT "flat" — it is the absence of
+   * any signal, and the copy must not dress it up as one.
+   */
+  trend: 'up' | 'down' | 'flat' | 'none';
   /** Per-chip counts for the filter row. */
   counts: { all: number; new: number; active: number; resolved: number };
 }
@@ -190,12 +246,26 @@ export function computeStats(
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).getTime();
+  /**
+   * The start of the month BEFORE `monthStart` — the comparison
+   * window for the month-over-month trend.
+   *
+   * Computed from the month index rather than by subtracting 30 days
+   * from `monthStart`: "last month" has to mean the whole calendar
+   * month before this one, and a 30-day subtraction would drift
+   * across the boundary in the short months (and miss the tail of
+   * February entirely).
+   */
+  const lastMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+  ).getTime();
 
   const counts = { all: tickets.length, new: 0, active: 0, resolved: 0 };
 
   let reportsThisMonth = 0;
+  let reportsLastMonth = 0;
   let resolvedThisMonth = 0;
-  let resolveDurations: number[] = [];
+  const resolveDurations: number[] = [];
 
   for (const ticket of tickets) {
     const status = ticket.status as TicketStatusLike;
@@ -205,6 +275,16 @@ export function computeStats(
     else counts.resolved += 1;
 
     const createdMs = toMs(ticket.createdAt);
+
+    /**
+     * The last-month counter is counted for EVERY ticket, before the
+     * this-month window filter. It has to be, or the comparison would
+     * be against a city that only had this month's reports in it.
+     */
+    if (createdMs >= lastMonthStart && createdMs < monthStart) {
+      reportsLastMonth += 1;
+    }
+
     if (createdMs < monthStart) continue;
 
     reportsThisMonth += 1;
@@ -234,12 +314,31 @@ export function computeStats(
         resolveDurations.length /
         (24 * 60 * 60 * 1000);
 
+  /**
+   * The trend direction.
+   *
+   * `none` when there is no previous month to compare against — the
+   * city had no reports then, so "more than last month" would be a
+   * claim about an absence. It is NOT the same as `flat`: flat means
+   * the same number both months, which is a real signal.
+   */
+  const trend: PublicActivityStats['trend'] =
+    reportsLastMonth === 0
+      ? 'none'
+      : reportsThisMonth > reportsLastMonth
+        ? 'up'
+        : reportsThisMonth < reportsLastMonth
+          ? 'down'
+          : 'flat';
+
   return {
     reportsThisMonth,
     resolvedThisMonth,
     resolutionRate:
       reportsThisMonth === 0 ? 0 : Math.round((resolvedThisMonth / reportsThisMonth) * 100),
     avgDaysToResolve: Math.round(avgDaysToResolve * 10) / 10,
+    reportsLastMonth,
+    trend,
     counts,
   };
 }
@@ -326,6 +425,160 @@ export function resolveWardSelector(
   return byId?.id ?? null;
 }
 
+/**
+ * The row shape the cursor needs: a ticket's identity and its
+ * position in the feed's ordering.
+ *
+ * `createdAt` is `Date | string` because the two backends disagree:
+ * Prisma returns a `Date`, the dev store returns an ISO string. The
+ * helpers below normalise both to an ISO string before comparing,
+ * so the cursor means the same thing in either mode.
+ */
+export interface CursorRow {
+  id: string;
+  createdAt: Date | string;
+}
+
+/**
+ * Normalise a row's timestamp to an ISO string.
+ *
+ * The dev store already stores an ISO string; Prisma hands back a
+ * `Date`. Both become the same canonical form, which is what makes
+ * the cursor comparable across the two backends — a `Date` compared
+ * against a string with `<` silently produces nonsense (the string
+ * is coerced to `NaN`, and every comparison against it is false).
+ */
+export function toIsoString(value: Date | string): string {
+  return typeof value === 'string' ? value : value.toISOString();
+}
+
+/**
+ * A decoded pagination cursor.
+ *
+ * It carries BOTH the timestamp and the id because `createdAt` alone
+ * is not unique — see `encodeCursor` for why that matters.
+ */
+export interface DecodedCursor {
+  createdAt: string;
+  id: string;
+}
+
+/**
+ * Encode a row's position in the feed into an opaque cursor.
+ *
+ * ── Why this is not just the timestamp ──────────────────────────
+ *
+ * `createdAt` is NOT unique. The city's tickets are created in
+ * batches, so several share a timestamp to the millisecond. A
+ * cursor that is only a timestamp would then have to pick one of
+ * two rules for the rows that tie with it:
+ *
+ *   - `createdAt < cursor` — DROPS the tied rows. The visitor
+ *     silently loses reports and the feed can never be paged to
+ *     the end.
+ *   - `createdAt <= cursor` — REPEATS the tied rows. The visitor
+ *     sees the same card twice and the count never converges.
+ *
+ * Both are wrong, and both are invisible until someone pages to the
+ * bottom and notices a missing or doubled card. So the cursor
+ * carries the id as a tiebreaker and the comparison becomes a total
+ * order over (createdAt, id).
+ *
+ * The encoding is base64url of a JSON pair. It is opaque to the
+ * client (which must treat it as a token), leaks nothing (both
+ * fields are already on the public card), and survives being
+ * pasted into a URL.
+ */
+export function encodeCursor(row: CursorRow): string {
+  const payload = JSON.stringify({
+    createdAt: toIsoString(row.createdAt),
+    id: row.id,
+  });
+  return Buffer.from(payload, 'utf8').toString('base64url');
+}
+
+/**
+ * Decode a cursor token back into its position.
+ *
+ * Returns `null` for anything that is not a cursor this server
+ * issued: garbage, an empty string, malformed base64, valid base64
+ * that is not JSON, or JSON of the wrong shape. The caller then
+ * treats the request as "the first page" rather than failing —
+ * a stale bookmark is not worth an error banner on a public page.
+ */
+export function decodeCursor(cursor: string | null | undefined): DecodedCursor | null {
+  if (!cursor) return null;
+  let raw: string;
+  try {
+    raw = Buffer.from(cursor, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    typeof (parsed as DecodedCursor).createdAt !== 'string' ||
+    typeof (parsed as DecodedCursor).id !== 'string'
+  ) {
+    return null;
+  }
+  const { createdAt, id } = parsed as DecodedCursor;
+  if (!createdAt || !id) return null;
+  return { createdAt, id };
+}
+
+/**
+ * Order tickets newest-first with a deterministic tiebreaker.
+ *
+ * The tiebreaker is what makes the cursor safe: two tickets created
+ * in the same millisecond must have a fixed relative order, or
+ * "the page after this one" is ambiguous. `id` DESC matches the
+ * `createdAt` DESC direction, so the feed reads as one continuous
+ * reverse-chronological sequence rather than two interleaved ones.
+ */
+export function sortByNewest<T extends CursorRow>(tickets: T[]): T[] {
+  return [...tickets].sort((a, b) => {
+    const aIso = toIsoString(a.createdAt);
+    const bIso = toIsoString(b.createdAt);
+    if (aIso !== bIso) return aIso < bIso ? 1 : -1;
+    if (a.id === b.id) return 0;
+    return a.id < b.id ? 1 : -1;
+  });
+}
+
+/**
+ * Drop everything the client has already seen.
+ *
+ * The input must already be sorted by `sortByNewest`. A row is kept
+ * when it comes strictly AFTER the cursor position in that order:
+ * either it is older than the cursor's timestamp, or it shares the
+ * timestamp and its id sorts after the cursor's id.
+ *
+ * The comparison mirrors `sortByNewest` exactly — the same
+ * direction, the same tiebreaker — so "what comes after the cursor"
+ * is the same answer in both places. If the two ever disagree, a
+ * row is either dropped or repeated, and the page count stops
+ * converging.
+ */
+export function applyCursor<T extends CursorRow>(
+  tickets: T[],
+  cursor: string | null | undefined,
+): T[] {
+  const decoded = decodeCursor(cursor);
+  if (!decoded) return tickets;
+  return tickets.filter((tk) => {
+    const iso = toIsoString(tk.createdAt);
+    if (iso !== decoded.createdAt) return iso < decoded.createdAt;
+    return tk.id < decoded.id;
+  });
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const parsed = PublicActivityInput.safeParse({
@@ -333,6 +586,7 @@ export async function GET(req: NextRequest) {
     limit: url.searchParams.get('limit') ?? undefined,
     status: url.searchParams.get('status') ?? undefined,
     ward: url.searchParams.get('ward') ?? undefined,
+    cursor: url.searchParams.get('cursor') ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -340,7 +594,7 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  const { cityId, limit, status, ward } = parsed.data;
+  const { cityId, limit, status, ward, cursor } = parsed.data;
 
   /**
    * The city-wide counters behind the landing page's stats row
@@ -372,6 +626,11 @@ export async function GET(req: NextRequest) {
     resolvedThisMonth: 0,
     resolutionRate: 0,
     avgDaysToResolve: 0,
+    reportsLastMonth: 0,
+    // `none`, not `flat`: an empty city has no previous month to
+    // compare against, so the landing page must not render a trend
+    // claim at all.
+    trend: 'none',
     counts: { all: 0, new: 0, active: 0, resolved: 0 },
   };
 
@@ -419,12 +678,26 @@ export async function GET(req: NextRequest) {
       });
       resolvedCityId = firstCity?.id ?? null;
     } catch {
-      return NextResponse.json({ tickets: [], categories: [], wards: [], stats });
+      return NextResponse.json({
+        tickets: [],
+        categories: [],
+        wards: [],
+        stats,
+        nextCursor: null,
+        total: 0,
+      });
     }
   }
   if (!resolvedCityId) {
     // No cities seeded yet — return an empty feed rather than 500.
-    return NextResponse.json({ tickets: [], categories: [], wards: [], stats });
+    return NextResponse.json({
+      tickets: [],
+      categories: [],
+      wards: [],
+      stats,
+      nextCursor: null,
+      total: 0,
+    });
   }
 
   // Bolt 008-012: surface the city's categories in the same response
@@ -447,6 +720,17 @@ export async function GET(req: NextRequest) {
   }> = [];
   let wards: PublicWardStub[] = [];
   let tickets: Awaited<ReturnType<typeof db.ticket.findMany>> = [];
+  /**
+   * The pagination envelope.
+   *
+   * `total` is how many rows the active filter matches; `nextCursor`
+   * is the token for the next page, or `null` when there isn't one.
+   * Both are declared before the early returns so the degraded
+   * responses carry the same shape as a healthy one.
+   */
+  let total = 0;
+  let nextCursor: string | null = null;
+  let hasMore = false;
   try {
     const categoryRows = await db.category.findMany({
       where: { cityId: resolvedCityId },
@@ -505,13 +789,73 @@ export async function GET(req: NextRequest) {
      * set. The slice comes LAST — so "Ward 14 + New" is every New
      * report in Ward 14, not the New reports that happened to fall
      * inside the first 30 rows.
+     *
+     * The order of operations is: order → filter → cursor → slice.
+     * Each stage narrows the set the next stage sees, and none of
+     * them can be moved earlier without breaking the contract of
+     * the stage after it.
      */
     const selectedWardId = resolveWardSelector(ward, wards);
-    const filtered = applyPublicFilters(allTickets, status, selectedWardId);
 
-    tickets = filtered.slice(0, limit);
+    /**
+     * A total order over the city's tickets, newest first.
+     *
+     * The database query above already sorts by `createdAt DESC`, but
+     * that is not a TOTAL order — tickets created in the same
+     * millisecond have no defined relative position. The cursor needs
+     * one, or "the row after this one" is ambiguous and paging either
+     * drops or repeats the tied rows. Re-sorting here is cheap (the
+     * city holds tens of tickets) and makes the cursor's contract
+     * independent of the backend's sort stability.
+     */
+    const ordered = sortByNewest(allTickets);
+
+    const filtered = applyPublicFilters(ordered, status, selectedWardId);
+
+    /**
+     * `total` is how many rows the CURRENT filter matches — the
+     * denominator for "showing 30 of 58".
+     *
+     * It is filter-scoped, unlike the chip counts in `stats.counts`,
+     * which are city-wide by design. Both are correct: the chips
+     * describe the size of each group so a visitor can choose, while
+     * the total describes the list they are currently looking at.
+     */
+    total = filtered.length;
+
+    /**
+     * Drop what the client has already seen, then take this page.
+     *
+     * The cursor narrows BETWEEN the filter and the slice, which is
+     * the only order that works: a cursor is a position in the
+     * filtered list, so it can only be applied to the filtered list.
+     */
+    const afterCursor = applyCursor(filtered, cursor);
+    const trimmed = afterCursor.slice(0, limit);
+    tickets = trimmed;
+
+    /**
+     * There is a next page when the cursor-narrowed list is longer
+     * than the page we just took. The cursor points at the LAST row
+     * of this page, so the next request continues from there.
+     */
+    hasMore = afterCursor.length > limit;
+    nextCursor =
+      hasMore && trimmed.length > 0
+        ? encodeCursor({
+            createdAt: trimmed[trimmed.length - 1].createdAt,
+            id: trimmed[trimmed.length - 1].id,
+          })
+        : null;
   } catch {
-    return NextResponse.json({ tickets: [], categories: [], wards: [], stats });
+    return NextResponse.json({
+      tickets: [],
+      categories: [],
+      wards: [],
+      stats,
+      nextCursor: null,
+      total: 0,
+    });
   }
 
   // Bolt 008-011: hydrate each ticket via `getTicketWithTrail` so the
@@ -534,5 +878,12 @@ export async function GET(req: NextRequest) {
     }),
   );
 
-  return NextResponse.json({ tickets: out, categories, wards, stats });
+  return NextResponse.json({
+    tickets: out,
+    categories,
+    wards,
+    stats,
+    nextCursor,
+    total,
+  });
 }

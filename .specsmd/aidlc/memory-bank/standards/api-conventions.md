@@ -64,10 +64,35 @@ spec (OpenAPI) for client codegen.
 
 ### Pagination
 
-- v1: **no pagination** on the activity feed (`take: 20` hard
-  cap). The 1.6 home side panel scrolls inside its region.
-- v1.1: cursor-based pagination. v1 does not need it at pilot
-  scale.
+- The activity feed is **cursor-paginated**. `GET
+  /api/v1/activity/public` accepts `?cursor=<token>` and returns
+  `nextCursor` (a string, or `null` on the last page) plus `total`
+  (how many rows the active filter matches).
+- `limit` is the page size: 1–50, default 20. The cap still holds
+  per request — pagination means *more requests*, not a bigger
+  response.
+- **Cursor, not offset.** Offset would be wrong on the dev store,
+  whose `findMany` allowlists `skip` but never applies it, so
+  offset pagination would silently return the wrong rows in dev
+  mode. The cursor travels through the same JS-side filter that
+  `lib/admin/tickets-query.ts` uses, so both backends agree.
+- **The cursor encodes a ticket's id AND its `createdAt`.**
+  `createdAt` is not unique — tickets are created in batches — so a
+  timestamp-only cursor would either drop the rows that tie with it
+  or repeat them. See `encodeCursor` in
+  `app/api/v1/activity/public/route.ts`.
+- The order of operations is **order → filter → cursor → slice**.
+  Filtering before slicing is what makes "Ward 14 + New" mean every
+  New report in Ward 14. The cursor is applied after the filter
+  because a cursor is a position in the filtered list.
+- The 1.6 home side panel and the public landing both page with a
+  **"Load older" button** at the bottom of the list — the affordance
+  the UX scenario specs name. The button disappears at the end of
+  the list, so its presence always means there is more.
+- A malformed cursor is **not an error**. It falls back to the
+  first page, matching the "unknown ward yields an empty feed"
+  stance above — a stale bookmark should not show an error banner on
+  a public page.
 
 ### Auth headers
 
@@ -103,8 +128,8 @@ GET /api/tickets
   → 200 { tickets: [...] }
 
 # Citizen reads the activity feed
-GET /api/v1/activity?limit=20&status=submitted
-  → 200 { tickets: [...] }
+GET /api/v1/activity/public?limit=20&status=submitted
+  → 200 { tickets: [...], nextCursor: "…", total: 42 }
 
 # Citizen subscribes to push
 POST /api/v1/push/subscribe
