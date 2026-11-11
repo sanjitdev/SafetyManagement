@@ -114,7 +114,7 @@ export function ReportShell({
             color: 'var(--color-ink)',
           }}
         >
-          <CityFixMark size={34} />
+          <CityFixMark />
           <span style={{ fontSize: 'var(--text-body-lg)', fontWeight: 'var(--weight-semibold)' }}>
             CityFix
           </span>

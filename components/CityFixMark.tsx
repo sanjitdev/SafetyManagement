@@ -1,5 +1,18 @@
-/** The shared CityFix pin-and-check mark used across every app surface. */
-export function CityFixMark({ size = 38 }: { size?: number }) {
+/**
+ * The shared CityFix pin-and-check mark used across every app surface.
+ *
+ * `size` defaults to 34 — the brand size used on EVERY surface (public
+ * landing, login/register, splash, the app header, the role sidebar and
+ * the admin dashboard). The brand used to render at three different
+ * sizes (34 on the public pages, 38 in the shared header, 44 in the role
+ * sidebar and 48 on the admin dashboard), which made the dashboard pages
+ * read as a different product from the rest of the app.
+ *
+ * Callers should not pass `size` unless they are reproducing a
+ * deliberate, documented deviation; prefer the default so the brand
+ * stays consistent.
+ */
+export function CityFixMark({ size = 34 }: { size?: number }) {
   const iconSize = Math.round(size * 0.71);
 
   return (

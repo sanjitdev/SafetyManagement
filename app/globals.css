@@ -137,7 +137,7 @@
   z-index: 20;
 }
 .admin-brand { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 0 8px; color: inherit; text-decoration: none; }
-.admin-brand strong { display: block; font-size: 19px; line-height: 1.1; letter-spacing: -.035em; }
+.admin-brand strong { display: block; font-size: var(--text-body-lg); line-height: 1.1; letter-spacing: -.035em; }
 .admin-brand small { display: block; margin-top: 4px; color: var(--color-rail-ink-muted); font-size: var(--text-micro); white-space: nowrap; }
 .admin-side-nav { flex: 1 1 auto; min-height: 0; display: grid; align-content: start; gap: 6px; overflow-y: auto; margin-top: 42px; }
 .admin-side-link { min-height: 44px; display: flex; align-items: center; gap: 13px; padding: 0 13px; border: 0; border-radius: 9px; color: var(--color-rail-ink-muted); background: transparent; text-decoration: none; font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: color 140ms ease, background 140ms ease; }
@@ -244,7 +244,7 @@
 .role-app-shell { height: 100dvh; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; color: var(--color-ink); background: var(--color-surface-page); }
 .role-sidebar { position: relative; z-index: 30; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 22px 13px 14px; color: var(--color-rail-ink); background: var(--color-rail); }
 .role-sidebar-brand { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 8px; color: inherit; text-decoration: none; }
-.role-sidebar-brand strong { display: block; color: var(--color-rail-ink); font-size: 19px; font-weight: 720; letter-spacing: -.035em; line-height: 1.1; }
+.role-sidebar-brand strong { display: block; color: var(--color-rail-ink); font-size: var(--text-body-lg); font-weight: 720; letter-spacing: -.035em; line-height: 1.1; }
 .role-sidebar-brand small { display: block; margin-top: 4px; color: var(--color-rail-ink-muted); font-size: var(--text-micro); white-space: nowrap; }
 .role-sidebar-nav { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; display: grid; align-content: start; gap: 6px; overflow-y: auto; margin-top: 38px; overscroll-behavior: contain; scrollbar-width: thin; }
 .role-sidebar-link { min-height: 45px; display: flex; align-items: center; gap: 13px; padding: 0 13px; border-radius: 9px; color: var(--color-rail-ink-muted); text-decoration: none; font-size: 13px; font-weight: 500; transition: color 150ms ease, background 150ms ease; }
