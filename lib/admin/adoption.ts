@@ -8,10 +8,15 @@
  * SCHEMA MAPPING — READ THIS BEFORE THE PRISMA MIGRATION LANDS
  * ---------------------------------------------------------------------------
  *
- * 1. `SlaPolicy` — NOT IN SCHEMA and NOT NEEDED. The "avg time to
+ * 1. `SlaPolicy` — IN SCHEMA (`prisma/schema.prisma:139`), seeded
+ *    (`prisma/seed.ts:352-361`), and NOT CONSULTED. The "avg time to
  *    resolve" hero stat is computed from the ticket rows themselves
  *    (`resolvedAt - createdAt` over the resolved tickets in range).
  *    No policy row is consulted anywhere on this page.
+ *
+ *    The policy rows therefore exist and are seeded but never read —
+ *    the modelled SLA is not enforced. See
+ *    `docs/PRODUCTION_READINESS_CHECKLIST.md` blocker 9.
  *
  * 2. "Registered citizens" — there is NO registration-event table.
  *    The closest available proxy is the number of `citizen`-role

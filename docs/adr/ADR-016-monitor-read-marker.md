@@ -600,7 +600,7 @@ that already owns the monitor half):
   (`:63-65`).
 - `prisma/schema.prisma` — the model list (no read-marker
   model); `User` (`:180-233`); `AuditEntry` and its append-only
-  note plus indexes (`:428-443`); `Role` enum (`:173-178`).
+  note plus indexes (`:474-489`); `Role` enum (`:173-178`).
 - `prisma/migrations/20261027140000_platform_gaps/migration.sql`
   — the un-applied pending migration; the `P1001` note
   (`:38-43`); the `migrate diff` generation command (`:30-36`);

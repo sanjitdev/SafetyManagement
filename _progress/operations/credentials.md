@@ -24,8 +24,28 @@ bypasses below return 404.
 | Dispatcher | **Habib** | `user_dispatcher_habib` | `+8801711000001` | `2234567890` | Dhaka-North / Ward 14 / Streetlight |
 | Crew | **Rashid** | `user_crew_rashid` | `+8801711000002` | `3234567890` | Dhaka-North / Ward 14 / Streetlight |
 | Admin | **Anwar** | `user_admin_anwar` | `+8801711000003` | `4234567890` | Dhaka-North / — / — (email: `admin@cityfix.bd`) |
-| Crew | **Karim** (Ward 14) | `user_crew_karim` | `+8801711000004` | `5234567890` | Dhaka-North / Ward 14 / Streetlight |
-| Crew | **Jamal** (different ward) | `user_crew_jamal` | `+8801711000005` | `6234567890` | Dhaka-North / Ward Other / Streetlight |
+| Crew | **Karim** (Ward 14) | `user_crew_karim` | `+8801711000004` | `5234567890` | Dhaka-North / Ward 14 / Roads & Drainage |
+| Crew | **Jamal** (different ward) | `user_crew_jamal` | `+8801711000005` | `6234567890` | Dhaka-North / Ward Other / Waste Management |
+
+### Demo citizens (the seeded demo dataset)
+
+The demo dataset (`seed_data/cityfix-dhaka-seed-data.md`) ships six
+citizens of its own. They are **real** citizens, so they sign in
+through the ordinary `POST /api/v1/auth/login` route with the demo
+password `12345678` — no dev bypass needed.
+
+| Name | userId | Phone | NID | Locality |
+|---|---|---|---|---|
+| Rahim Uddin | `seed_cit_01` | `+8801990000001` | `1990000001` | Dhanmondi |
+| Nusrat Jahan | `seed_cit_02` | `+8801990000002` | `1990000002` | Green Road |
+| Tanvir Ahmed | `seed_cit_03` | `+8801990000003` | `1990000003` | Mirpur 10 |
+| Sadia Islam | `seed_cit_04` | `+8801990000004` | `1990000004` | Badda |
+| Mahmud Hasan | `seed_cit_05` | `+8801990000005` | `1990000005` | Mohammadpur |
+| Farzana Akter | `seed_cit_06` | `+8801990000006` | `1990000006` | Rampura |
+
+> **Phone shape**: the login boundary accepts `/^\+8801[0-9]{9}$/` — a
+> 13-digit number (`+8801` plus nine more). A 12-digit number is
+> rejected, so the demo citizens use the `+88019900000N` block.
 
 Every seed user has `passwordHash` set to the **demo password
 `12345678`** (argon2id, matches `lib/auth/password.ts`

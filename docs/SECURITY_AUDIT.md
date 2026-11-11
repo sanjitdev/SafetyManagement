@@ -544,7 +544,7 @@ Default rate is 1/s, capacity 4 in dev and **1 in production**. Routes using it:
 
 ## 7. Audit trail
 
-### 7.1 The model — `prisma/schema.prisma:428-443`
+### 7.1 The model — `prisma/schema.prisma:474-489`
 
 ```prisma
 model AuditEntry {

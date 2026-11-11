@@ -40,7 +40,9 @@
  *
  * `SlaPolicy` is NOT consulted anywhere on the 4.6/4.7 surfaces:
  * the 4.7 "avg time to resolve" is computed from the ticket rows
- * (`resolvedAt - createdAt`).
+ * (`resolvedAt - createdAt`). The model exists and is seeded, so the
+ * modelled SLA is unenforced — see
+ * `docs/PRODUCTION_READINESS_CHECKLIST.md` blocker 9.
  *
  * ---------------------------------------------------------------------------
  * ROLE MAPPING

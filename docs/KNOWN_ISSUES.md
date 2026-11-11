@@ -531,7 +531,7 @@ Also at 0%: `lib/ui/map-colors.ts` (a constants file — lower priority).
 
 ### 25. `AuditEntry.actor` `onDelete: Restrict` vs user deletion
 
-**Evidence:** `prisma/schema.prisma:428-443` (`onDelete: Restrict`); `lib/admin/users-db.ts:436-460` (deletes sessions then the user)
+**Evidence:** `prisma/schema.prisma:474-489` (`onDelete: Restrict`); `lib/admin/users-db.ts:436-460` (deletes sessions then the user)
 
 `Restrict` means a user cannot be deleted while audit rows reference them. `lib/admin/users-db.ts` deletes sessions first, then the user — which would be **blocked** if that user has audit rows, i.e. once they have ever acted.
 

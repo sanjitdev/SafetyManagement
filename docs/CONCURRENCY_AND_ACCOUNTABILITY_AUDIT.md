@@ -553,21 +553,23 @@ The dev store seeds *data* with real timestamps — it is not a source of hardco
 
 ### B.3 `SlaPolicy` is defined but never consulted
 
-`prisma/schema.prisma:128-146` defines `SlaPolicy` with `resolveHours`. It is seeded (`prisma/seed.ts:347-362`), and the model comment claims *"the admin surfaces report on it"* (`schema.prisma:123`) — **that comment is false.**
+`prisma/schema.prisma:139-155` defines `SlaPolicy` with `resolveHours`. It is seeded (`prisma/seed.ts:347-362`), and the seed's own comment claims *"the admin surfaces report on it"* (`prisma/seed.ts:141-146`) — **that comment is false.** It was previously cited as `schema.prisma:123`; that line is inside the `Department` model and the claim was never in the schema at all.
 
 A repo-wide grep finds only three references outside the schema and seed, and **all three are comments disclaiming its use**:
 
-- `lib/admin/adoption.ts:11-14` — *"NOT IN SCHEMA and NOT NEEDED"* (stale — it *is* in the schema)
+- `lib/admin/adoption.ts:11-17` — *"NOT IN SCHEMA and NOT NEEDED"* (stale — it *is* in the schema)
 - `lib/admin/users.ts:22,41` — lists it as not consulted
-- `prisma/seed.ts:142-145` — *"not consulted by the current surfaces"*
+- `prisma/seed.ts:141-146` — *"not consulted by the current surfaces"*
 
-**No computation reads `slaPolicy` / `resolveHours`.** There is no SLA-breach detection anywhere. A ticket can sit 10× over its committed window and still report as un-breached. The schema comment is actively misleading to a future reader.
+**No computation reads `slaPolicy` / `resolveHours`.** There is no SLA-breach detection anywhere. A ticket can sit 10× over its committed window and still report as un-breached. The seed comment is actively misleading to a future reader.
+
+> **Corrected 2026-11-10.** All three comments have been rewritten to state the position accurately: the model is in the schema, it is seeded, and it is never read — so the modelled SLA is unenforced. The false "the admin surfaces report on it" claim is gone from the source.
 
 ### B.4 Missing timestamps on the `Ticket` model
 
-`prisma/schema.prisma:311-372` has `createdAt`, `updatedAt`, `resolvedAt` — **no `routedAt`, no `firstResponseAt`.**
+`prisma/schema.prisma:322-372` has `createdAt`, `updatedAt`, `resolvedAt` — **no `routedAt`, no `firstResponseAt`.**
 
-The `SlaPolicy` comment defines the SLA window as *"hours from `routed` to `resolved`"* (`schema.prisma:125-127`) — a window that **cannot be computed from the columns**, because the `routed` moment lives only in `TicketTrailEntry.timestamp`.
+The `SlaPolicy` model defines the SLA window as *"hours from `routed` to `resolved`"* (`schema.prisma:145` — the `resolveHours` field, which is a count of hours, not a window definition; the intended window is *"hours from `routed` to `resolved`"*) — a window that **cannot be computed from the columns**, because the `routed` moment lives only in `TicketTrailEntry.timestamp`.
 
 To answer Q1 and Q2 honestly and enable SLA grading, add:
 
@@ -599,9 +601,9 @@ Two rendering caveats that can mislead, though neither is a placeholder:
 
 1. **Add the four timestamps** to `Ticket` (§B.4) and backfill from the trail. This is the enabling change for Q1, Q2 and SLA grading.
 2. **Consult `SlaPolicy`** in the pending-duration and time-to-resolve computations, and add a breach flag to the dispatcher monitor and the adoption dashboard.
-3. **Fix the schema comment** at `prisma/schema.prisma:123` — it claims the admin surfaces report on `SlaPolicy` and they do not.
+3. ~~**Fix the schema comment** at `prisma/schema.prisma:123`~~ — **DONE 2026-11-10.** The false claim was never in the schema; it was in `prisma/seed.ts:141-146` (and in `lib/admin/adoption.ts:11`). All three comments now state the position accurately: the model is in the schema, it is seeded, and it is never read.
 4. **Stop collapsing `null` to `0`** in `lib/admin/adoption.ts:548-566`; render a "not enough data" state as the dispatcher performance table already does.
-5. **Fix the stale comment** at `lib/admin/adoption.ts:11-14` — `SlaPolicy` *is* in the schema.
+5. ~~**Fix the stale comment** at `lib/admin/adoption.ts:11-14`~~ — **DONE 2026-11-10**, same edit as #3.
 
 ### B.7 What could not be verified
 

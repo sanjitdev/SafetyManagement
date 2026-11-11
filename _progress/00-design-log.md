@@ -5590,3 +5590,227 @@ record of state-changing *data* operations by a real actor. This change
 moves documentation between lanes and removes a stale tooling directory; it
 mutates no ticket, no city and no user, so there is no entity, no actor
 and no before/after state to record. The change is recorded here instead.
+
+### 2026-11-10 — The user menu is the header's top-right element for every persona
+
+The account control was moved to a single, consistent place: **the top-right
+corner of the header, for all four personas** (citizen, dispatcher, crew,
+admin).
+
+**What was wrong.** The spec already required this. Every persona's UX
+scenario spec places the user menu or avatar in the header's right-hand
+cluster — `1.6-home-city-activity` (`home-avatar`, right, far), `2.2-daily-queue-dashboard`
+(right: user menu), `3.1-field-app-home` (right: avatar), `4.2-cities-overview-dashboard`
+(right: avatar menu). The **code** diverged from the spec for the three
+staff personas:
+
+- A CSS rule hid the header's user menu on the dispatcher, crew and admin
+  shells, and a **duplicate** copy was rendered at the **bottom of the left
+  sidebar rail**. The only account control those personas could reach was
+  the bottom-left one.
+- The **admin dashboard** (`/admin`) is a bespoke shell that bypasses the
+  shared `AppHeader`. Its topbar had **no** user menu at all; the sidebar
+  copy was the only one.
+
+**What changed.** The header's user menu is now visible for every persona,
+and the sidebar copies are gone. With them went the sidebar footer that
+held the duplicate user menu plus a repeated tagline. The admin dashboard's
+topbar now carries its own `<UserMenu>` as the last, rightmost control —
+the account control is no longer reachable only from the sidebar.
+
+**Phone behaviour.** At ≤540px the admin dashboard's topbar wraps to two
+rows: the menu button and the search field share row 1, and the action
+controls (notifications, date range, language, theme, user menu) sit
+right-aligned on row 2. The user menu stays the last, rightmost item. This
+is recorded in `4.2-cities-overview-dashboard.md`, which previously described
+only the single-row header.
+
+**The specs were right and the code was wrong**, so `1.6`, `2.2`, `3.1` and
+`1.12` / `1.13` needed no edit — they already describe the top-right
+placement. The mockups under
+`design-artifacts/D-Design-System/01-Visual-Design/mockups/` were already
+correct (the avatar sits last in a `space-between` topbar) and were left
+untouched, so the committed Playwright visual baselines remain valid.
+
+### 2026-11-11 — The demo report dataset is seeded from `seed_data/`
+
+The local database's reports were replaced. It previously held **58
+tickets** written by an earlier ad-hoc process and re-dated into a 13-day
+window — none of them matching the demo narrative the product owner wrote
+in `seed_data/cityfix-dhaka-seed-data.md`. It now holds exactly **22**.
+
+**The dataset.** 12 narrative reports (`CF-1001`..`CF-1012`) transcribed
+from the spec's §4 table, plus the spec's 10 edge-case scenarios (§11),
+plus the spec's 6 demo citizens (`CIT-01`..`CIT-06`, phones
+`+88019900000N`, NIDs `199000000N`, each ward-scoped to their home
+locality). The existing staff personas — Habib the dispatcher, Rashid,
+Karim and Jamal the crew, Anwar the admin — are reused as the acting users
+on the trails; no new staff were created. Demo password for all of them:
+`12345678`.
+
+**Four decisions were taken, and each one is load-bearing.**
+
+- **No schema change.** The spec names 8 categories; the database has 5
+  slugs. Drainage→`drainage`, Roads→`pothole`, Waste→`garbage`,
+  Electrical→`streetlight`, and Water Supply / Public Safety / Traffic /
+  Public Sanitation all→`other`. The spec sanctions this itself: *"Adapt
+  property names and enum values to the actual CityFix schema."*
+- **22 tickets**, not 58 — the 12 narrative reports and the 10 edge cases,
+  and nothing else.
+- **The 6 demo citizens are new; the staff personas are reused.** The
+  spec's story needs six distinct reporters; it does not need a second
+  dispatcher.
+- **Coordinates are hand-placed** offsets from `DHAKA_CENTER`
+  (23.7890, 90.4075) — deterministic, no geocoding network calls.
+
+**Three spec fields the schema cannot express, and where they went.**
+
+- *"Verified" and "Assigned" both collapse into `routed`* — the DB has no
+  `verified` or `assigned` status. The distinction survives in the trail
+  note text and in a non-persisted `specStatus` field, and the seed
+  **asserts the spec's target distribution** (Reported 3, Verified 2,
+  Assigned 2, In Progress 3, Resolved 2) at the end so a mismatch fails
+  the seed loudly rather than shipping a silently wrong story.
+- *"Reopened" has no legal transition edge* — the ALLOWED map has nothing
+  out of `resolved`. `EDGE-07` is the one deliberate deviation: that single
+  trail row is written directly, bypassing the runtime engine. The seed
+  prints a note saying so.
+- *DSCC / DNCC has no column* — it is folded into `locationLabel`.
+
+**The seed now asserts its own trail legality.** Writing trail rows
+directly means nothing else would stop it from writing a trail the
+runtime could never have produced, so the seed mirrors the ALLOWED map
+and checks every trail before any write happens. The check earned its
+place immediately: it caught `EDGE-05` ("reassigned to another crew")
+modelled as a second `routed` step — a `routed → routed` transition
+that does not exist, because "moving into routed" twice is not a thing.
+A crew change that does not move the status is recorded the way the
+runtime records it (`lib/dispatcher/assign-crew.ts`): an audit row
+with the action `ticket.assign_crew` and the before/after crew ids, and
+**no trail row at all**. Exactly one edge in the dataset is outside
+the ALLOWED map — `EDGE-07`'s reopen — and it is named explicitly in
+`LEGAL_EXCEPTIONS`, alongside an assertion that every exception is
+actually used, so an exception cannot be added to launder a future bug
+and a bug cannot hide behind one. The guard was proven to fire by
+injecting the illegal edge back into the dataset and watching the seed
+fail with the offending report and edge named.
+
+**The clear and the write now share ONE transaction.** They were two
+separate transactions, which meant a failure during the write left the
+city with zero reports, and the write's own assertions — the final
+ticket count, the spec distribution — ran against rows that had already
+been committed. One transaction means the database is either the old
+dataset or the new one, never a mixture. `seedTickets` now takes a
+`Prisma.TransactionClient` rather than a `PrismaClient`, so the
+compiler rejects a call that passes the root client.
+
+**Where the spec states an explicit timestamp, that timestamp wins.**
+`CF-1001`'s `verifiedAt` (`2026-11-09T04:30:00Z`) and `updatedAt`
+(`2026-11-10T08:20:00Z`) are the spec's own §8 values, converted from
+the `+06:00` offsets it uses — not the round-hour offsets the other
+reports use.
+
+**Where the spec's fields that have no home went.** `title` +
+`description` fold into `note`; `priority` folds into `internalNote`;
+`slaHours` / `dueAt` are not seeded (the `SlaPolicy` rows already exist
+and are still never read — see `docs/PRODUCTION_READINESS_CHECKLIST.md`
+blocker 9); `comments`, `notifications` and crew availability have no
+tables at all, so the spec's comments are represented as trail notes.
+
+**Determinism.** Every timestamp derives from a fixed anchor,
+`2026-11-09T03:15:00Z` (the spec's §8 `createdAt` for CF-1001), so the
+dataset is identical across runs and screenshots are reproducible. One
+caveat, inherent to a fixed anchor and printed by the seed:
+`computeStats` computes `reportsThisMonth` from the **wall clock**, so
+that stat reads 0 after 2026-12-01.
+
+**Why the seed writes Prisma rows directly** rather than going through
+`transitionTicket()`: the runtime helper stamps `resolvedAt` with
+`new Date()` (non-deterministic), cannot express the reopen, and its
+compare-and-swap `updateMany` cannot set `locationLabel` / `wardId` /
+`note` in the same call. `version` is set to the number of status changes
+each ticket went through, matching what the runtime path would have
+produced.
+
+**Idempotency.** The clear phase runs first on every `npm run db:seed` —
+tickets before users, audit rows by `actorId` (not `entityType`, because
+`entityType` names the audited entity while `actorId` names the actor, and
+`AuditEntry.actorId` is `Restrict`). The net effect is always exactly 22
+tickets regardless of what was there before. The earlier ad-hoc data and
+the leftover `Probe ` test users are gone.
+
+**Where it lives.** `prisma/seed-tickets.ts` is a new file imported by
+`prisma/seed.ts`. There is **no `prisma {}` seed block** in
+`prisma/schema.prisma` and no `"prisma"` key in `package.json` — adding
+one would bypass `scripts/load-env-local.mjs` and fail with P1012
+("Environment variable not found: DATABASE_URL"). `npm run db:seed`
+remains the single entry point.
+
+#### Two defects the first pass of the seed shipped, and the fix
+
+The first version of the dataset was seeded and then walked against the
+running app. Two things were broken, and both were invisible to the
+seed's own assertions — the seed asserted counts and transitions, but
+never asserted that a **persona could actually see the ticket**.
+
+**Defect 1 — the ward is an authorisation boundary, and the tickets were
+in the wrong wards.** The first pass put the 10 spec localities in
+wards 9, 13, 18, 22, 24, 26, 30, 33, 38 and 41 — one ward per
+locality, which is what the prose spec reads like. But `User.wardId` is
+a **single column**, so a staff member serves exactly **one** ward, and
+three surfaces scope on it:
+
+- `GET /api/v1/dispatcher/queue` filters `t.wardId !== session.wardId`
+  (`app/api/v1/dispatcher/queue/route.ts:128`) and then filters on the
+  ticket's category department (`:132-137`).
+- `GET /api/v1/crew/tickets` filters on `assignedCrewId`, then ward
+  (`app/api/v1/crew/tickets/route.ts:168`), then department (`:169-175`).
+- `PATCH /api/v1/dispatcher/tickets/[id]/assign-crew` rejects a
+  cross-ward crew with `403 cross_ward_access_denied`
+  (`lib/dispatcher/assign-crew.ts:122`) and a cross-department crew
+  with `403 cross_department_access_denied` (`:143-153`).
+
+Habib, Rashid and Karim are all scoped to **ward 14**. So the first
+pass produced a demo in which the dispatcher queue and every crew list
+came back **`{tickets: []}`** — 22 rows in the database that no persona
+could see.
+
+**Defect 2 — the waste department had no crew member at all.** The city
+has three departments (streetlight, roads & drainage, waste management)
+and three crew members. Rashid covered streetlight and Karim covered
+roads & drainage; the third crew member, Jamal, was a **second
+streetlight** member — which duplicated Rashid and left waste with
+nobody. The four `garbage` tickets were therefore assigned to a
+streetlight crew member: `assign-crew` would have refused them, and
+the crew list filters on the ticket's category department, so they
+would have **vanished from their own assignee's list**.
+
+**The fix.** A ticket now lives in its **assignee's** ward, and an
+unassigned ticket lives in the dispatcher's ward. Jamal became the
+**waste-management** crew member and stays in **ward 20** — which is
+what keeps the cross-ward reject path testable — so the seeded waste
+reports live in ward 20 with him. All 10 localities point at ward 14,
+the ward the persona spec pins (`tests/unit/ward-routing-regression.test.ts:16`)
+and the ward every dev-store ticket lives in
+(`tests/unit/dispatcher/monitor.test.ts:39`). A "Mirpur Waste Team"
+crew row was added so the admin console's crew list has a team that can
+work a garbage report.
+
+`lib/dev-store.ts` was changed identically, because the dev store and
+the database are meant to be interchangeable — the dev store is what
+the Playwright route specs run against.
+
+**The seed now asserts its own assignability.** `assertAssignable`
+mirrors `assign-crew`'s two checks and fails the seed before any write
+if an assignment would be rejected by the runtime or would disappear
+from its assignee's list. It is a permanent guard, not a one-off fix —
+without it the same class of defect could be reintroduced by any future
+edit to the dataset.
+
+**Defect 3 — the seeded phones were 12 digits, and the login boundary
+wants 13.** The demo citizens' phones were written `+880199000001`
+(12 digits). The login route validates against `/^\+8801[0-9]{9}$/`
+(`app/api/v1/auth/login/route.ts:118`) — `+8801` plus **nine** more
+digits. Every demo citizen was therefore unable to log in. The phones
+are now `+8801990000001`..`+8801990000006`, and the citizen loop
+asserts the shape so a shortened block cannot ship again.

@@ -50,6 +50,8 @@ The 61% is a completeness score against the production-readiness surface, **not*
 > 10. **2026-11-09 — the WebAuthn challenge is now one-shot.** Rows 3.12 and 7.7 moved from ❌ to ✅. `requireWebAuthn` now DELETEs the challenge row it accepts, scoped to its owner; a concurrent consume is a refusal rather than a pass; a rejected guard call consumes nothing. One ceremony now authorises exactly one admin write. Row 7.7's claim was also stale — it said the admin ticket page has no ceremony affordance, but `app/admin/tickets/[id]/page.tsx` has rendered `AdminWebAuthnStepUp` since the step-up route landed. Counts moved 60% → **61%** (104 → 106 passed, 40 → 38 failed, 28 not verified unchanged). The parser was run against the pre-edit file first to confirm it reproduces the recorded 104/40/28/1 baseline before the new figures were accepted.
 >
 > **The current figures are 173 / 106 / 38 / 28 / 1, re-measured by code point.**
+>
+> 11. **2026-11-10 — row 9.14's marker was normalised, and two register counts were corrected.** Row **9.14** carried `U+2760` (⚠ WARNING SIGN) where every other not-verified row uses `U+26A0` (⚠️ HIGH VOLTAGE SIGN). Both are not-verified markers and both render identically, so the row's *status* was never in doubt — but the inconsistency is exactly what the 2026-11-08 note above warns about, and it is what makes a naive byte-exact parser silently drop a row. The marker is now normalised to `U+26A0`, so a parser matching on the byte sequence sees all **28** not-verified rows. **The header's not-verified count of 28 was correct before and after this change** — the risk was that a re-measurement would repeat the 2026-11-08 error and report 27. Separately, the register summary below claimed "14 open SECURITY_AUDIT findings and 26 open KNOWN_ISSUES rows" when the registers hold **12** and **22**; those two figures are corrected. The item, pass, fail and not-verified counts are unchanged at 173 / 106 / 38 / 28 / 1 (61%).
 
 ### Issue counts
 
@@ -62,7 +64,7 @@ The 61% is a completeness score against the production-readiness surface, **not*
 
 **Total open issues: 28.** (Was 32 at the audit date; the phantom-methods finding was closed on 2026-11-08, the concurrency finding was closed at the end of it — issue 27 is now "all 5 scenarios resolved" and is no longer counted as open — the ungated `PUT /api/profile` admin write was closed on 2026-11-09, and the unconsumed WebAuthn challenge was closed on 2026-11-09.)
 
-The severity counts are the **findings register** — the distinct defects behind the open rows of [SECURITY_AUDIT.md](SECURITY_AUDIT.md) and [KNOWN_ISSUES.md](KNOWN_ISSUES.md). The two registers overlap, so their row counts do not add up: **14 open SECURITY_AUDIT findings and 26 open KNOWN_ISSUES rows describe 40 open rows but only 28 distinct defects** — eight rows are the same defect recorded in both registers (OTP plaintext, the `/api/dev/*` gates, `bootstrap-admin`, the city check, password login, `Math.random()` OTP, the COOP/CORP headers, the public Swagger UI), and two further defects live only in a register's prose (`AuditEntry.action` free-form, `lib/ui/map-colors.ts` at 0%). The counts were re-derived mechanically from both registers on 2026-11-09: every one of the 40 open rows maps to a listed finding, and every listed finding maps to at least one open row.
+The severity counts are the **findings register** — the distinct defects behind the open rows of [SECURITY_AUDIT.md](SECURITY_AUDIT.md) and [KNOWN_ISSUES.md](KNOWN_ISSUES.md). The two registers overlap, so their row counts do not add up: **12 open SECURITY_AUDIT findings and 22 open KNOWN_ISSUES rows describe 34 open rows but only 28 distinct defects** — eight rows are the same defect recorded in both registers (OTP plaintext, the `/api/dev/*` gates, `bootstrap-admin`, the city check, password login, `Math.random()` OTP, the COOP/CORP headers, the public Swagger UI), and two further defects live only in a register's prose (`AuditEntry.action` free-form, `lib/ui/map-colors.ts` at 0%). The counts were re-derived mechanically from both registers on 2026-11-09, and **re-derived again on 2026-11-10**, which found the summary had claimed 14 and 26 when the registers actually hold 12 and 22: every one of the open rows maps to a listed finding, and every listed finding maps to at least one open row.
 
 Two grading rules apply where a defect appears in both registers: the **higher** severity wins (the local blob 404 is Low in SECURITY_AUDIT and Medium in KNOWN_ISSUES, so it is counted Medium), and a defect graded Medium in either register is counted Medium even if the other register grades it Low (`AuditEntry.actor` `onDelete: Restrict`).
 
@@ -165,7 +167,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 1 | Four `/api/dev/*` routes not `isDevStore()`-gated; two mint admin sessions | Critical | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
 | 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
 | 3 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
-| 4 | **Concurrency control — 1 of 5 scenarios remains vulnerable** (the transition, field-write and duplicate-submission paths are closed) | Medium | Crew capacity — a product decision, not a race |
+| 4 | ~~**Concurrency control — 1 of 5 scenarios remains vulnerable**~~ — **closed 2026-11-08**; all five named scenarios now have a guard and a CI-enforced regression test | — | `lib/dispatcher/crew-capacity.ts`; `tests/unit/dispatcher/assign-crew.test.ts` |
 | 5 | ~~WebAuthn challenges never consumed~~ — **closed 2026-11-09**, the challenge is now a one-shot nonce | — | `lib/auth/guards.ts`; `lib/db-switch.ts` |
 | 6 | Admin city-scoped routes skip the city check (needs ADR-006) | High | `app/api/v1/admin/cities/[id]/**` |
 | 7 | Password login is not role-restricted | High | `app/api/v1/auth/login/route.ts:137-139` |
@@ -175,9 +177,9 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Blocker | Severity | Evidence |
 |---|---|---|---|
-| 9 | `SlaPolicy` is defined, seeded and never consulted; its schema comment claims otherwise | Medium | `prisma/schema.prisma:123` |
-| 10 | Four `Ticket` timestamps missing — two of four operational questions are only partially answerable | Medium | `prisma/schema.prisma:311-372` |
-| 11 | `null` collapsed to `0` in adoption metrics — "no data" is indistinguishable from "zero" | Medium | `lib/admin/adoption.ts:548-566` |
+| 9 | `SlaPolicy` is defined and seeded but never consulted; three source comments claimed otherwise, and all three were corrected on 2026-11-10 | Medium | `prisma/schema.prisma:139`; `prisma/seed.ts:352-361`; `lib/admin/adoption.ts:11-17`; `lib/admin/users.ts:41-45` |
+| 10 | Four `Ticket` timestamps missing — two of four operational questions are only partially answerable | Medium | `prisma/schema.prisma:322-372` |
+| 11 | `null` collapsed to `0` in adoption metrics — "no data" is indistinguishable from "zero" | Medium | `lib/admin/adoption.ts:549-570` |
 | 12 | No `/api/blob` route — local photos are dead links | Medium | `lib/storage/blob.ts:180` |
 | 13 | No `middleware.ts` — the structural cause of the missing route-level guards | Medium | — |
 | 14 | `lib/map/osm-raster.ts` at 0% coverage — a regression is a blank map | Medium | coverage report |
@@ -214,10 +216,10 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 2.5 | Referential integrity is declared | ✅ | `onDelete` specified on every relation |
 | 2.6 | `Ticket` has a uniqueness constraint | ❌ | **No `@@unique` on `Ticket`** — `prisma/schema.prisma:311-374`. The DB cannot prevent duplicate tickets |
 | 2.7 | `Ticket` / `TicketTrailEntry` / `TicketPhoto` have uniqueness constraints | ❌ | None of the three has `@@unique` |
-| 2.8 | `AuditEntry` deletion does not block legitimate user deletion | ⚠️ | `onDelete: Restrict` (`schema.prisma:428-443`) vs `lib/admin/users-db.ts:436-460` — needs a live DB |
-| 2.9 | `Ticket` carries the timestamps honest metrics need | ❌ | No `routedAt`, `firstResponseAt`, `assignedAt`, `startedAt` — `prisma/schema.prisma:311-372` |
+| 2.8 | `AuditEntry` deletion does not block legitimate user deletion | ⚠️ | `onDelete: Restrict` (`schema.prisma:474-489`) vs `lib/admin/users-db.ts:436-460` — needs a live DB |
+| 2.9 | `Ticket` carries the timestamps honest metrics need | ❌ | No `routedAt`, `firstResponseAt`, `assignedAt`, `startedAt` — `prisma/schema.prisma:322-372` |
 | 2.10 | Seed data is idempotent | ✅ | `prisma/seed.ts` — Dhaka template: 1 city, 50 wards, 3 departments, 5 categories, 1 user per role |
-| 2.11 | `SlaPolicy` is actually consulted by the product | ❌ | Defined and seeded, **never read**; `schema.prisma:123` claims otherwise |
+| 2.11 | `SlaPolicy` is actually consulted by the product | ❌ | Defined and seeded, **never read**; the false claim is in `prisma/seed.ts:141-146`, not the schema |
 | 2.12 | Production DB guard rejects a loopback `DATABASE_URL` | ✅ | `lib/platform/db-guard.ts` — 100% line coverage; handles URL and libpq forms; latches on success |
 
 ---
@@ -344,7 +346,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 8.5 | How long reports remain pending is measurable | ⚠️ | **PARTIAL** — no time-to-route metric; ticket age and time-to-first-move exist but are not surfaced as a pending-duration KPI |
 | 8.6 | How quickly dispatchers verify reports is measurable | ⚠️ | **PARTIAL** — the monitor sparkline is a real time-to-first-move measure but not dispatcher-attributable |
 | 8.7 | SLA breaches are detected and surfaced | ❌ | `SlaPolicy` is never consulted; the schema comment claiming otherwise is false |
-| 8.8 | "No data" is distinguishable from "genuinely zero" | ❌ | `lib/admin/adoption.ts:548-566` collapses `null` → `0` |
+| 8.8 | "No data" is distinguishable from "genuinely zero" | ❌ | `lib/admin/adoption.ts:549-570` collapses `null` → `0` |
 | 8.9 | The dispatcher performance table handles the same case | ✅ | `avgTimeToResolveMs: null` → a "not enough data" state — `app/dispatcher/performance/page.tsx:696-698` |
 | 8.10 | Empty monitor days render an empty state, not a zero | ✅ | `app/dispatcher/monitor/page.tsx:1002` |
 | 8.11 | Audit pages render only API-fetched numbers | ✅ | All three audited pages fetch and render directly; no locally computed metrics |
@@ -368,7 +370,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 9.11 | A test exists for `PUT /api/profile` WebAuthn gating | ✅ | **Added 2026-11-09** — `tests/unit/profile-webauthn-gate.test.ts` (18 tests). Pins that an admin write is refused without a credential and without a fresh challenge, that the name is NOT changed when refused, that a citizen / dispatcher / crew write is NOT gated, that the write is scoped to the session's own user, that a bad body is rejected BEFORE the ceremony, and that a successful write lands an audit row. Non-vacuity proven: with the guard disabled, exactly the 5 gate tests fail |
 | 9.12 | A cross-city admin test exists | ❌ | Neither admin behaviour is pinned by a test |
 | 9.13 | The dev store is a faithful stand-in for Postgres | ⚠️ | **Improved for the transition, field-write, submit and crew-capacity paths** — `devDb.ticket.updateWhere` implements the same compound guard and returns the same affected-row count, `devDb.ticket.create` implements the `(cityId, dedupKey)` unique index with Postgres's exact semantics (SQLSTATE `23505`, and NULLs treated as distinct), and `devDb.ticket.findMany` filters on `assignedCrewId` with Prisma's NULL semantics so the capacity count is real. Four concurrency suites exercise them in CI. `ticketPhoto.create`'s push-then-sort is still unsafe — that one is a photo-ordering question, not a race guard |
-| 9.14 | The test suite runs against a live database | ❠️ | No database-backed CI job |
+| 9.14 | The test suite runs against a live database | ⚠️ | No database-backed CI job |
 | 9.15 | Load testing has been performed | ⚠️ | No load test was run or is defined |
 | 9.16 | WebAuthn is exercised against real hardware | ⚠️ | No authenticator was available; attestation, assertion and counter-clone detection were read, not executed |
 | 9.17 | SMS delivery is exercised against the live provider | ⚠️ | The Twilio retry backoff and 4xx classification were read, not run against the API |

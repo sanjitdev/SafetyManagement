@@ -90,7 +90,7 @@ Seeded by `prisma/seed.ts` against the real database — 1 city
 | **Rashid** | crew | `+8801711000002` | Ward 14 + Streetlight Maintenance, *Mirpur Streetlight Team* | `/crew` |
 | **Anwar** | admin | `+8801711000003` | City-wide, no ward scope | `/admin` |
 | Karim | crew | `+8801711000004` | Ward 14 + Roads & Drainage | *(used as the negative case — see defect C)* |
-| Jamal | crew | `+8801711000005` | Ward 20 + Streetlight Maintenance | *(used as the negative case — cross-ward)* |
+| Jamal | crew | `+8801711000005` | Ward 20 + Waste Management, *Mirpur Waste Team* | *(used as the negative case — cross-ward)* |
 
 All personas share the seeded password. The crew leg deliberately signs in as
 **whichever crew member the dispatcher actually assigned the ticket to** — read

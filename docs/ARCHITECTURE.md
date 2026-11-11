@@ -394,7 +394,7 @@ ADR-007:229-234 predicted the remaining exposure: *"a future admin write route a
 | 4 | ~~**WebAuthn challenges are never consumed**~~ — **closed 2026-11-09** | Was: one ceremony authorised every admin write for 5 minutes. Now the challenge is a one-shot nonce — `requireWebAuthn` deletes the row it accepts, so one ceremony authorises exactly one write | `lib/auth/guards.ts`, `lib/db-switch.ts` (`webAuthnChallenge.consume`) |
 | 5 | **Two admin surfaces disagree on city scope** | `admin/tickets/{id}` calls `requireSameCity`; `admin/cities/{id}/**` does not | `app/api/v1/admin/` |
 | 6 | **Coverage scoped to `lib/**` only** | Route handlers have 0% unit coverage by design. Acceptable — they are thin adapters, covered by Playwright — but it means a handler with hidden logic is invisible to the floor | `vitest.config.ts` |
-| 7 | **`AuditEntry.actor` is `onDelete: Restrict`** | Deleting a user who has acted may fail. Either a bug or a safeguard needing a documented path | `prisma/schema.prisma:428-443` |
+| 7 | **`AuditEntry.actor` is `onDelete: Restrict`** | Deleting a user who has acted may fail. Either a bug or a safeguard needing a documented path | `prisma/schema.prisma:474-489` |
 | 8 | **Web Push is stubbed** | v1 ships no push delivery; the wire call is v1.1 | `lib/platform/push.ts` |
 | 9 | **The local blob provider's photos 404** | No `/api/blob` route exists, so local photo URLs are dead links. Fails closed, but the local provider is untested end-to-end | `lib/storage/blob.ts:180` |
 
