@@ -29,15 +29,22 @@ Runtime copies live in `public/`:
 
 ## The idea
 
-**A map pin whose negative space forms a check.**
+**A civic map pin whose carved square eye holds a check.**
 
 - The **pin** is the civic issue: a problem pinned to a place.
+- The **eye** is the issue, looked at — carved *out* of the pin as
+  negative space.
 - The **check** is the outcome: reported, and then resolved.
 
-The check is not drawn on top of the pin — it is carved *out* of it. That
-is what makes the mark survive at 16px: a solid silhouette with one
-punched-out tick, rather than two overlapping shapes that turn to mush
-in a favicon.
+The eye is a **square** with a tight 2-unit corner radius, not a circle.
+A round hole reads as a generic map pin; the square reads as civic and
+Swiss, and it matches the radius language of the app's own cards and
+tiles. It is also the shape that survives at 16px — a hard-edged square
+with one punched-out tick stays legible in a favicon where a soft round
+one turns to mush.
+
+The check is drawn with a stroke, so the negative space stays open around
+it: the eye reads as the pin's hole, not as a filled square.
 
 ---
 
@@ -49,20 +56,32 @@ is traceable rather than guesswork. The source of truth is
 
 | Element | Hex | Token |
 |---|---|---|
-| Pin body (navy) | `#0F172A` | `--color-ink` family |
-| Civic blue | `#1E40AF` | `--color-primary` |
+| Pin body (civic blue) | `#1E40AF` | `--color-primary` |
+| Carved eye (mark) | `#FFFFFF` | `--color-surface-card` |
 | Service green (check) | `#16A34A` | `--color-success` family |
 | Social card field | `#1E40AF` | `--color-primary` |
 | Wordmark ink | `#0F172A` | `--color-ink` family |
 
 Two deliberate deviations, both for legibility on a blue field:
 
-- The social card uses the **dark-theme** blue accent `#60A5FA` for the
-  mark's arc and `#4ADE80` for its check, because the light-theme
-  `#1E40AF` accent disappears against the `#1E40AF` card background.
+- The social card uses the **dark-theme** blue `#60A5FA` for the pin and
+  `#4ADE80` for its check, because the light-theme `#1E40AF` pin would
+  disappear against the `#1E40AF` card background. The eye is filled with
+  the card's own blue so it still reads as carved.
+- The favicon is the mark on the civic-blue tile with the pin inverted
+  to white, so it reads as a hole punched in the tile — the same
+  inversion, one step further.
 - The favicon and the social card are **flat**, with no gradient and no
   shadow, to match the Swiss/Minimal direction and to stay legible in a
   social feed at thumbnail size.
+
+### The runtime mark follows the theme
+
+`components/CityFixMark.tsx` renders the same geometry with CSS custom
+properties — `--color-primary` for the pin, `--color-surface-card` for
+the carved eye, `--color-success` for the check — so the in-app mark
+inverts with the dark theme without a second code path. The hand-authored
+SVGs in this folder are the light-theme (and social-card) variants.
 
 ---
 
@@ -80,9 +99,10 @@ A neutral `Buildings` glyph placeholder ships in its place.
 
 | Slot | File | Marker |
 |---|---|---|
-| Header / app icon | `logo/cityfix-mark.svg` | the `<path fill="#0F172A">` pin body — replace with the seal's paths, keeping the same 24×24 viewBox |
+| Header / app icon | `logo/cityfix-mark.svg` | the `<path fill="#1E40AF">` pin body — replace with the seal's paths, keeping the same 24×24 viewBox |
 | Social card | `og-image.svg` | the `<g transform="translate(120, 215) scale(4)">` group — replace the group's children with the seal's paths |
-| Favicon / PWA icon | `logo/favicon.svg` | the `<rect>` + `<text>CF</text>` — replace with the seal's paths, keeping the same 32×32 viewBox |
+| Favicon / PWA icon | `logo/favicon.svg` | the `<rect>` + the `<g transform="translate(4, 4)">` mark group — replace the group's children with the seal's paths, keeping the same 32×32 viewBox |
+| Runtime mark | `components/CityFixMark.tsx` | the `<svg>`'s three children — replace with the seal's paths, keeping the same 24×24 viewBox |
 
 The seal must be supplied as a vector with a transparent background, and
 must not be recoloured — it carries its own official colours. Keep the

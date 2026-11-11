@@ -29,6 +29,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
+    // The favicon is the brand mark on a civic-blue tile, so it doubles
+    // as the iOS home-screen icon without needing a separate asset.
+    apple: '/favicon.svg',
   },
   // Per Phase 1: Bangla-first, English-secondary. The `<html lang>` attribute
   // is deliberately NOT rendered here — see the note on the `<html>` element

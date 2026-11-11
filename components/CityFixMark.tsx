@@ -11,6 +11,27 @@
  * Callers should not pass `size` unless they are reproducing a
  * deliberate, documented deviation; prefer the default so the brand
  * stays consistent.
+ *
+ * THE MARK
+ * --------
+ * One idea, drawn once: a civic-blue map pin whose eye is a CARVED
+ * WHITE SQUARE, with the service-green check sitting inside it.
+ *
+ *   the PIN  = a civic issue at a place
+ *   the EYE  = the issue, looked at
+ *   the CHECK = reported, and resolved
+ *
+ * The eye is a square rather than a circle on purpose. A circle reads
+ * as "generic map pin"; a square with a tight corner radius reads as
+ * civic and Swiss, and it echoes the radius language of the app's own
+ * cards and tiles. It is also the version that stays crisp at 16px,
+ * which is where a favicon has to live.
+ *
+ * Colours are the design tokens so the mark follows the theme:
+ * `--color-primary` (civic blue), `--color-surface-card` (the carved
+ * eye) and `--color-success` (the check). In the dark theme those
+ * tokens invert to a lighter blue, a near-black eye and a lighter
+ * green, and the mark stays legible without a second code path.
  */
 export function CityFixMark({ size = 34 }: { size?: number }) {
   const iconSize = Math.round(size * 0.71);
@@ -30,12 +51,21 @@ export function CityFixMark({ size = 34 }: { size?: number }) {
       }}
     >
       <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" focusable="false">
+        {/* Pin body — civic blue. */}
         <path
-          d="M12 22.5c-.42 0-.78-.22-.98-.6C10.6 20.9 6 15.3 6 9.9 6 5.4 9.13 1.8 12.95 1.8S20 5.4 20 9.9c0 5.4-4.6 11-5.02 12-.2.38-.56.6-.98.6Z"
-          fill="var(--color-ink)"
+          d="M12 22.4c-.4 0-.74-.21-.93-.57C10.65 20.7 6.2 15.2 6.2 10 6.2 5.6 8.9 2 12.2 2S18.2 5.6 18.2 10c0 5.2-4.45 10.7-4.87 11.83-.19.36-.53.57-.93.57Z"
+          fill="var(--color-primary)"
         />
-        <path d="M7.1 6.6a6.1 6.1 0 0 1 3-2.35" stroke="var(--color-primary)" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M8.9 9.6 11.3 12l4.1-4.4" stroke="var(--color-success)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+        {/* The carved eye — the issue, looked at. */}
+        <rect x="7.5" y="5.1" width="9" height="9" rx="2" fill="var(--color-surface-card)" />
+        {/* The check — reported, and resolved. */}
+        <path
+          d="M9.6 9.5 11.3 11.2l3.4-3.6"
+          stroke="var(--color-success)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </span>
   );

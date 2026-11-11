@@ -1,19 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="cityfix-favicon-title">
   <title id="cityfix-favicon-title">CityFix</title>
-  <!--
-    Monogram variant for the browser tab and the installed PWA icon.
-    The civic-blue tile is the same --color-primary the app uses, so the
-    favicon never drifts from the product's blue.
-  -->
+  <!-- The brand mark on a civic-blue tile: the white pin is a hole in the
+       tile, its carved eye is the tile's own blue, the check stays green. -->
   <rect width="32" height="32" rx="7" fill="#1E40AF" />
-  <text
-    x="16"
-    y="22"
-    text-anchor="middle"
-    font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
-    font-size="15"
-    font-weight="700"
-    letter-spacing="-0.4"
-    fill="#FFFFFF"
-  >CF</text>
+  <g transform="translate(4, 4)">
+    <path d="M12 22.4c-.4 0-.74-.21-.93-.57C10.65 20.7 6.2 15.2 6.2 10 6.2 5.6 8.9 2 12.2 2S18.2 5.6 18.2 10c0 5.2-4.45 10.7-4.87 11.83-.19.36-.53.57-.93.57Z" fill="#FFFFFF"/>
+    <rect x="7.5" y="5.1" width="9" height="9" rx="2" fill="#1E40AF"/>
+    <path d="M9.6 9.5 11.3 11.2l3.4-3.6" fill="none" stroke="#4ADE80" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
