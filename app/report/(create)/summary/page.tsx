@@ -34,9 +34,9 @@ import { formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
-const LANG: Language = 'bn';
 
 interface DedupContext {
   existingTicketId: string;
@@ -45,6 +45,11 @@ interface DedupContext {
 }
 
 export default function SummaryPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   const [ctx, setCtx] = useState<DedupContext | null>(null);
   const [existing, setExisting] = useState<{
@@ -196,7 +201,7 @@ export default function SummaryPage() {
         {t('report.summary.step', null, LANG)}
       </div>
       <h1
-        lang="bn"
+        lang={LANG}
         style={{
           margin: 0,
           fontSize: 'var(--text-display-lg)',
@@ -208,7 +213,7 @@ export default function SummaryPage() {
         {t('report.summary.h1', null, LANG)}
       </h1>
       <p
-        lang="bn"
+        lang={LANG}
         style={{
           margin: 0,
           color: 'var(--color-ink-secondary)',
@@ -276,7 +281,7 @@ export default function SummaryPage() {
               </span>
             </div>
             <div
-              lang="bn"
+              lang={LANG}
               style={{
                 fontSize: 'var(--text-body)',
                 color: 'var(--color-ink)',
@@ -330,7 +335,7 @@ export default function SummaryPage() {
             }}
           />
           <span
-            lang="bn"
+            lang={LANG}
             style={{
               fontSize: 'var(--text-body)',
               color: 'var(--color-ink)',

@@ -33,9 +33,9 @@ import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { loadDraft, saveDraft } from '@/lib/report-draft';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
-const LANG: Language = 'bn';
 
 interface Category {
   id: string;
@@ -153,6 +153,11 @@ function CategoryIcon({ k }: { k: IconKey }) {
 }
 
 export default function CategoryPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -269,7 +274,7 @@ export default function CategoryPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <h1
-            lang="bn"
+            lang={LANG}
             style={{
               margin: 0,
               fontSize: 'var(--text-display-lg)',
@@ -282,7 +287,7 @@ export default function CategoryPage() {
             {t('report.category.h1', null, LANG)}
           </h1>
           <p
-            lang="bn"
+            lang={LANG}
             style={{
               color: 'var(--color-ink-secondary)',
               margin: 0,
@@ -325,7 +330,7 @@ export default function CategoryPage() {
             onChange={(e) => setRawQuery(e.target.value)}
             placeholder={t('report.category.search_placeholder', null, LANG)}
             aria-label={t('report.category.search_placeholder', null, LANG)}
-            lang="bn"
+            lang={LANG}
             style={{
               width: '100%',
               padding: 'var(--space-4) var(--space-5) var(--space-4) calc(var(--space-4) + 20px + var(--space-3))',
@@ -354,7 +359,7 @@ export default function CategoryPage() {
         {/* Category card grid */}
         {visibleCategories.length === 0 ? (
           <p
-            lang="bn"
+            lang={LANG}
             style={{
               margin: 0,
               padding: 'var(--space-6) var(--space-5)',
@@ -446,7 +451,7 @@ export default function CategoryPage() {
                       }}
                     >
                       <span
-                        lang="bn"
+                        lang={LANG}
                         style={{
                           fontSize: 'var(--text-body-lg)',
                           fontWeight: 'var(--weight-semibold)',

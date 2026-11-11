@@ -50,9 +50,9 @@ import {
   inGeofence,
 } from '@/lib/report-geofence';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
-const LANG: Language = 'bn';
 
 interface Bootstrap {
   city: { id: string; name: string; nameBn: string | null; defaultLanguage: 'bn' | 'en' };
@@ -91,6 +91,11 @@ function isInBounds(lat: number, lng: number): boolean {
 }
 
 export default function LocationPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [lat, setLat] = useState<number>(DHAKA_CENTER.lat);
@@ -276,7 +281,7 @@ export default function LocationPage() {
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong
-                lang="bn"
+                lang={LANG}
                 style={{
                   display: 'block',
                   fontSize: 'var(--text-body-sm)',
@@ -287,7 +292,7 @@ export default function LocationPage() {
                 {t('report.location.out_of_bounds.title', null, LANG)}
               </strong>
               <p
-                lang="bn"
+                lang={LANG}
                 style={{
                   fontSize: 'var(--text-caption)',
                   margin: 0,
@@ -354,7 +359,7 @@ export default function LocationPage() {
           <dt style={{ color: 'var(--color-ink-secondary)' }}>
             {t('report.location.ward_label', null, LANG)}
           </dt>
-          <dd style={{ margin: 0, fontWeight: 'var(--weight-semibold)' }} lang="bn">
+          <dd style={{ margin: 0, fontWeight: 'var(--weight-semibold)' }} lang={LANG}>
             {boot.ward?.nameBn ?? '—'} ({boot.ward?.number ?? '?'})
           </dd>
         </dl>
@@ -393,7 +398,7 @@ export default function LocationPage() {
                 </svg>
               </span>
               <strong
-                lang="bn"
+                lang={LANG}
                 style={{
                   fontSize: 'var(--text-body)',
                   color: 'var(--color-ink)',
@@ -403,7 +408,7 @@ export default function LocationPage() {
               </strong>
             </div>
             <p
-              lang="bn"
+              lang={LANG}
               style={{
                 fontSize: 'var(--text-caption)',
                 margin: 0,

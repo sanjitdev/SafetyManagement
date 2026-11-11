@@ -28,10 +28,10 @@ import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 const NOTE_MAX = 280;
-const LANG: Language = 'bn';
 
 interface NoteValidation {
   ok: boolean;
@@ -49,6 +49,11 @@ export function validateNote(text: string, max: number = NOTE_MAX): NoteValidati
 }
 
 export default function NotePage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -184,7 +189,7 @@ export default function NotePage() {
             `<h1>` so the textarea keeps its accessible name while
             the step still exposes a real heading. */}
         <h1
-          lang="bn"
+          lang={LANG}
           style={{
             fontSize: 'var(--text-display-md)',
             margin: 0,
@@ -199,7 +204,7 @@ export default function NotePage() {
           </label>
         </h1>
         <p
-          lang="bn"
+          lang={LANG}
           id="report-note-helper"
           style={{
             color: 'var(--color-ink-secondary)',

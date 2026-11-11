@@ -23,9 +23,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
-const LANG: Language = 'bn';
 
 type TrailStep = {
   key: 'submitted' | 'routed' | 'in_progress' | 'resolved';
@@ -43,6 +43,11 @@ const STATUS_TRAIL: TrailStep[] = [
 const ANIMATION_FLAG = 'cityfix.reportSubmittedAnimated.v1';
 
 export default function SubmittedPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const ticketId = params?.id ?? '';
@@ -228,7 +233,7 @@ export default function SubmittedPage() {
             </svg>
           </div>
           <h1
-            lang="bn"
+            lang={LANG}
             style={{
               margin: '0 0 var(--space-2)',
               fontSize: 'var(--text-display-md)',
@@ -399,7 +404,7 @@ export default function SubmittedPage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div
-                    lang="bn"
+                    lang={LANG}
                     style={{
                       fontWeight: 'var(--weight-semibold)',
                       fontSize: 'var(--text-body-sm)',
@@ -436,7 +441,7 @@ export default function SubmittedPage() {
         >
           <h2
             id="next-steps-title"
-            lang="bn"
+            lang={LANG}
             style={{
               margin: '0 0 var(--space-3)',
               fontSize: 'var(--text-body-lg)',
@@ -456,13 +461,13 @@ export default function SubmittedPage() {
               gap: 'var(--space-2)',
             }}
           >
-            <li lang="bn" style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
+            <li lang={LANG} style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
               {t('confirmation.next_step1', null, LANG)}
             </li>
-            <li lang="bn" style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
+            <li lang={LANG} style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
               {t('confirmation.next_step2', null, LANG)}
             </li>
-            <li lang="bn" style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
+            <li lang={LANG} style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink-secondary)' }}>
               {t('confirmation.next_step3', null, LANG)}
             </li>
           </ol>
@@ -534,7 +539,7 @@ export default function SubmittedPage() {
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           <span
-            lang="bn"
+            lang={LANG}
             style={{
               fontSize: 'var(--text-caption)',
               color: 'var(--color-ink-tertiary)',

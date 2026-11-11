@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import { AdminTicketsFilters } from '@/components/AdminTicketsFilters';
 import { AdminTicketsTable } from '@/components/AdminTicketsTable';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -28,7 +29,6 @@ import {
   type AdminTicketsQueryResult,
 } from '@/lib/admin/tickets-query';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 function readFiltersFromUrl(params: URLSearchParams): Filters {
   const status = params.get('status');
@@ -69,7 +69,7 @@ function writeFiltersToUrl(filters: Filters): string {
 
 export default function AdminTicketsPage() {
   const pathname = usePathname();
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -79,20 +79,6 @@ export default function AdminTicketsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -12,6 +12,7 @@ import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { SessionProvider, useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
@@ -25,7 +26,6 @@ const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), {
   loading: () => <SkeletonBlock style={{ width: '100%', height: '100%', minHeight: 262 }} />,
 });
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const ADMIN_MAP_COLORS = MAP_STATUS_COLORS;
 const RANGE_OPTIONS = [7, 30, 90] as const;
 const DAY_MS = 86_400_000;
@@ -264,7 +264,13 @@ export default function AdminHomePage() {
 }
 
 function AdminHomePageInner() {
-  const [lang, setLang] = useState<Language>('en');
+  // The shared hook owns the language. The admin dashboard used to
+  // default to English and read the stored preference in a mount
+  // effect, which meant a Bangla-first user saw the dashboard flip
+  // from English to Bangla after the first paint. The hook reads the
+  // stored preference during the initialiser instead, so the first
+  // render already matches the user's choice.
+  const { lang, setLang } = useLanguage();
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(30);
@@ -280,29 +286,11 @@ function AdminHomePageInner() {
 
   const toggleLanguage = useCallback(() => {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event, so the dashboard body and the
+    // header re-render together.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // Keep the current page language if browser storage is unavailable.
-    }
-    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
-  }, [lang]);
-
-  useEffect(() => {
-    try {
-      const savedLanguage = window.localStorage.getItem(LANG_KEY);
-      if (savedLanguage === 'bn' || savedLanguage === 'en') setLang(savedLanguage);
-    } catch {
-      // Use the design's English presentation by default.
-    }
-    const onLanguageUpdated = (event: Event) => {
-      const next = (event as CustomEvent<Language>).detail;
-      if (next === 'bn' || next === 'en') setLang(next);
-    };
-    window.addEventListener('cityfix:language-updated', onLanguageUpdated);
-    return () => window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
-  }, []);
+  }, [lang, setLang]);
 
   // Auth check — reads the shared session. The admin dashboard used to
   // fetch `/api/auth/status` itself AND the header's `<UserMenu>` (and
@@ -388,7 +376,7 @@ function AdminHomePageInner() {
       <button type="button" className="admin-dashboard-scrim" aria-label={t('ui.action.close', null, lang)} onClick={() => setNavOpen(false)} />
       <aside className="admin-dashboard-sidebar">
         <Link href="/admin" className="admin-brand" aria-label="CityFix dashboard">
-          <CityFixMark size={48} />
+          <CityFixMark />
           <span><strong>CityFix</strong><small>A Cleaner, Safer City</small></span>
         </Link>
         <nav id="admin-dashboard-sidebar" className="admin-side-nav" aria-label={t('shell.nav.label', null, lang)}>

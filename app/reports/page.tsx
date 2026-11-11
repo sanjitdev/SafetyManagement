@@ -26,10 +26,10 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { useLanguage } from '@/components/useLanguage';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 type TicketStatus =
   | 'submitted'
@@ -120,7 +120,7 @@ function statusLabelKey(status: TicketStatus): string {
 }
 
 export default function ReportsListPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   // Bolt 008-010: capture the session role so we can render the
@@ -136,15 +136,6 @@ export default function ReportsListPage() {
   // The session comes from the shared `SessionProvider` — the page no
   // longer issues its own `/api/auth/status` request.
   const { authenticated, session } = useSession();
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   useEffect(() => {
     setSearchQuery(new URLSearchParams(window.location.search).get('q') ?? '');
@@ -259,12 +250,9 @@ export default function ReportsListPage() {
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
   }
 
   if (signedIn === false) {

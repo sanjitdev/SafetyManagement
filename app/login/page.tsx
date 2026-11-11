@@ -25,8 +25,8 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
 import { resolvePostAuthTarget } from '@/lib/role-home';
 import { CityFixMark } from '@/components/CityFixMark';
+import { useLanguage } from '@/components/useLanguage';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const LAST_PHONE_KEY = 'cityfix.last_phone.v1';
 const DEFAULT_NEXT = '/home';
 
@@ -46,7 +46,7 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const nextPath = safeNextPath(params.get('next'), DEFAULT_NEXT);
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<ErrorMap>({});
@@ -57,8 +57,6 @@ function LoginInner() {
 
   useEffect(() => {
     try {
-      const storedLang = window.localStorage.getItem(LANG_KEY);
-      if (storedLang === 'en' || storedLang === 'bn') setLang(storedLang);
       const storedPhone = window.localStorage.getItem(LAST_PHONE_KEY);
       if (storedPhone) setPhone(storedPhone);
     } catch {
@@ -241,7 +239,7 @@ function LoginInner() {
                 marginBottom: 'var(--space-5)',
               }}
             >
-              <CityFixMark size={34} />
+              <CityFixMark />
               <span
                 style={{
                   fontSize: 'var(--text-body-lg)',

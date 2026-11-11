@@ -46,11 +46,11 @@ import { formatTimestamp } from '@/lib/format/datetime';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { displayNameFor } from '@/lib/identity/display-name';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 const TRANSITIONS_BY_FROM: Record<string, string[]> = {
   submitted: ['routed', 'cancelled'],
@@ -65,7 +65,7 @@ export default function AdminTicketDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
 
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -84,20 +84,6 @@ export default function AdminTicketDetailPage() {
   const [stepUpInProgress, setStepUpInProgress] = useState(false);
   const [stepUpNoCredential, setStepUpNoCredential] = useState(false);
   const pendingWriteRef = useRef<(() => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   // Auth + role gate.
   //

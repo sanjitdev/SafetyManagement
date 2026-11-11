@@ -83,7 +83,7 @@ export default async function HomePage({
         }}
       >
         <div style={{ maxWidth: 720, width: '100%' }}>
-          <CityFixMark size={38} />
+          <CityFixMark />
           <h1
             style={{
               fontSize: 'var(--text-display-lg)',

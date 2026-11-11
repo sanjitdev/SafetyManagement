@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CityFixMark } from '@/components/CityFixMark';
 import { useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import { t, type Language } from '@/lib/i18n/keys';
 
 type ShellRole = 'citizen' | 'staff';
 type Item = { href: string; label: string; icon: keyof typeof ICONS; exact?: boolean; roleFilter?: string };
-
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 export function RoleSidebar({
   role = 'citizen',
@@ -28,7 +27,10 @@ export function RoleSidebar({
   onNavigate: () => void;
 }) {
   const pathname = usePathname() ?? '/';
-  const [lang, setLang] = useState<Language>('bn');
+  // The shared hook owns the language — it reads the stored preference
+  // during the first render and subscribes to `cityfix:language-updated`,
+  // so the sidebar and the page body always show the same language.
+  const { lang } = useLanguage();
   const [userListFilter, setUserListFilter] = useState<string | null>(null);
   // The `tab` query of the CURRENT URL.
   //
@@ -57,15 +59,6 @@ export function RoleSidebar({
   const surface = pathname.startsWith('/admin') ? 'admin' : pathname.startsWith('/dispatcher') ? 'dispatcher' : pathname.startsWith('/crew') ? 'crew' : (pathname.startsWith('/reports') || pathname.startsWith('/profile') || pathname.startsWith('/feed')) && userRole && userRole !== 'citizen' ? userRole : role === 'staff' ? (userRole ?? surfaceProp ?? 'crew') : 'citizen';
 
   useEffect(() => {
-    try {
-      const value = window.localStorage.getItem(LANG_KEY);
-      if (value === 'bn' || value === 'en') setLang(value);
-    } catch { /* keep Bangla fallback */ }
-    const onLanguageUpdated = (event: Event) => {
-      const value = (event as CustomEvent<Language>).detail;
-      if (value === 'bn' || value === 'en') setLang(value);
-    };
-    window.addEventListener('cityfix:language-updated', onLanguageUpdated);
     const syncUserListFilter = () => setUserListFilter(new URLSearchParams(window.location.search).get('role') ?? 'all');
     const onUserListFilterUpdated = (event: Event) => {
       const roleFilter = (event as CustomEvent<string>).detail;
@@ -83,7 +76,6 @@ export function RoleSidebar({
     window.addEventListener('cityfix:admin-users-filter-updated', onUserListFilterUpdated);
     window.addEventListener('cityfix:profile-tab-updated', onProfileTabUpdated);
     return () => {
-      window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
       window.removeEventListener('popstate', syncUserListFilter);
       window.removeEventListener('cityfix:admin-users-filter-updated', onUserListFilterUpdated);
       window.removeEventListener('cityfix:profile-tab-updated', onProfileTabUpdated);
@@ -146,7 +138,7 @@ export function RoleSidebar({
   return (
     <aside id="role-sidebar" className="role-sidebar">
       <Link href={surface === 'admin' ? '/admin' : surface === 'dispatcher' ? '/dispatcher' : surface === 'crew' ? '/crew' : '/home'} className="role-sidebar-brand" aria-label="CityFix">
-        <CityFixMark size={44} />
+        <CityFixMark />
         <span><strong>CityFix</strong><small>{surface === 'dispatcher' ? 'Dispatcher Portal' : t('shell.brand.tagline', null, lang)}</small></span>
       </Link>
       <nav className="role-sidebar-nav" aria-label={t('shell.nav.label', null, lang)}>

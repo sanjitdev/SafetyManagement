@@ -24,8 +24,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
 import { CityFixMark } from '@/components/CityFixMark';
+import { useLanguage } from '@/components/useLanguage';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 type FieldKey = 'phone' | 'nid' | 'name' | 'password' | 'confirm';
 type ErrorMap = Partial<Record<FieldKey, string>>;
@@ -76,7 +76,7 @@ function RegisterInner() {
   const router = useRouter();
   const params = useSearchParams();
   const nextPath = safeNextPath(params.get('next'), '/home');
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [form, setForm] = useState<FormState>({
     phone: '',
     nid: '',
@@ -91,15 +91,6 @@ function RegisterInner() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => {
@@ -221,7 +212,7 @@ function RegisterInner() {
                 marginBottom: 'var(--space-5)',
               }}
             >
-              <CityFixMark size={34} />
+              <CityFixMark />
               <span
                 style={{
                   fontSize: 'var(--text-body-lg)',

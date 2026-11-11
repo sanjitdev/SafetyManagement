@@ -38,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { useLanguage } from '@/components/useLanguage';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
@@ -56,7 +57,6 @@ import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo
 import { ticketReference } from '@/lib/crew/ticket-reference';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 
 /**
@@ -419,7 +419,7 @@ const TRAIL_STEPS: Array<{
 ];
 
 export default function CrewPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [tickets, setTickets] = useState<CrewTicket[]>([]);
   const [history, setHistory] = useState<CrewTicket[]>([]);
@@ -466,12 +466,6 @@ export default function CrewPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

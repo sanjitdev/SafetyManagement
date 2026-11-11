@@ -29,6 +29,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import type { MapPin, MapStatus } from '@/components/DispatcherMap';
+import { useLanguage } from '@/components/useLanguage';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 import { useSession } from '@/components/SessionProvider';
 
@@ -41,7 +42,6 @@ const DispatcherMap = dynamic(() => import('@/components/DispatcherMap'), {
   loading: () => <MapSkeleton />,
 });
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 
 // Center the map on DHAKA_CENTER; the citizen-side map and the
@@ -60,7 +60,7 @@ interface PinsResponse {
 }
 
 export default function DispatcherMapPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated } = useSession();
@@ -75,12 +75,6 @@ export default function DispatcherMapPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

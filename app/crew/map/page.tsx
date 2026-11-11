@@ -20,12 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import CityActivityMap, {
   type CityActivityPin,
   type CityActivityStatus,
 } from '@/components/CityActivityMap';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 const DEFAULT_CENTER = { lat: 23.789, lng: 90.4078 };
 
@@ -41,7 +41,7 @@ interface MapTicket {
 }
 
 export default function CrewMapPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [tickets, setTickets] = useState<MapTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +51,6 @@ export default function CrewMapPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

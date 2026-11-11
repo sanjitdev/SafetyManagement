@@ -29,8 +29,8 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { safeNextPath } from '@/lib/safe-next';
 import { resolvePostAuthTarget } from '@/lib/role-home';
 import { CityFixMark } from '@/components/CityFixMark';
+import { useLanguage } from '@/components/useLanguage';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const CODE_LEN = 6;
 const RESEND_SECONDS = 60;
 const HELPER_NOT_ARRIVED_MS = 30_000;
@@ -89,7 +89,7 @@ function VerifyOtpInner() {
   const nextPath = safeNextPath(params.get('next'), '/home');
   const masked = useMemo(() => maskPhone(phoneParam), [phoneParam]);
 
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [digits, setDigits] = useState<string[]>(Array(CODE_LEN).fill(''));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
@@ -106,12 +106,6 @@ function VerifyOtpInner() {
   const mountedAt = useRef<number>(Date.now());
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
-    }
     // Auto-focus the first box
     inputRefs.current[0]?.focus();
     // Fire the initial send-otp on mount so the user gets an SMS in prod
@@ -138,12 +132,9 @@ function VerifyOtpInner() {
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
   }
 
   function setDigit(idx: number, value: string) {
@@ -345,6 +336,7 @@ function VerifyOtpInner() {
         </button>
         <Link
           href="/"
+          aria-label="CityFix home"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -353,10 +345,10 @@ function VerifyOtpInner() {
             color: 'var(--color-ink)',
           }}
         >
-          <CityFixMark size={34} />
+          <CityFixMark />
           <span
             style={{
-              fontSize: 'var(--text-body)',
+              fontSize: 'var(--text-body-lg)',
               fontWeight: 'var(--weight-bold)',
             }}
           >

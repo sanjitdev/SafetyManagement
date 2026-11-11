@@ -28,6 +28,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -61,10 +62,18 @@ const STATUS_ORDER: SerializedTicket['status'][] = [
   'resolved',
 ];
 
-// City default is Bangla per project.md; the citizen session carries
-// the actual override once the WO-004 auth surface lands, but for the
-// v1 detail view we read the city default from the ticket's cityId.
-const LANG: Language = 'bn';
+// The active UI language.
+//
+// This page used to hard-code `const LANG: Language = 'bn'` at module
+// scope, so the ticket detail view was ALWAYS Bangla — a user who
+// switched to English and opened one of their reports saw Bangla copy
+// with English chrome around it.
+//
+// The language now comes from the shared `useLanguage()` hook, which
+// reads the stored preference during the first render and subscribes
+// to `cityfix:language-updated`. The module-scope constant is gone;
+// `LANG` below is a per-render local so the thirty-odd call sites in
+// this file stay readable.
 
 const STATUS_TITLES_KEY: Record<SerializedTicket['status'], string> = {
   submitted: 'trail.submitted',
@@ -102,9 +111,9 @@ function timeAgoParts(iso: string): { value: number; unitKey: string } {
   return { value: days, unitKey: 'time.days_ago' };
 }
 
-function timeAgoLabel(iso: string): string {
+function timeAgoLabel(iso: string, lang: Language): string {
   const { value, unitKey } = timeAgoParts(iso);
-  return `${value} ${t(unitKey as 'time.minutes_ago', null, LANG)}`;
+  return `${value} ${t(unitKey as 'time.minutes_ago', null, lang)}`;
 }
 
 // Look up the human-readable category name for a ticket. The
@@ -132,6 +141,14 @@ export default function MyReportDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id ?? '';
+
+  // The shared hook owns the language. See the note above the removed
+  // module-scope `LANG` constant for why this page used to be stuck
+  // in Bangla.
+  const { lang } = useLanguage();
+  // A per-render alias so the copy below reads as `t(key, null, LANG)`
+  // without a module-scope constant.
+  const LANG = lang;
 
   const [ticket, setTicket] = useState<SerializedTicket | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -274,8 +291,8 @@ export default function MyReportDetailPage() {
   // "Ward {id}" last resort so the citizen never sees a raw cuid.
   const wardLabel =
     ticket.wardNameBn || ticket.wardName || t('detail.ward.fallback', null, LANG);
-  const createdRel = timeAgoLabel(ticket.createdAt);
-  const resolvedRel = ticket.resolvedAt ? timeAgoLabel(ticket.resolvedAt) : null;
+  const createdRel = timeAgoLabel(ticket.createdAt, LANG);
+  const resolvedRel = ticket.resolvedAt ? timeAgoLabel(ticket.resolvedAt, LANG) : null;
   const resolutionDays =
     ticket.resolvedAt
       ? (
@@ -379,7 +396,7 @@ export default function MyReportDetailPage() {
               </span>
             </div>
             <h1
-              lang="bn"
+              lang={LANG}
               style={{
                 margin: '0 0 var(--space-2)',
                 fontSize: 'var(--text-h2)',
@@ -700,7 +717,7 @@ export default function MyReportDetailPage() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div
-                        lang="bn"
+                        lang={LANG}
                         style={{
                           fontWeight: 'var(--weight-semibold)',
                           fontSize: 'var(--text-body-sm)',
@@ -715,11 +732,11 @@ export default function MyReportDetailPage() {
                           marginTop: 2,
                         }}
                       >
-                        {timeAgoLabel(entry.timestamp)} · {entry.actorLabel}
+                        {timeAgoLabel(entry.timestamp, LANG)} · {entry.actorLabel}
                       </div>
                       {entry.note && (
                         <div
-                          lang="bn"
+                          lang={LANG}
                           style={{
                             fontSize: 'var(--text-caption)',
                             color: 'var(--color-ink-secondary)',
@@ -759,15 +776,18 @@ export default function MyReportDetailPage() {
               <MetaCell
                 label={t('detail.meta.category', null, LANG)}
                 value={categoryLabel(ticket.categoryId, categories, LANG)}
+                lang={LANG}
               />
-              <MetaCell label={t('detail.meta.ward', null, LANG)} value={wardLabel} />
+              <MetaCell label={t('detail.meta.ward', null, LANG)} value={wardLabel} lang={LANG} />
               <MetaCell
                 label={t('detail.meta.sla', null, LANG)}
                 value={t('detail.meta.sla_value', null, LANG)}
+                lang={LANG}
               />
               <MetaCell
                 label={t('detail.meta.resolution', null, LANG)}
                 value={resolutionDays ? `${resolutionDays} ${t('time.days_ago', null, LANG)}` : '—'}
+                lang={LANG}
               />
             </div>
           </div>
@@ -782,7 +802,7 @@ export default function MyReportDetailPage() {
               }}
             >
               <div
-                lang="bn"
+                lang={LANG}
                 style={{
                   fontWeight: 'var(--weight-semibold)',
                   marginBottom: 'var(--space-1)',
@@ -855,7 +875,7 @@ export default function MyReportDetailPage() {
           >
             <h2
               id="photo-delete-title"
-              lang="bn"
+              lang={LANG}
               style={{
                 margin: '0 0 var(--space-3)',
                 fontSize: 'var(--text-h3)',
@@ -911,7 +931,7 @@ export default function MyReportDetailPage() {
   );
 }
 
-function MetaCell({ label, value }: { label: string; value: string }) {
+function MetaCell({ label, value, lang }: { label: string; value: string; lang: Language }) {
   return (
     <div>
       <div
@@ -926,7 +946,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div
-        lang="bn"
+        lang={lang}
         style={{
           marginTop: 4,
           fontWeight: 'var(--weight-medium)',

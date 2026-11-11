@@ -25,11 +25,11 @@ import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 interface AdminUserCard {
   id: string;
@@ -117,7 +117,7 @@ export default function AdminCityUsersPage() {
   const params = useParams<{ id: string }>();
   const pathname = usePathname();
   const cityId = params?.id ?? '';
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -144,14 +144,6 @@ export default function AdminCityUsersPage() {
   } | null>(null);
 
   useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
     const requestedTab = new URLSearchParams(window.location.search).get('role');
     if (requestedTab === 'all' || requestedTab === 'dispatcher' || requestedTab === 'crew' || requestedTab === 'supervisor') {
       setTab(requestedTab);
@@ -165,12 +157,6 @@ export default function AdminCityUsersPage() {
     window.history.replaceState(null, '', url.toString());
     window.dispatchEvent(new CustomEvent('cityfix:admin-users-filter-updated', { detail: next }));
   };
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/v1/admin/cities/${cityId}/users`, {

@@ -41,9 +41,9 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 15_000;
 const PAGE_SIZE = 20;
 
@@ -107,7 +107,7 @@ function isResolvedToday(iso: string): boolean {
 }
 
 export default function FeedPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // Bolt 008-012: the citywide activity endpoint now returns the
   // category list alongside the tickets, so the page only needs a
@@ -127,15 +127,6 @@ export default function FeedPage() {
   // The session comes from the shared `SessionProvider` — the page no
   // longer issues its own `/api/auth/status` request.
   const { authenticated } = useSession();
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // Auth check (Bolt 008-012): the shared session is the only auth
   // check on this page now. The /api/v1/activity/public endpoint that

@@ -38,12 +38,11 @@
 
 import { useState } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 // The rating vocabulary lives in a dependency-free module so this
 // `'use client'` island never pulls `next/headers` (via the
 // service's `lib/db-switch` import) into the client bundle.
 import type { FeedbackRating } from '@/lib/citizen/feedback-rating';
-
-const LANG: Language = 'bn';
 
 /** The three rating buttons, in the order they render. */
 const RATING_ORDER: FeedbackRating[] = ['positive', 'negative', 'neutral'];
@@ -79,6 +78,12 @@ export default function FeedbackPrompt({
   const [rating, setRating] = useState<FeedbackRating | null>(initialRating);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The shared hook owns the language. This island used to hard-code
+  // Bangla, so an English-speaking citizen's feedback prompt stayed
+  // in Bangla even after they switched the app to English.
+  const { lang } = useLanguage();
+  const LANG = lang;
 
   async function submit(next: FeedbackRating) {
     if (pending) return;
@@ -117,7 +122,7 @@ export default function FeedbackPrompt({
       {submitted ? (
         <>
           <div
-            lang="bn"
+            lang={LANG}
             style={{
               fontSize: 'var(--text-body-sm)',
               color: 'var(--color-primary)',

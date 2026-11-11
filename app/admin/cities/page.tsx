@@ -21,11 +21,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton, SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 interface AdminCity {
   id: string;
@@ -47,7 +47,7 @@ interface AdminCity {
 
 export default function AdminCitiesPage() {
   const pathname = usePathname();
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -62,20 +62,6 @@ export default function AdminCitiesPage() {
   // Ref to the write handler. `retryOnGateError` resolves a ref at
   // retry time, so the retry always invokes the current handler.
   const handleNewCityRef = useRef<(() => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   // Auth + role gate.
   //

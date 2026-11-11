@@ -40,6 +40,7 @@ import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
   type CityActivityPin,
@@ -54,7 +55,6 @@ import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 const DHAKA_CENTER = { lat: 23.8069, lng: 90.3687 };
 const HOME_MAP_COLORS: Partial<Record<CityActivityStatus, string>> = MAP_STATUS_COLORS;
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const NOTIF_PROMPT_KEY = 'cityfix.notification_prompt_seen.v1';
 const POLL_INTERVAL_MS = 15_000;
 
@@ -108,7 +108,7 @@ function formatAge(iso: string, lang: Language): string {
 
 export default function HomePage() {
   const router = useRouter();
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [tickets, setTickets] = useState<ActivityItem[]>([]);
@@ -125,8 +125,6 @@ export default function HomePage() {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
       const notifSeen = window.localStorage.getItem(NOTIF_PROMPT_KEY);
       if (!notifSeen && 'Notification' in window && Notification.permission === 'default') {
         setShowNotifPrompt(true);

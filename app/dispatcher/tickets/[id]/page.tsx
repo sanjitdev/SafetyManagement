@@ -48,13 +48,13 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { useLanguage } from '@/components/useLanguage';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import {
   displayNameFor,
   categoryLabel,
 } from '@/lib/identity/display-name';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 type TicketStatus =
   | 'submitted'
@@ -136,7 +136,7 @@ export default function DispatcherTicketDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -177,12 +177,6 @@ export default function DispatcherTicketDetailPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

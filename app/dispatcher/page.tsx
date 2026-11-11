@@ -35,6 +35,7 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { formatWeekday } from '@/lib/format/datetime';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { useLanguage } from '@/components/useLanguage';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
@@ -42,7 +43,6 @@ import type { CityActivityPin, CityActivityStatus } from '@/components/CityActiv
 import { ICONS } from '@/lib/ui/icon-map';
 import type { PerfSnapshot } from '@/lib/dispatcher/performance';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 const DHAKA_CENTER = { lat: 23.789, lng: 90.4075 };
 const CityActivityMap = dynamic(() => import('@/components/CityActivityMap'), { ssr: false, loading: () => <SkeletonBlock style={{ width: '100%', height: '100%', minHeight: 280 }} /> });
@@ -150,7 +150,7 @@ function scopeLabel(
 }
 
 export default function DispatcherPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [scope, setScope] = useState<{
     wardName?: string | null;
@@ -173,12 +173,6 @@ export default function DispatcherPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     // Listen for cross-component lang changes (the global AppHeader

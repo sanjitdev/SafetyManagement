@@ -8,11 +8,11 @@ import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
 import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
+import { useLanguage } from '@/components/useLanguage';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import type { Appearance } from '@/lib/theme/appearance';
 import { t, type Language } from '@/lib/i18n/keys';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const ROLE_KEY = {
   citizen: 'user.menu.role.citizen',
   dispatcher: 'user.menu.role.dispatcher',
@@ -68,7 +68,10 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { appearance, setAppearance } = useTheme();
-  const [lang, setLang] = useState<Language>('bn');
+  // The shared hook owns the language — it reads the stored preference
+  // during the first render and subscribes to `cityfix:language-updated`,
+  // so this page never lags behind the header or the role sidebar.
+  const { lang, setLang } = useLanguage();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
   const [nameBn, setNameBn] = useState('');
@@ -109,33 +112,10 @@ export default function ProfilePage() {
   }, [tab]);
 
   function chooseLanguage(next: Language) {
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event in one step.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // Storage may be unavailable (private mode) — the in-memory
-      // state still drives this render.
-    }
-    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
   }
-
-  useEffect(() => {
-    const onLanguageUpdated = (event: Event) => {
-      const next = (event as CustomEvent<Language>).detail;
-      if (next === 'bn' || next === 'en') setLang(next);
-    };
-    window.addEventListener('cityfix:language-updated', onLanguageUpdated);
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // Keep the Bangla-first default when storage is unavailable.
-    }
-
-    return () => {
-      window.removeEventListener('cityfix:language-updated', onLanguageUpdated);
-    };
-  }, []);
 
   // The profile read. `loadProfile` dedupes the request at module
   // scope, so StrictMode's double mount joins the first call instead

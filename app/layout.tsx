@@ -13,6 +13,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppearanceBoot } from './appearance-boot';
+import { LanguageBoot } from './language-boot';
 import { ThemeProvider } from '@/lib/theme/ThemeProvider';
 
 export const metadata: Metadata = {
@@ -29,8 +30,9 @@ export const metadata: Metadata = {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
   },
-  // Per Phase 1: Bangla-first, English-secondary. The lang attribute below
-  // declares the default; pages with explicit Bangla content set lang="bn".
+  // Per Phase 1: Bangla-first, English-secondary. The `<html lang>` attribute
+  // is deliberately NOT rendered here — see the note on the `<html>` element
+  // below. `app/language-boot.tsx` owns it instead.
 };
 
 export const viewport = {
@@ -46,6 +48,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    // NOTE: `lang="bn"` is the Bangla-first default, and it is correct for
+    // a visitor with no stored preference and for the no-JS case.
+    //
+    // It is NOT the final value for an English-preference user. React's
+    // hydration treats a server-rendered attribute as authoritative and
+    // writes it back over whatever the DOM holds — so this attribute is
+    // reconciled to "bn" on every page load. `app/language-boot.tsx` owns
+    // the attribute in both phases: an inline script sets the right value
+    // before first paint, and a `useEffect` re-asserts it after hydration
+    // undoes React's reconciliation.
     <html lang="bn" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -57,6 +69,7 @@ export default function RootLayout({
       </head>
       <body>
         <AppearanceBoot />
+        <LanguageBoot />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

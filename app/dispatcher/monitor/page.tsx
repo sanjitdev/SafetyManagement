@@ -32,12 +32,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { categoryLabel, displayNameFor } from '@/lib/identity/display-name';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 /** The spec's v1 polling cadence: every 5 seconds. */
 const POLL_INTERVAL_MS = 5_000;
 
@@ -131,7 +131,7 @@ function formatDuration(ms: number, lang: Language): string {
 }
 
 export default function DispatcherMonitorPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated } = useSession();
@@ -150,12 +150,6 @@ export default function DispatcherMonitorPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

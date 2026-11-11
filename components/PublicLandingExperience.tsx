@@ -36,10 +36,10 @@ import CityActivityMap, {
 } from '@/components/CityActivityMap';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CityFixMark } from '@/components/CityFixMark';
+import { useLanguage } from '@/components/useLanguage';
 import { firstDisplayablePhotoUrl } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 /**
  * How many cards one page of the activity feed holds.
@@ -199,7 +199,10 @@ function formatAge(iso: string, lang: Language): string {
 }
 
 export default function PublicLandingExperience() {
-  const [lang, setLang] = useState<Language>('bn');
+  // The shared hook owns the language — it reads the stored preference
+  // during the first render and subscribes to `cityfix:language-updated`,
+  // so the landing page and the app chrome never disagree.
+  const { lang, setLang } = useLanguage();
   const [tickets, setTickets] = useState<PublicTicket[]>([]);
   const [stats, setStats] = useState<PublicActivityStats>(EMPTY_STATS);
   const [wards, setWards] = useState<PublicWard[]>([]);
@@ -224,15 +227,6 @@ export default function PublicLandingExperience() {
   const [total, setTotal] = useState(0);
   /** True while a "Load older" request is in flight. */
   const [loadingMore, setLoadingMore] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(LANG_KEY);
-      if (stored === 'en' || stored === 'bn') setLang(stored);
-    } catch {
-      // ignore — storage may be disabled
-    }
-  }, []);
 
   // Poll the public activity feed. No cookies, no auth.
   //
@@ -367,12 +361,9 @@ export default function PublicLandingExperience() {
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
   }
 
   const pins: CityActivityPin[] = useMemo(
@@ -435,7 +426,7 @@ export default function PublicLandingExperience() {
             color: 'var(--color-ink)',
           }}
         >
-          <CityFixMark size={34} />
+          <CityFixMark />
           <span
             style={{
               fontSize: 'var(--text-body-lg)',

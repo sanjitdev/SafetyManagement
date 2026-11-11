@@ -30,9 +30,9 @@ import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { nowMs } from '@/lib/format/clock';
 import { AdminPageSkeleton } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 interface HeroStat {
   key: 'registeredCitizens' | 'reportsReceived' | 'resolutionRate' | 'avgTimeToResolve';
@@ -114,7 +114,7 @@ export default function AdminCityAdoptionPage() {
   const params = useParams<{ id: string }>();
   const pathname = usePathname();
   const cityId = params?.id ?? '';
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -125,20 +125,6 @@ export default function AdminCityAdoptionPage() {
   const [compare, setCompare] = useState(false);
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   const rangeParams = useCallback((): string => {
     /*

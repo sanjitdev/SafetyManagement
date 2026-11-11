@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AdminAuditFilters } from '@/components/AdminAuditFilters';
+import { useLanguage } from '@/components/useLanguage';
 import { AdminAuditTable } from '@/components/AdminAuditTable';
 import { t, type Language } from '@/lib/i18n/keys';
 import type {
@@ -27,7 +28,6 @@ import type {
 } from '@/lib/admin/audit-query';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 function readFiltersFromUrl(params: URLSearchParams): AuditQueryFilters {
   const actorId = params.get('actorId') ?? undefined;
@@ -60,7 +60,7 @@ function writeFiltersToUrl(filters: AuditQueryFilters): string {
 
 export default function AdminAuditPage() {
   const pathname = usePathname();
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [filters, setFilters] = useState<AuditQueryFilters>({});
   const [cursor, setCursor] = useState<string | null>(null);
@@ -73,20 +73,6 @@ export default function AdminAuditPage() {
   const { authenticated, session } = useSession();
 
   // Hydrate lang from localStorage.
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
-
   // Hydrate filters from URL on first mount. Read directly from
   // window.location.search (instead of useSearchParams) so the page
   // doesn't need a Suspense boundary and can be statically exported.

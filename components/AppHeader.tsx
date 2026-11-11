@@ -38,6 +38,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 import { CityFixMark } from './CityFixMark';
 import { useSession } from './SessionProvider';
+import { useLanguage } from './useLanguage';
 import { t, type Language } from '@/lib/i18n/keys';
 import { ICONS } from '@/lib/ui/icon-map';
 
@@ -68,12 +69,17 @@ interface AppHeaderProps {
   onOpenNav?: () => void;
 }
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
-
 export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, navOpen = false, onOpenNav }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname() ?? '/';
-  const [lang, setLang] = useState<Language>(langProp ?? 'bn');
+  // The shared hook owns the language. `langProp` still wins when a
+  // caller passes it — that is the escape hatch for a surface that
+  // resolves the language server-side. Otherwise the hook reads the
+  // stored preference during the first render (no Bangla flash) and
+  // subscribes to `cityfix:language-updated`, so the header and the
+  // page body always move together.
+  const { lang: hookLang, setLang } = useLanguage(langProp);
+  const lang = langProp ?? hookLang;
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -86,21 +92,6 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
   // server-side and want to skip the probe entirely.
   const { authenticated } = useSession();
   const signedIn = signedInProp ?? authenticated;
-
-  // Hydrate language + auth from localStorage / status endpoint.
-  // We do this in the header rather than the page so the chrome
-  // is always in sync with the user's preference even when a page
-  // has no language state of its own.
-  useEffect(() => {
-    if (!langProp) {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
-    }
-  }, [langProp]);
 
   // Close the mobile menu on route change and on Escape / outside click.
   useEffect(() => {
@@ -128,13 +119,11 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
 
   function toggleLang() {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
+    // The hook's setter persists the choice AND publishes the
+    // `cityfix:language-updated` event, so every surface — this
+    // header, the role sidebar and the page body — re-renders on the
+    // same tick.
     setLang(next);
-    try {
-      window.localStorage.setItem(LANG_KEY, next);
-    } catch {
-      // ignore
-    }
-    window.dispatchEvent(new CustomEvent('cityfix:language-updated', { detail: next }));
   }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -224,7 +213,11 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
             className="appheader-city"
             lang={lang}
             style={{
-              fontSize: 'var(--text-body-sm)',
+              // --text-micro (12px) to match the role-sidebar and admin
+              // brand taglines. The header tagline used to be
+              // --text-body-sm (15px), which made the same brand render
+              // at two different tagline sizes depending on the surface.
+              fontSize: 'var(--text-micro)',
               color: 'var(--color-ink-secondary)',
               marginLeft: 'var(--space-1)',
               whiteSpace: 'nowrap',

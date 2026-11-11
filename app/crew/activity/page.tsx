@@ -18,9 +18,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { useSession } from '@/components/SessionProvider';
+import { useLanguage } from '@/components/useLanguage';
 import { ticketReference } from '@/lib/crew/ticket-reference';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const POLL_INTERVAL_MS = 30_000;
 
 type TicketStatus =
@@ -66,7 +66,7 @@ function shortTicketId(id: string): string {
 }
 
 export default function CrewActivityPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [tickets, setTickets] = useState<HistoryTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,12 +76,6 @@ export default function CrewActivityPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

@@ -28,8 +28,8 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 type TicketStatus =
   | 'submitted'
@@ -89,7 +89,7 @@ function distanceLabel(ticket: TicketSummary, original: TicketSummary, lang: Lan
 }
 
 export default function DispatcherDedupReviewPage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [flags, setFlags] = useState<DedupFlagRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,12 +98,6 @@ export default function DispatcherDedupReviewPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

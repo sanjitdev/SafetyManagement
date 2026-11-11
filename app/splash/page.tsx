@@ -19,15 +19,20 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { roleHome } from '@/lib/role-home';
 import { CityFixMark } from '@/components/CityFixMark';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG: Language = 'bn';
 const SLOW_LOAD_THRESHOLD_MS = 2000;
 const BUNDLE_FAIL_THRESHOLD_MS = 8000;
 
 export default function SplashPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   const [showSlowLoad, setShowSlowLoad] = useState(false);
   const [bundleFailed, setBundleFailed] = useState(false);
@@ -114,7 +119,7 @@ export default function SplashPage() {
           gap: 'var(--space-4)',
         }}
       >
-        <CityFixMark size={48} />
+        <CityFixMark />
         <h1
           style={{
             fontSize: 'var(--text-display-lg)',
@@ -127,7 +132,7 @@ export default function SplashPage() {
           CityFix
         </h1>
         <p
-          lang="bn"
+          lang={LANG}
           style={{
             fontSize: 'var(--text-body-lg)',
             color: 'var(--color-ink-secondary)',
@@ -154,7 +159,7 @@ export default function SplashPage() {
             }}
           >
             <span
-              lang="bn"
+              lang={LANG}
               style={{ fontSize: 'var(--text-body)', color: 'var(--color-ink)' }}
             >
               {t('splash.error.bundle_failed', null, LANG)}
@@ -203,7 +208,7 @@ export default function SplashPage() {
             />
             {showSlowLoad && (
               <span
-                lang="bn"
+                lang={LANG}
                 style={{
                   fontSize: 'var(--text-caption)',
                   color: 'var(--color-ink-tertiary)',

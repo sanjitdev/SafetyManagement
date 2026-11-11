@@ -37,10 +37,10 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { categoryLabel } from '@/lib/identity/display-name';
 import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
+import { useLanguage } from '@/components/useLanguage';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 type TicketStatus =
   | 'submitted'
@@ -119,7 +119,7 @@ function formatDuration(ms: number, lang: Language): string {
 }
 
 export default function DispatcherPerformancePage() {
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated } = useSession();
@@ -135,12 +135,6 @@ export default function DispatcherPerformancePage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

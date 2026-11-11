@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import {
   displayNameFor,
@@ -91,7 +92,6 @@ import {
   buildNavigateHref,
 } from './navigate-href';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 const MAX_NOTE_LENGTH = 1000;
 
 type TicketStatus =
@@ -218,7 +218,7 @@ export default function CrewTicketPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -289,12 +289,6 @@ export default function CrewTicketPage() {
 
   useEffect(() => {
     function syncLang() {
-      try {
-        const stored = window.localStorage.getItem(LANG_KEY);
-        if (stored === 'en' || stored === 'bn') setLang(stored);
-      } catch {
-        // ignore
-      }
     }
     syncLang();
     window.addEventListener('storage', syncLang);

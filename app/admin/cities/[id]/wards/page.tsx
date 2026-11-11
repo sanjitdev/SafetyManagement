@@ -27,11 +27,11 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { AdminPageSkeleton, SkeletonBlock } from '@/components/ui/Skeleton';
+import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
 import { AdminWebAuthnStepUp } from '@/components/AdminWebAuthnStepUp';
 import { useWebAuthnStepUp } from '@/components/useWebAuthnStepUp';
 
-const LANG_KEY = 'cityfix.preferred_language.v1';
 
 interface Ward {
   id: string;
@@ -63,7 +63,7 @@ export default function WardsPage() {
   const pathname = usePathname();
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const [lang, setLang] = useState<Language>('bn');
+  const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
@@ -85,19 +85,6 @@ export default function WardsPage() {
   // at retry time, so the retry always invokes the current handler.
   const handleCreateRef = useRef<(() => Promise<void>) | null>(null);
   const handleDeleteRef = useRef<((wardId: string) => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    const stored =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(LANG_KEY)
-        : null;
-    if (stored === 'bn' || stored === 'en') setLang(stored);
-  }, []);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_KEY, lang);
-    }
-  }, [lang]);
 
   const refresh = useCallback(async () => {
     setLoading(true);

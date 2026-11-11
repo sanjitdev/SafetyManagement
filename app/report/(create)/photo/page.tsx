@@ -44,9 +44,9 @@ import {
   downscalePhotoFile,
 } from '@/lib/photo/downscale';
 import { t, type Language } from '@/lib/i18n/keys';
+import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
-const LANG: Language = 'bn';
 
 /**
  * One photo, as a PAIRED entry.
@@ -84,6 +84,11 @@ async function readFileAsDataUrl(file: File): Promise<string | null> {
 }
 
 export default function PhotoPage() {
+  // The shared hook owns the language. This page used to
+  // hard-code Bangla at module scope, so it ignored the user's
+  // language choice entirely.
+  const { lang } = useLanguage();
+  const LANG = lang;
   const router = useRouter();
   /**
    * The source of truth for the picked photos. `photoUrls` and
@@ -277,7 +282,7 @@ export default function PhotoPage() {
       >
         <div>
           <h1
-            lang="bn"
+            lang={LANG}
             style={{
               margin: '0 0 var(--space-2)',
               fontSize: 'var(--text-display-md)',
@@ -289,7 +294,7 @@ export default function PhotoPage() {
             {t('report.photo.h1', null, LANG)}
           </h1>
           <p
-            lang="bn"
+            lang={LANG}
             style={{
               color: 'var(--color-ink-secondary)',
               margin: 0,
@@ -337,7 +342,7 @@ export default function PhotoPage() {
           <p
             role="status"
             aria-live="polite"
-            lang="bn"
+            lang={LANG}
             style={{
               margin: 0,
               fontSize: 'var(--text-caption)',
