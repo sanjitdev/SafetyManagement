@@ -37,27 +37,89 @@
  * -------
  * One hook, one source of truth:
  *
- *   - The stored preference is read during the initialiser (not in an
- *     effect) so the very first render already uses the right language.
- *     `typeof window` guards the server render, where the hook falls back
- *     to the Bangla-first default.
- *   - The hook subscribes to `cityfix:language-updated`, so a toggle
- *     reaches EVERY surface — header, sidebar and page body alike — on
- *     the same tick.
- *   - `setLanguage` persists the choice and publishes the event, so
+ *   - The language is read from an EXTERNAL STORE (see
+ *     `lib/i18n/language-store.ts`), not from component state. The hook
+ *     subscribes to `cityfix:language-updated`, so a toggle reaches
+ *     EVERY surface — header, sidebar and page body alike — on the
+ *     same tick.
+ *   - `setLang` persists the choice and publishes the event, so
  *     callers never have to touch localStorage or dispatch by hand.
+ *
+ * THE COOKIE MIRROR — WHY THE SERVER CAN AGREE WITH THE CLIENT
+ * --------------------------------------------------------------
+ * The preference used to live ONLY in localStorage, so the server had
+ * no way to read it:
+ *
+ *   - server  → no localStorage → rendered the Bangla-first default
+ *   - client  → localStorage   → rendered the stored language (English)
+ *
+ * React compares the server-rendered text against the client's first
+ * render and finds they differ on EVERY translated string on the page.
+ * It then throws "Text content does not match server-rendered HTML",
+ * discards the server HTML, and re-renders the whole tree client-side.
+ *
+ * The preference is therefore mirrored into a COOKIE, which travels with
+ * the request, so the server renders the same language the client will.
+ * The cookie is what the client reads first; localStorage remains the
+ * durable store (the cookie expires, localStorage does not).
+ *
+ * The two can disagree only in one case: the cookie is present and
+ * stale while localStorage has a newer value (e.g. the user toggled
+ * the language and the cookie write has not landed yet). The cookie
+ * wins in that case, because matching the SERVER is what avoids the
+ * mismatch — and `publishLanguage` writes both together, so they are
+ * written on the same tick.
+ *
+ * WHY AN EXTERNAL STORE AND NOT `useState`
+ * ----------------------------------------
+ * An earlier version of this hook kept the language in `useState` and
+ * reconciled the durable preference in a mount effect:
+ *
+ *   const [lang, setLangState] = useState(() => readStoredLanguage());
+ *   useEffect(() => { if (cookie !== stored) setLangState(stored); }, []);
+ *
+ * That looks safe — the state change happens after the first render, so
+ * it cannot change what the server sent. It is not safe, because
+ * "after the first render" is NOT the same as "after hydration".
+ *
+ * React hydrates a Suspense subtree lazily. A page that wraps its
+ * content in `<Suspense>` (because it calls `useSearchParams()`, as
+ * `app/login/page.tsx` does) is NOT hydrated when the root layout's
+ * effects run — its hydration is deferred. The mount effect therefore
+ * fired while the subtree was still hydrating, and its `setLangState`
+ * landed as a mid-hydration update, which React reported as:
+ *
+ *   Warning: Text content did not match. Server: "লগ ইন করুন"
+ *   Client: "Log in"
+ *
+ * `useSyncExternalStore` removes the hazard by construction: React
+ * uses the store's SERVER snapshot for the hydration render, and a
+ * store notification raised during hydration is queued and applied once
+ * hydration completes. The store's client snapshot is frozen at module
+ * load, so a later subtree cannot observe a cookie that an earlier
+ * effect wrote.
  *
  * The event name and the storage key are kept EXACTLY as they were —
  * they are a compatibility contract with any surface that still touches
  * them directly (and with the stored preference of an existing user).
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { DEFAULT_LANGUAGE, type Language } from '@/lib/i18n/keys';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { type Language } from '@/lib/i18n/keys';
 import {
+  isLanguage,
+  LANGUAGE_COOKIE,
   LANGUAGE_STORAGE_KEY,
   LANGUAGE_UPDATED_EVENT,
 } from '@/lib/i18n/language-preference';
+import {
+  getLanguageSnapshot,
+  getServerLanguage,
+  publishLanguage,
+  reconcileLanguagePreference,
+  setLanguageSnapshot,
+  subscribeToLanguage,
+} from '@/lib/i18n/language-store';
 
 /**
  * Re-exported for convenience so client surfaces can import the contract
@@ -69,24 +131,36 @@ import {
  * yields a client reference rather than the real value (which silently
  * broke the boot script's `JSON.stringify` interpolation).
  */
-export { LANGUAGE_STORAGE_KEY, LANGUAGE_UPDATED_EVENT };
-
-function isLanguage(value: unknown): value is Language {
-  return value === 'bn' || value === 'en';
-}
+export {
+  isLanguage,
+  LANGUAGE_COOKIE,
+  LANGUAGE_STORAGE_KEY,
+  LANGUAGE_UPDATED_EVENT,
+};
 
 /**
- * Read the persisted preference. Safe to call during a server render —
- * `localStorage` does not exist there, so it returns the default.
+ * Read the language the SERVER rendered this page in.
+ *
+ * On the SERVER it reads the request-scoped value the root layout
+ * primed from the language cookie — that is the whole point: the server
+ * must render the same language the client will render, or React
+ * reports a hydration mismatch on every translated string.
+ *
+ * On the CLIENT it reads the `cityfix_lang` cookie — the SAME copy the
+ * server read — and FREEZES it, so every surface that hydrates later
+ * (a Suspense-deferred subtree, say) sees the same value the server
+ * HTML contains.
+ *
+ * localStorage is deliberately NOT consulted here. A visitor whose
+ * preference predates the cookie has localStorage but no cookie: the
+ * server rendered the default, so reading localStorage now would make
+ * the client render a DIFFERENT language from the server — the exact
+ * hydration mismatch this whole mechanism exists to prevent. The
+ * durable preference is applied after hydration instead (see
+ * `reconcileLanguagePreference`).
  */
 export function readStoredLanguage(): Language {
-  if (typeof window === 'undefined') return DEFAULT_LANGUAGE;
-  try {
-    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return isLanguage(stored) ? stored : DEFAULT_LANGUAGE;
-  } catch {
-    return DEFAULT_LANGUAGE;
-  }
+  return getServerLanguage();
 }
 
 /**
@@ -96,16 +170,7 @@ export function readStoredLanguage(): Language {
  * landing page, the auth pages) can stay in step with the shared hook
  * without re-implementing the storage write.
  */
-export function publishLanguage(next: Language): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
-  } catch {
-    // A storage failure (private mode, quota) must not break the toggle —
-    // the in-memory state still changes for this session.
-  }
-  window.dispatchEvent(new CustomEvent(LANGUAGE_UPDATED_EVENT, { detail: next }));
-}
+export { publishLanguage };
 
 /**
  * The current UI language plus a setter that persists and broadcasts it.
@@ -118,17 +183,54 @@ export function useLanguage(initial?: Language): {
   lang: Language;
   setLang: (next: Language) => void;
 } {
-  // The initialiser runs once, on the first render. Reading localStorage
-  // here (rather than in an effect) means the first paint already uses
-  // the user's language — no Bangla flash on an English page.
-  const [lang, setLangState] = useState<Language>(() =>
-    initial ?? readStoredLanguage(),
+  // `useSyncExternalStore` is the whole reason this hook does not use
+  // `useState`:
+  //
+  //   - `getServerSnapshot` is used for the server render AND for the
+  //     hydration render, so the hydration render is byte-identical to
+  //     the server HTML — no "Text content does not match" warning.
+  //   - `getSnapshot` is used for every render after hydration.
+  //   - A store notification that arrives DURING hydration is queued by
+  //     React and applied once hydration completes. The previous
+  //     `useState` + mount-effect version had no such guarantee, which
+  //     is how a Suspense-deferred subtree (the login page) ended up
+  //     receiving the durable preference mid-hydration and tripping the
+  //     mismatch warning.
+  const lang = useSyncExternalStore(
+    subscribeToLanguage,
+    getLanguageSnapshot,
+    // The server snapshot must agree with the server render, so an
+    // explicit `initial` wins over the store.
+    () => initial ?? getServerLanguage(),
   );
 
+  // RECONCILE AFTER HYDRATION
+  // -------------------------
+  // A visitor whose preference predates the cookie has a language in
+  // localStorage but no cookie, so the server rendered the default. The
+  // hydration render agrees with the server (no mismatch); now that the
+  // tree is hydrated, the durable preference is applied and the cookie
+  // is written so every later request renders it correctly.
+  //
+  // `reconcileLanguagePreference` publishes into the store rather than
+  // calling a state setter, so React applies it as a store update —
+  // which React defers until hydration is complete.
+  useEffect(() => {
+    reconcileLanguagePreference();
+  }, []);
+
+  // A surface that dispatches the DOM event directly (rather than
+  // going through `publishLanguage`) must still reach the store, or
+  // `useSyncExternalStore` would never re-render.
   useEffect(() => {
     const onLanguageUpdated = (event: Event) => {
       const value = (event as CustomEvent<Language>).detail;
-      if (isLanguage(value)) setLangState(value);
+      if (isLanguage(value)) {
+        // Publish into the store so every subscriber re-renders. The
+        // cookie/localStorage writes are skipped here — the surface that
+        // dispatched the event owns persistence.
+        setLanguageSnapshot(value);
+      }
     };
     window.addEventListener(LANGUAGE_UPDATED_EVENT, onLanguageUpdated);
     return () => {
@@ -137,7 +239,6 @@ export function useLanguage(initial?: Language): {
   }, []);
 
   const setLang = useCallback((next: Language) => {
-    setLangState(next);
     publishLanguage(next);
   }, []);
 

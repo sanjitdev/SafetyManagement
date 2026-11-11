@@ -15,6 +15,7 @@ import './globals.css';
 import { AppearanceBoot } from './appearance-boot';
 import { LanguageBoot } from './language-boot';
 import { ThemeProvider } from '@/lib/theme/ThemeProvider';
+import { getRequestLanguage } from '@/lib/i18n/server-language';
 
 export const metadata: Metadata = {
   title: {
@@ -50,18 +51,34 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // The language the SERVER renders this page in. It comes from the
+  // `cityfix_lang` cookie, falling back to the Bangla-first default for
+  // a visitor with no stored preference and for the no-JS case.
+  //
+  // WHY THE SAME COOKIE THE CLIENT READS
+  // ------------------------------------
+  // `useLanguage()` is a `'use client'` hook, so Next.js server-renders
+  // it too. Its initialiser runs on the server, where localStorage does
+  // not exist. If the server rendered a different language from the one
+  // the client renders, React would report "Text content does not
+  // match server-rendered HTML" on every translated string, discard the
+  // server HTML, and re-render the whole tree client-side.
+  //
+  // Both sides read the SAME `cityfix_lang` cookie, so they agree from
+  // the first byte.
+  //
+  // Note that this does NOT need to be awaited: `cookies()` is
+  // synchronous in Next 14. The lazy read inside the request-scoped
+  // store handles the child render, which happens BEFORE this layout
+  // body runs (a layout's `children` is a pre-rendered element).
+  const lang = getRequestLanguage();
+
   return (
-    // NOTE: `lang="bn"` is the Bangla-first default, and it is correct for
-    // a visitor with no stored preference and for the no-JS case.
-    //
-    // It is NOT the final value for an English-preference user. React's
-    // hydration treats a server-rendered attribute as authoritative and
-    // writes it back over whatever the DOM holds — so this attribute is
-    // reconciled to "bn" on every page load. `app/language-boot.tsx` owns
-    // the attribute in both phases: an inline script sets the right value
-    // before first paint, and a `useEffect` re-asserts it after hydration
-    // undoes React's reconciliation.
-    <html lang="bn" suppressHydrationWarning>
+    // React's hydration treats a server-rendered attribute on `<html>`
+    // as authoritative and writes it back over whatever the DOM holds,
+    // so `app/language-boot.tsx` re-asserts the attribute after
+    // hydration undoes that reconciliation.
+    <html lang={lang} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

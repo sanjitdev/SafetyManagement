@@ -377,7 +377,7 @@ function AdminHomePageInner() {
       <aside className="admin-dashboard-sidebar">
         <Link href="/admin" className="admin-brand" aria-label="CityFix dashboard">
           <CityFixMark />
-          <span><strong>CityFix</strong><small>A Cleaner, Safer City</small></span>
+          <span><strong>CityFix</strong><small>{t('shell.brand.tagline', null, lang)}</small></span>
         </Link>
         <nav id="admin-dashboard-sidebar" className="admin-side-nav" aria-label={t('shell.nav.label', null, lang)}>
           <Link href="/admin" className="admin-side-link is-active" aria-current="page" onClick={() => setNavOpen(false)}>

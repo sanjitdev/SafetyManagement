@@ -55,14 +55,18 @@
 
 import { useEffect } from 'react';
 import {
-  LANGUAGE_STORAGE_KEY,
+  LANGUAGE_COOKIE,
   LANGUAGE_UPDATED_EVENT,
 } from '@/lib/i18n/language-preference';
+import {
+  readLanguageCookie,
+  reconcileLanguagePreference,
+} from '@/lib/i18n/language-store';
 
 const SCRIPT = `
 (function () {
   try {
-    var KEY = ${JSON.stringify(LANGUAGE_STORAGE_KEY)};
+    var COOKIE = ${JSON.stringify(LANGUAGE_COOKIE)};
     var EVENT = ${JSON.stringify(LANGUAGE_UPDATED_EVENT)};
     var root = document.documentElement;
 
@@ -70,9 +74,30 @@ const SCRIPT = `
       if (next === 'bn' || next === 'en') root.setAttribute('lang', next);
     }
 
-    var raw = null;
-    try { raw = window.localStorage.getItem(KEY); } catch (_) { raw = null; }
-    apply(raw);
+    // The COOKIE is read first, because it is the copy the SERVER used
+    // to render this page. Reading localStorage first could disagree
+    // with the server when the two stores drift apart (the cookie
+    // expires, localStorage does not), which is exactly the mismatch
+    // this script exists to prevent.
+    var fromCookie = null;
+    try {
+      var match = document.cookie.match(new RegExp('(?:^|;\\\\s*)' + COOKIE + '=([^;]*)'));
+      if (match) {
+        var decoded = decodeURIComponent(match[1]);
+        if (decoded === 'bn' || decoded === 'en') fromCookie = decoded;
+      }
+    } catch (_) { fromCookie = null; }
+
+    // The attribute is set from the COOKIE — the same copy the server
+    // read to render this page — so the DOM and the server agree.
+    //
+    // localStorage is deliberately NOT consulted here: a visitor whose
+    // preference predates the cookie has localStorage but no cookie,
+    // and reading it now would set an attribute the server did not
+    // render with. The durable preference is applied after hydration
+    // (see reconcileLanguagePreference), which also writes the cookie
+    // so later requests render it correctly.
+    apply(fromCookie);
 
     // Keep <html lang> in step with a live toggle.
     window.addEventListener(EVENT, function (event) {
@@ -86,19 +111,40 @@ const SCRIPT = `
 
 export function LanguageBoot() {
   // Phase 2: re-assert the attribute after React's hydration has
-  // reconciled it back to the server-rendered default.
+  // reconciled it back to the server-rendered default, and make sure
+  // the cookie the server reads agrees with the stored preference.
   useEffect(() => {
     const root = document.documentElement;
     const apply = (next: unknown) => {
       if (next === 'bn' || next === 'en') root.setAttribute('lang', next);
     };
-    let stored: string | null = null;
+    let fromCookie: string | null = null;
     try {
-      stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      fromCookie = readLanguageCookie();
     } catch {
-      stored = null;
+      fromCookie = null;
     }
-    apply(stored);
+
+    // The COOKIE wins when both exist: it is the copy the server used
+    // to render this page, so keeping the attribute aligned with it is
+    // what avoids a mismatch.
+    //
+    // When the cookie is MISSING but localStorage has a valid value,
+    // the visitor's preference predates the cookie. The server rendered
+    // the default language, so the attribute must stay on the default
+    // for this page — but the cookie is written so every request AFTER
+    // this one renders in the visitor's language.
+    //
+    // `reconcileLanguagePreference` does the write and publishes the
+    // change into the language store; the event listener below then
+    // applies the new language to the attribute.
+    if (!fromCookie) {
+      reconcileLanguagePreference();
+      apply(readLanguageCookie());
+    } else {
+      apply(fromCookie);
+    }
+
     const onLanguageUpdated = (event: Event) => {
       apply((event as CustomEvent<string>).detail);
     };
