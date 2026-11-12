@@ -1,6 +1,6 @@
 # CityFix — Visual Design
 
-The visual layer for CityFix. Defines the design tokens, the component library, and 12 hero mockups that establish the visual language for every page.
+The visual layer for CityFix. Defines the design tokens, the component library, and 16 hero mockups that establish the visual language for every page.
 
 ## Brand personality
 
@@ -31,9 +31,9 @@ Two rules govern every component:
 |---|---|
 | `tokens.css` | The single source of truth for the visual language. CSS custom properties only — colors, type, spacing, radii, shadows, motion. |
 | `components.html` | A self-documenting library of every component pattern, applied to the tokens. Open in browser to scan. |
-| `gallery.html` | Entry point. Embedded previews of all 12 mockups + link to component library. |
+| `gallery.html` | Entry point. Embedded previews of all 16 mockups + link to component library. |
 | `mockups/01-welcome.html` | First-run welcome screen. Pure typography moment. |
-| `mockups/02-home-city-activity.html` | Map + activity bottom sheet + Report CTA. |
+| `mockups/02-home-city-activity.html` | Map + activity bottom sheet + Report CTA. **Retired** — superseded by `13`. |
 | `mockups/03-report-submitted.html` | Confirmation + 4-step status trail + ticket ID. |
 | `mockups/04-my-reports-detail.html` | Before/after photos + metadata + feedback prompt. |
 | `mockups/05-daily-queue-dashboard.html` | Habib's cockpit. Desktop 3-region layout. |
@@ -44,6 +44,10 @@ Two rules govern every component:
 | `mockups/10-verify-otp.html` | Phone verification. Six OTP boxes, resend countdown, recovery card. |
 | `mockups/11-public-landing.html` | Anonymous landing. Hero + live stats + map card + activity grid. |
 | `mockups/12-feed.html` | Signed-in city activity feed. Sticky filter chips + report rows. |
+| `mockups/13-home-city-activity.html` | Citizen hub (current). KPI strip + map card + activity panel. Supersedes `02`. |
+| `mockups/14-report-shell.html` | Five-step report flow shell + the photo step in full detail. |
+| `mockups/15-my-reports.html` | The citizen's own report list. Filter chips + ticket-id pills. |
+| `mockups/16-report-detail-trail.html` | Report detail. Vertical status trail + before/after photo groups. |
 
 ## How to view
 
@@ -68,6 +72,10 @@ design-artifacts/D-Design-System/01-Visual-Design/
     10-verify-otp.html
     11-public-landing.html
     12-feed.html
+    13-home-city-activity.html
+    14-report-shell.html
+    15-my-reports.html
+    16-report-detail-trail.html
 ```
 
 ## Token highlights
@@ -122,7 +130,7 @@ Category accents give each report category one colour for its iconography: stree
 
 ## Coverage rationale
 
-These 12 mockups cover the structural patterns used across the app:
+These 16 mockups cover the structural patterns used across the app:
 
 | Mockup | Patterns defined |
 |---|---|
@@ -138,6 +146,10 @@ These 12 mockups cover the structural patterns used across the app:
 | Verify your phone | Single-digit OTP boxes, named delivery channel, resend countdown, recovery card |
 | Public landing | Anonymous hero, live stats strip, status-coloured map card, trust row, PII-free feed |
 | City activity feed | Signed-in app header, sticky filter chips with counts, "new" badge state |
+| Home / City Activity (v2) | KPI strip of three metric tiles with tabular figures, map card with a word-labelled legend, activity panel of the citizen's own reports |
+| Report flow shell | Numbered five-step rail with connector line, photo cap indicator, photo grid with remove affordance, sticky bottom action bar |
+| My reports | Filter chips with live counts, report row with status + ward + public ticket-id pill + relative time |
+| Report detail & trail | Vertical status trail with per-step icon and timestamp, labelled before/after photo groups, note-edit affordance |
 
 The remaining pages are spec'd well enough that engineering can build them from the spec + tokens without separate mockups. Component patterns are defined in `components.html`.
 

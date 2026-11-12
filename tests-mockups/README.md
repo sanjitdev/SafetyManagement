@@ -6,10 +6,10 @@ This folder holds the **committed PNG baselines** for CityFix's design mockups. 
 
 | Subfolder | Committed? | Purpose |
 |---|---|---|
-| `baselines/` | **Yes** | PNG baselines captured from the 12 design mockups (25 viewport combinations). |
+| `baselines/` | **Yes** | PNG baselines captured from the 16 design mockups (33 viewport combinations). |
 | `artifacts/` | No (.gitignored) | Playwright diff artifacts, HTML report, temp files. |
 
-## The 25 baselines
+## The 33 baselines
 
 Captured at the web-first design canvases. Names map to the mockup HTML files in `design-artifacts/D-Design-System/01-Visual-Design/mockups/`.
 
@@ -31,10 +31,14 @@ Captured at the web-first design canvases. Names map to the mockup HTML files in
 | `01-mockups.spec.ts/10-verify-otp-{1440x900,1024x768}.png` | `mockups/10-verify-otp.html` | 1440 / 1024 | Wave 2 — OTP verification |
 | `01-mockups.spec.ts/11-public-landing-{1440x900,1024x768}.png` | `mockups/11-public-landing.html` | 1440 / 1024 | Wave 2 — public entry |
 | `01-mockups.spec.ts/12-feed-{1440x900,1024x768}.png` | `mockups/12-feed.html` | 1440 / 1024 | Wave 2 — activity feed |
+| `01-mockups.spec.ts/13-home-city-activity-{1440x900,1024x768}.png` | `mockups/13-home-city-activity.html` | 1440 / 1024 | Wave 3 — citizen hub (current) |
+| `01-mockups.spec.ts/14-report-shell-{1440x900,1024x768}.png` | `mockups/14-report-shell.html` | 1440 / 1024 | Wave 3 — report flow shell |
+| `01-mockups.spec.ts/15-my-reports-{1440x900,1024x768}.png` | `mockups/15-my-reports.html` | 1440 / 1024 | Wave 3 — citizen report list |
+| `01-mockups.spec.ts/16-report-detail-trail-{1440x900,1024x768}.png` | `mockups/16-report-detail-trail.html` | 1440 / 1024 | Wave 3 — report detail + status trail |
 
 (The `01-mockups.spec.ts/` subfolder is the spec-file folder. Future spec files (`02-*.spec.ts`, `03-*.spec.ts`) will produce sibling subfolders named after themselves.)
 
-Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4).
+Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4). Mockups 08–16 are captured at large + medium.
 
 ## ⚠️ The baselines are platform-specific — refresh them in CI, not on your machine
 
@@ -87,7 +91,7 @@ gh workflow run regenerate-baselines.yml
 npm run test:report
 ```
 
-`npm test` runs the full Playwright suite (just `tests/01-mockups.spec.ts` today — 25 viewport baselines).
+`npm test` runs the full Playwright suite (just `tests/01-mockups.spec.ts` today — 33 viewport baselines).
 
 On Windows and macOS the suite fails against the CI-generated baselines; that is the platform difference described above, not a regression. CI is the source of truth.
 
