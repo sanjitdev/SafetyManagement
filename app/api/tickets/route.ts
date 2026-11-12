@@ -414,18 +414,21 @@ export async function POST(req: NextRequest) {
     });
     if (original) {
       // The flag's scope fields MUST come from the SAME ticket — the
-      // newly-created one. `requireScope` (lib/auth/guards.ts) demands
-      // an exact match on BOTH wardId and departmentId, and the
-      // dispatcher's dedup queue filters on the same pair. Taking the
-      // ward from the new ticket but the department from the ORIGINAL
-      // ticket's category produced a flag whose scope matched no real
-      // dispatcher: the flagged ticket lives in one ward while the
-      // department came from another ticket's category, so the flag
-      // was listed for nobody and could not be confirmed or dismissed
-      // by anyone who could see it.
+      // newly-created one. `requireScope` (lib/auth/guards.ts) checks
+      // the (wardId, departmentId) pair, and the dispatcher's dedup
+      // queue filters on the same pair. Taking the ward from the new
+      // ticket but the department from the ORIGINAL ticket's category
+      // produced a flag whose scope matched no real dispatcher: the
+      // flagged ticket lives in one ward while the department came
+      // from another ticket's category, so the flag was listed for
+      // nobody and could not be confirmed or dismissed by anyone who
+      // could see it.
       //
       // The flagged ticket is the one the dispatcher has to act on, so
       // its ward and its category's department are the flag's scope.
+      // A category with no department yields `departmentId: null`,
+      // which means "not department-scoped" — visible to every
+      // dispatcher in the ward.
       const flaggedCategory = await db.category.findUnique({
         where: { id: created.categoryId },
       });

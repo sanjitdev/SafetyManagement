@@ -5,7 +5,7 @@ unit: 003-dispatcher-queue/001-auth-and-scope
 phase: construction
 status: complete
 created: 2026-10-11T23:55:00Z
-updated: 2026-10-11T23:55:00Z
+updated: 2026-11-12T00:00:00Z
 ---
 
 # Bolt 003-001 — Dispatcher Auth and Scope (paperwork + tests)
@@ -76,6 +76,63 @@ the evidence.
 Plus 2 `ApiError` shape tests (status +
 code + message + name).
 
+### Correction (2026-11-12) — the null-department rule
+
+`requireScope` originally compared the
+department dimension with **strict equality**
+(`departmentId !== session.departmentId`), so a
+ticket whose category has **no** department
+(`Category.departmentId = null` — e.g. "Other")
+was refused with
+`cross_department_access_denied` for every
+dispatcher, and so was every ticket for a
+dispatcher whose own session carries
+`departmentId: null` (the admin-provisioned
+dispatcher — *"dispatcher: ≥ 1 ward, no crew, no
+department"*).
+
+Six list filters already treated a null
+department as *"not department-scoped → visible to
+everyone in the ward"*. The guard and the
+dedup-flag list were the only two strict-equality
+outliers, which produced the reported bug: the
+dispatcher's own queue **listed** a ticket that
+the detail endpoint then **refused** with 403.
+
+The rule is now symmetric on both sides:
+
+```ts
+if (
+  departmentId !== null &&
+  session.departmentId !== null &&
+  departmentId !== session.departmentId
+) {
+  throw new ApiError(403, 'cross_department_access_denied');
+}
+```
+
+The ward check is untouched and still fires
+first. The change is inherited by all **11**
+`requireScope` call sites.
+
+**Test delta for this correction:**
+
+| File | Change |
+|---|---|
+| `tests/unit/dispatcher-scope.test.ts` | +4 cases: a null-department ticket is allowed; a null-department ticket is allowed but a real different department (`dept_waste`) is still denied; a null-department ticket from another ward is still `cross_ward_access_denied`; a null-department ticket is allowed for a session with no department binding. 20 tests total. |
+| `tests/unit/crew-scope.test.ts` | +3 mirrored cases (the crew shares the code path). 20 tests total. |
+| `tests/unit/dedup-flag-scope.test.ts` | **NEW** — 5 route-level tests driving the real dedup-flag list handler against the dev store. The list filter had no unit coverage before; `tests/unit/dedup-flag.test.ts` covers only the dev-store CRUD. Null-department flag listed · same-department flag listed · other-department flag NOT listed · other-ward flag NOT listed · a citizen session → 403. |
+| `tests/unit/transition-webauthn.test.ts` | The one test that **pinned the bug** (a `cat_other` ticket asserted to be refused) was replaced by two: `cat_other` → 200 and the ticket becomes `routed`; `cat_garbage` (→ `dept_waste`) → 403 `cross_department_access_denied`. 17 tests total. |
+
+### Source delta for this correction
+
+| File | Change |
+|---|---|
+| `lib/auth/guards.ts` | `requireScope` — the department check above, plus a rewritten docblock stating the rule and naming the six agreeing filters. |
+| `app/api/v1/dispatcher/dedup-flags/route.ts` | The list filter now mirrors the guard: a flag whose `departmentId` is `null` stays visible to every dispatcher in the ward. |
+| `app/api/tickets/route.ts` | Comment only — the stale "an exact match on BOTH wardId and departmentId" claim. |
+| `lib/docs/openapi.ts` + `lib/docs/openapi.json` | The "Scope enforcement" section and the `GET /api/tickets/{id}` 403 description now state the rule. The committed JSON artifact was regenerated (`scripts/generate-openapi.ts`) — `tests/unit/docs/openapi.test.ts` asserts it matches the spec module exactly. |
+
 ### Playwright route spec — `tests/09-dispatcher-auth.spec.ts`
 
 7 route-level tests, all of which run today
@@ -121,12 +178,16 @@ DISP-001 acceptance criteria (per
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
 | 1 | `requireScope(dispatcher, 'ward_15', 'dept_streetlight')` throws 403 `cross_ward_access_denied` | ✅ | `dispatcher-scope.test.ts` test #9. |
-| 2 | `requireScope(dispatcher, 'ward_14', 'dept_water')` throws 403 `cross_department_access_denied` | ✅ | `dispatcher-scope.test.ts` test #10. |
+| 2 | `requireScope(dispatcher, 'ward_14', 'dept_waste')` throws 403 `cross_department_access_denied` | ✅ | `dispatcher-scope.test.ts` test #10. |
 | 3 | `requireScope(dispatcher, 'ward_14', 'dept_streetlight')` returns silently | ✅ | `dispatcher-scope.test.ts` test #8. |
 | 4 | `requireRole(citizen, 'dispatcher')` throws 403 `forbidden_role` | ✅ | `dispatcher-scope.test.ts` test #2. |
 | 5 | No session → 401 `not_authenticated` on dispatcher endpoints | ✅ | `09-dispatcher-auth.spec.ts` test #6 (skipped until Bolt 003-002). |
 | 6 | Dispatcher session cookie resolves to dispatcher-scoped session | ✅ | `09-dispatcher-auth.spec.ts` test #4 (skipped until Bolt 003-002). |
 | 7 | Cross-role denial (citizen → dispatcher endpoint) → 403 `forbidden_role` | ✅ | `09-dispatcher-auth.spec.ts` test #5 (skipped until Bolt 003-002). |
+| 8 | **Acceptance 6** — a null-department ticket is in scope for the ward | ✅ | `dispatcher-scope.test.ts` + `crew-scope.test.ts`; live-verified against real Postgres (200) and the dev store (200). |
+| 9 | **Acceptance 7** — a real cross-department ticket is still refused | ✅ | `dispatcher-scope.test.ts`; live-verified (403 `cross_department_access_denied`). |
+| 10 | **Acceptance 8** — the ward check still fires first | ✅ | `dispatcher-scope.test.ts`; live-verified (403 `cross_ward_access_denied`). |
+| 11 | The dedup-flag list agrees with the guard | ✅ | `dedup-flag-scope.test.ts` (5 tests); live-verified — only the null-department flag is listed, and the dispatcher can dismiss it (200). |
 
 ## Verification
 
@@ -175,6 +236,8 @@ pending Bolt 003-002.
 - **Unit brief**: `intents/003-dispatcher-queue/001-auth-and-scope/unit-brief.md`.
 - **Story**: `intents/003-dispatcher-queue/001-auth-and-scope/DISP-001-auth-scope.md`.
 - **Unit test**: `tests/unit/dispatcher-scope.test.ts`.
+- **Mirrored crew suite**: `tests/unit/crew-scope.test.ts`.
+- **Dedup-flag list suite**: `tests/unit/dedup-flag-scope.test.ts`.
 - **Route spec**: `tests/09-dispatcher-auth.spec.ts`.
 - **Guards under test**: `lib/auth/guards.ts` (inherited from Intent 001).
 - **Dev login route**: `app/api/dev/login/route.ts` (inherited; `REDIRECT_BY_ROLE` change is Bolt 003-002's deliverable).

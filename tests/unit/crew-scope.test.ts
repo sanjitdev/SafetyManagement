@@ -149,6 +149,52 @@ describe('requireScope (crew cross-scope denial)', () => {
     }
   });
 
+  it('allows a no-department ticket (the category is not department-scoped)', () => {
+    // Mirrors the dispatcher rule: a category with NO department
+    // produces a ticket that is not department-scoped, so any crew
+    // member in the ward may open it. The crew list already applies
+    // the same rule when it lists tickets.
+    const crew = mkSession({
+      role: 'crew',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    expect(() => requireScope(crew, 'ward_14', null)).not.toThrow();
+  });
+
+  it('allows a no-department ticket but still denies a different department', () => {
+    // The two halves of the rule, side by side: a null ticket
+    // department → allowed; a real, different department → denied.
+    const crew = mkSession({
+      role: 'crew',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    expect(() => requireScope(crew, 'ward_14', null)).not.toThrow();
+    expect(() => requireScope(crew, 'ward_14', 'dept_waste')).toThrowError(ApiError);
+    try {
+      requireScope(crew, 'ward_14', 'dept_waste');
+    } catch (err) {
+      expect((err as ApiError).status).toBe(403);
+      expect((err as ApiError).code).toBe('cross_department_access_denied');
+    }
+  });
+
+  it('still denies a no-department ticket from another ward', () => {
+    // The ward check fires BEFORE the department check, so the
+    // no-department exemption never widens the ward boundary.
+    const crew = mkSession({
+      role: 'crew',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    try {
+      requireScope(crew, 'ward_15', null);
+    } catch (err) {
+      expect((err as ApiError).code).toBe('cross_ward_access_denied');
+    }
+  });
+
   it('checks wardId BEFORE departmentId (ward mismatch wins even if dept also mismatches)', () => {
     // CREW-001 acceptance: a request that scopes to
     // (city_dhaka_north, ward_15, dept_water) fails with

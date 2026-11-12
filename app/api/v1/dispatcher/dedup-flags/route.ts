@@ -52,15 +52,28 @@ export async function GET(req: NextRequest) {
   // filter by ward in code (the dev store's findMany surface
   // does not yet expose a wardId clause). Department filter:
   // a flag's `departmentId` is denormalised from the
-  // category-of-the-flagged-ticket. The dispatcher's session
-  // `departmentId` (if set) is the same dept key.
+  // category-of-the-flagged-ticket. A category with no department
+  // (e.g. "Other") produces a flag that is NOT department-scoped,
+  // so it stays visible to every dispatcher in the ward — the same
+  // rule `requireScope` applies (lib/auth/guards.ts).
   const candidates = await db.dedupFlag.findMany({
     where: { cityId: session!.cityId, status: 'pending' },
     orderBy: { flaggedAt: 'asc' },
   });
   const filtered = candidates
     .filter((f) => !session!.wardId || f.wardId === session!.wardId)
-    .filter((f) => !session!.departmentId || f.departmentId === session!.departmentId)
+    // Department dimension — mirrors `requireScope`: a flag whose
+    // category has NO department (e.g. "Other") is not
+    // department-scoped, so it stays visible to every dispatcher in
+    // the ward. A flag whose department IS set is visible only to a
+    // dispatcher bound to that department (or to a dispatcher with no
+    // department binding at all, which is not department-scoped).
+    .filter(
+      (f) =>
+        !session!.departmentId ||
+        f.departmentId === null ||
+        f.departmentId === session!.departmentId,
+    )
     .slice(0, limit);
 
   const flags = await Promise.all(

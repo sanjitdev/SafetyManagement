@@ -772,6 +772,14 @@ export const openapiSpec: OpenApiObject = {
       'Dispatcher and crew sessions are bound to a `(city, ward, department)` scope.',
       'A request for a ticket outside that scope is refused.',
       '',
+      'A ticket\'s department comes from its **category**, not from the ticket row.',
+      'A category with no department produces a ticket that is *not*',
+      'department-scoped, and a session with no department binding is likewise not',
+      'department-scoped. The department check therefore refuses a request only',
+      'when **both** sides are department-scoped and they differ; otherwise the',
+      'ticket is visible to every dispatcher or crew member in its ward. The ward',
+      'check is unconditional and always fires first.',
+      '',
       '## Rate limiting',
       '',
       'A per-key token bucket allows roughly one request per second, with a burst',
@@ -1492,7 +1500,7 @@ export const openapiPaths: Record<string, PathItem> = {
           },
         }),
         '401': { $ref: '#/components/responses/Unauthorized' },
-        '403': jsonResponse('The ticket belongs to another citizen, or is outside the session’s scope.', {
+        '403': jsonResponse('The ticket belongs to another citizen, or is outside the session’s scope. A ticket whose category has no department is not department-scoped, so it is visible to every dispatcher or crew member in its ward; `cross_department_access_denied` is returned only when both the ticket and the session are department-scoped and the two departments differ.', {
           oneOf: [errorBody('not_owner'), errorBody('cross_ward_access_denied'), errorBody('cross_department_access_denied'), errorBody('cross_city_access_denied')],
         }),
         '404': { $ref: '#/components/responses/NotFound' },

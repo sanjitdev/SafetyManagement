@@ -136,10 +136,16 @@ async function loginAs(
  * The dev store's seed does not contain a `submitted` ticket in the
  * streetlight department, so the dispatcher/crew cases build their
  * own. `cat_streetlight` maps to `dept_streetlight`, which is the
- * department the dispatcher and crew personas are scoped to —
+ * department the dispatcher and crew personas are scoped to.
+ *
  * `requireScope` compares the ticket's department against the
- * session's, so a ticket in `cat_other` (departmentId: null) is
- * correctly REJECTED for them.
+ * session's, but a category with NO department (`cat_other`,
+ * departmentId: null) produces a ticket that is not
+ * department-scoped — every dispatcher in the ward may open it. That
+ * is the rule the dispatcher queue already applies when it lists
+ * tickets. `cat_garbage` maps to `dept_waste`, a real department the
+ * dispatcher is NOT bound to, so it stays the cross-department
+ * denial fixture.
  */
 function createTicket(
   categoryId: string,
@@ -343,13 +349,33 @@ describe('POST /api/tickets/:id/transition — guard ordering', () => {
     expect(body.error).not.toBe('webauthn_assertion_expired');
   });
 
-  it('rejects a dispatcher acting on a ticket outside their department', async () => {
+  it('allows a dispatcher to act on a ticket whose category has no department', async () => {
     await loginAs('dispatcher');
-    // `cat_other` has departmentId: null, which is outside the
-    // dispatcher's `dept_streetlight` scope. The route must reject
-    // it — the department check compares the ticket's category
-    // department against the session's.
-    const otherDeptId = createTicket('cat_other');
+    // `cat_other` has `departmentId: null` — the ticket is NOT
+    // department-scoped, so every dispatcher in the ward may open it.
+    // This is the same rule the dispatcher queue applies when it
+    // LISTS tickets (`if (ticketDepartment && ticketDepartment !==
+    // session.departmentId)`), so the queue and the detail endpoint
+    // agree. Before the guard was aligned with the list filters, the
+    // queue showed this ticket and the detail endpoint refused it
+    // with 403 `cross_department_access_denied`.
+    const noDeptId = createTicket('cat_other');
+
+    const res = await post({ toStatus: 'routed' }, noDeptId);
+    expect(res.status).toBe(200);
+
+    const ticket = devDb.ticket.findUnique({ where: { id: noDeptId } });
+    expect(ticket?.status).toBe('routed');
+  });
+
+  it('still rejects a dispatcher acting on a ticket in a different department', async () => {
+    await loginAs('dispatcher');
+    // `cat_garbage` maps to `dept_waste`, which is NOT the
+    // dispatcher's `dept_streetlight`. A ticket that IS
+    // department-scoped and sits in another department must still be
+    // refused — the null-department case must not have weakened the
+    // real cross-department denial.
+    const otherDeptId = createTicket('cat_garbage');
 
     const res = await post({ toStatus: 'routed' }, otherDeptId);
     expect(res.status).toBe(403);

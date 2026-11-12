@@ -49,6 +49,35 @@ export function requireSameCity(
 /**
  * Dispatcher / crew: throw if the requested (wardId, departmentId) is
  * outside their session scope. Admins bypass this check.
+ *
+ * SCOPE RULE — "null means not department-scoped".
+ *
+ * A ticket's department comes from its CATEGORY (`Category.departmentId`).
+ * A category with no department (e.g. "Other") produces a ticket that is
+ * NOT department-scoped: every dispatcher and crew member in the ticket's
+ * ward may open it. That is exactly what the list filters already do —
+ * `if (ticketDepartment && ticketDepartment !== session.departmentId)` in
+ * the dispatcher queue (`app/api/v1/dispatcher/queue/route.ts`), the crew
+ * list (`app/api/v1/crew/tickets/route.ts`) and the dispatcher map
+ * (`app/api/v1/dispatcher/map/tickets/route.ts`), and the mirror rule in
+ * `lib/dispatcher/assign-crew.ts`. The ward check still applies to those
+ * tickets.
+ *
+ * A session with no `departmentId` is likewise NOT department-scoped — an
+ * admin-provisioned dispatcher carries `departmentId: null` by design
+ * (`resolveScope` in `app/api/v1/admin/cities/[id]/users/route.ts`), and
+ * the list filters skip the department comparison entirely for such a
+ * session.
+ *
+ * So the department comparison denies only when BOTH sides are
+ * department-scoped AND they differ. Anything else passes the department
+ * dimension; the ward dimension is checked first and is unaffected.
+ *
+ * ORDERING IS PART OF THE CONTRACT: the ward check fires BEFORE the
+ * department check, so an out-of-ward request reports
+ * `cross_ward_access_denied` even when the department also differs
+ * (pinned by `tests/unit/dispatcher-scope.test.ts` and
+ * `tests/unit/crew-scope.test.ts`).
  */
 export function requireScope(
   session: SessionContext,
@@ -62,7 +91,18 @@ export function requireScope(
   if (wardId !== session.wardId) {
     throw new ApiError(403, 'cross_ward_access_denied');
   }
-  if (departmentId !== session.departmentId) {
+  // Department dimension. `departmentId` is the TICKET's category
+  // department; `session.departmentId` is the session's binding.
+  //
+  // - ticket has no department  → not department-scoped → allowed
+  // - session has no department → not department-scoped → allowed
+  // - both have one and they match → allowed
+  // - both have one and they differ → denied
+  if (
+    departmentId !== null &&
+    session.departmentId !== null &&
+    departmentId !== session.departmentId
+  ) {
     throw new ApiError(403, 'cross_department_access_denied');
   }
 }

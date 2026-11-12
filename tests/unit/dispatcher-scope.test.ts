@@ -139,6 +139,70 @@ describe('requireScope (dispatcher / crew cross-scope denial)', () => {
     }
   });
 
+  it('allows a no-department ticket (the category is not department-scoped)', () => {
+    // A category with NO department (e.g. "Other") produces a ticket
+    // that is not department-scoped: every dispatcher in the ward may
+    // open it. The dispatcher queue already lists such tickets
+    // (`if (ticketDepartment && ticketDepartment !== session.departmentId)`),
+    // so the guard must agree with the list filter — otherwise the
+    // queue shows a ticket the detail endpoint refuses.
+    const dispatcher = mkSession({
+      role: 'dispatcher',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    expect(() => requireScope(dispatcher, 'ward_14', null)).not.toThrow();
+  });
+
+  it('allows a no-department ticket but still denies a different department', () => {
+    // The two halves of the rule, side by side: a null ticket
+    // department → allowed; a real, different department → denied.
+    const dispatcher = mkSession({
+      role: 'dispatcher',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    expect(() => requireScope(dispatcher, 'ward_14', null)).not.toThrow();
+    expect(() => requireScope(dispatcher, 'ward_14', 'dept_waste')).toThrowError(ApiError);
+    try {
+      requireScope(dispatcher, 'ward_14', 'dept_waste');
+    } catch (err) {
+      expect((err as ApiError).status).toBe(403);
+      expect((err as ApiError).code).toBe('cross_department_access_denied');
+    }
+  });
+
+  it('still denies a no-department ticket from another ward', () => {
+    // The ward check fires BEFORE the department check, so the
+    // no-department exemption never widens the ward boundary.
+    const dispatcher = mkSession({
+      role: 'dispatcher',
+      wardId: 'ward_14',
+      departmentId: 'dept_streetlight',
+    });
+    try {
+      requireScope(dispatcher, 'ward_15', null);
+    } catch (err) {
+      expect((err as ApiError).code).toBe('cross_ward_access_denied');
+    }
+  });
+
+  it('allows a no-department ticket for a session with no department binding', () => {
+    // An admin-provisioned dispatcher carries `departmentId: null` by
+    // design (`resolveScope` in
+    // `app/api/v1/admin/cities/[id]/users/route.ts`) — a dispatcher is
+    // ward-scoped, not department-scoped. Such a session is not
+    // department-scoped either, so it is not restricted by the
+    // department dimension at all; the ward check still applies.
+    const dispatcher = mkSession({
+      role: 'dispatcher',
+      wardId: 'ward_14',
+      departmentId: null,
+    });
+    expect(() => requireScope(dispatcher, 'ward_14', null)).not.toThrow();
+    expect(() => requireScope(dispatcher, 'ward_14', 'dept_streetlight')).not.toThrow();
+  });
+
   it('checks wardId BEFORE departmentId (ward mismatch wins even if dept also mismatches)', () => {
     // DISP-001 Acceptance 2: a request that scopes to
     // (city_dhaka_north, ward_15, dept_water) fails with
