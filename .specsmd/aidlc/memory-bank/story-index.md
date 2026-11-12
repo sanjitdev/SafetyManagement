@@ -289,7 +289,7 @@ on the human mockup-approval gate.
 | 005-chart-primitives-with-data-tables | 002-design-foundation | done | Chart primitives with data tables | `intents/009-ui-redesign/units/002-design-foundation/stories/005-chart-primitives-with-data-tables.md` |
 | 006-cityfix-brand-assets | 002-design-foundation | done | CityFix brand assets | `intents/009-ui-redesign/units/002-design-foundation/stories/006-cityfix-brand-assets.md` |
 | 007-auth-and-public-mockups | 003-auth-and-public-surfaces | done | Auth + public mockups | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/007-auth-and-public-mockups.md` |
-| 008-auth-and-public-page-implementation | 003-auth-and-public-surfaces | ready | Auth + public page implementation | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/008-auth-and-public-page-implementation.md` |
+| 008-auth-and-public-page-implementation | 003-auth-and-public-surfaces | done | Auth + public page implementation | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/008-auth-and-public-page-implementation.md` |
 | 009-citizen-mockups | 004-citizen-surfaces | draft | Citizen mockups | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/009-citizen-mockups.md` |
 | 010-citizen-page-implementation | 004-citizen-surfaces | draft | Citizen page implementation | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/010-citizen-page-implementation.md` |
 | 011-dispatcher-mockups | 005-dispatcher-console | draft | Dispatcher mockups | `intents/009-ui-redesign/units/005-dispatcher-console/stories/011-dispatcher-mockups.md` |

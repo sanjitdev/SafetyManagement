@@ -87,15 +87,16 @@ unchanged.
 - [x] Stories created for all units
 - [x] Bolts planned
 - [x] Human review complete (plan decisions locked)
-- [ ] Wave 2 mockups approved by a human
+- [x] Wave 2 mockups approved by a human
+- [x] Wave 2 page implementation shipped (story 008, 2026-11-11)
 - [ ] Waves 3–6 mockups authored and approved
 
 ## Next Steps
 
-1. Present the five Wave 2 mockups for human approval.
-2. On approval, route to the Construction Agent with Bolt 009-003
-   (`/specsmd-construction-agent --unit="003-auth-and-public-surfaces"
-   --bolt-id="009-003-auth-and-public-surfaces"`).
+1. Author the Wave 3 mockups (Unit 004 — citizen surfaces).
+2. Route each wave to the Construction Agent with its bolt, in order:
+   `009-004-citizen-surfaces`, `009-005-dispatcher-console`,
+   `009-006-crew-field-app`, then the admin wave.
 3. After each bolt, re-run the full gate and record the wave in
    `_progress/00-design-log.md`.
 

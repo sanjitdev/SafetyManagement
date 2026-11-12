@@ -11,10 +11,10 @@ Started: 2026-09-18
 - UX Scenarios: complete (2026-09-18)
 - UX Design: complete (2026-09-18) — 33 of 33 pages spec'd (spec-as-contract)
 - Visual Design: complete (2026-09-18, updated 2026-10-04 web re-skin, **updated 2026-11-02 redesign Wave 1+2**) — tokens + components + **12 hero mockups** (4 Rahim + 1 Habib + 2 Rashid + 5 auth/public); AA-verified token system, Phosphor icon registry, 27 UI primitives, 7 chart primitives, CityFix brand assets
-- Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 25/25 Playwright baselines passing; 1430/1430 unit tests) — **plus UI redesign Waves 0–2 in flight** (Intent 009 `009-ui-redesign`): Wave 0 CI unblock shipped (`45062d1`), Wave 1 design foundation shipped (`b279228`), Wave 2 mockups shipped (awaiting human mockup approval before the page implementation)
+- Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 25/25 Playwright baselines passing; 1430/1430 unit tests) — **plus UI redesign Waves 0–2 in flight** (Intent 009 `009-ui-redesign`): Wave 0 CI unblock shipped (`45062d1`), Wave 1 design foundation shipped (`b279228`), Wave 2 mockups shipped AND the six auth/public pages implemented (2026-11-11, story 008); **dispatcher scope bug fixed 2026-11-12** — `requireScope` compared the department dimension with strict equality, so a ticket whose category has no department (403 `cross_department_access_denied`) was listed in the dispatcher's own queue but refused on open; the rule is now "deny only when both sides are department-scoped and they differ", and the ward check still fires first
 - Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
 - v2 Roadmap: **deck drafted 2026-10-12** (4 buckets: v1.1 follow-ups, multi-city, citizen engagement, internal tooling; see `_progress/v2-roadmap.md`; awaiting human pick of the first intent)
-- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups authored and baselined; Waves 3–6 (citizen, dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
+- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups baselined AND the six pages implemented (2026-11-11, story 008 — the spec verified against BOTH the dev store and real Postgres on 2026-11-12); Waves 3–6 (citizen, dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
 
 ## Log
 
@@ -5814,3 +5814,233 @@ wants 13.** The demo citizens' phones were written `+880199000001`
 digits. Every demo citizen was therefore unable to log in. The phones
 are now `+8801990000001`..`+8801990000006`, and the citizen loop
 asserts the shape so a shortened block cannot ship again.
+
+### 2026-11-11 — UI redesign: Wave 2 page implementation shipped (auth + public surfaces)
+
+Story 008 of Intent 009 landed. The six Wave 2 target pages were
+re-composed to match their approved mockups.
+
+**The pages consumed almost none of the design system.** Before this
+pass, `app/login`, `app/register`, `app/verify-otp`, `app/page.tsx`
+and `app/splash` imported **zero** primitives from `components/ui/`;
+`app/feed` imported exactly one. The 27 UI primitives and 7 chart
+primitives built in Wave 1 (`489bc5f`, `b279228`) were shipped but
+almost nothing used them — the mockups were approved and baselined,
+and then the pages that should match them were never rewritten.
+
+**The change is presentation-only.** Every fetch, query parameter,
+cursor, limit, validation rule, role gate and PII-stripping path is
+byte-identical to the pre-existing implementation. `/feed` still uses
+the shared `AppHeader` through `app/feed/layout.tsx` rather than
+building a second header, so the header's own citizen/staff nav
+gating survives — the citizen-only "আমার রিপোর্ট" route is still not
+exposed to staff. The landing still reads only `categoryName`,
+`wardName`, `note`, `status`, `createdAt` and `photoUrls`; the
+PII stripping itself remains server-side in `serializeTicketForPublic`.
+
+**Two bugs the implementation surfaced.**
+
+*An apostrophe inside a `<style>` CSS comment breaks hydration.* The
+comment `/* The welcome mockup's frame … */` was HTML-escaped
+server-side, so the client render differed from the server's and
+React reported "Text content did not match". The landing page hit the
+same class of bug earlier in the build. The fix is to keep
+apostrophes out of `<style>` blocks entirely — a CSS comment is
+markup, not a comment.
+
+*The first pass left eleven hand-rolled `<button>` elements.* Story 008
+requires the pages to render from `components/ui/` primitives, and the
+password reveal, the two language pills, the resend control, the
+back-confirm dialog pair, the feed filter chip, and the landing chips
+/ reset / load-older were all still raw `<button>` elements with
+inline styles. All eleven now render from `components/ui/Button`.
+
+**The feed's chips are bespoke, and that was deliberate.** The shared
+`FilterChipGroup` primitive renders ink-coloured active chips with no
+count slot; the feed needs primary-blue active chips with live counts,
+so it builds its own. The landing made the same choice for a
+different reason (it wants ink + counts). Two bespoke chip
+implementations is a divergence worth resolving — a
+`FilterChipGroup` that takes `activeTone` and a count slot would
+serve both.
+
+**Two deliberate divergences from the mockups.** The register form
+keeps a confirm-password field (the mockup omits it, but the app
+requires it and dropping it would change behaviour), and the landing
+renders the live `CityActivityMap` rather than the mockup's static
+SVG placeholder.
+
+**Verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+123 files / **2148 passed** · `npm run check:i18n` ok (1091 keys) ·
+`playwright test tests/32-ui-redesign-auth.spec.ts` **18 passed** (new
+file) · `playwright test tests/ --ignore-snapshots` **368 passed**,
+12 failed — all 12 pre-existing, each reproduced by stashing the
+change set and re-running against `HEAD` (`tests/04` 1, `tests/20` 5,
+`tests/27` 6).
+
+**Also fixed along the way.** The `/splash` hydration mismatch was
+caught by `tests/02-live-audit.spec.ts` in both light and dark
+themes. Separately, a corrupted dev webpack cache was making
+`/api/tickets/[id]` return 500 instead of 401; `rm -rf .next/cache`
+and a restart cleared it. That one was not a code defect and would
+not have reproduced in CI.
+
+**Still open.** The five Wave 2 mockup files were edited after their
+baselines were captured in `e32147e`, so the baselines need
+regenerating — through the CI workflow (`f4dc984`), never by hand on
+Windows. The `--color-surface-inverse` dark-theme inversion on the
+login and register story columns is a pre-existing systemic issue: the
+token flips with the theme, so the dark story column renders
+light-on-light in the default dark theme. It is out of scope for a
+minimal-change pass and is tracked separately.
+
+### 2026-11-12 — Wave 2 story spec made backend-agnostic; verified against real Postgres
+
+The project was run in **real mode** (the real local Postgres, not the
+in-memory dev store) and the Wave 2 story spec was re-run against it.
+
+**The spec had assumed the dev store, and only the dev store.**
+`tests/32-ui-redesign-auth.spec.ts` hard-coded dev-store ids —
+`city_dhaka_north`, `cat_streetlight`, `ward_14` — and matched the
+created ticket's id with `/"id":"(tkt_[^"]+)"/`. Against real
+Postgres the ids are cuids, so the create answered **403
+`cross_city_forbidden`** (the route rejects a foreign city id before
+it looks at the ward or the category) and the id match found
+nothing. The spec now discovers `(cityId, categoryId, wardId)` from
+the first row of `GET /api/v1/activity/public` — a session-scoped
+route, so the triple is always in the session's own city — and reads
+the ticket id from the response body.
+
+**One assertion was asserting the wrong contract.** The "all" filter
+chip counts the WHOLE fetched set, not the rows on screen: the feed
+paginates the LIST (`PAGE_SIZE = 20`) while the chips count over
+every ticket. The spec compared the chip against the rendered row
+count, which is only equal while the city holds fewer tickets than
+one page — and the seeded city holds 23. It now asserts the chip
+equals the API's own `total` and is at least the rendered row count.
+
+**A Playwright hang that looked like a product bug.** The login spec
+pins `x-forwarded-for` so its wrong-password attempt gets its own
+lockout counter. Doing that with `route.continue({ headers })` hung
+the request — the fetch in `app/login/page.tsx` never resolved, the
+submit button stayed disabled on "লগ ইন হচ্ছে…", and the error
+summary never rendered. The body was never modified, but the original
+`content-length` was replayed against a rewritten header set.
+Deleting `content-length` before the override lets the transport
+recompute it.
+
+**One dev-server hazard worth writing down.** Two `next dev` servers
+sharing one `.next` directory corrupt each other's route manifest:
+routes answer 404 while still existing on disk, and the webpack cache
+logs `ENOENT` on paths it has already written. It is indistinguishable
+from a code defect — the earlier
+`__webpack_modules__[moduleId] is not a function` 500 was the same
+class. The reliable sequence is: stop every server → `rm -rf .next` →
+start ONE server → warm the routes the spec touches → run. A first
+compile can take ~20s, which exceeds a 30s test timeout if the spec
+navigates to the route while it is compiling.
+
+**Verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+123 files / **2148 passed** · `npm run check:i18n` ok (1091 keys) ·
+`playwright test tests/32-ui-redesign-auth.spec.ts` **18 passed**
+against the dev store AND **18 passed** against real Postgres ·
+`tests/04` + `tests/20` + `tests/27` 12 failed — identical to `HEAD`
+· `tests/01-mockups.spec.ts` 8 failed — identical to `HEAD`.
+
+Both pre-existing sets were reproduced by stashing the seven changed
+source files and re-running against `HEAD` (`10c50a5`).
+
+**A note on counting.** The 12 route failures are the count **in
+dev-store mode**. In real mode the same three specs report 23, because
+they hard-code dev-store ids and dev-only endpoints — a mode artefact
+of those specs, not a regression. The dev-store count is the one
+comparable to `HEAD`.
+
+**No product code changed.** This pass touched the spec and the
+records only; the six surfaces are byte-identical to the 2026-11-11
+state.
+
+
+### 2026-11-12 — The dispatcher could see a report but not open it
+
+**The report.** *"from a dispatcher account I get 403 when opening a
+report."* Reproduced live against the real local Postgres as the
+dispatcher persona `user_dispatcher_habib` (`+8801711000001` /
+`12345678`): the dispatcher's own queue **listed** the ticket and the
+detail endpoint **refused** it.
+
+**Why.** A ticket's department comes from its **category**
+(`Category.departmentId`), never from the ticket row. The seeded
+`other` category has `departmentId = null`. `requireScope`
+(`lib/auth/guards.ts`) compared the department dimension with
+**strict equality** (`departmentId !== session.departmentId`), so
+`null !== 'cmvtghhhr00022f9opbreluii'` → always 403.
+
+**The divergence was the tell.** **Six** list filters already treated a
+null ticket department as *"not department-scoped → visible to everyone
+in the ward"* — the dispatcher queue, the crew list, the dispatcher map,
+`assign-crew`, `list-crew-for-ward`, and the dedup-flag list. The
+guard (**11** call sites) and the dedup-flag list were the only two
+strict-equality outliers. A list that shows what the detail endpoint
+refuses is a scope-filter divergence, not a permissions question.
+
+**The rule.** A ticket is department-scoped **iff** its category has a
+department; a session is department-scoped **iff** it has one. The
+department check denies **only** when both sides are department-scoped
+**and** they differ. The ward check is unchanged and still fires first.
+
+The rule is symmetric on the session side too, and that matters: an
+admin-provisioned **dispatcher** carries `departmentId: null` by
+design — the product model is *"dispatcher: ≥ 1 ward, no crew, no
+department"*. Under the old strict equality such a dispatcher was
+locked out of **every** department-scoped ticket in their own ward.
+One comparison, two bugs.
+
+**Also fixed.** The dedup-flag list used the same strict equality, so a
+null-department flag was invisible to the dispatcher **and** —
+because `confirm`/`dismiss` route through the same guard — impossible
+to action. Visible-but-un-actionable is the worst of both: the city
+saw the queue was not empty and could do nothing about it. The list
+filter now mirrors the guard.
+
+**The test that pinned the bug.** `tests/unit/transition-webauthn.test.ts`
+asserted a `cat_other` ticket was **refused**. That test encoded the
+defect, so it was replaced by the two cases the rule actually implies:
+`cat_other` → 200 and the ticket becomes `routed`; `cat_garbage`
+(→ `dept_waste`) → 403 `cross_department_access_denied`. The
+dedup-flag list filter had **no** unit coverage at all
+(`tests/unit/dedup-flag.test.ts` covers only the dev-store CRUD), so
+`tests/unit/dedup-flag-scope.test.ts` is new — 5 route-level tests
+driving the real handler against the dev store.
+
+**Verification.** `npx tsc --noEmit` clean · `npm run test:unit`
+124 files / **2161 passed** · `tests/01-mockups.spec.ts` 17 passed,
+**8 failed** — identical to `HEAD` · the dispatcher route specs
+(`tests/09`–`tests/12`) 29 passed, **4 failed**, all four visual
+baselines, and the **identical four fail with the change stashed**.
+
+Live matrix, real Postgres:
+
+| Case | Result |
+|---|---|
+| Null-department ticket, own ward | **200** (was 403 `cross_department_access_denied`) |
+| Null-department ticket, other ward | 403 `cross_ward_access_denied` — unchanged |
+| Garbage-department ticket, own ward | 403 `cross_department_access_denied` — unchanged |
+| Dedup-flag list | exactly the one null-department flag; the other-department and other-ward flags excluded |
+| `POST .../dedup-flags/:id/dismiss` | **200 `{"status":"dismissed"}`** — it was visible-but-un-actionable |
+
+The dev store agrees: the null-department (`cat_other`) ticket → 200.
+
+**Left alone, deliberately.** No schema change (`Session.departmentId`
+stays `String?`); no provisioning change (`resolveScope` still nulls a
+dispatcher's department — the symmetric rule accommodates it); no UI
+copy; no mockup baseline regeneration. The *misleading* messages this
+bug produced — the dispatcher detail page's "not found" and the shared
+page's generic "forbidden" — are a separate follow-up.
+
+**A note on the baseline count.** The 4 dispatcher-spec visual
+failures were proved pre-existing rather than assumed: the three source
+files were `git stash`-ed and the suite re-run, and the same four
+failed. The 8 mockup failures are the same set the UI-redesign work
+left behind; per the team rule they are regenerated via the CI
+workflow, never by hand on Windows.

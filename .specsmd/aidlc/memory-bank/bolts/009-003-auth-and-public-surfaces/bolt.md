@@ -3,22 +3,22 @@ id: 009-003-auth-and-public-surfaces
 unit: 003-auth-and-public-surfaces
 intent: 009-ui-redesign
 type: simple-construction-bolt
-status: in-progress
+status: complete
 stories:
   - 007-auth-and-public-mockups
   - 008-auth-and-public-page-implementation
 created: 2026-11-02T18:25:00Z
 started: 2026-11-02T18:25:00Z
-completed:
-updated: 2026-11-02T19:10:00Z
-current_stage: implement
+completed: 2026-11-11T21:50:00Z
+updated: 2026-11-11T21:50:00Z
+current_stage: complete
 stages_completed:
   - name: plan
     completed: 2026-11-02T18:25:00Z
     artifact: implementation-plan.md
   - name: implement
-    completed: 2026-11-02T19:10:00Z
-    artifact: implementation-walkthrough.md
+    completed: 2026-11-11T21:50:00Z
+    artifact: tests/32-ui-redesign-auth.spec.ts
 requires_bolts:
   - 009-002-design-foundation
 enables_bolts:
@@ -47,8 +47,8 @@ tone for the whole redesign.
 
 | Story ID | Title | FR | State |
 |----------|-------|-----|-------|
-| 007-auth-and-public-mockups | Auth + public mockups | FR-3 | shipped |
-| 008-auth-and-public-page-implementation | Auth + public page implementation | FR-3 | pending approval |
+| 007-auth-and-public-mockups | Auth + public mockups | FR-3 | complete |
+| 008-auth-and-public-page-implementation | Auth + public page implementation | FR-3 | complete |
 
 ## Files Created
 
@@ -71,6 +71,47 @@ tone for the whole redesign.
   file table, the tree, the coverage rationale.
 - `tests/01-mockups.spec.ts` — the 5 new entries at
   `['LARGE', 'MEDIUM']`.
+
+## Files Modified — story 008 (page implementation, 2026-11-11)
+
+The six surfaces were re-composed to their approved mockups with
+**presentation-layer changes only**. Every fetch, query parameter,
+cursor, limit, validation rule, role gate and PII-stripping path is
+byte-identical to the pre-existing implementation.
+
+- `app/login/page.tsx` — two-region shell, focusable `role="alert"`
+  error summary linked to `#login-password`, labelled fields, a
+  `components/ui/Button` password reveal.
+- `app/register/page.tsx` — three-stage progress rail, a live 2×2
+  password-requirements grid (icon + word + colour per rule).
+- `app/verify-otp/page.tsx` — six real digit inputs, the delivery
+  channel named, a live `M:SS` resend countdown, a recovery card.
+- `app/splash/page.tsx` — the two-column welcome hero.
+- `app/feed/page.tsx` — the sticky filter row with live counts, the
+  "new" badge + tint, the shared `StatusPill`.
+- `components/PublicLandingExperience.tsx` — the hero, the
+  tabular-numeral stats strip, the live map, the PII-stripped feed.
+- `lib/i18n/keys.ts` — ~95 new keys, every one with `bn` + `en`.
+- `tests/32-ui-redesign-auth.spec.ts` — **new**, 18 tests.
+
+### Two deliberate divergences from the mockups
+
+1. The register form keeps a **confirm-password field**. The mockup
+   omits it, but the existing app requires it and dropping it would
+   change behaviour.
+2. The landing page renders the **live `CityActivityMap`**, not the
+   mockup's static SVG placeholder — the mockup is a static artefact
+   and cannot show real pins.
+
+### The hand-rolled `<button>` sweep
+
+The first pass left eleven hand-rolled `<button>` elements across the
+six surfaces, which story 008 forbids. All eleven now render from
+`components/ui/Button`: the password reveal (`login`), the language
+pills (`verify-otp`, landing), the resend control and the back-confirm
+dialog pair (`verify-otp`), the feed filter chip (`feed`), and the
+landing chips, reset and load-older (`landing`). The grep that proves
+it is `grep -c "<button"` returning zero on all six files.
 
 ## Implementation Notes
 
@@ -129,6 +170,8 @@ as an open decision in the intent's inception log.
 
 ## Verification
 
+Story 007 (mockups):
+
 | Gate | Command | Result |
 |------|---------|--------|
 | Types | `npx tsc --noEmit` | clean |
@@ -137,6 +180,78 @@ as an open decision in the intent's inception log.
 | Visual | `npm run test:mockups` | **25/25** |
 | i18n | `npm run check:i18n` | ok (770 keys) |
 | Build | `npm run build` | green |
+
+Story 008 (page implementation, 2026-11-11):
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | 123 files / **2148 passed** |
+| Route specs | `playwright test tests/ --ignore-snapshots` | **368 passed**, 12 failed (all pre-existing) |
+| Story spec | `playwright test tests/32-ui-redesign-auth.spec.ts` | **18 passed** |
+| i18n | `npm run check:i18n` | ok (1091 keys) |
+
+The twelve failures are pre-existing and unrelated to this bolt. Each
+was reproduced by stashing this change set and re-running against
+`HEAD` (10c50a5): `tests/04` (1 — the ADR-007 admin-WebAuthn gate),
+`tests/20` (5) and `tests/27` (6).
+
+### The story spec passes in BOTH backends (2026-11-12)
+
+`tests/32-ui-redesign-auth.spec.ts` is backend-agnostic. It was
+verified twice — once against the in-memory dev store
+(`CITYFIX_DEV_STORE=1`) and once against the real local Postgres
+(`next dev` with no dev-store flag) — and passed **18/18 in each**.
+
+Three things had to change for that, and each is worth recording
+because the symptom pointed somewhere else:
+
+1. **The id triple is DISCOVERED, not hard-coded.** The spec used to
+   post `city_dhaka_north` / `cat_streetlight` / `ward_14` — dev-store
+   shapes. In real mode the ids are cuids, so the create answered 403
+   `cross_city_forbidden` (the route rejects a foreign city id before
+   it looks at the ward or the category). The spec now reads
+   `(cityId, categoryId, wardId)` off the first row of
+   `GET /api/v1/activity/public`, which is session-scoped, so the
+   triple is always in the session's own city. The dev-store
+   constants remain only as a fallback for an empty feed.
+2. **The ticket id is read from the response body**, not matched with
+   a `/"id":"(tkt_[^"]+)"/` regex — the dev store mints `tkt_*` ids
+   and Postgres mints cuids, and the response nests the ticket under
+   `ticket.id`.
+3. **The "all" chip count asserts the right contract.** It counts the
+   WHOLE fetched set, not the rows on screen — the feed paginates the
+   LIST (`PAGE_SIZE = 20`) while the chips count over every ticket
+   (`app/feed/page.tsx`, the `counts` memo). The old assertion
+   compared the chip against the rendered row count, which is only
+   equal while the city has fewer tickets than one page. It now
+   asserts the chip equals the API's own `total` and is at least the
+   rendered row count.
+
+### A Playwright hang worth recording
+
+The login spec pins `x-forwarded-for` so its wrong-password attempt
+gets its own lockout counter. Doing that with
+`route.continue({ headers })` **hung the request**: the fetch in
+`app/login/page.tsx` never resolved, the submit button stayed
+disabled on "লগ ইন হচ্কে…", and the error summary never rendered. The
+body was never changed, but the original `content-length` was
+replayed against a rewritten header set. Deleting `content-length`
+before the override lets the transport recompute it, and the request
+completes normally.
+
+### One dev-server hazard: two servers, one `.next`
+
+Running a second `next dev` on another port against the SAME `.next`
+directory corrupts the first server's route manifest — routes start
+answering 404 while they still exist on disk, and the webpack cache
+logs `ENOENT` on paths it has already written. This cost several
+debugging cycles and looks exactly like a code defect (the earlier
+`__webpack_modules__[moduleId] is not a function` 500 was the same
+class). The reliable sequence is: stop every server, `rm -rf .next`,
+start ONE server, warm the routes the spec touches with a `curl`
+loop, then run. A first compile can take ~20s, which exceeds a 30s
+test timeout if the spec navigates to the route as it is compiling.
 
 ## Out of Scope
 

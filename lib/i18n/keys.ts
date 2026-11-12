@@ -28,6 +28,33 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'আপনার শহরের আওয়াজ',
     en: 'Voice of your city',
   },
+  /**
+   * The splash headline — mockup 01-welcome.
+   *
+   * The mockup breaks the line after "আপনার শহরের" and closes with a
+   * danda, so the headline is authored with a `<br/>` and rendered
+   * through `dangerouslySetInnerHTML` (the same pattern
+   * `public.hero.headline` uses). `splash.tagline` above is the
+   * un-broken, un-punctuated caption the UX spec calls for; the two
+   * are separate keys because they are separate strings.
+   */
+  'splash.headline': {
+    bn: 'আপনার শহরের<br/>আওয়াজ।',
+    en: 'Your city,<br/>your voice.',
+  },
+  /**
+   * The lede under the splash headline — mockup 01-welcome.
+   *
+   * The public landing's `public.hero.subhead` is the SAME sentence
+   * with one clause swapped ("মানচিত্রে দেখুন" for "অগ্রগতি দেখুন"),
+   * because the landing points at the map and the splash points at the
+   * progress trail. They are separate keys so the two surfaces can
+   * drift apart without one breaking the other.
+   */
+  'splash.lede': {
+    bn: 'ভাঙা রাস্তার আলো, ড্রেনে আটকে থাকা পানি, জমে থাকা আবর্জনা — রিপোর্ট করুন, অগ্রগতি দেখুন, সমাধানের প্রমাণ পান।',
+    en: 'Broken streetlights, blocked drains, piled garbage — report them, watch the progress, and get proof of the fix.',
+  },
   'splash.loading': { bn: 'লোড হচ্ছে…', en: 'Loading…' },
   'splash.permission.location.title': {
     bn: 'আপনার কাছাকাছি রিপোর্ট দেখাতে অবস্থান প্রয়োজন',
@@ -45,35 +72,79 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'welcome.lang.toggle': { bn: 'EN', en: 'বাংলা' },
 
   // v1.1 launch-polish — public landing (anonymous) at `/`
+  /**
+   * The hero eyebrow — the pill that names the service provider.
+   *
+   * The copy moved here from the mockup 11 contract: the eyebrow
+   * reads as a BADGE ("an official Dhaka North service"), not as a
+   * marketing slogan.
+   */
   'public.hero.eyebrow': {
-    bn: 'আপনার শহর, আপনার কণ্ঠস্বর',
-    en: 'Your city, your voice',
+    bn: 'ঢাকা উত্তর সিটি কর্পোরেশনের সেবা',
+    en: 'A service of Dhaka North City Corporation',
   },
+  /**
+   * The hero headline.
+   *
+   * The `<br/>` splits the line the way the mockup does; the word
+   * after it is wrapped in an accent span by the page so "আওয়াজ"
+   * carries the primary colour. The tags are part of the copy
+   * contract — the page renders this string as trusted HTML.
+   */
   'public.hero.headline': {
-    bn: 'শহরের সমস্যা<br/>রিপোর্ট করুন।',
-    en: 'Report what you see.<br/>See it fixed.',
+    bn: 'আপনার শহরের<br/><span class="public-hero-accent">আওয়াজ</span>।',
+    en: 'Your city,<br/><span class="public-hero-accent">your voice</span>.',
   },
   'public.hero.subhead': {
-    bn: 'ভাঙা রাস্তার আলো, ড্রেনে আটকে থাকা পানি, জমে থাকা আবর্জনা — মানচিত্রে দেখুন, রিপোর্ট করুন, সমাধানের প্রমাণ পান।',
-    en: 'Broken streetlights, blocked drains, piled garbage — see them on the map, report them in a minute, and watch the city respond.',
+    bn: 'ভাঙা রাস্তার আলো, ড্রেনে আটকে থাকা পানি, জমে থাকা আবর্জনা। এক মিনিটে জানান, প্রতিটি ধাপ দেখুন, সমাধানের প্রমাণ পান।',
+    en: 'Broken streetlights, blocked drains, piled garbage. Report in a minute, follow every step, get proof of the fix.',
   },
   'public.cta.report': {
     bn: 'রিপোর্ট করুন',
     en: 'Report what you see',
   },
   'public.cta.report.hint': {
-    bn: 'রিপোর্ট করতে ১ মিনিট লাগে — ফোন নম্বর লাগে না',
+    bn: 'রিপোর্ট করতে ১ মিনিট লাগে, ফোন নম্বর লাগে না',
     en: 'Takes 1 minute. No account required to start.',
+  },
+  /**
+   * The secondary hero CTA — "how it works".
+   *
+   * It anchors to the trust strip on this page (the legal pages are
+   * a v1.1 item and are not routes yet), so the link can never 404.
+   */
+  'public.cta.how_it_works': {
+    bn: 'কীভাবে কাজ করে',
+    en: 'How it works',
   },
   'public.cta.register': { bn: 'নিবন্ধন', en: 'Register' },
   'public.cta.login': { bn: 'লগ ইন', en: 'Log in' },
+  /**
+   * The brand lockup's city suffix — "CityFix · ঢাকা উত্তর".
+   *
+   * The middle dot is part of the string so the two spans sit flush
+   * against it with no gap token between them. It is hidden below
+   * 640px, where the top bar has no room for it.
+   */
+  'public.brand.city': { bn: '· ঢাকা উত্তর', en: '· Dhaka North' },
+  /**
+   * The accessible name of the landing's language toggle.
+   *
+   * The visible caption is the TARGET language ("EN" / "বাংলা"), so
+   * the button's own name must say what pressing it DOES, not what
+   * it currently shows.
+   */
+  'public.lang.toggle_label': {
+    bn: 'ভাষা পরিবর্তন করুন',
+    en: 'Change language',
+  },
   'public.feed.title': {
     bn: 'শহরের সর্বশেষ',
     en: 'Latest city activity',
   },
   'public.feed.subtitle': {
-    bn: 'নাম ও ঠিকানা গোপন রাখা হয়।',
-    en: 'Names and addresses are hidden.',
+    bn: 'নাম ও ঠিকানা গোপন রাখা হয়। শুধু সমস্যা ও তার অগ্রগতি দেখা যায়।',
+    en: 'Names and addresses are hidden. Only the problem and its progress are visible.',
   },
   'public.feed.empty': {
     bn: 'এখনো কোনো রিপোর্ট নেই — প্রথমটি আপনি করুন।',
@@ -179,6 +250,17 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: '{value} দিন',
     en: '{value} days',
   },
+  /**
+   * The accessible name of the stats region under the hero.
+   *
+   * The region has no visible heading, so the name is what tells a
+   * screen-reader user what the three figures are before they read
+   * them.
+   */
+  'public.stats.label': {
+    bn: 'এই মাসের শহরের পরিসংখ্যান',
+    en: 'City statistics for this month',
+  },
 
   // --- Public landing: trust cards (mockup 11-public-landing) ---
   'public.trust.government.title': {
@@ -202,7 +284,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'বাংলা · English',
   },
   'public.trust.bilingual.desc': {
-    bn: 'দুই ভাষাতেই পুরো সেবা।',
+    bn: 'দুই ভাষাতেই পূর্ণ সেবা।',
     en: 'The full service in both languages.',
   },
 
@@ -211,6 +293,17 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'public.filter.new': { bn: 'নতুন', en: 'New' },
   'public.filter.active': { bn: 'চলমান', en: 'Active' },
   'public.filter.resolved': { bn: 'সমাধান', en: 'Resolved' },
+  /**
+   * The accessible name of the status filter group.
+   *
+   * The group carries `role="group"`, so it needs a name that says
+   * WHAT it filters — the feed's own title would point at the wrong
+   * thing ("latest city activity" is the list, not the filter).
+   */
+  'public.filter.label': {
+    bn: 'অবস্থা দিয়ে ছাঁকুন',
+    en: 'Filter by status',
+  },
 
   // --- Public landing: location (ward) filter ---
   'public.location.label': { bn: 'এলাকা', en: 'Location' },
@@ -237,6 +330,17 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'public.map.legend.new': { bn: 'নতুন', en: 'New' },
   'public.map.legend.active': { bn: 'চলমান', en: 'Active' },
   'public.map.legend.resolved': { bn: 'সমাধান', en: 'Resolved' },
+  /**
+   * The accessible name of the map legend.
+   *
+   * The legend is a set of coloured dots; without a name a screen
+   * reader reads three bare words with no indication that they
+   * explain the map behind them.
+   */
+  'public.map.legend.label': {
+    bn: 'মানচিত্রের রংকোড',
+    en: 'Map colour key',
+  },
 
   // --- Public landing: footer (mockup 11-public-landing) ---
   'public.footer.note': {
@@ -257,10 +361,27 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'রিপোর্ট করা শুরু করতে আপনার পরিচয় যাচাই করুন।',
     en: 'Verify your identity to start reporting.',
   },
+  /**
+   * The brand lockup's city suffix — "CityFix · ঢাকা উত্তর".
+   *
+   * It carries the middle dot as part of the string so the two spans
+   * sit flush against it with no gap token between them.
+   */
+  'register.brand.city': { bn: '· ঢাকা উত্তর', en: '· Dhaka North' },
   'register.field.phone.label': { bn: 'ফোন নম্বর', en: 'Phone number' },
   'register.field.phone.placeholder': { bn: '01XXX-XXXXXX', en: '01XXX-XXXXXX' },
+  /**
+   * The hint under the phone input (mockup 09).
+   *
+   * It carries the reassurance that the OTP lands on THIS number —
+   * the reason the field exists. Rendered with a phone glyph beside it.
+   */
+  'register.field.phone.helper': {
+    bn: 'এই নম্বরেই যাচাই কোড আসবে।',
+    en: 'The verification code will come to this number.',
+  },
   'register.field.nid.label': {
-    bn: 'জাতীয় পরিচয়পত্র',
+    bn: 'জাতীয় পরিচয়পত্র (NID)',
     en: 'National ID (NID)',
   },
   'register.field.nid.helper': {
@@ -268,15 +389,51 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: '10 or 17 digits',
   },
   'register.field.name.label': { bn: 'পুরো নাম', en: 'Full name' },
+  /**
+   * The hint under the name input (mockup 09).
+   *
+   * It states the privacy promise the citizen actually cares about —
+   * the name is used for routing, not published.
+   */
   'register.field.name.helper': {
-    bn: 'আপনার এনআইডি অনুযায়ী',
-    en: 'As shown on your NID',
+    bn: 'শুধুমাত্র ওয়ার্ড ও কাজের জন্য ব্যবহৃত হবে — প্রকাশ্যায় দেখা যাবে না।',
+    en: 'Used only for ward and work routing — never shown publicly.',
   },
   'register.field.password.label': { bn: 'পাসওয়ার্ড', en: 'Password' },
   'register.field.password.helper': {
     bn: 'কমপক্ষে ৮ অক্ষর, একটি সংখ্যাসহ',
     en: 'Minimum 8 characters, with at least one number',
   },
+  /**
+   * The accessible name of the show/hide-password adornment.
+   *
+   * It names the CONTROL ("show password"), not the current state, so
+   * the label stays stable as the toggle flips.
+   */
+  'register.field.password.show_label': {
+    bn: 'পাসওয়ার্ড দেখান',
+    en: 'Show password',
+  },
+  'register.field.password.hide_label': {
+    bn: 'পাসওয়ার্ড লুকান',
+    en: 'Hide password',
+  },
+  /**
+   * The four live password-requirement rows (mockup 09).
+   *
+   * Each row carries an ICON as well as a word, so the met / unmet
+   * state is never colour-alone.
+   */
+  'register.password.rule.length': {
+    bn: 'কমপক্ষে ৮ অক্ষর',
+    en: 'At least 8 characters',
+  },
+  'register.password.rule.number': { bn: 'একটি সংখ্যা', en: 'A number' },
+  'register.password.rule.uppercase': {
+    bn: 'একটি বড় অক্ষর',
+    en: 'A capital letter',
+  },
+  'register.password.rule.symbol': { bn: 'একটি চিহ্ন', en: 'A symbol' },
   'register.field.confirm.label': {
     bn: 'পাসওয়ার্ড নিশ্চিত করুন',
     en: 'Confirm password',
@@ -306,7 +463,10 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'সংযোগ ব্যর্থ — আবার চেষ্টা করুন।',
     en: 'Connection failed — try again.',
   },
-  'register.cta.submit': { bn: 'এগিয়ে যান', en: 'Continue' },
+  'register.cta.submit': {
+    bn: 'পরবর্তী ধাপ — ফোন যাচাই',
+    en: 'Next step — verify phone',
+  },
   'register.cta.submitting': { bn: 'পাঠানো হচ্ছে…', en: 'Sending…' },
   'register.cta.show': { bn: 'দেখান', en: 'Show' },
   'register.cta.hide': { bn: 'লুকান', en: 'Hide' },
@@ -314,6 +474,61 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'ইতিমধ্যে অ্যাকাউন্ট আছে? লগ ইন করুন',
     en: 'Already have an account? Log in',
   },
+  /**
+   * The consent row (mockup 09).
+   *
+   * It is split into three parts so the TERMS link can carry its own
+   * accent colour and weight without the rest of the sentence
+   * inheriting it. Rendered as: {lead} {terms} {tail}.
+   */
+  'register.consent.lead': { bn: 'আমি', en: 'I have read and accept the' },
+  'register.consent.terms': { bn: 'শর্তাবলী', en: 'Terms' },
+  'register.consent.tail': {
+    bn: 'পড়েছি এবং সম্মতি দিচ্ছি। আমার নাম ও ঠিকানা প্রকাশ্যায় দেখানো হবে না।',
+    en: 'and agree. My name and address will not be shown publicly.',
+  },
+
+  /**
+   * The three-stage signup funnel rail (mockup 09).
+   *
+   * This is a VISUAL progress indicator, not a control: the stage
+   * numbers are static text and the rail carries no interaction.
+   */
+  'register.steps.label': { bn: 'নিবন্ধনের ধাপ', en: 'Registration steps' },
+  'register.steps.1.label': { bn: 'অ্যাকাউন্ট', en: 'Account' },
+  'register.steps.2.label': { bn: 'ফোন যাচাই', en: 'Phone check' },
+  'register.steps.3.label': { bn: 'শুরু', en: 'Start' },
+
+  /**
+   * The story column (mockup 09) — the dark right-hand region.
+   */
+  'register.story.eyebrow': { bn: '৩ ধাপে শুরু', en: 'Start in 3 steps' },
+  'register.story.title': {
+    bn: 'একবার নিবন্ধন,\nসারা জীবন ব্যবহার।',
+    en: 'Register once,\nuse it for life.',
+  },
+  'register.story.subtitle': {
+    bn: 'আপনার একটি অ্যাকাউন্ট — সব রিপোর্ট, সব আপডেট, এক জায়গায়।',
+    en: 'One account — every report, every update, all in one place.',
+  },
+  'register.story.benefit1.title': { bn: 'নিরাপদ লগইন', en: 'Secure login' },
+  'register.story.benefit1.desc': {
+    bn: 'পাসওয়ার্ড কখনো সার্ভারে সংরক্ষিত হয় না।',
+    en: 'Your password is never stored on the server.',
+  },
+  'register.story.benefit2.title': { bn: 'গোপনীয়তা', en: 'Privacy' },
+  'register.story.benefit2.desc': {
+    bn: 'নাম ও ঠিকানা প্রকাশ্যে দেখানো হয় না।',
+    en: 'Your name and address are never shown publicly.',
+  },
+  'register.story.benefit3.title': { bn: 'আপডেটের খবর', en: 'Updates' },
+  'register.story.benefit3.desc': {
+    bn: 'সমাধান হলে সাথে সাথে জানানো হবে।',
+    en: 'You will know the moment it is resolved.',
+  },
+  'register.story.trust1': { bn: 'সরকার পরিচালিত', en: 'Government-run' },
+  'register.story.trust2': { bn: 'তথ্য সুরক্ষিত', en: 'Data protected' },
+  'register.story.trust3': { bn: 'বাংলা · English', en: 'বাংলা · English' },
   'register.back': { bn: '← ফিরে যান', en: '← Back' },
   'home.tagline': {
     bn: 'আপনার শহর, আপনার কণ্ঠস্বর',
@@ -907,12 +1122,144 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'verify.back.leave': { bn: 'ছেড়ে যান', en: 'Leave' },
   'verify.back': { bn: '← ফিরে যান', en: '← Back' },
 
+  /**
+   * WO-001 1.4 Verification (OTP) — the mockup-10 copy.
+   *
+   * A SECOND key family alongside `verify.*`, because the two describe
+   * different things: `verify.*` carries the FUNCTION copy (the
+   * subtitle that interpolates the masked number, the countdown, the
+   * error mapping), while `otp.*` carries the COMPOSITION copy of the
+   * approved visual contract (mockup 10) — the top bar, the masked
+   * number row, the delivery confirmation, the recovery help card and
+   * the anti-fraud footnote.
+   *
+   * Both are Bangla-first: the `bn` value is the canonical string and
+   * the `en` value is the secondary rendering.
+   */
+  'otp.title': {
+    bn: 'আপনার ফোন যাচাই করুন',
+    en: 'Verify your phone',
+  },
+  'otp.subtitle': {
+    bn: 'আমরা ৬ সংখ্যার যাচাই কোড পাঠিয়েছি। কোডটি লিখে সম্পন্ন করুন।',
+    en: 'We sent you a 6-digit verification code. Enter it to finish.',
+  },
+  'otp.back_aria': {
+    bn: 'ফিরে যান',
+    en: 'Go back',
+  },
+  'otp.lang_aria': {
+    bn: 'ভাষা পরিবর্তন করুন',
+    en: 'Change language',
+  },
+  'otp.change_number': {
+    bn: 'পরিবর্তন করুন',
+    en: 'Change',
+  },
+  'otp.delivery.text': {
+    bn: 'কোড পাঠানো হয়েছে, {channel} দিয়ে। সাধারণত ৩০ সেকেন্ডের মধ্যে পৌঁছে যায়।',
+    en: 'The code was sent by {channel}. It usually arrives within 30 seconds.',
+  },
+  'otp.delivery.channel': {
+    bn: 'এসএমএস',
+    en: 'SMS',
+  },
+  'otp.group_aria': {
+    bn: '৬ সংখ্যার যাচাই কোড',
+    en: '6-digit verification code',
+  },
+  'otp.digit_aria': {
+    bn: 'কোডের {position} নম্বর',
+    en: 'Code digit {position}',
+  },
+  'otp.error.wrong_code': {
+    bn: 'কোড মিলছে না। আবার চেষ্টা করুন।',
+    en: "Code didn't match. Please try again.",
+  },
+  'otp.error.expired': {
+    bn: 'কোডের মেয়াদ শেষ হয়েছে। নতুন কোড পাঠান।',
+    en: 'The code expired. Send a new one.',
+  },
+  'otp.error.network': {
+    bn: 'সংযোগ ব্যর্থ — আবার চেষ্টা করুন।',
+    en: 'Connection failed — please try again.',
+  },
+  'otp.cta.submit': {
+    bn: 'যাচাই করুন',
+    en: 'Verify',
+  },
+  'otp.cta.submitting': {
+    bn: 'যাচাই হচ্ছে…',
+    en: 'Verifying…',
+  },
+  'otp.resend.prefix': {
+    bn: 'আবার পাঠাতে পারবেন',
+    en: 'You can resend in',
+  },
+  'otp.resend.suffix': {
+    bn: 'পরে',
+    en: 'seconds',
+  },
+  'otp.resend.action': {
+    bn: 'এখনই পাঠান',
+    en: 'Send now',
+  },
+  'otp.resend.sending': {
+    bn: 'পাঠানো হচ্ছে…',
+    en: 'Sending…',
+  },
+  'otp.help.title': {
+    bn: 'কোড আসছে না?',
+    en: "Code didn't arrive?",
+  },
+  'otp.help.item1': {
+    bn: 'মোবাইলের {highlight} ফোল্ডার দেখুন।',
+    en: "Check your phone's {highlight} folder.",
+  },
+  'otp.help.item1_highlight': {
+    bn: 'স্প্যাম / অস্থায়ী বার্তা',
+    en: 'spam / temporary messages',
+  },
+  'otp.help.item2': {
+    bn: 'সংযোগ আছে কি না যাচাই করুন এবং ফোন {highlight}।',
+    en: 'Check your connection and {highlight}.',
+  },
+  'otp.help.item2_highlight': {
+    bn: 'একবার লক করে খুলুন',
+    en: 'lock and unlock it once',
+  },
+  'otp.help.item3': {
+    bn: 'তবুও না পেলে {highlight} জানান: ০৯৮৯৭৭০১০০০।',
+    en: 'If you still do not get it, tell the {highlight}: 0989770100.',
+  },
+  'otp.help.item3_highlight': {
+    bn: 'হেল্পলাইনে',
+    en: 'hotline',
+  },
+  'otp.footnote': {
+    bn: 'CityFix কখনো আপনার OTP কোড চাইবে না। কোড কেউ চাইলে বলবেন না, এটি প্রতারণা।',
+    en: 'CityFix will never ask for your OTP. If anyone asks for the code, do not share it — it is a scam.',
+  },
+
   // WO-001 1.5 Login
   'login.title': { bn: 'লগ ইন করুন', en: 'Log in' },
-  'login.subtitle': { bn: 'স্বাগতম।', en: 'Welcome back.' },
+  'login.subtitle': {
+    bn: 'আপনার রিপোর্টগুলো দেখতে ও নতুন সমস্যা জানাতে সাইন ইন করুন।',
+    en: 'Sign in to see your reports and report new problems.',
+  },
   'login.field.phone.label': { bn: 'ফোন নম্বর', en: 'Phone number' },
   'login.field.phone.placeholder': { bn: '01XXX-XXXXXX', en: '01XXX-XXXXXX' },
   'login.field.password.label': { bn: 'পাসওয়ার্ড', en: 'Password' },
+  /**
+   * The hint under the phone input (mockup 08).
+   *
+   * It reminds the citizen which number the account was opened with —
+   * the reason the field is asked for at all.
+   */
+  'login.field.phone.hint': {
+    bn: 'যে নম্বরে নিবন্ধন করেছিলেন',
+    en: 'The number you registered with',
+  },
   'login.error.wrong': {
     bn: 'ফোন নম্বর বা পাসওয়ার্ড ভুল',
     en: 'Wrong phone or password',
@@ -950,6 +1297,156 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'New here? Register',
   },
   'login.back': { bn: '← ফিরে যান', en: '← Back' },
+
+  // --- WO-001 1.5 Login — mockup 08 (two-region login shell) ---
+  /**
+   * The brand lockup's city suffix — "CityFix · ঢাকা উত্তর".
+   *
+   * It shares the value with `register.brand.city`: the two auth
+   * pages are siblings and must read as the same product.
+   */
+  'login.brand.city': { bn: '· ঢাকা উত্তর', en: '· Dhaka North' },
+
+  /**
+   * The ERROR SUMMARY title (mockup 08).
+   *
+   * The summary is the focusable block that names the failure and
+   * links to the field it belongs to, so it needs a headline of its
+   * own — the field-level error below the input cannot carry it.
+   */
+  'login.alert.title': {
+    bn: 'সাইন ইন করা যায়নি',
+    en: 'Could not sign in',
+  },
+  /**
+   * The error summary's body for wrong credentials.
+   *
+   * Deliberately vague about WHICH field was wrong — the same rule
+   * the field-level `login.error.wrong` follows, so the summary and
+   * the inline error never disagree about what is known.
+   */
+  'login.alert.wrong': {
+    bn: 'ফোন নম্বর বা পাসওয়ার্ড সঠিক নয়।',
+    en: 'The phone number or password is not correct.',
+  },
+  /**
+   * The error summary's link back to the offending field.
+   *
+   * It is a real in-page anchor, so a keyboard or screen-reader user
+   * can jump straight to the password input instead of hunting for it.
+   */
+  'login.alert.link': {
+    bn: 'পাসওয়ার্ড ঘরে যান',
+    en: 'Go to the password field',
+  },
+
+  /**
+   * The reassurance beside the help link: your data stays protected.
+   */
+  'login.help.note': {
+    bn: 'আপনার তথ্য সুরক্ষিত থাকে',
+    en: 'Your data stays protected',
+  },
+  /**
+   * The password-recovery link.
+   *
+   * It points at the public landing, which is where the city hotline
+   * is published — that is the v1 recovery path, since password reset
+   * ships with WO-004.
+   */
+  'login.help.link': {
+    bn: 'পাসওয়ার্ড ভুলবেন? সহায়তা নিন',
+    en: 'Forgot your password? Get help',
+  },
+
+  /**
+   * The footer line that splits the question from the action.
+   *
+   * The two halves are separate keys so the action can carry its own
+   * emphasis (and its own colour) while the question stays quiet.
+   */
+  'login.footer.new_here': {
+    bn: 'নতুন এখানে?',
+    en: 'New here?',
+  },
+  'login.footer.register': {
+    bn: 'নিবন্ধন করুন',
+    en: 'Register',
+  },
+  /**
+   * The consent line under the footer link.
+   */
+  'login.legal': {
+    bn: 'সাইন ইন করে আপনি CityFix-এর শর্তাবলী ও গোপনীয়তা নীতিতে সম্মতি দিচ্ছেন।',
+    en: 'By signing in you agree to the CityFix terms and privacy policy.',
+  },
+
+  // --- Login story column (mockup 08) ---
+  'login.story.eyebrow': {
+    bn: 'ঢাকা উত্তর সিটি কর্পোরেশন',
+    en: 'Dhaka North City Corporation',
+  },
+  /**
+   * The story headline, in two lines.
+   *
+   * The line break is part of the design, so the two halves are
+   * separate keys and the page renders them with a `<br />`.
+   */
+  'login.story.title_line1': {
+    bn: 'আপনার শহরের সমস্যা —',
+    en: 'Your city’s problems —',
+  },
+  'login.story.title_line2': {
+    bn: 'আমাদের কাজ।',
+    en: 'our job.',
+  },
+  'login.story.subtitle': {
+    bn: 'একটি সমস্যা জানান, প্রতিটি ধাপ দেখুন, আর সমাধানের প্রমাণ পান। আপনার নাম গোপন থাকে — সবসময়।',
+    en: 'Report a problem, follow every step, and get proof it was fixed. Your name stays private — always.',
+  },
+  'login.story.benefit1.title': {
+    bn: '১ মিনিটে রিপোর্ট',
+    en: 'Report in 1 minute',
+  },
+  'login.story.benefit1.desc': {
+    bn: 'ছবি তুলে দিন — বাকিটা আমরা সামলাব।',
+    en: 'Take a photo — we will handle the rest.',
+  },
+  'login.story.benefit2.title': {
+    bn: 'অগ্রগতি দেখুন',
+    en: 'Watch the progress',
+  },
+  'login.story.benefit2.desc': {
+    bn: 'কোন বিভাগে আছে, কত দিন লাগবে — সব খোলামেলা।',
+    en: 'Which department, how long — all in the open.',
+  },
+  'login.story.benefit3.title': {
+    bn: 'সমাধানের প্রমাণ',
+    en: 'Proof of the fix',
+  },
+  'login.story.benefit3.desc': {
+    bn: 'আগে ও পরের ছবি — মেরামত হয়েছে কি না।',
+    en: 'Before-and-after photos — did it actually get fixed.',
+  },
+  /**
+   * The trust strip under the story.
+   *
+   * The two that name a property of the service reuse the PUBLIC
+   * landing's trust titles, so the promise made on the marketing
+   * surface is the same promise made here, word for word.
+   */
+  'login.story.trust.government': {
+    bn: 'সরকার পরিচালিত',
+    en: 'Government run',
+  },
+  'login.story.trust.privacy': {
+    bn: 'তথ্য সুরক্ষিত',
+    en: 'Privacy protected',
+  },
+  'login.story.trust.bilingual': {
+    bn: 'বাংলা · English',
+    en: 'বাংলা · English',
+  },
 
   // WO-001 1.6 Home / City Activity (and 1.13 feed)
   'home.brand.separator': { bn: '·', en: '·' },
@@ -1025,6 +1522,38 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'feed.filter.resolved_today': {
     bn: 'আজ সমাধান',
     en: 'Resolved today',
+  },
+  /**
+   * The accessible name for the sticky filter-chip row.
+   *
+   * The chips behave as a toolbar-like group, so the ROW needs a
+   * name a screen reader can announce before the individual chips
+   * are read.
+   */
+  'feed.filter.group_label': {
+    bn: 'কার্যকলাপ ফিল্টার',
+    en: 'Activity filters',
+  },
+  /**
+   * The ward pill's leading label.
+   *
+   * The seeded ward names already carry the word ("ওয়ার্ড ১৪ ·
+   * মিরপুর"), so this prefix is only used when a ticket arrives
+   * with a bare ward identifier and no display name.
+   */
+  'feed.ward.label': { bn: 'ওয়ার্ড', en: 'Ward' },
+  /**
+   * The feed subtitle (mockup 12).
+   *
+   * Distinct from `feed.subtitle`: the mockup's line spells out
+   * the two things a citizen cares about on THIS surface — what
+   * happened in the last 24 hours, and that names and addresses
+   * are withheld. The PII half of that sentence is a product
+   * promise, so it is part of the copy rather than a footnote.
+   */
+  'feed.subtitle.24h': {
+    bn: 'গত ২৪ ঘণ্টায় আপনার শহরে হয়েছে যা — নাম ও ঠিকানা গোপন রাখা হয়।',
+    en: 'What happened in your city over the last 24 hours — names and addresses are kept private.',
   },
   'feed.empty.title': {
     bn: 'কোনো রিপোর্ট নেই',

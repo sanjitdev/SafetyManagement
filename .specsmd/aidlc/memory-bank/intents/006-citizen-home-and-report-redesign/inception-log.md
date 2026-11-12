@@ -1,8 +1,8 @@
 ---
 intent: 006-citizen-home-and-report-redesign
 created: 2026-10-13T18:00:00Z
-completed: null
-status: in-progress
+completed: 2026-10-13T18:00:00Z
+status: complete
 ---
 
 # Inception Log: citizen-home-and-report-redesign

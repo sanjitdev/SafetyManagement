@@ -1,9 +1,9 @@
 ---
 unit: 003-auth-and-public-surfaces
 intent: 009-ui-redesign
-status: in-progress
+status: complete
 created: 2026-11-02T18:25:00Z
-updated: 2026-11-02T19:10:00Z
+updated: 2026-11-11T21:50:00Z
 ---
 
 # Unit 003 — Auth + Public Surfaces (unit-brief)
@@ -124,8 +124,10 @@ check:i18n` green · `npm run build` green.
 
 ## Status
 
-- **Mockups:** shipped (5 mockups, gallery wiring, 10 baselines).
-- **Page implementation:** pending.
+- **Mockups:** complete (5 mockups, gallery wiring, 10 baselines).
+- **Page implementation:** complete (2026-11-11) — the six routes
+  re-composed, `tests/32-ui-redesign-auth.spec.ts` shipped with 18
+  passing tests.
 
 ## Notes
 

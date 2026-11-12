@@ -1,5 +1,218 @@
 # Maintenance Log
 
+## 2026-11-12T15:00:00Z - Dispatcher 403 on opening a report: the null-department scope rule
+
+**Triggered by**: user report — *"from a dispatcher account I get 403 when opening a report."*
+
+**Reason**: the dispatcher's own queue **listed** a ticket that the detail endpoint then **refused** with `403 cross_department_access_denied`. Reproduced live against the real local Postgres as the dispatcher persona `user_dispatcher_habib` (`+8801711000001` / `12345678`): 3 `other`-category tickets → 403, 2 `streetlight` tickets → 200.
+
+### Root cause
+
+A ticket's department comes from its **category** (`Category.departmentId`), never from the ticket row. The seeded `other` category has `departmentId = null`. `requireScope` (`lib/auth/guards.ts`) compared the department dimension with **strict equality** (`departmentId !== session.departmentId`), so `null !== 'cmvtghhhr00022f9opbreluii'` → always 403.
+
+### The divergence
+
+**Six** list filters already treated a null ticket department as *"not department-scoped → visible to everyone in the ward"*:
+
+| File | Rule |
+|---|---|
+| `app/api/v1/dispatcher/queue/route.ts` | `if (ticketDepartment && ticketDepartment !== session.departmentId) return false;` |
+| `app/api/v1/crew/tickets/route.ts` | identical |
+| `app/api/v1/dispatcher/map/tickets/route.ts` | identical |
+| `lib/dispatcher/assign-crew.ts` | `if (ticketDepartment && crew.departmentId && crew.departmentId !== ticketDepartment)` |
+| `lib/dispatcher/list-crew-for-ward.ts` | filters the **crew's** dept, not the ticket's |
+| `app/api/v1/dispatcher/dedup-flags/route.ts` | **outlier** — strict equality → a null-dept flag was hidden |
+
+The guard (**11** call sites) and the dedup-flag list were the only two places using strict equality. Hence the show-then-403 divergence.
+
+### The rule
+
+> A ticket is department-scoped **iff** its category has a department. A session is department-scoped **iff** it has a department. The department check denies **only** when both sides are department-scoped **and** they differ. The ward check is unchanged and still fires first.
+
+The rule is **symmetric on the session side** too, which closes a second, larger instance of the same bug: `resolveScope` (`app/api/v1/admin/cities/[id]/users/route.ts`) deliberately gives an admin-provisioned **dispatcher** `departmentId: null` — the product model is *"dispatcher: ≥ 1 ward, no crew, no department"*. Under the old strict equality such a dispatcher was locked out of **every** department-scoped ticket in their own ward.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `lib/auth/guards.ts` | `requireScope` — the department check now denies only when both sides are department-scoped and differ; the docblock states the rule and names the six agreeing filters. **All 11 call sites inherit the fix.** |
+| `app/api/v1/dispatcher/dedup-flags/route.ts` | The list filter mirrors the guard — a flag whose `departmentId` is `null` stays visible to every dispatcher in the ward. |
+| `app/api/tickets/route.ts` | Comment only — the stale "an exact match on BOTH wardId and departmentId" claim. |
+| `lib/docs/openapi.ts` + `lib/docs/openapi.json` | The "Scope enforcement" section and the `GET /api/tickets/{id}` 403 description now state the rule. The JSON artifact was regenerated (`scripts/generate-openapi.ts`) — `tests/unit/docs/openapi.test.ts` asserts it matches the spec module exactly. |
+
+### Test delta
+
+| File | Change |
+|---|---|
+| `tests/unit/dispatcher-scope.test.ts` | +4 cases → 20 tests |
+| `tests/unit/crew-scope.test.ts` | +3 mirrored cases → 20 tests |
+| `tests/unit/dedup-flag-scope.test.ts` | **NEW** — 5 route-level tests driving the real dedup-flag list handler against the dev store. The list filter had **no** unit coverage before (`tests/unit/dedup-flag.test.ts` covers only the dev-store CRUD). |
+| `tests/unit/transition-webauthn.test.ts` | The one test that **pinned the bug** (a `cat_other` ticket asserted to be refused) was replaced by two: `cat_other` → 200 and the ticket becomes `routed`; `cat_garbage` (→ `dept_waste`) → 403 `cross_department_access_denied`. → 17 tests |
+
+### Verification
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `tsc --noEmit` | clean |
+| Unit | `vitest run` | 124 files / **2161 passed** |
+| Mockups | `playwright test tests/01-mockups.spec.ts` | 17 passed, **8 failed** — identical to `HEAD` (pre-existing; baselines are regenerated via CI, never by hand on Windows) |
+| Dispatcher route specs | `playwright test tests/09 tests/10 tests/11 tests/12` | 29 passed, **4 failed** — all four are visual baselines, and the **same four fail with the change stashed** |
+
+**Live matrix, real Postgres** (dispatcher scoped to `ward_14` + streetlight):
+
+| Case | Result |
+|---|---|
+| Null-department ticket, own ward (`other` → `null`) | **200** — was 403 `cross_department_access_denied` |
+| Null-department ticket, **other** ward | 403 `cross_ward_access_denied` — unchanged |
+| Garbage-department ticket, own ward (→ `dept_waste`) | 403 `cross_department_access_denied` — unchanged |
+| Dedup-flag list | exactly **1** flag — the null-department one in the ward; the other-department and other-ward flags are excluded |
+| `POST .../dedup-flags/:id/dismiss` on that flag | **200 `{"status":"dismissed"}`** — it was previously visible-but-un-actionable |
+
+**Dev store**: the null-department (`cat_other`) ticket returns **200**.
+
+The four visual-baseline failures were proved pre-existing by `git stash`-ing the three source files and re-running — the identical four fail.
+
+### Records updated
+
+| Artifact | Change |
+|----------|--------|
+| `bolts/003-001-dispatcher-auth-and-scope/ddd-01-bolt-record.md` | added the "Correction (2026-11-12) — the null-department rule" section, the test delta, the source delta, and the new acceptance rows |
+| `intents/003-dispatcher-queue/001-auth-and-scope/DISP-001-auth-scope.md` | Acceptance 2 `dept_water` → `dept_waste`; new Acceptance 6 (no-department ticket is in scope), 7 (a real cross-department ticket is still refused), 8 (the ward check still fires first); Technical Notes bullets on the rule |
+
+### Not changed, deliberately
+
+- **No schema change.** `Session.departmentId` stays `String?`.
+- **No provisioning change.** `resolveScope` still nulls a dispatcher's department — the symmetric rule accommodates it.
+- **No UI copy.** `lib/i18n/keys.ts` is untouched. The *misleading* messages this bug produced — the dispatcher detail page's "not found" and the shared page's generic "forbidden" — are a separate follow-up.
+- **No mockup baseline regeneration.**
+- **No commit** unless asked.
+
+## 2026-11-12T14:10:00Z - Story 008 spec made backend-agnostic; verified against BOTH backends
+
+**Triggered by**: user request — run the project in real mode.
+
+**Reason**: the Wave 2 story spec (`tests/32-ui-redesign-auth.spec.ts`) was written against the in-memory dev store only. Run against the real local Postgres, it failed — and every failure pointed at a dev-store assumption inside the spec, not at a product defect. This pass made the spec backend-agnostic and verified it in both modes.
+
+### What the spec had hard-coded
+
+| Assumption | Dev store | Real Postgres | Symptom |
+|---|---|---|---|
+| `cityId` / `categoryId` / `wardId` | `city_dhaka_north` / `cat_streetlight` / `ward_14` | cuid-generated | `POST /api/tickets` → **403 `cross_city_forbidden`** (the route rejects a foreign city id before it checks the ward or the category) |
+| Ticket id shape | `tkt_<uuid8>` | cuid | `/"id":"(tkt_[^"]+)"/` matched nothing |
+| Session minting | `POST /api/dev/login?role=citizen` (303) | that route is **404** by design | fell back to `POST /api/v1/auth/login` (already handled) |
+| Citizen phone | `+8801711000000` | `+880199000000N` block | both were tried (already handled) |
+
+### The three changes
+
+1. **`discoverSeedIds(page)`** reads `(cityId, categoryId, wardId)` off the first row of `GET /api/v1/activity/public`. That route is session-scoped, so the triple is always in the session's own city — which is exactly what `POST /api/tickets` requires. The dev-store constants remain only as a fallback for an empty feed.
+2. **The ticket id comes from the response body** (`ticket.id`), not from a regex over the raw text.
+3. **The "all" chip count asserts the documented contract.** It counts the WHOLE fetched set, not the rows on screen: the feed paginates the LIST (`PAGE_SIZE = 20`, `visible = filtered.slice(0, page * PAGE_SIZE)`) while the chips count over every ticket (`app/feed/page.tsx`, the `counts` memo). The old assertion compared the chip against the rendered row count — true only while the city has fewer tickets than one page, and it failed the moment the seeded city had 23. It now asserts the chip equals the API's own `total` **and** is at least the rendered row count.
+
+### A Playwright hang, not a product bug
+
+The login spec pins `x-forwarded-for` so its wrong-password attempt gets its own lockout counter (the route locks an IP out after 5 failures for 10 minutes). Doing that with `route.continue({ headers })` **hung the request**: the fetch in `app/login/page.tsx` never resolved, the submit button stayed disabled on "লগ ইন হচ্ছে…", and the error summary never rendered. The body was never modified, but the original `content-length` was replayed against a rewritten header set. Deleting `content-length` before the override lets the transport recompute it, and the request completes normally.
+
+### One dev-server hazard: two servers, one `.next`
+
+Running a second `next dev` on another port against the SAME `.next` directory corrupts the first server's route manifest — routes answer 404 while still existing on disk, and the webpack cache logs `ENOENT` on paths it has already written. This cost several debugging cycles and is indistinguishable from a code defect (the earlier `__webpack_modules__[moduleId] is not a function` 500 was the same class). The reliable sequence: stop every server → `rm -rf .next` → start ONE server → warm the routes the spec touches with a `curl` loop → run. A first compile can take ~20s, which exceeds a 30s test timeout if the spec navigates to the route while it is compiling.
+
+### Verification
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | 123 files / **2148 passed** |
+| Story spec (dev store) | `playwright test tests/32-ui-redesign-auth.spec.ts` | **18 passed** |
+| Story spec (real Postgres) | same, against `next dev` with no dev-store flag | **18 passed** |
+| Route specs (dev store) | `playwright test tests/04 tests/20 tests/27` | 11 passed, **12 failed** — identical to `HEAD` |
+| Mockups | `playwright test tests/01-mockups.spec.ts` | 17 passed, **8 failed** — identical to `HEAD` |
+| i18n | `npm run check:i18n` | ok (1091 keys) |
+
+Both pre-existing sets were reproduced by stashing the seven changed source files and re-running against `HEAD` (10c50a5) — same 12 route failures, same 8 mockup failures.
+
+**Note on the two counts.** The 12 route failures are the count **in dev-store mode**. In real mode the same three specs report 23 failures, because they hard-code dev-store ids and dev-only endpoints. That is a mode artefact of those specs, not a regression in this work; the dev-store count is the one comparable to `HEAD`.
+
+### Records updated
+
+| Artifact | Change |
+|----------|--------|
+| `bolts/009-003-auth-and-public-surfaces/bolt.md` | added "The story spec passes in BOTH backends", the Playwright hang note, and the two-servers-one-`.next` hazard |
+| `.../stories/008-auth-and-public-page-implementation.md` | added the dual-backend verification table, the three changes, and the dev-store-vs-real-mode note; `updated` → 2026-11-12 |
+
+### Not changed, deliberately
+
+- **The 8 mockup baseline failures.** Pre-existing, and per the team rule they are regenerated **via the CI workflow**, never by hand on Windows.
+- **The 12 route-spec failures.** Pre-existing; `tests/04` is the ADR-007 admin-WebAuthn gate, `tests/20` and `tests/27` are the after-photo flow and the admin user endpoints.
+- **No product code.** This pass touched only the spec and the records. The six surfaces are byte-identical to the 2026-11-11 state.
+
+---
+
+## 2026-11-11T22:00:00Z - Wave 2 Page Implementation (Story 008) + Status Sync
+
+**Triggered by**: user request — re-compose the six Wave 2 target pages to match their approved mockups, minimally, via subagent-driven development.
+
+**Reason**: Bolt 009-003 recorded `stages_completed: implement`, but its referenced artifacts (`implementation-plan.md`, `implementation-walkthrough.md`) did not exist and the page implementation had never landed. Only the mockup half shipped (story 007 complete; story 008 `ready`). Root cause confirmed by inspection: `app/login`, `app/register`, `app/verify-otp`, `app/page.tsx` and `app/splash` imported **zero** primitives from `components/ui/`; `app/feed` imported one. The 27 UI primitives + 7 chart primitives built in Wave 1 were shipped but almost nothing consumed them.
+
+### Story 008 — implemented
+
+The six surfaces (`/login`, `/register`, `/verify-otp`, `/`, `/feed`, `/splash`) were re-composed to their approved Wave 2 mockups with **presentation-layer changes only**. Every fetch, query parameter, cursor, limit, validation rule, role gate and PII-stripping path is byte-identical to the pre-existing implementation.
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| `bolts/009-003-auth-and-public-surfaces/bolt.md` | `status: in-progress`, `current_stage: implement` | `status: complete`, `current_stage: complete`, `completed: 2026-11-11T22:00:00Z` | Both stories complete; the `implement` stage artifact now points at a file that exists (`tests/32-ui-redesign-auth.spec.ts`) |
+| `.../units/003-auth-and-public-surfaces/unit-brief.md` | `status: in-progress` | `status: complete` | Both stories complete |
+| `.../stories/008-auth-and-public-page-implementation.md` | `status: ready`, `implemented: false` | `status: complete`, `implemented: true` | Implemented and verified |
+| `story-index.md` (story 008 row) | `ready` | `done` | Cascade from the story record |
+| `intents/009-ui-redesign/requirements.md` | `in-progress` | `in-progress` (unchanged) | Waves 3–7 remain; the unit and story counts (8 / 18) are unchanged |
+
+### The Intent 006 status inconsistency — closed
+
+The analyze-context integrity check flagged exactly one inconsistency across the whole memory bank: Intent 006's `requirements.md` said `in-progress` while its `intents/index.md` row said `complete`. A wider sweep found the same staleness in two sibling inception artifacts that the original finding had missed.
+
+| Artifact | Old Status | New Status | Reason |
+|----------|------------|------------|--------|
+| `intents/006-citizen-home-and-report-redesign/requirements.md` | `phase: inception, status: in-progress` | `phase: construction, status: complete` | All 3 bolts `complete`, all 4 units `complete`, all 16 stories `complete`, index row already `complete` |
+| `intents/006-citizen-home-and-report-redesign/system-context.md` | `phase: inception, status: in-progress` | `phase: construction, status: complete` | Cascade from the same evidence |
+| `intents/006-citizen-home-and-report-redesign/inception-log.md` | `completed: null, status: in-progress` | `completed: 2026-10-13T18:00:00Z, status: complete` | Cascade from the same evidence |
+
+### Verification
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | 123 files / **2148 passed** |
+| Route specs | `playwright test tests/ --ignore-snapshots` | **368 passed**, 12 failed (all pre-existing) |
+| Story spec | `playwright test tests/32-ui-redesign-auth.spec.ts` | **18 passed** (new file) |
+| i18n | `npm run check:i18n` | ok (1091 keys) |
+
+### The twelve pre-existing failures
+
+Not caused by this work. Each was reproduced by stashing the change set and re-running against `HEAD` (10c50a5):
+
+- `tests/04-e2e-human-tester.spec.ts` (1) — the admin status transition returns 401 because ADR-007 gates admin writes behind a fresh WebAuthn assertion. The spec predates that gate.
+- `tests/20-citizen-photo-and-trail-light.spec.ts` (5) — the after-photo flow and its two visual baselines.
+- `tests/27-admin-users-adoption.spec.ts` (6) — every admin user endpoint returns 401.
+
+Two failures that were **fixed** by this work: the `/splash` hydration mismatch in `tests/02-live-audit.spec.ts` (light + dark), and the corrupted dev webpack cache that made `/api/tickets/[id]` return 500 instead of 401.
+
+### Two bugs found and fixed during implementation
+
+1. **Hydration mismatch on `/splash`.** An apostrophe inside a `<style>` CSS comment was HTML-escaped server-side, so the client render differed from the server's. The same class of bug was found and fixed on the landing page during the build.
+2. **Eleven hand-rolled `<button>` elements** remained after the first pass — the password reveal, the language pills, the resend control, the back-confirm dialog pair, the feed filter chip, and the landing chips / reset / load-older. Story 008 forbids hand-rolled buttons, so all eleven now render from `components/ui/Button`.
+
+### Two deliberate divergences from the mockups
+
+1. The register form keeps a **confirm-password field**. The mockup omits it, but the app requires it and dropping it would change behaviour.
+2. The landing renders the **live `CityActivityMap`**, not the mockup's static SVG placeholder.
+
+### Not changed, deliberately
+
+- **Mockup baselines.** The five Wave 2 mockup files were edited after the baselines were captured in `e32147e`. Regeneration is a CI concern (`f4dc984`) and is never done by hand on Windows.
+- **Intent 009's own status.** Waves 3–7 remain open.
+- The `--color-surface-inverse` dark-theme inversion on the login/register story columns is a **pre-existing, systemic** issue (the token flips with the theme); it is out of scope for a minimal-change pass and is tracked separately.
+
+---
+
 ## 2026-10-12T20:00:00Z - Status Sync
 
 **Triggered by**: analyze-context integrity check (Master Agent)

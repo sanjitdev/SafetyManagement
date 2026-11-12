@@ -32,20 +32,57 @@
  * The page still gates on /api/auth/status to render the "Please sign
  * in" empty state for unauthenticated visitors, but a 200 from
  * /auth/status is now the only auth check on this page.
+ *
+ * VISUAL RECOMPOSITION (mockup 12-feed.html)
+ * --------------------------------------------
+ * This page was re-composed to match the approved visual mockup
+ * `design-artifacts/D-Design-System/01-Visual-Design/mockups/12-feed.html`.
+ * It is a PRESENTATION-LAYER change only. Every data-flow decision is
+ * unchanged:
+ *   - the same single fetch to /api/v1/activity/public (limit=50)
+ *   - the same 15s polling and the same 5s "new" badge window
+ *   - the same five-way client-side filter and the same 20-per-page
+ *     "load older" pagination
+ *   - the same role split: staff (dispatcher / crew / admin) see the
+ *     full feed, citizens see the PII-stripped public projection
+ *   - the same PII stripping — no reporter name, phone or exact
+ *     address is read, rendered or fetched on this surface
+ *
+ * What changed is only how the result is composed:
+ *   - the content column is 760px wide (mockup) instead of 720px
+ *   - the sticky filter row is offset BELOW the global header
+ *     (`top: var(--header-height-desktop)`) rather than sticking to
+ *     the top of the scroll region, and its chips are PRIMARY blue
+ *     when active — the landing page's active chip is ink-coloured,
+ *     and the two surfaces deliberately differ
+ *   - every chip carries its LIVE count and `aria-pressed`
+ *   - the feed rows carry a 64px thumb (the landing uses 76px), a
+ *     single-line truncated note, a ward pill with a map-pin glyph,
+ *     and a status pill that carries an ICON + a WORD + a colour
+ *   - the "new" state carries BOTH a primary-soft tint and a badge
  */
 
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { t, type Language } from '@/lib/i18n/keys';
+import { t, TRANSLATIONS, type Language } from '@/lib/i18n/keys';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
+import { ICONS } from '@/lib/ui/icon-map';
 
 const POLL_INTERVAL_MS = 15_000;
 const PAGE_SIZE = 20;
+
+/** The feed's content column, per mockup 12. */
+const COLUMN_MAX_WIDTH = 760;
+
+/** The thumbnail's edge length, per mockup 12 (the landing uses 76). */
+const THUMB_SIZE = 64;
 
 type StatusFilter = 'all' | 'open' | 'in_progress' | 'resolved' | 'resolved_today';
 
@@ -95,6 +132,19 @@ function formatAge(iso: string, lang: Language): string {
   return lang === 'bn' ? `${days} দিন আগে` : `${days} day ago`;
 }
 
+/**
+ * Format a counter for display.
+ *
+ * Bangla renders the digits in Bangla numerals (০১২৩৪৫৬৭৮৯) to match
+ * the rest of the Bangla-first surface; English uses ASCII digits.
+ * The landing page's counter formatter (`components/PublicLandingExperience.tsx`)
+ * is the same rule — kept local rather than imported so this page
+ * carries no dependency on the landing's module.
+ */
+function formatCount(value: number, lang: Language): string {
+  return value.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US');
+}
+
 function isResolvedToday(iso: string): boolean {
   const d = new Date(iso);
   const now = new Date();
@@ -106,8 +156,27 @@ function isResolvedToday(iso: string): boolean {
   );
 }
 
+/**
+ * The five filters the page's filter logic actually supports.
+ *
+ * Mockup 12 draws five chips (সব / নতুন / চলমান / সমাধান / আজ
+ * সমাধান) and the UX spec lists the same five. Every one of them
+ * maps onto a branch of the existing `filtered` memo below, so no
+ * chip is decorative and none is added that the page cannot honour.
+ */
+const FILTERS: ReadonlyArray<{
+  value: StatusFilter;
+  i18nKey: keyof typeof TRANSLATIONS;
+}> = [
+  { value: 'all', i18nKey: 'home.filter.all' },
+  { value: 'open', i18nKey: 'feed.filter.open' },
+  { value: 'in_progress', i18nKey: 'home.filter.in_progress' },
+  { value: 'resolved', i18nKey: 'home.filter.resolved' },
+  { value: 'resolved_today', i18nKey: 'feed.filter.resolved_today' },
+];
+
 export default function FeedPage() {
-  const { lang, setLang } = useLanguage();
+  const { lang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // Bolt 008-012: the citywide activity endpoint now returns the
   // category list alongside the tickets, so the page only needs a
@@ -237,6 +306,46 @@ export default function FeedPage() {
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
 
+  /**
+   * The LIVE count on each chip.
+   *
+   * Each count is the size of that group over the WHOLE fetched set
+   * (not over the currently-visible page), so a chip always tells the
+   * reader how big its group is — the same rule the public landing
+   * applies to its own chips. The counts are derived from the same
+   * `tickets` array the list renders, so they refresh with every poll
+   * without an extra request.
+   */
+  const counts = useMemo(() => {
+    const countFor = (value: StatusFilter): number => {
+      switch (value) {
+        case 'all':
+          return tickets.length;
+        case 'open':
+          return tickets.filter((t) => t.status === 'submitted' || t.status === 'routed').length;
+        case 'in_progress':
+          return tickets.filter((t) => t.status === 'in_progress').length;
+        case 'resolved':
+          return tickets.filter((t) => t.status === 'resolved' || t.status === 'closed').length;
+        case 'resolved_today':
+          return tickets.filter(
+            (t) => (t.status === 'resolved' || t.status === 'closed') && isResolvedToday(t.createdAt),
+          ).length;
+        default:
+          return tickets.length;
+      }
+    };
+    const map: Record<StatusFilter, number> = {
+      all: 0,
+      open: 0,
+      in_progress: 0,
+      resolved: 0,
+      resolved_today: 0,
+    };
+    for (const f of FILTERS) map[f.value] = countFor(f.value);
+    return map;
+  }, [tickets]);
+
   if (signedIn === false) {
     return (
       <div
@@ -295,7 +404,13 @@ export default function FeedPage() {
           the primary Report CTA, the language toggle, the theme
           toggle, and the user menu. The previous hand-rolled header
           duplicated every one of those affordances and stacked on top
-          of the global one. */}
+          of the global one.
+
+          The header therefore keeps its own role gating — the inline
+          nav (and the citizen-only "My reports" item inside it) and
+          the Report CTA are rendered by <AppHeader> for citizen
+          surfaces only. This page does not render a second nav, so a
+          staff session never sees a citizen-only route exposed here. */}
 
       {/* Content column */}
       <main
@@ -303,10 +418,10 @@ export default function FeedPage() {
           flex: 1,
           display: 'flex',
           justifyContent: 'center',
-          padding: 'var(--space-6) var(--space-5)',
+          padding: 'var(--space-6) var(--space-5) var(--space-8)',
         }}
       >
-        <div style={{ width: '100%', maxWidth: 720 }}>
+        <div style={{ width: '100%', maxWidth: COLUMN_MAX_WIDTH }}>
           {/* In-content page title block. This is the <h1> + subtitle
               for the feed, NOT a second <header> landmark — the only
               <header> on the page is the global AppHeader above. A
@@ -331,18 +446,29 @@ export default function FeedPage() {
                 fontSize: 'var(--text-body)',
                 color: 'var(--color-ink-secondary)',
                 margin: 0,
-                lineHeight: 1.5,
+                lineHeight: 'var(--leading-normal)',
               }}
             >
-              {t('feed.subtitle', null, lang)}
+              {t('feed.subtitle.24h', null, lang)}
             </p>
           </div>
 
-          {/* Sticky filter chip row */}
+          {/* Sticky filter chip row.
+
+              Mockup 12 sticks this row BELOW the global header
+              (`top: var(--header-height-desktop)`), not to the top of
+              the scroll region — the header is sticky too, so a
+              `top: 0` filter row would slide under it. `z-index: 1`
+              is deliberate: the header sits on `--z-sticky` (10), and
+              the filter row has to stay below it.
+
+              The background is OPAQUE (`--color-surface-page`) so the
+              rows scrolling underneath do not show through the chips. */}
           <div
+            className="feed-filter-row"
             style={{
               position: 'sticky',
-              top: 0,
+              top: 'var(--header-height-desktop)',
               zIndex: 1,
               padding: 'var(--space-3) 0',
               background: 'var(--color-surface-page)',
@@ -353,27 +479,53 @@ export default function FeedPage() {
               marginBottom: 'var(--space-4)',
             }}
           >
-            {(
-              [
-                ['all', 'home.filter.all'],
-                ['open', 'feed.filter.open'],
-                ['in_progress', 'home.filter.in_progress'],
-                ['resolved', 'home.filter.resolved'],
-                ['resolved_today', 'feed.filter.resolved_today'],
-              ] as Array<[StatusFilter, string]>
-            ).map(([key, i18nKey]) => (
-              <FilterChip
-                key={key}
-                active={filter === key}
-                onClick={() => {
-                  setFilter(key);
-                  setPage(1);
-                }}
-                lang={lang}
-              >
-                {t(i18nKey, null, lang)}
-              </FilterChip>
-            ))}
+            {FILTERS.map(({ value, i18nKey }) => {
+              const isActive = filter === value;
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setFilter(value);
+                    setPage(1);
+                  }}
+                  aria-pressed={isActive}
+                  lang={lang}
+                  className="feed-chip"
+                  data-active={isActive ? 'true' : 'false'}
+                  style={{
+                    minHeight: 36,
+                    padding: '0 var(--space-4)',
+                    gap: 'var(--space-2)',
+                    background: isActive ? 'var(--color-primary)' : 'var(--color-surface-card)',
+                    color: isActive ? 'var(--color-on-primary)' : 'var(--color-ink-secondary)',
+                    border: '1px solid',
+                    borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border)',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: 'var(--text-caption)',
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    transition:
+                      'background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)',
+                  }}
+                >
+                  {t(i18nKey, null, lang)}
+                  <span
+                    className="feed-chip-count"
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--text-micro)',
+                      opacity: 0.8,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {formatCount(counts[value], lang)}
+                  </span>
+                </Button>
+              );
+            })}
           </div>
 
           {loading ? (
@@ -396,6 +548,7 @@ export default function FeedPage() {
           ) : (
             <>
               <ul
+                className="feed-list"
                 style={{
                   listStyle: 'none',
                   padding: 0,
@@ -414,70 +567,83 @@ export default function FeedPage() {
               {visible.length < filtered.length && (
                 <div
                   style={{
-                    marginTop: 'var(--space-4)',
-                    textAlign: 'center',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginTop: 'var(--space-5)',
                   }}
                 >
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setPage((p) => p + 1)}
                     lang={lang}
                     style={{
-                      padding: 'var(--space-2) var(--space-5)',
-                      background: 'transparent',
-                      color: 'var(--color-primary)',
+                      background: 'var(--color-surface-card)',
+                      color: 'var(--color-ink)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius-pill)',
-                      fontSize: 'var(--text-body-sm)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
+                      height: 44,
+                      padding: '0 var(--space-5)',
                     }}
                   >
                     {t('feed.load_older', null, lang)}
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
           )}
         </div>
       </main>
+
+      {/*
+       * The chip row scrolls HORIZONTALLY on narrow viewports rather
+       * than wrapping into a tall stack, and the content column drops
+       * to the compact padding. The chip's `flex-shrink: 0` (set
+       * inline above) keeps each chip at its natural width inside the
+       * scroller.
+       */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        @media (max-width: 768px) {
+          .feed-filter-row {
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            scrollbar-width: none;
+          }
+          .feed-filter-row::-webkit-scrollbar { display: none; }
+          .feed-chip { flex-shrink: 0; }
+        }
+        .feed-chip:focus-visible {
+          outline: none;
+          box-shadow: var(--shadow-focus);
+        }
+        .feed-chip:hover:not([data-active="true"]) {
+          background: var(--color-surface-raised);
+          color: var(--color-ink);
+        }
+      `,
+        }}
+      />
     </div>
   );
 }
 
-function FilterChip({
-  active,
-  onClick,
-  children,
-  lang,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  lang: Language;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      lang={lang}
-      style={{
-        padding: 'var(--space-1) var(--space-3)',
-        background: active ? 'var(--color-primary)' : 'var(--color-surface-card)',
-        color: active ? 'var(--color-on-primary)' : 'var(--color-ink-secondary)',
-        border: '1px solid',
-        borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 'var(--text-caption)',
-        fontWeight: 'var(--weight-semibold)',
-        cursor: 'pointer',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
+/**
+ * One feed row — mockup 12's `.row`.
+ *
+ * The composition is: a 64px thumbnail, a body column (title +
+ * status pill, a single-line truncated note, and a meta line with a
+ * ward pill and a relative timestamp), and — on a NEW row — a
+ * "new" badge in the meta line.
+ *
+ * The row is built inline rather than from the shared `ReportCard`
+ * primitive because the mockup's row differs from `ReportCard` in
+ * four visible ways: a 64px thumb (ReportCard uses 56), a card
+ * surface (`--color-surface-card`, ReportCard uses the page surface),
+ * a ward pill with a map-pin glyph (ReportCard renders the ward as
+ * bare text), and a single-line `text-overflow: ellipsis` note
+ * (ReportCard uses a `-webkit-line-clamp` box).
+ */
 function FeedRow({
   item,
   lang,
@@ -499,23 +665,27 @@ function FeedRow({
    * a blank gradient square in the feed.
    *
    * `firstRenderablePhotoUrl` picks the first URL we can actually
-   * render; the gradient is the genuine "no photo attached" state.
+   * render; the dashed placeholder is the genuine "no photo attached"
+   * state.
    */
   const photoUrl = firstRenderablePhotoUrl(item.photoUrls);
   const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link
       href={`/reports/${item.id}`}
+      className="feed-row"
+      data-new={isNew ? 'true' : undefined}
       style={{
         display: 'flex',
         gap: 'var(--space-3)',
         padding: 'var(--space-3)',
         background: isNew ? 'var(--color-primary-soft)' : 'var(--color-surface-card)',
-        border: '1px solid var(--color-border)',
+        border: '1px solid',
+        borderColor: isNew ? 'var(--color-primary)' : 'var(--color-border)',
         borderRadius: 'var(--radius-md)',
         textDecoration: 'none',
         color: 'var(--color-ink)',
-        transition: 'background 0.3s',
+        transition: 'background var(--duration-base) var(--ease-out)',
       }}
     >
       {thumbBackground ? (
@@ -526,8 +696,8 @@ function FeedRow({
           aria-hidden
           loading="lazy"
           style={{
-            width: 56,
-            height: 56,
+            width: THUMB_SIZE,
+            height: THUMB_SIZE,
             borderRadius: 'var(--radius-sm)',
             objectFit: 'cover',
             background: 'var(--color-surface-raised)',
@@ -541,16 +711,19 @@ function FeedRow({
          * square. The gradient read as a broken image rather than as
          * an intentional empty state.
          */
-        <PhotoPlaceholder size={56} lang={lang} />
+        <PhotoPlaceholder
+          size={THUMB_SIZE}
+          lang={lang}
+          style={{ border: '1px dashed var(--color-border-strong)' }}
+        />
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 'var(--space-2)',
-            marginBottom: 'var(--space-1)',
           }}
         >
           <span
@@ -558,10 +731,15 @@ function FeedRow({
             style={{
               fontSize: 'var(--text-body-sm)',
               fontWeight: 'var(--weight-semibold)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             {categoryName}
           </span>
+          {/* The status pill carries an ICON, a WORD and a colour —
+              never colour alone. */}
           <StatusPill status={item.status} lang={lang} />
         </div>
         {item.note && (
@@ -570,12 +748,10 @@ function FeedRow({
             style={{
               fontSize: 'var(--text-caption)',
               color: 'var(--color-ink-secondary)',
-              margin: '0 0 var(--space-1)',
+              margin: 0,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 1,
-              WebkitBoxOrient: 'vertical',
+              whiteSpace: 'nowrap',
             }}
           >
             {item.note}
@@ -588,62 +764,70 @@ function FeedRow({
             gap: 'var(--space-2)',
             fontSize: 'var(--text-caption)',
             color: 'var(--color-ink-tertiary)',
+            marginTop: 'var(--space-1)',
           }}
         >
-          {wardName && <span lang={lang}>{wardName}</span>}
-          <span aria-hidden>·</span>
-          <span lang={lang}>{formatAge(item.createdAt, lang)}</span>
+          {wardName && (
+            <span
+              lang={lang}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px var(--space-2)',
+                background: 'var(--color-surface-raised)',
+                borderRadius: 'var(--radius-pill)',
+                color: 'var(--color-ink-secondary)',
+                fontWeight: 'var(--weight-semibold)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <ICONS.mapPin.icon size={11} weight={ICONS.mapPin.weight} aria-hidden focusable="false" />
+              {wardName}
+            </span>
+          )}
+          <span lang={lang} style={{ whiteSpace: 'nowrap' }}>
+            {formatAge(item.createdAt, lang)}
+          </span>
           {isNew && (
             <span
               lang={lang}
               style={{
                 marginLeft: 'auto',
-                padding: '2px 6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px var(--space-2)',
                 background: 'var(--color-primary)',
                 color: 'var(--color-on-primary)',
                 borderRadius: 'var(--radius-pill)',
-                fontSize: 10,
+                fontSize: 'var(--text-micro)',
                 fontWeight: 'var(--weight-bold)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
               }}
             >
+              <svg
+                width={10}
+                height={10}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                focusable="false"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
               {t('home.activity.new_badge', null, lang)}
             </span>
           )}
         </div>
       </div>
     </Link>
-  );
-}
-
-function StatusPill({ status, lang }: { status: ActivityItem['status']; lang: Language }) {
-  // `*-soft` background + saturated `*-status` foreground. Using the
-  // saturated token as the background made `routed` (--color-status-routed
-  // === --color-primary) render as a solid blob with invisible text.
-  const map: Record<ActivityItem['status'], { bg: string; fg: string }> = {
-    submitted: { bg: 'var(--color-status-submitted-soft)', fg: 'var(--color-status-submitted)' },
-    routed: { bg: 'var(--color-status-routed-soft)', fg: 'var(--color-status-routed)' },
-    in_progress: { bg: 'var(--color-status-in-progress-soft)', fg: 'var(--color-status-in-progress)' },
-    resolved: { bg: 'var(--color-status-resolved-soft)', fg: 'var(--color-status-resolved)' },
-    closed: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
-    cancelled: { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-tertiary)' },
-  };
-  const colors = map[status];
-  return (
-    <span
-      lang={lang}
-      style={{
-        padding: '2px var(--space-2)',
-        background: colors.bg,
-        color: colors.fg,
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 10,
-        fontWeight: 'var(--weight-bold)',
-        textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {t(`status.${status}`, null, lang)}
-    </span>
   );
 }
 
@@ -703,10 +887,11 @@ function FeedSkeleton() {
         >
           <div
             style={{
-              width: 56,
-              height: 56,
+              width: THUMB_SIZE,
+              height: THUMB_SIZE,
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-surface-raised)',
+              flexShrink: 0,
             }}
           />
           <div style={{ flex: 1 }}>
@@ -715,7 +900,7 @@ function FeedSkeleton() {
                 width: '50%',
                 height: 12,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
                 marginBottom: 6,
               }}
             />
@@ -724,7 +909,7 @@ function FeedSkeleton() {
                 width: '70%',
                 height: 10,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
                 marginBottom: 4,
               }}
             />
@@ -733,7 +918,7 @@ function FeedSkeleton() {
                 width: '30%',
                 height: 10,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
               }}
             />
           </div>

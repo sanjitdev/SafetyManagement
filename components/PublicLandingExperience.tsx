@@ -25,6 +25,27 @@
  * `lib/platform/rate-limit.ts`; the client doesn't double-throttle.
  *
  * Bilingual: bn (default) / en, toggle persists in localStorage.
+ *
+ * ── VISUAL CONTRACT ─────────────────────────────────────────────────
+ *
+ * The page is composed against the approved mockup
+ * `design-artifacts/D-Design-System/01-Visual-Design/mockups/11-public-landing.html`.
+ * The mockup is the VISUAL contract; the live data is the real thing.
+ * Two deliberate divergences:
+ *
+ *   1. **The map is the LIVE MapLibre map**, not the mockup's
+ *      hand-drawn static SVG. The mockup's own comment says the
+ *      pin shape "is the same shape the live map draws in
+ *      `components/CityActivityMap.tsx`", so the mockup is the
+ *      placeholder and the live map is the contract. The OSM /
+ *      MapLibre attribution the live map renders is a LICENCE
+ *      requirement and is left visible; the footer repeats it in
+ *      prose.
+ *
+ *   2. **The chip counts and the stat values are LIVE**, computed
+ *      server-side by `computeStats` in
+ *      `app/api/v1/activity/public/route.ts` over the city's full
+ *      ticket set. Nothing here is an authored constant.
  */
 
 'use client';
@@ -39,6 +60,8 @@ import { CityFixMark } from '@/components/CityFixMark';
 import { useLanguage } from '@/components/useLanguage';
 import { firstDisplayablePhotoUrl } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
+import { StatusPill, type StatusKey } from '@/components/ui/StatusPill';
+import { Button } from '@/components/ui/Button';
 
 const POLL_INTERVAL_MS = 30_000;
 /**
@@ -151,38 +174,19 @@ const EMPTY_STATS: PublicActivityStats = {
   counts: { all: 0, new: 0, active: 0, resolved: 0 },
 };
 
-// Status pill palette. Bolt 008-011: switched from raw hex
-// (which clashed on the dark theme — the cream/amber "submitted"
-// pill read as abandoned) to the brand's semantic status tokens
-// (defined in tokens.css) so the pill matches the rest of the
-// app on both light and dark themes. The hex fallbacks keep the
-// page legible if the token is missing.
-const STATUS_COLORS: Record<PublicStatus, { bg: string; fg: string }> = {
-  submitted: {
-    bg: 'var(--color-primary-soft)',
-    fg: 'var(--color-primary)',
-  },
-  routed: {
-    bg: 'var(--color-status-routed-soft)',
-    fg: 'var(--color-status-routed)',
-  },
-  in_progress: {
-    bg: 'var(--color-status-in-progress-soft)',
-    fg: 'var(--color-status-in-progress)',
-  },
-  resolved: {
-    bg: 'var(--color-status-resolved-soft)',
-    fg: 'var(--color-status-resolved)',
-  },
-  closed: {
-    bg: 'var(--color-surface-raised)',
-    fg: 'var(--color-ink-secondary)',
-  },
-  cancelled: {
-    bg: 'var(--color-status-error-soft)',
-    fg: 'var(--color-status-error)',
-  },
-};
+/**
+ * The status colours the mockup's legend uses for the map pins.
+ *
+ * The mockup reads `--color-map-pin-{open,progress,resolved}`; the
+ * live map draws the SAME three pin states in the SAME colours (see
+ * `lib/ui/map-colors.ts`), so the legend dots and the map pins agree
+ * without either side being re-coloured.
+ */
+const MAP_LEGEND_COLORS = {
+  new: 'var(--color-map-pin-open)',
+  active: 'var(--color-map-pin-progress)',
+  resolved: 'var(--color-map-pin-resolved)',
+} as const;
 
 function formatAge(iso: string, lang: Language): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -401,18 +405,91 @@ export default function PublicLandingExperience() {
         flexDirection: 'column',
       }}
     >
+      {/*
+        The responsive rules the mockup declares. They live in one
+        `<style>` block rather than in `globals.css` because they are
+        scoped to this page's own class names — the mockup's
+        `.topbar` / `.hero` / `.feed-grid` etc. are landing-page
+        concepts, not app-shell ones.
+      */}
+      <style>{`
+        .public-hero-grid {
+          grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        }
+        .public-stats-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .public-trust-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .public-feed-grid {
+          grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+        }
+        /*
+         * The top bar layout lives here rather than inline so the
+         * small-screen rules below can override it without an
+         * important-declaration fight.
+         */
+        .public-topbar {
+          padding: 0 var(--space-6);
+          gap: var(--space-4);
+        }
+        .public-topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          flex-shrink: 0;
+        }
+        /*
+         * The Log in link - a text button, not a bordered control.
+         */
+        .public-topbar-link {
+          height: 40px;
+          padding: 0 var(--space-3);
+          display: inline-flex;
+          align-items: center;
+          font-size: var(--text-body-sm);
+          color: var(--color-ink-secondary);
+          text-decoration: none;
+          font-weight: var(--weight-semibold);
+        }
+        /*
+         * The accent word in the hero headline. It is styled here
+         * rather than inline in the i18n string so the copy in the
+         * registry stays plain text.
+         */
+        .public-hero-accent { color: var(--color-primary); }
+        @media (max-width: 900px) {
+          .public-hero-grid { grid-template-columns: 1fr; gap: var(--space-6); }
+        }
+        @media (max-width: 800px) {
+          .public-trust-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+          .public-stats-grid { grid-template-columns: 1fr; }
+          .public-feed-grid { grid-template-columns: 1fr; }
+          /* The top bar sheds its secondary items on a phone. */
+          .public-brand-city { display: none; }
+          .public-topbar-link { display: none; }
+          .public-topbar { padding: 0 var(--space-4); gap: var(--space-2); }
+          .public-topbar-actions { gap: var(--space-2); }
+        }
+      `}</style>
+
       {/* Top bar */}
       <header
+        className="public-topbar"
         style={{
-          height: 64,
+          position: 'sticky',
+          top: 0,
+          zIndex: 'var(--z-sticky)',
+          height: 'var(--header-height-desktop)',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 var(--space-5)',
           background: 'var(--color-surface-card)',
           borderBottom: '1px solid var(--color-border)',
-          gap: 'var(--space-3)',
         }}
       >
         <Link
@@ -424,38 +501,42 @@ export default function PublicLandingExperience() {
             gap: 'var(--space-2)',
             textDecoration: 'none',
             color: 'var(--color-ink)',
+            minWidth: 0,
           }}
         >
-          <CityFixMark />
+          <CityFixMark size={28} />
           <span
             style={{
               fontSize: 'var(--text-body-lg)',
               fontWeight: 'var(--weight-bold)',
+              letterSpacing: 'var(--tracking-tight)',
               whiteSpace: 'nowrap',
             }}
           >
             CityFix
           </span>
+          {/* The city suffix is hidden below 640px — the top bar has
+              no room for it on a phone. */}
+          <span
+            className="public-brand-city"
+            lang={lang}
+            style={{
+              fontSize: 'var(--text-body-sm)',
+              color: 'var(--color-ink-tertiary)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('public.brand.city', null, lang)}
+          </span>
         </Link>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            flexShrink: 0,
-          }}
-        >
+        <div className="public-topbar-actions">
+          {/* The "Log in" link is a text button, not a bordered
+              control, and is hidden below 640px. */}
           <Link
             href="/login?next=/report/location"
             lang={lang}
-            style={{
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-              textDecoration: 'none',
-              fontWeight: 'var(--weight-semibold)',
-            }}
+            className="public-topbar-link"
           >
             {t('public.cta.login', null, lang)}
           </Link>
@@ -463,161 +544,208 @@ export default function PublicLandingExperience() {
             href="/register?next=/report/location"
             lang={lang}
             style={{
-              padding: 'var(--space-2) var(--space-4)',
+              height: 44,
+              padding: '0 var(--space-5)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               background: 'var(--color-primary)',
               color: 'var(--color-on-primary)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--text-body-sm)',
+              borderRadius: 'var(--radius-input)',
+              fontSize: 'var(--text-body)',
               fontWeight: 'var(--weight-semibold)',
               textDecoration: 'none',
             }}
           >
             {t('public.cta.register', null, lang)}
           </Link>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={toggleLang}
-            aria-label="Toggle language"
+            aria-label={t('public.lang.toggle_label', null, lang)}
             style={{
-              padding: 'var(--space-1) var(--space-3)',
-              background: 'transparent',
+              height: 40,
+              padding: '0 var(--space-3)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-pill)',
               color: 'var(--color-ink-secondary)',
               fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
             }}
           >
             {t('welcome.lang.toggle', null, lang)}
-          </button>
+          </Button>
         </div>
       </header>
 
       {/* Hero */}
       <section
+        className="public-hero-grid"
         style={{
-          padding: 'var(--space-8) var(--space-5) var(--space-7)',
+          padding: 'var(--space-8) var(--space-6) var(--space-7)',
           maxWidth: 1200,
           margin: '0 auto',
           width: '100%',
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)',
-          gap: 'var(--space-7)',
+          gap: 'var(--space-8)',
           alignItems: 'center',
         }}
-        className="public-hero-grid"
       >
-        <style>{`
-          @media (max-width: 900px) {
-            .public-hero-grid { grid-template-columns: 1fr !important; gap: var(--space-5) !important; }
-          }
-        `}</style>
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--space-4)',
-            maxWidth: 560,
+            alignItems: 'flex-start',
+            gap: 'var(--space-2)',
+            minWidth: 0,
           }}
         >
-          <p
+          {/* The eyebrow — a pill, not a shouted line of text. */}
+          <span
             lang={lang}
             style={{
-              margin: 0,
-              color: 'var(--color-ink-tertiary)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              alignSelf: 'flex-start',
+              padding: '4px var(--space-3)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'var(--color-primary-soft)',
+              color: 'var(--color-primary)',
               fontSize: 'var(--text-caption)',
-              fontWeight: 'var(--weight-medium)',
-              letterSpacing: 'var(--tracking-wide)',
-              textTransform: 'uppercase',
+              fontWeight: 'var(--weight-semibold)',
+              lineHeight: 'var(--leading-snug)',
             }}
           >
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--color-primary)',
+                flexShrink: 0,
+              }}
+            />
             {t('public.hero.eyebrow', null, lang)}
-          </p>
+          </span>
+
           <h1
             lang={lang}
             style={{
-              fontSize: 'var(--text-display-lg)',
+              fontSize: 'var(--text-display-xl)',
               fontWeight: 'var(--weight-semibold)',
               color: 'var(--color-ink)',
-              margin: 0,
+              margin: 'var(--space-4) 0',
               letterSpacing: 'var(--tracking-tight)',
-              lineHeight: 1.1,
+              lineHeight: 'var(--leading-tight)',
             }}
             dangerouslySetInnerHTML={{
               __html: t('public.hero.headline', null, lang),
             }}
           />
+
           <p
             lang={lang}
             style={{
               fontSize: 'var(--text-body-lg)',
               color: 'var(--color-ink-secondary)',
-              margin: 0,
-              lineHeight: 1.55,
+              margin: '0 0 var(--space-6)',
+              maxWidth: 520,
+              lineHeight: 'var(--leading-normal)',
             }}
           >
             {t('public.hero.subhead', null, lang)}
           </p>
+
+          {/* The CTA row — the primary action and the "how it works"
+              ghost button side by side. */}
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-2)',
-              marginTop: 'var(--space-3)',
+              gap: 'var(--space-3)',
+              flexWrap: 'wrap',
+              alignItems: 'center',
             }}
           >
             <Link
               href="/register?next=/report/location"
               lang={lang}
               style={{
-                height: 56,
+                height: 52,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 'var(--space-2)',
+                padding: '0 var(--space-5)',
                 background: 'var(--color-primary)',
                 color: 'var(--color-on-primary)',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-primary)',
+                borderRadius: 'var(--radius-input)',
                 fontSize: 'var(--text-body-lg)',
                 fontWeight: 'var(--weight-semibold)',
                 textDecoration: 'none',
-                gap: 'var(--space-2)',
               }}
             >
-              <PlusIcon />
+              <PlusCircleIcon />
               {t('public.cta.report', null, lang)}
             </Link>
-            <span
+            <a
+              href="#trust"
               lang={lang}
               style={{
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-tertiary)',
-                textAlign: 'center',
+                height: 52,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 var(--space-5)',
+                background: 'var(--color-surface-card)',
+                color: 'var(--color-ink)',
+                border: '1px solid var(--color-border-strong)',
+                borderRadius: 'var(--radius-input)',
+                fontSize: 'var(--text-body)',
+                fontWeight: 'var(--weight-semibold)',
+                textDecoration: 'none',
               }}
             >
-              {t('public.cta.report.hint', null, lang)}
-            </span>
+              {t('public.cta.how_it_works', null, lang)}
+            </a>
           </div>
+
+          <p
+            lang={lang}
+            style={{
+              fontSize: 'var(--text-caption)',
+              color: 'var(--color-ink-tertiary)',
+              margin: 'var(--space-3) 0 0',
+            }}
+          >
+            {t('public.cta.report.hint', null, lang)}
+          </p>
 
           {/* Live stats — the counters behind these come from the API
               (`computeStats`), not from authored constants. A city
               with no reports this month renders zeroes rather than
               hiding the row, so the layout never jumps. */}
           <div
+            role="group"
+            aria-label={t('public.stats.label', null, lang)}
+            className="public-stats-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gap: 'var(--space-3)',
-              marginTop: 'var(--space-4)',
+              gap: 'var(--space-4)',
+              marginTop: 'var(--space-7)',
+              width: '100%',
             }}
           >
             <StatCard
-              icon={<FileIcon />}
+              icon={<ClipboardIcon />}
               label={t('public.stats.reports_this_month', null, lang)}
               value={formatNumber(stats.reportsThisMonth, lang)}
               foot={renderTrendFoot(stats, lang)}
               footTone={stats.trend === 'down' ? 'down' : 'up'}
+              trend={stats.trend}
             />
             <StatCard
               icon={<CheckCircleIcon />}
@@ -634,17 +762,16 @@ export default function PublicLandingExperience() {
           </div>
         </div>
 
-        {/* Map preview */}
+        {/* Map preview — the LIVE MapLibre map, not a static SVG. */}
         <div
           style={{
             position: 'relative',
-            background: 'var(--color-surface-raised)',
+            background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
-            minHeight: 380,
+            minHeight: 420,
             height: '100%',
-            boxShadow: 'var(--shadow-xs)',
           }}
         >
           <CityActivityMap pins={pins} center={DHAKA_CENTER} />
@@ -655,18 +782,19 @@ export default function PublicLandingExperience() {
           <div
             style={{
               position: 'absolute',
-              top: 'var(--space-3)',
-              left: 'var(--space-3)',
+              top: 'var(--space-4)',
+              left: 'var(--space-4)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 'var(--space-2)',
-              padding: '4px var(--space-3)',
+              padding: '6px var(--space-3)',
               background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-pill)',
               fontSize: 'var(--text-caption)',
               color: 'var(--color-ink)',
               fontWeight: 'var(--weight-semibold)',
+              lineHeight: 'var(--leading-snug)',
             }}
           >
             <span
@@ -676,6 +804,7 @@ export default function PublicLandingExperience() {
                 height: 6,
                 borderRadius: '50%',
                 background: 'var(--color-primary)',
+                flexShrink: 0,
               }}
             />
             {t('public.map.badge', null, lang)}
@@ -685,24 +814,27 @@ export default function PublicLandingExperience() {
               draws the same three pin states, so the legend tells a
               first-time visitor what the dots mean. */}
           <div
+            role="group"
+            aria-label={t('public.map.legend.label', null, lang)}
             style={{
               position: 'absolute',
-              bottom: 'var(--space-3)',
-              left: 'var(--space-3)',
-              display: 'inline-flex',
+              left: 'var(--space-4)',
+              bottom: 'var(--space-4)',
+              display: 'flex',
               alignItems: 'center',
               gap: 'var(--space-3)',
-              padding: '6px var(--space-3)',
+              flexWrap: 'wrap',
+              padding: 'var(--space-2) var(--space-3)',
               background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-pill)',
-              fontSize: 'var(--text-caption)',
+              fontSize: 'var(--text-micro)',
               color: 'var(--color-ink-secondary)',
             }}
           >
-            <LegendDot label={t('public.map.legend.new', null, lang)} color="var(--color-status-routed)" />
-            <LegendDot label={t('public.map.legend.active', null, lang)} color="var(--color-status-in-progress)" />
-            <LegendDot label={t('public.map.legend.resolved', null, lang)} color="var(--color-status-resolved)" />
+            <LegendDot label={t('public.map.legend.new', null, lang)} color={MAP_LEGEND_COLORS.new} />
+            <LegendDot label={t('public.map.legend.active', null, lang)} color={MAP_LEGEND_COLORS.active} />
+            <LegendDot label={t('public.map.legend.resolved', null, lang)} color={MAP_LEGEND_COLORS.resolved} />
           </div>
         </div>
       </section>
@@ -714,18 +846,19 @@ export default function PublicLandingExperience() {
           strip so no reassurance copy is lost in the upgrade.
 
           The `id="trust"` anchor is the target for the footer's
-          terms/privacy links — the legal pages are a v1.1 item and
-          are not routes yet, so those links must not 404. */}
+          terms/privacy links and the hero's "how it works" CTA — the
+          legal pages are a v1.1 item and are not routes yet, so
+          those links must not 404. */}
       <section
         id="trust"
+        className="public-trust-grid"
         style={{
           maxWidth: 1200,
           width: '100%',
           margin: '0 auto',
-          padding: '0 var(--space-5) var(--space-6)',
+          padding: '0 var(--space-6) var(--space-7)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 'var(--space-3)',
+          gap: 'var(--space-4)',
         }}
       >
         <TrustCard
@@ -752,7 +885,7 @@ export default function PublicLandingExperience() {
           maxWidth: 1200,
           width: '100%',
           margin: '0 auto',
-          padding: '0 var(--space-5) var(--space-6)',
+          padding: '0 var(--space-6) var(--space-7)',
         }}
       >
         <div
@@ -798,27 +931,28 @@ export default function PublicLandingExperience() {
           maxWidth: 1200,
           width: '100%',
           margin: '0 auto',
-          padding: '0 var(--space-5) var(--space-8)',
+          padding: '0 var(--space-6) var(--space-8)',
         }}
       >
         <div
           style={{
             display: 'flex',
-            alignItems: 'baseline',
+            alignItems: 'flex-end',
             justifyContent: 'space-between',
-            marginBottom: 'var(--space-3)',
-            gap: 'var(--space-3)',
+            gap: 'var(--space-4)',
             flexWrap: 'wrap',
+            marginBottom: 'var(--space-5)',
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2
               lang={lang}
               style={{
-                fontSize: 'var(--text-h2)',
+                fontSize: 'var(--text-display-md)',
                 fontWeight: 'var(--weight-semibold)',
                 color: 'var(--color-ink)',
                 margin: '0 0 var(--space-1)',
+                letterSpacing: 'var(--tracking-tight)',
               }}
             >
               {t('public.feed.title', null, lang)}
@@ -826,8 +960,8 @@ export default function PublicLandingExperience() {
             <p
               lang={lang}
               style={{
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-tertiary)',
+                fontSize: 'var(--text-body-sm)',
+                color: 'var(--color-ink-secondary)',
                 margin: 0,
               }}
             >
@@ -851,7 +985,7 @@ export default function PublicLandingExperience() {
           >
             <div
               role="group"
-              aria-label={t('public.feed.title', null, lang)}
+              aria-label={t('public.filter.label', null, lang)}
               style={{
                 display: 'flex',
                 gap: 'var(--space-2)',
@@ -870,41 +1004,52 @@ export default function PublicLandingExperience() {
                 const isActive = filter === value;
                 const count = stats.counts[value];
                 return (
-                  <button
+                  <Button
                     key={value}
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setFilter(value)}
                     aria-pressed={isActive}
                     lang={lang}
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
+                      minHeight: 36,
                       gap: 'var(--space-2)',
-                      padding: 'var(--space-2) var(--space-3)',
+                      padding: '0 var(--space-4)',
                       background: isActive
                         ? 'var(--color-ink)'
                         : 'var(--color-surface-card)',
+                      // `--color-ink-inverse` is the token meant to sit
+                      // ON an ink fill, and it flips with the theme:
+                      // white on the near-black ink of the light theme,
+                      // near-black on the pale ink of the dark theme.
+                      // `--color-ink-on-dark` would be pale-on-pale in
+                      // the dark theme - white text on a white chip.
                       color: isActive
-                        ? 'var(--color-surface-page)'
+                        ? 'var(--color-ink-inverse)'
                         : 'var(--color-ink-secondary)',
-                      border: '1px solid var(--color-border)',
+                      border: '1px solid',
+                      borderColor: isActive
+                        ? 'var(--color-ink)'
+                        : 'var(--color-border)',
                       borderRadius: 'var(--radius-pill)',
-                      fontSize: 'var(--text-body-sm)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
-                      transition: 'background 120ms ease, color 120ms ease',
+                      fontSize: 'var(--text-caption)',
+                      transition:
+                        'background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)',
                     }}
                   >
                     {t(key, null, lang)}
                     <span
                       style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 'var(--text-micro)',
+                        opacity: 0.72,
                         fontVariantNumeric: 'tabular-nums',
-                        opacity: isActive ? 0.8 : 0.65,
                       }}
                     >
                       {formatNumber(count, lang)}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -955,14 +1100,14 @@ export default function PublicLandingExperience() {
                     justifyContent: 'flex-end',
                   }}
                 >
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setWard(null)}
                     aria-pressed={ward === null}
                     lang={lang}
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
                       gap: 'var(--space-2)',
                       padding: 'var(--space-1) var(--space-3)',
                       background:
@@ -976,8 +1121,6 @@ export default function PublicLandingExperience() {
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius-pill)',
                       fontSize: 'var(--text-caption)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
                     }}
                   >
                     {t('public.location.all', null, lang)}
@@ -989,7 +1132,7 @@ export default function PublicLandingExperience() {
                     >
                       {formatNumber(stats.counts.all, lang)}
                     </span>
-                  </button>
+                  </Button>
                   {wardsWithReports.map((w) => {
                     const value = String(w.number);
                     const isActive = ward === value;
@@ -998,17 +1141,17 @@ export default function PublicLandingExperience() {
                         ? w.nameBn ?? w.name
                         : w.name ?? w.nameBn ?? value;
                     return (
-                      <button
+                      <Button
                         key={w.id}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           setWard(isActive ? null : value)
                         }
                         aria-pressed={isActive}
                         lang={lang}
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
                           gap: 'var(--space-2)',
                           padding: 'var(--space-1) var(--space-3)',
                           background: isActive
@@ -1020,8 +1163,6 @@ export default function PublicLandingExperience() {
                           border: '1px solid var(--color-border)',
                           borderRadius: 'var(--radius-pill)',
                           fontSize: 'var(--text-caption)',
-                          fontWeight: 'var(--weight-semibold)',
-                          cursor: 'pointer',
                         }}
                       >
                         {label}
@@ -1033,7 +1174,7 @@ export default function PublicLandingExperience() {
                         >
                           {formatNumber(w.count, lang)}
                         </span>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1098,27 +1239,25 @@ export default function PublicLandingExperience() {
               }}
             >
               {(ward !== null || filter !== 'all') && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setWard(null);
                     setFilter('all');
                   }}
                   lang={lang}
                   style={{
-                    display: 'inline-block',
                     padding: 'var(--space-3) var(--space-5)',
                     background: 'var(--color-surface-raised)',
                     color: 'var(--color-ink)',
                     border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 'var(--radius-input)',
                     fontSize: 'var(--text-body-sm)',
-                    fontWeight: 'var(--weight-semibold)',
-                    cursor: 'pointer',
                   }}
                 >
                   {t('public.location.all', null, lang)}
-                </button>
+                </Button>
               )}
               <Link
                 href="/register?next=/report/location"
@@ -1128,7 +1267,7 @@ export default function PublicLandingExperience() {
                   padding: 'var(--space-3) var(--space-5)',
                   background: 'var(--color-primary)',
                   color: 'var(--color-on-primary)',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: 'var(--radius-input)',
                   textDecoration: 'none',
                   fontSize: 'var(--text-body-sm)',
                   fontWeight: 'var(--weight-semibold)',
@@ -1142,10 +1281,10 @@ export default function PublicLandingExperience() {
           <>
             <div
               aria-busy={loadingMore}
+              className="public-feed-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: 'var(--space-3)',
+                gap: 'var(--space-4)',
               }}
             >
               {tickets.map((ticket) => (
@@ -1167,11 +1306,11 @@ export default function PublicLandingExperience() {
             {loadingMore && (
               <div
                 aria-hidden="true"
+                className="public-feed-grid"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: 'var(--space-3)',
-                  marginTop: 'var(--space-3)',
+                  gap: 'var(--space-4)',
+                  marginTop: 'var(--space-4)',
                 }}
               >
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -1179,7 +1318,7 @@ export default function PublicLandingExperience() {
                     key={i}
                     style={{
                       height: '148px',
-                      borderRadius: 'var(--radius-md)',
+                      borderRadius: 'var(--radius-card)',
                       background: 'var(--color-surface-raised)',
                     }}
                   />
@@ -1231,8 +1370,9 @@ export default function PublicLandingExperience() {
                 </p>
 
                 {nextCursor !== null && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => {
                       void loadOlder();
                     }}
@@ -1240,18 +1380,14 @@ export default function PublicLandingExperience() {
                     lang={lang}
                     style={{
                       padding: 'var(--space-2) var(--space-5)',
-                      background: 'transparent',
                       color: 'var(--color-primary)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 'var(--radius-pill)',
                       fontSize: 'var(--text-body-sm)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: loadingMore ? 'progress' : 'pointer',
-                      opacity: loadingMore ? 0.6 : 1,
                     }}
                   >
                     {t('public.feed.load_older', null, lang)}
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -1263,12 +1399,16 @@ export default function PublicLandingExperience() {
           destinations: `/splash` carries the help copy, the terms and
           privacy links anchor the landing's own trust section (the
           legal pages are a v1.1 item and are NOT yet routes), and the
-          hotline is a `tel:` link so it works on a phone. */}
+          hotline is a `tel:` link so it works on a phone.
+
+          The note carries the OSM / MapLibre attribution, which is a
+          licence requirement for the map tiles rendered above. */}
       <footer
         style={{
           marginTop: 'auto',
           borderTop: '1px solid var(--color-border)',
           background: 'var(--color-surface-card)',
+          padding: 'var(--space-7) var(--space-6)',
         }}
       >
         <div
@@ -1276,11 +1416,9 @@ export default function PublicLandingExperience() {
             maxWidth: 1200,
             width: '100%',
             margin: '0 auto',
-            padding: 'var(--space-6) var(--space-5)',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 'var(--space-5)',
+            gap: 'var(--space-6)',
             flexWrap: 'wrap',
           }}
         >
@@ -1290,7 +1428,7 @@ export default function PublicLandingExperience() {
               fontSize: 'var(--text-caption)',
               color: 'var(--color-ink-tertiary)',
               maxWidth: 420,
-              lineHeight: 1.5,
+              lineHeight: 'var(--leading-snug)',
               margin: 0,
             }}
           >
@@ -1498,6 +1636,7 @@ function StatCard({
   value,
   foot,
   footTone = 'default',
+  trend,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -1511,14 +1650,25 @@ function StatCard({
    * for the month-over-month fall. `default` is the muted ink.
    */
   footTone?: 'default' | 'up' | 'down';
+  /**
+   * The month-over-month direction. When it is `up` or `down` the
+   * foot line carries the chevron that points the way the number
+   * moved — the mockup's trend chevron. `flat` and `none` carry no
+   * chevron, because there is no direction to point.
+   */
+  trend?: PublicActivityStats['trend'];
 }) {
+  const chevron =
+    trend === 'up' ? <ChevronUpIcon /> : trend === 'down' ? <ChevronDownIcon /> : null;
+
   return (
     <div
       style={{
-        padding: 'var(--space-3)',
+        padding: 'var(--space-4)',
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-card)',
+        minWidth: 0,
       }}
     >
       <div
@@ -1528,7 +1678,6 @@ function StatCard({
           gap: 'var(--space-2)',
           fontSize: 'var(--text-caption)',
           color: 'var(--color-ink-secondary)',
-          marginBottom: 'var(--space-1)',
         }}
       >
         <span aria-hidden style={{ display: 'inline-flex', color: 'var(--color-ink-tertiary)' }}>
@@ -1539,10 +1688,12 @@ function StatCard({
       <div
         style={{
           fontSize: 'var(--text-display-md)',
-          fontWeight: 'var(--weight-semibold)',
+          fontWeight: 'var(--weight-bold)',
           color: 'var(--color-ink)',
           fontVariantNumeric: 'tabular-nums',
-          lineHeight: 1.15,
+          letterSpacing: 'var(--tracking-tight)',
+          marginTop: 'var(--space-2)',
+          lineHeight: 'var(--leading-tight)',
         }}
       >
         {value}
@@ -1557,9 +1708,17 @@ function StatCard({
               : footTone === 'down'
                 ? 'var(--color-warning)'
                 : 'var(--color-ink-tertiary)',
+          display: chevron ? 'inline-flex' : undefined,
+          alignItems: chevron ? 'center' : undefined,
+          gap: chevron ? 4 : undefined,
         }}
       >
-        {foot}
+        {chevron ? (
+          <span aria-hidden style={{ display: 'inline-flex' }}>
+            {chevron}
+          </span>
+        ) : null}
+        <span>{foot}</span>
       </div>
     </div>
   );
@@ -1583,10 +1742,11 @@ function TrustCard({
       style={{
         display: 'flex',
         gap: 'var(--space-3)',
+        alignItems: 'flex-start',
         padding: 'var(--space-4)',
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-card)',
       }}
     >
       <span
@@ -1595,8 +1755,8 @@ function TrustCard({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           flexShrink: 0,
           borderRadius: 'var(--radius-sm)',
           background: 'var(--color-primary-soft)',
@@ -1620,7 +1780,7 @@ function TrustCard({
           style={{
             fontSize: 'var(--text-caption)',
             color: 'var(--color-ink-secondary)',
-            lineHeight: 1.45,
+            lineHeight: 'var(--leading-snug)',
           }}
         >
           {desc}
@@ -1637,10 +1797,11 @@ function LegendDot({ label, color }: { label: string; color: string }) {
       <span
         aria-hidden
         style={{
-          width: 7,
-          height: 7,
+          width: 8,
+          height: 8,
           borderRadius: '50%',
           background: color,
+          flexShrink: 0,
         }}
       />
       {label}
@@ -1648,7 +1809,13 @@ function LegendDot({ label, color }: { label: string; color: string }) {
   );
 }
 
-function PlusIcon() {
+/**
+ * The plus-in-circle icon on the hero's primary CTA.
+ *
+ * Drawn inline rather than pulled from the icon registry so it
+ * matches the mockup's exact 18×18 stroke geometry.
+ */
+function PlusCircleIcon() {
   return (
     <svg
       width="18"
@@ -1656,11 +1823,50 @@ function PlusIcon() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.5"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden
     >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
+/** The trend chevron — the shape that points the way the number moved. */
+function ChevronUpIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m18 15-6-6-6 6" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
@@ -1668,7 +1874,7 @@ function PlusIcon() {
 /* --- Icons for the stats row and trust cards. Same 24×24 stroke
    geometry as the mockup so they sit on the same optical grid. --- */
 
-function FileIcon() {
+function ClipboardIcon() {
   return (
     <svg
       width="14"
@@ -1789,9 +1995,6 @@ function PublicActivityCard({
   ticket: PublicTicket;
   lang: Language;
 }) {
-  const statusLabel = t(`status.${ticket.status}`, null, lang);
-  const colors = STATUS_COLORS[ticket.status];
-
   /**
    * The category label — WHAT kind of problem this report is.
    *
@@ -1828,11 +2031,16 @@ function PublicActivityCard({
       style={{
         display: 'flex',
         gap: 'var(--space-3)',
-        padding: 'var(--space-3)',
+        padding: 'var(--space-4)',
         background: 'var(--color-surface-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
-        minHeight: 120,
+        borderRadius: 'var(--radius-card)',
+        // A grid item's default `min-width: auto` resolves to its
+        // min-content width, and the activity note's long unbroken
+        // Bangla words make that wide enough to push the card past
+        // the viewport on a phone. `min-width: 0` lets the track
+        // shrink as the grid intends.
+        minWidth: 0,
       }}
     >
       {hasPhoto ? (
@@ -1841,8 +2049,8 @@ function PublicActivityCard({
           src={photoUrl!}
           alt=""
           style={{
-            width: 80,
-            height: 80,
+            width: 76,
+            height: 76,
             borderRadius: 'var(--radius-sm)',
             objectFit: 'cover',
             flexShrink: 0,
@@ -1857,7 +2065,7 @@ function PublicActivityCard({
          * components/ui/PhotoPlaceholder.tsx so the feed, home list
          * and report cards all render the SAME empty state.
          */
-        <PhotoPlaceholder size={80} lang={lang} showLabel />
+        <PhotoPlaceholder size={76} lang={lang} showLabel />
       )}
       <div
         style={{
@@ -1876,52 +2084,32 @@ function PublicActivityCard({
             justifyContent: 'space-between',
           }}
         >
+          {/*
+            The category — WHAT was reported. Rendered above the note
+            so the card reads "Broken streetlight / streetlight out on
+            Mirpur road" rather than a bare status pill floating over
+            free text. Falls back to a neutral label when the backend
+            join is absent.
+          */}
           <span
             lang={lang}
             style={{
-              padding: '3px var(--space-2)',
-              background: colors.bg,
-              color: colors.fg,
-              borderRadius: 'var(--radius-pill)',
-              fontSize: 11,
+              fontSize: 'var(--text-body-sm)',
               fontWeight: 'var(--weight-semibold)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              whiteSpace: 'nowrap',
-              lineHeight: 1.2,
-            }}
-          >
-            {statusLabel}
-          </span>
-          <span
-            lang={lang}
-            style={{
-              fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink-tertiary)',
+              color: 'var(--color-ink)',
+              lineHeight: 'var(--leading-snug)',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
-            {formatAge(ticket.createdAt, lang)}
+            {categoryLabel ?? t('public.card.category_unknown', null, lang)}
           </span>
-        </div>
-
-        {/*
-          The category — WHAT was reported. Rendered above the note
-          so the card reads "Broken streetlight / streetlight out on
-          Mirpur road" rather than a bare status pill floating over
-          free text. Falls back to a neutral label when the backend
-          join is absent.
-        */}
-        <div
-          lang={lang}
-          style={{
-            fontSize: 'var(--text-body-sm)',
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--color-ink)',
-            lineHeight: 1.35,
-          }}
-        >
-          {categoryLabel ?? t('public.card.category_unknown', null, lang)}
+          {/* The status pill — icon + word + colour, never colour
+              alone. `StatusPill` is the shared primitive, so the
+              landing reads the same as every other surface. */}
+          <StatusPill status={ticket.status as StatusKey} lang={lang} />
         </div>
 
         {/*
@@ -1930,14 +2118,19 @@ function PublicActivityCard({
           ("… regression fixture") and substitutes a neutral
           placeholder, because those strings are not something a
           visitor to the public landing page should be reading.
+
+          The landing shows the FULL note over two lines — the feed
+          page truncates to one, because the landing card is the
+          page's own showcase surface.
         */}
         <p
           lang={lang}
           style={{
-            fontSize: 'var(--text-body-sm)',
-            color: ticket.note ? 'var(--color-ink)' : 'var(--color-ink-tertiary)',
+            fontSize: 'var(--text-caption)',
+            color: ticket.note ? 'var(--color-ink-secondary)' : 'var(--color-ink-tertiary)',
             margin: 0,
-            lineHeight: 1.45,
+            lineHeight: 'var(--leading-snug)',
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: '-webkit-box',
@@ -1954,16 +2147,15 @@ function PublicActivityCard({
             gap: 'var(--space-2)',
             marginTop: 'auto',
             flexWrap: 'wrap',
+            fontSize: 'var(--text-micro)',
+            color: 'var(--color-ink-tertiary)',
           }}
         >
           {/*
             Bolt 008-011: ward pill now renders the human-readable
             ward name (e.g. "Ward 14 — Mirpur") instead of slicing
             the raw wardId ("cmv53x"). Falls back to the id slice
-            when the join is missing on older payloads. The
-            location-pin glyph + a soft surface tint give the pill
-            a more "city bulletin" look on both light and dark
-            themes.
+            when the join is missing on older payloads.
           */}
           <span
             lang={lang}
@@ -1972,11 +2164,10 @@ function PublicActivityCard({
               alignItems: 'center',
               gap: 4,
               padding: '2px var(--space-2)',
-              background: 'var(--color-primary-soft)',
-              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface-raised)',
               borderRadius: 'var(--radius-pill)',
-              fontSize: 'var(--text-caption)',
-              color: 'var(--color-ink)',
+              fontSize: 'var(--text-micro)',
+              color: 'var(--color-ink-secondary)',
               fontWeight: 'var(--weight-semibold)',
             }}
           >
@@ -1997,6 +2188,9 @@ function PublicActivityCard({
             </svg>
             <span>{renderWardLabel(ticket, lang)}</span>
           </span>
+          <span lang={lang} style={{ whiteSpace: 'nowrap' }}>
+            {formatAge(ticket.createdAt, lang)}
+          </span>
         </div>
       </div>
     </article>
@@ -2006,10 +2200,10 @@ function PublicActivityCard({
 function FeedSkeleton() {
   return (
     <div
+      className="public-feed-grid"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: 'var(--space-3)',
+        gap: 'var(--space-4)',
       }}
     >
       {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -2018,29 +2212,29 @@ function FeedSkeleton() {
           style={{
             display: 'flex',
             gap: 'var(--space-3)',
-            padding: 'var(--space-3)',
+            padding: 'var(--space-4)',
             background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: 'var(--radius-card)',
             minHeight: 96,
           }}
         >
           <div
             style={{
-              width: 80,
-              height: 80,
+              width: 76,
+              height: 76,
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-surface-raised)',
               flexShrink: 0,
             }}
           />
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
                 width: '40%',
                 height: 10,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
                 marginBottom: 6,
               }}
             />
@@ -2049,7 +2243,7 @@ function FeedSkeleton() {
                 width: '85%',
                 height: 10,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
                 marginBottom: 6,
               }}
             />
@@ -2058,7 +2252,7 @@ function FeedSkeleton() {
                 width: '30%',
                 height: 10,
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
               }}
             />
           </div>
