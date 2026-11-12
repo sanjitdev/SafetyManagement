@@ -2,13 +2,20 @@
 story: 010-citizen-page-implementation
 unit: 004-citizen-surfaces
 intent: 009-ui-redesign
-status: draft
+status: complete
 created: 2026-11-02T18:30:00Z
-updated: 2026-11-02T18:30:00Z
-implemented: false
+updated: 2026-11-12T22:30:00Z
+implemented: true
 ---
 
 # Story 010 — Citizen Page Implementation
+
+> **Read `../citizen-surface-craft-brief.md` first.** It is the visual
+> contract for these pages: the approved visual world, the hierarchy
+> rules, the copy rules, and the checks to run before declaring the story
+> done. Every rule in it was either a defect found in the mockups and
+> fixed, or a rule the mockups satisfy and these pages must keep
+> satisfying.
 
 ## User Story
 
@@ -67,6 +74,12 @@ Then I see a vertical timeline
 
 ## Linked Files
 
+- `../citizen-surface-craft-brief.md` — the visual contract (read first)
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/13-home-city-activity.html`
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/14-report-shell.html`
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/15-my-reports.html`
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/16-report-detail-trail.html`
+- `design-artifacts/D-Design-System/01-Visual-Design/mockups/citizen-surfaces.css`
 - `app/home/page.tsx`
 - `app/report/(create)/*/page.tsx`
 - `app/report/[id]/submitted/page.tsx`
@@ -76,4 +89,15 @@ Then I see a vertical timeline
 
 ## Status
 
-Draft.
+Complete — 2026-11-12.
+
+The nine citizen routes are re-composed from the `components/ui/`
+primitives against the four approved mockups. The report flow keeps its
+progress indicator, the `1 / 3 ছবি` cap indicator and the dedup prompt;
+the detail page keeps the vertical `Timeline` trail, the labelled
+before/after photo groups and the public `#TIX-` reference. No raw
+internal id reaches any citizen surface.
+
+The full verification record is in the bolt's `test-walkthrough.md`; the
+implementation history and the design-craft audit are in the unit's
+`construction-log.md`.

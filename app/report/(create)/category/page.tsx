@@ -1,25 +1,33 @@
 /**
  * 1.9 Report — Category Pick (S-004.3 redesign, v2)
  *
- * Step 2 of 5: comes AFTER location, BEFORE photo. The citizen
- * decides what's wrong first, so the photo cap can narrow to the
- * category's needs (e.g. `cat_streetlight` keeps 3 photos, but
- * `cat_water_log` may need only 1) before the photo step opens.
+ * Step 3 of 5 in the LOCKED flow order
+ * (1 Location → 2 Photo → 3 Category → 4 Note → 5 Summary).
+ * The route path is `/report/category` but the rail order is
+ * declared in `app/report/(create)/layout.tsx`.
+ *
+ * The citizen decides what's wrong, so the photo cap can narrow to
+ * the category's needs (e.g. `cat_streetlight` keeps 3 photos, but
+ * a narrow category may need only 1).
  *
  * UI:
- *   - Big eyebrow: "ধাপ ২ / ৫" pill (handled by the layout's
- *     StepIndicator)
+ *   - Step rail (handled by the layout's StepIndicator)
  *   - H1: "সমস্যাটি কী?" (what is the problem?)
  *   - One-paragraph helper under the H1
  *   - Search input (debounced 200ms) with a magnifier icon
- *   - Card grid: 2 cols on desktop, 1 col on mobile
- *   - Each card: large icon (32dp, colored) + bold Bangla name
- *     + small English secondary + chevron on the right when
- *     unselected, checkmark on the right when selected.
+ *   - Card list: each card is a `Button` with `role="radio"`
+ *   - Each card: large icon + bold Bangla name + small English
+ *     secondary + chevron on the right when unselected, checkmark
+ *     on the right when selected.
  *
- * Selected state uses the primary accent color for the icon
- * container, an accent left-border, a soft primary background,
- * and a checkmark badge in the top-right.
+ * INTENT 009 / BOLT 009-004 (Story 010): the local inline-SVG
+ * category icon set and the hand-rolled `<button role="radio">`
+ * are gone. The glyph now comes from the shared registry via the
+ * `CategoryIcon` primitive (`lib/ui/icon-map.ts`), so the category
+ * icons on the citizen flow are the SAME glyphs the dispatcher
+ * queue, the crew list and the admin console show. The control is
+ * the `Button` primitive, so the focus ring, radius, disabled
+ * state and typography match the rest of the product.
  *
  * Server-rendered shell with a client-side picker.
  */
@@ -31,6 +39,8 @@ import { useRouter } from 'next/navigation';
 import { ReportStepAside } from '@/components/ui/ReportStepAside';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
+import { Button, CategoryIcon } from '@/components/ui';
+import { ICONS } from '@/lib/ui/icon-map';
 import { loadDraft, saveDraft } from '@/lib/report-draft';
 import { t, type Language } from '@/lib/i18n/keys';
 import { useLanguage } from '@/components/useLanguage';
@@ -63,93 +73,6 @@ export function filterCategories(
   return list.filter(
     (c) => normalize(c.name).includes(q) || (c.nameBn ? normalize(c.nameBn).includes(q) : false),
   );
-}
-
-// Lightweight inline SVG icon set keyed by category slug. We
-// don't ship an icon library: the bootstrap endpoint doesn't
-// return an icon, so the client maps the slug to a glyph that
-// matches the category. New categories fall through to a generic
-// "tag" icon.
-type IconKey = 'streetlight' | 'pothole' | 'drainage' | 'garbage' | 'water' | 'tree' | 'other';
-
-function iconKeyFor(slug: string): IconKey {
-  const s = slug.toLowerCase();
-  if (s.includes('street') || s.includes('light') || s.includes('lamp')) return 'streetlight';
-  if (s.includes('pothole') || s.includes('road') || s.includes('damage')) return 'pothole';
-  if (s.includes('drain') || s.includes('sewer')) return 'drainage';
-  if (s.includes('garbage') || s.includes('waste') || s.includes('trash')) return 'garbage';
-  if (s.includes('water') || s.includes('log') || s.includes('flood')) return 'water';
-  if (s.includes('tree') || s.includes('plant') || s.includes('garden')) return 'tree';
-  return 'other';
-}
-
-function CategoryIcon({ k }: { k: IconKey }) {
-  const common = {
-    width: 28,
-    height: 28,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-  };
-  switch (k) {
-    case 'streetlight':
-      return (
-        <svg {...common}>
-          <path d="M12 2v3" />
-          <path d="M9 5h6l-1 4h-4z" />
-          <line x1="12" y1="9" x2="12" y2="22" />
-          <line x1="9" y1="22" x2="15" y2="22" />
-        </svg>
-      );
-    case 'pothole':
-      return (
-        <svg {...common}>
-          <path d="M3 18h18" />
-          <path d="M5 18c0-3 2-5 4-5s2 2 4 2 2-2 4-2 2 2 2 5" />
-        </svg>
-      );
-    case 'drainage':
-      return (
-        <svg {...common}>
-          <path d="M3 6h18" />
-          <path d="M5 6c1 4 3 6 7 6s6-2 7-6" />
-          <path d="M8 18l4-3 4 3" />
-        </svg>
-      );
-    case 'garbage':
-      return (
-        <svg {...common}>
-          <path d="M4 7h16" />
-          <path d="M9 7V4h6v3" />
-          <path d="M6 7l1 13h10l1-13" />
-          <line x1="10" y1="11" x2="10" y2="17" />
-          <line x1="14" y1="11" x2="14" y2="17" />
-        </svg>
-      );
-    case 'water':
-      return (
-        <svg {...common}>
-          <path d="M12 3c-4 5-7 8-7 12a7 7 0 0 0 14 0c0-4-3-7-7-12z" />
-        </svg>
-      );
-    case 'tree':
-      return (
-        <svg {...common}>
-          <path d="M12 3l5 7h-3l4 6h-4v5h-4v-5H6l4-6H7z" />
-        </svg>
-      );
-    default:
-      return (
-        <svg {...common}>
-          <path d="M3 12l9-9 9 9-9 9z" />
-          <circle cx="9" cy="9" r="1" fill="currentColor" />
-        </svg>
-      );
-  }
 }
 
 export default function CategoryPage() {
@@ -216,8 +139,8 @@ export default function CategoryPage() {
     if (!selected) return;
     const draft = loadDraft();
     if (!draft) return;
-    saveDraft({ ...draft, categoryId: selected, step: 'photo' });
-    router.push('/report/photo');
+    saveDraft({ ...draft, categoryId: selected, step: 'note' });
+    router.push('/report/note');
   }
 
   return (
@@ -226,6 +149,10 @@ export default function CategoryPage() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
         minHeight: 'calc(100vh - var(--header-height-desktop))',
+        // Reserve the FIXED action bar's footprint so the last
+        // element in the column is never hidden behind it.
+        paddingBottom:
+          'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
     >
@@ -277,7 +204,11 @@ export default function CategoryPage() {
             lang={LANG}
             style={{
               margin: 0,
-              fontSize: 'var(--text-display-lg)',
+              // One consistent step-heading scale across the whole
+              // flow: mockup 14's `.card-title` is
+              // `--text-display-md` (24px), and the location / photo
+              // / note steps already use it.
+              fontSize: 'var(--text-display-md)',
               fontWeight: 'var(--weight-bold)',
               lineHeight: 'var(--leading-tight)',
               letterSpacing: 'var(--tracking-tight)',
@@ -319,10 +250,7 @@ export default function CategoryPage() {
               pointerEvents: 'none',
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <ICONS.search.icon size={20} weight={ICONS.search.weight} aria-hidden />
           </span>
           <input
             type="search"
@@ -340,7 +268,7 @@ export default function CategoryPage() {
               fontSize: 'var(--text-body-lg)',
               color: 'var(--color-ink)',
               fontFamily: 'var(--font-body)',
-              minHeight: '56px',
+              minHeight: 'var(--touch-large)',
               boxShadow: 'var(--shadow-xs)',
               outline: 'none',
               transition: 'border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)',
@@ -389,20 +317,20 @@ export default function CategoryPage() {
           >
             {visibleCategories.map((c) => {
               const isSelected = selected === c.id;
-              const iconKey = iconKeyFor(c.slug);
               return (
                 <li key={c.id} style={{ display: 'block' }}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     role="radio"
                     aria-checked={isSelected}
                     onClick={() => setSelected(c.id)}
                     className="report-category-card"
+                    data-testid={`report-category-${c.slug}`}
                     style={{
                       width: '100%',
                       textAlign: 'left',
                       padding: 'var(--space-4) var(--space-5)',
-                      minHeight: '84px',
+                      minHeight: 'var(--touch-cta)',
                       background: isSelected
                         ? 'var(--color-primary-soft)'
                         : 'var(--color-surface-card)',
@@ -426,8 +354,8 @@ export default function CategoryPage() {
                       aria-hidden
                       style={{
                         flexShrink: 0,
-                        width: 52,
-                        height: 52,
+                        width: 'var(--touch-large)',
+                        height: 'var(--touch-large)',
                         borderRadius: 'var(--radius-md)',
                         background: isSelected
                           ? 'var(--color-primary)'
@@ -439,7 +367,7 @@ export default function CategoryPage() {
                         transition: 'background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)',
                       }}
                     >
-                      <CategoryIcon k={iconKey} />
+                      <CategoryIcon slug={c.slug} size={28} />
                     </span>
                     <span
                       style={{
@@ -482,8 +410,8 @@ export default function CategoryPage() {
                         aria-hidden
                         style={{
                           flexShrink: 0,
-                          width: 28,
-                          height: 28,
+                          width: 'var(--space-8)',
+                          height: 'var(--space-8)',
                           borderRadius: '50%',
                           background: 'var(--color-primary)',
                           color: 'var(--color-on-primary)',
@@ -492,9 +420,7 @@ export default function CategoryPage() {
                           justifyContent: 'center',
                         }}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                        <ICONS.check.icon size={16} weight="bold" />
                       </span>
                     ) : (
                       <span
@@ -506,12 +432,10 @@ export default function CategoryPage() {
                           alignItems: 'center',
                         }}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
+                        <ICONS.chevronRight.icon size={18} weight={ICONS.chevronRight.weight} />
                       </span>
                     )}
-                  </button>
+                  </Button>
                 </li>
               );
             })}
@@ -520,23 +444,29 @@ export default function CategoryPage() {
       </div>
 
       <ReportStepAside
-        currentStep={2}
+        currentStep={3}
         totalSteps={5}
         lang={LANG}
+        sticky
         help={t('report.category.routing_note', null, LANG)}
         primary={
           <ReportStepPrimary
             onClick={handleContinue}
             disabled={!selected}
             aria-disabled={!selected}
+            trailing={
+              <span aria-hidden style={{ display: 'inline-flex' }}>
+                <ICONS.forward.icon size={16} weight={ICONS.forward.weight} />
+              </span>
+            }
             data-testid="report-category-continue"
           >
-            {t('report.category.continue', null, LANG)}
+            {t('report.step.continue_next', { next: t('report.step.4', null, LANG) }, LANG)}
           </ReportStepPrimary>
         }
         back={
-          <ReportStepBack href="/report/location">
-            {t('report.category.back', null, LANG)}
+          <ReportStepBack href="/report/photo">
+            {t('report.step.back', null, LANG)}
           </ReportStepBack>
         }
       />

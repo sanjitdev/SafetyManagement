@@ -29,6 +29,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
+import { ReportStepAside } from '@/components/ui/ReportStepAside';
+import { Button, StatusPill, type StatusKey } from '@/components/ui';
+import { ICONS } from '@/lib/ui/icon-map';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
@@ -42,6 +45,34 @@ interface DedupContext {
   existingTicketId: string;
   distanceMeters: number;
   existingStatus: 'submitted' | 'routed' | 'in_progress' | 'resolved' | 'closed' | 'cancelled';
+}
+
+/**
+ * Narrow the API's status string to the `StatusPill` key union.
+ *
+ * The dedup context's `existingStatus` is typed, but the ticket
+ * detail response is read from an untyped `response.json()`, so
+ * `existing.status` is a plain `string`. A blind `as StatusKey`
+ * would let an unexpected value reach `STATUS_VISUAL[status]`,
+ * where it would render `undefined` for the label and crash on
+ * `visual.icon.icon`. The whitelist below falls back to
+ * `submitted` — the only status a brand-new ticket can have —
+ * so the pill always renders a real icon + word + colour.
+ */
+const STATUS_KEYS: readonly StatusKey[] = [
+  'submitted',
+  'routed',
+  'in_progress',
+  'resolved',
+  'closed',
+  'cancelled',
+  'paused',
+];
+
+function toStatusKey(status: string): StatusKey {
+  return (STATUS_KEYS as readonly string[]).includes(status)
+    ? (status as StatusKey)
+    : 'submitted';
 }
 
 export default function SummaryPage() {
@@ -178,245 +209,275 @@ export default function SummaryPage() {
   return (
     <div
       style={{
-        maxWidth: 920,
-        margin: '0 auto',
-        padding: 'var(--space-7) var(--space-5)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-5)',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
+        minHeight: 'calc(100vh - var(--header-height-desktop))',
+        // Reserve the FIXED action bar's footprint so the last
+        // element in the column is never hidden behind it. Same
+        // formula as the other four step pages and mockup 14's
+        // `.page`: the bar's content height (`--sticky-cta-height`)
+        // plus its own padding on both sides and its 1px top border,
+        // plus a full `--space-8` of clearance.
+        paddingBottom:
+          'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
+      className="report-two-region"
     >
       <div
         style={{
-          display: 'inline-block',
-          padding: 'var(--space-1) var(--space-3)',
-          background: 'var(--color-primary-soft)',
-          color: 'var(--color-primary)',
-          borderRadius: 'var(--radius-pill)',
-          fontSize: 'var(--text-caption)',
-          fontWeight: 'var(--weight-semibold)',
-          alignSelf: 'flex-start',
+          padding: 'var(--space-6) var(--space-5)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-5)',
         }}
       >
-        {t('report.summary.step', null, LANG)}
-      </div>
-      <h1
-        lang={LANG}
-        style={{
-          margin: 0,
-          fontSize: 'var(--text-display-lg)',
-          lineHeight: 'var(--leading-tight)',
-          letterSpacing: 'var(--tracking-tight)',
-          color: 'var(--color-ink)',
-        }}
-      >
-        {t('report.summary.h1', null, LANG)}
-      </h1>
-      <p
-        lang={LANG}
-        style={{
-          margin: 0,
-          color: 'var(--color-ink-secondary)',
-          fontSize: 'var(--text-body-lg)',
-        }}
-      >
-        {t('report.summary.existing_found', { distance: Math.round(ctx.distanceMeters) }, LANG)}
-      </p>
-
-      {existing && (
-        <div
+        <p
+          lang={LANG}
           style={{
-            padding: 'var(--space-4)',
-            background: 'var(--color-warning-soft)',
-            border: '1px solid var(--color-warning)',
-            borderRadius: 'var(--radius-md)',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-            gap: 'var(--space-4)',
-            alignItems: 'center',
+            margin: 0,
+            color: 'var(--color-ink-secondary)',
+            fontSize: 'var(--text-body-lg)',
           }}
-          className="report-summary-grid"
         >
-          {existing.photoUrls[0] && (
-            <div
-              style={{
-                width: '100%',
-                aspectRatio: '1 / 1',
-                maxWidth: 240,
-                background:
-                  thumbnailBackground(existing.photoUrls[0]) ??
-                  'var(--color-surface-raised)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                margin: '0 auto',
-              }}
-              aria-hidden
-            />
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <div
-              style={{
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-secondary)',
-                display: 'flex',
-                gap: 'var(--space-2)',
-                alignItems: 'center',
-              }}
-            >
-              <strong style={{ color: 'var(--color-ink)' }}>
-                {t('report.summary.existing_label', null, LANG)}
-              </strong>
-              <span
+          {t('report.summary.existing_found', { distance: Math.round(ctx.distanceMeters) }, LANG)}
+        </p>
+
+        {existing && (
+          <div
+            style={{
+              padding: 'var(--space-4)',
+              background: 'var(--color-warning-soft)',
+              border: '1px solid var(--color-warning)',
+              borderRadius: 'var(--radius-md)',
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+              gap: 'var(--space-4)',
+              alignItems: 'center',
+            }}
+            className="report-summary-grid"
+          >
+            {existing.photoUrls[0] && (
+              <div
                 style={{
-                  display: 'inline-block',
-                  padding: '2px 8px',
-                  background: 'var(--color-surface-card)',
-                  borderRadius: 'var(--radius-pill)',
-                  color: 'var(--color-ink)',
-                  fontSize: 'var(--text-micro)',
-                  fontWeight: 'var(--weight-semibold)',
+                  width: '100%',
+                  aspectRatio: '1 / 1',
+                  maxWidth: 240,
+                  background:
+                    thumbnailBackground(existing.photoUrls[0]) ??
+                    'var(--color-surface-raised)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  margin: '0 auto',
+                }}
+                aria-hidden
+              />
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <div
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-ink-secondary)',
+                  display: 'flex',
+                  gap: 'var(--space-2)',
+                  alignItems: 'center',
                 }}
               >
-                {t(`status.${existing.status}` as 'status.submitted', null, LANG)}
-              </span>
+                <strong style={{ color: 'var(--color-ink)' }}>
+                  {t('report.summary.existing_label', null, LANG)}
+                </strong>
+                <StatusPill
+                  status={toStatusKey(existing.status)}
+                  lang={LANG}
+                  size="sm"
+                  data-testid="report-summary-existing-status"
+                />
+              </div>
+              <div
+                lang={LANG}
+                style={{
+                  fontSize: 'var(--text-body)',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                {existing.note ?? <em>{t('report.summary.no_note', null, LANG)}</em>}
+              </div>
+              <div
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-ink-secondary)',
+                }}
+              >
+                {formatTimestamp(existing.createdAt, LANG)} · {Math.round(ctx.distanceMeters)}m {t('report.summary.away_suffix', null, LANG)}
+              </div>
             </div>
-            <div
+          </div>
+        )}
+
+        {/* Confirm + submit */}
+        <section
+          style={{
+            padding: 'var(--space-5)',
+            background: 'var(--color-surface-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-xs)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-4)',
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              gap: 'var(--space-3)',
+              alignItems: 'flex-start',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              style={{
+                width: 'var(--space-5)',
+                height: 'var(--space-5)',
+                marginTop: 'var(--space-1)',
+                accentColor: 'var(--color-accent)',
+                flexShrink: 0,
+              }}
+            />
+            <span
               lang={LANG}
               style={{
                 fontSize: 'var(--text-body)',
                 color: 'var(--color-ink)',
+                lineHeight: 'var(--leading-normal)',
               }}
             >
-              {existing.note ?? <em>{t('report.summary.no_note', null, LANG)}</em>}
-            </div>
+              {t('report.summary.confirm_label', null, LANG)}
+            </span>
+          </label>
+
+          {error && (
             <div
+              role="alert"
               style={{
-                fontSize: 'var(--text-caption)',
-                color: 'var(--color-ink-secondary)',
+                padding: 'var(--space-3) var(--space-4)',
+                background: 'var(--color-danger-soft)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-danger)',
+                color: 'var(--color-ink)',
+                fontSize: 'var(--text-body-sm)',
               }}
             >
-              {formatTimestamp(existing.createdAt, LANG)} · {Math.round(ctx.distanceMeters)}m {t('report.summary.away_suffix', null, LANG)}
+              {error}
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Confirm + submit */}
-      <section
-        style={{
-          padding: 'var(--space-5)',
-          background: 'var(--color-surface-card)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-xs)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-4)',
-        }}
-      >
-        <label
-          style={{
-            display: 'flex',
-            gap: 'var(--space-3)',
-            alignItems: 'flex-start',
-            cursor: 'pointer',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={(e) => setConfirmed(e.target.checked)}
-            style={{
-              width: 20,
-              height: 20,
-              marginTop: 2,
-              accentColor: 'var(--color-accent)',
-              flexShrink: 0,
-            }}
-          />
-          <span
-            lang={LANG}
-            style={{
-              fontSize: 'var(--text-body)',
-              color: 'var(--color-ink)',
-              lineHeight: 'var(--leading-normal)',
-            }}
-          >
-            {t('report.summary.confirm_label', null, LANG)}
-          </span>
-        </label>
-
-        {error && (
           <div
-            role="alert"
             style={{
-              padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-danger-soft)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-danger)',
-              color: 'var(--color-ink)',
-              fontSize: 'var(--text-body-sm)',
+              display: 'flex',
+              gap: 'var(--space-3)',
+              alignItems: 'center',
+              paddingTop: 'var(--space-4)',
+              borderTop: '1px solid var(--color-border)',
             }}
+            data-testid="report-summary-actions"
           >
-            {error}
+            <Button
+              variant="secondary"
+              onClick={handleLink}
+              style={{
+                flex: 1,
+                minHeight: 'var(--touch-cta)',
+                fontSize: 'var(--text-body-lg)',
+                background: 'var(--color-surface-raised)',
+              }}
+              data-testid="report-summary-link"
+            >
+              {t('report.summary.link_cta', null, LANG)}
+            </Button>
           </div>
-        )}
+        </section>
+      </div>
 
+      {/*
+        The shared step aside. The summary step used to hand-roll its
+        own pill and its own H1, which meant it rendered `ধাপ ৫/৫ —
+        পর্যালোচনা` where the other four steps render `ধাপ 5 / 5`:
+        Bangla numerals instead of ASCII, no spaces around the slash,
+        an em-dash, a step name the other four do not carry, and no
+        `data-testid` for the spec to hook. One primitive, one format.
+
+        No `error` prop: the card's own `role="alert"` is the single
+        announcement, exactly as on steps 1–4. Passing it here too
+        made a screen reader say the message twice.
+      */}
+      <ReportStepAside
+        currentStep={5}
+        totalSteps={5}
+        lang={LANG}
+        sticky
+        title={t('report.summary.h1', null, LANG)}
+        help={t('report.summary.existing_found', { distance: Math.round(ctx.distanceMeters) }, LANG)}
+      />
+
+      {/* The FIXED bottom action bar (mockup 14's `.actionbar`).
+          The summary step's submit control lives here rather than in
+          the card, so the citizen always has it in thumb reach and
+          the card's last row is never hidden behind it. The card
+          keeps only the "link to the existing report" option, which
+          is a decision ABOUT the existing report, not the flow's
+          continue control. */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 'var(--z-sticky)',
+          background: 'var(--color-surface-card)',
+          borderTop: '1px solid var(--color-border)',
+        }}
+        data-testid="report-step-action-bar"
+      >
         <div
           style={{
+            maxWidth: 920,
+            margin: '0 auto',
             display: 'flex',
-            gap: 'var(--space-3)',
             alignItems: 'center',
-            paddingTop: 'var(--space-4)',
-            borderTop: '1px solid var(--color-border)',
+            gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-5)',
+            minHeight: 'var(--sticky-cta-height)',
           }}
-          data-testid="report-summary-actions"
         >
-          <button
-            type="button"
-            onClick={handleLink}
-            style={{
-              flex: 1,
-              padding: 'var(--space-3) var(--space-4)',
-              background: 'var(--color-surface-raised)',
-              color: 'var(--color-ink)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-              minHeight: 'var(--touch-cta)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'inherit',
-            }}
-            data-testid="report-summary-link"
-          >
-            {t('report.summary.link_cta', null, LANG)}
-          </button>
-          <ReportStepPrimary
-            onClick={handleSubmitAsNew}
-            disabled={!confirmed || submitting}
-            aria-busy={submitting}
-            leading={
-              submitting ? (
-                <span aria-hidden style={{ display: 'inline-flex' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden style={{ animation: 'summary-spin 0.9s linear infinite' }}>
-                    <path d="M21 12a9 9 0 1 1-6.2-8.55" />
-                  </svg>
-                </span>
-              ) : null
-            }
-            data-testid="report-summary-submit-new"
-          >
-            {submitting
-              ? t('report.note.submitting', null, LANG)
-              : t('report.summary.submit_new_cta', null, LANG)}
-          </ReportStepPrimary>
+          <div style={{ flex: 1, display: 'flex' }}>
+            <ReportStepPrimary
+              onClick={handleSubmitAsNew}
+              disabled={!confirmed || submitting}
+              aria-busy={submitting}
+              leading={
+                submitting ? (
+                  <span aria-hidden style={{ display: 'inline-flex' }}>
+                    <ICONS.loading.icon size={16} weight={ICONS.loading.weight} />
+                  </span>
+                ) : null
+              }
+              data-testid="report-summary-submit-new"
+            >
+              {submitting
+                ? t('report.note.submitting', null, LANG)
+                : t('report.summary.submit_new_cta', null, LANG)}
+            </ReportStepPrimary>
+          </div>
         </div>
-      </section>
+      </div>
+
       <style>{`
+        @media (max-width: 1024px) {
+          .report-two-region { grid-template-columns: 1fr !important; }
+        }
         @media (max-width: 640px) {
           .report-summary-grid { grid-template-columns: 1fr !important; }
         }

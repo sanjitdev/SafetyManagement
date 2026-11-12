@@ -25,8 +25,8 @@ surface, the roles and the transports are unchanged.
 |------|------|-------|
 | 0 | 001-ci-unblock | shipped (`45062d1`) |
 | 1 | 002-design-foundation | shipped (`b279228`) |
-| 2 | 003-auth-and-public-surfaces | mockups shipped; page implementation pending |
-| 3 | 004-citizen-surfaces | not started |
+| 2 | 003-auth-and-public-surfaces | shipped |
+| 3 | 004-citizen-surfaces | shipped |
 | 4 | 005-dispatcher-console | not started |
 | 5 | 006-crew-field-app | not started |
 | 6 | 007-admin-console | not started |
@@ -49,8 +49,8 @@ surface, the roles and the transports are unchanged.
 |------|------|-------|
 | `009-001-ci-unblock` | 001 | complete |
 | `009-002-design-foundation` | 002 | complete |
-| `009-003-auth-and-public-surfaces` | 003 | in-progress |
-| `009-004-citizen-surfaces` | 004 | planned |
+| `009-003-auth-and-public-surfaces` | 003 | complete |
+| `009-004-citizen-surfaces` | 004 | complete |
 | `009-005-dispatcher-console` | 005 | planned |
 | `009-006-crew-field-app` | 006 | planned |
 | `009-007-admin-console` | 007 | planned |

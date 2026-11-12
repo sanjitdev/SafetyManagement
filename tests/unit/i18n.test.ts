@@ -217,7 +217,6 @@ describe('i18n key registry', () => {
       'report.summary.link_cta',
       'report.summary.submit_new_cta',
       'report.summary.submitting',
-      'report.summary.step',
     ];
     for (const k of pageKeys) {
       expect(

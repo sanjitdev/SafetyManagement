@@ -1,0 +1,265 @@
+/* CityFix — Citizen surface mockup chrome
+ *
+ * Shared by mockups 13–16 (the citizen surfaces: home, report flow,
+ * my reports, report detail). These four pages are ONE product, so
+ * they share ONE chrome: same header, same nav, same actions, same
+ * focus treatment. The chrome used to be copy-pasted into each file
+ * and it drifted — 16 used `var(--touch-min)` where 14 hardcoded
+ * `44px`, and the header block grew to ~100 lines per file. This
+ * file is the single copy; a mockup only carries its own
+ * page-specific rules.
+ *
+ * ---------------------------------------------------------------------------
+ * APPEARANCE — dark is the default
+ * ---------------------------------------------------------------------------
+ * `lib/theme/appearance.ts` sets `APPEARANCE_DEFAULT = 'dark'`, and
+ * PRODUCT.md commits: "Dark appearance is the default on every app
+ * page. Users may still select light appearance."
+ *
+ * So these mockups render DARK, not light. The `<html>` element
+ * carries `class="theme-dark"`, exactly as the live app's boot script
+ * does. Adding `theme-light` to the element (or removing `theme-dark`
+ * and letting `prefers-color-scheme` decide) shows the light variant —
+ * the tokens in `tokens.css` already carry both.
+ *
+ * This was the single largest defect in the previous pass: every
+ * mockup rendered light, so the committed baselines would have
+ * enshrined an appearance the product does not ship.
+ */
+
+/* ---------- APPEARANCE BOOT ----------
+   Mirrors `lib/theme/appearance.ts`: an explicit stored choice wins,
+   otherwise the app's dark default. The script is inline and
+   synchronous so there is no flash of the wrong appearance. */
+.theme-boot {
+  display: none;
+}
+html.theme-light { color-scheme: light; }
+html.theme-dark { color-scheme: dark; }
+
+/* ---------- BASE ---------- */
+body {
+  font-family: var(--font-body);
+  background: var(--color-surface-page);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+/* ---------- BROWSER SURFACES ----------
+   The scrollbar, the text selection and the caret are part of the
+   product, not the operating system. Leaving them at their defaults
+   means a light scrollbar track punched through a dark page — the
+   exact "unthemed surface" tell. These are the only places the
+   browser's own chrome is allowed to show. */
+::selection {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+html { scrollbar-color: var(--color-border-strong) var(--color-surface-page); }
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) var(--color-surface-page); }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--color-surface-page); }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-surface-page);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--color-ink-tertiary); }
+
+/* ---------- FOCUS ----------
+   One focus treatment for the whole product: the tokenised ring.
+   Every interactive element below opts in, so keyboard focus is
+   always visible and always the same shape. */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-input);
+}
+:where(a, button, [role="button"], input, select, textarea):focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---------- APP HEADER (signed-in citizen) ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  height: var(--header-height-desktop);
+  background: var(--color-surface-card);
+  border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-5);
+  gap: var(--space-4);
+}
+.brand { display: inline-flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--color-ink); }
+.brand-name { font-size: var(--text-body-lg); font-weight: var(--weight-bold); letter-spacing: var(--tracking-tight); }
+.brand-city { font-size: var(--text-body-sm); color: var(--color-ink-secondary); }
+
+.nav { display: flex; align-items: center; gap: var(--space-1); }
+.nav-item {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-body-sm); font-weight: var(--weight-medium);
+  color: var(--color-ink-secondary); text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.nav-item:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+.nav-item.active { background: var(--color-primary-soft); color: var(--color-primary); font-weight: var(--weight-semibold); }
+
+.topbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* ---------- BUTTONS ----------
+   One button vocabulary for the citizen surfaces. Height comes from
+   `--touch-min` so every button on every surface is the same
+   physical size — the previous pass hardcoded `44px` in one file and
+   `48px` in another, which is why the report flow's buttons looked
+   taller than the header's. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--touch-min); padding: 0 var(--space-5);
+  border-radius: var(--radius-input); border: 1px solid transparent;
+  font-family: inherit; font-size: var(--text-body); font-weight: var(--weight-semibold);
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-primary:active { background: var(--color-primary-pressed); }
+.btn-secondary {
+  background: var(--color-surface-card); color: var(--color-ink);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover { background: var(--color-surface-raised); border-color: var(--color-border-input); }
+.btn-ghost {
+  background: transparent; color: var(--color-ink);
+  border-color: var(--color-border); border-radius: var(--radius-pill);
+  min-height: var(--touch-min); padding: 0 var(--space-5);
+}
+.btn-ghost:hover { background: var(--color-surface-raised); border-color: var(--color-border-strong); }
+/* Disabled is a real state, not a guess: dimmed ink, no pointer. */
+.btn:disabled, .btn[aria-disabled="true"] {
+  background: var(--color-surface-raised); color: var(--color-ink-disabled);
+  border-color: var(--color-border); cursor: not-allowed;
+}
+.btn-primary:disabled, .btn-primary[aria-disabled="true"] { background: var(--color-surface-raised); }
+
+.icon-btn {
+  width: var(--touch-min); height: var(--touch-min);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill); color: var(--color-ink-secondary); cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.icon-btn:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+
+.avatar {
+  width: var(--icon-size-xl); height: var(--icon-size-xl); border-radius: var(--radius-pill);
+  background: var(--color-primary-soft); color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+}
+
+/* ---------- PAGE ---------- */
+.page { max-width: 1200px; margin: 0 auto; padding: var(--space-6) var(--space-5) var(--space-8); }
+.page-title { font-size: var(--text-h1); margin: 0 0 var(--space-2); }
+.page-sub { font-size: var(--text-body); color: var(--color-ink-secondary); margin: 0 0 var(--space-5); }
+
+/* ---------- STATUS PILL ----------
+   Icon + word + colour. Never colour alone. */
+.status {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px var(--space-2); border-radius: var(--radius-pill);
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+  line-height: var(--leading-snug);
+}
+.status-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+.status-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+.status-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+.status-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+
+/* ---------- WARD PILL ---------- */
+.ward {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-surface-raised); border-radius: var(--radius-pill);
+  color: var(--color-ink-secondary); font-weight: var(--weight-semibold);
+}
+
+/* ---------- TICKET ID PILL ----------
+   The PUBLIC short code (e.g. "#TIX-4820"). Citizens quote this code
+   to the call centre, so it stays visible on the citizen surfaces on
+   purpose. It is the ONLY id a citizen ever sees: the internal
+   database id never reaches this surface, and no internal id value is
+   rendered anywhere. Monospace, so it reads as an identifier rather
+   than as copy. */
+.ticket-id {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-ink-secondary);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- LIST ROW ----------
+   The shared row shape for the activity panel and the report list. */
+.row {
+  display: flex; gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none; color: var(--color-ink);
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.row + .row { margin-top: var(--space-2); }
+.row:hover { border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+.row.new { background: var(--color-primary-soft); border-color: var(--color-primary); }
+.row.new:hover { background: var(--color-primary-soft); border-color: var(--color-primary-hover); }
+.row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.row-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.row-title { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); }
+/* The note is the citizen's own words about their problem. Clipping it
+   to one line with an ellipsis hides the one piece of text they
+   authored, so it wraps to at most two lines instead. */
+.row-note {
+  font-size: var(--text-caption); color: var(--color-ink-secondary); margin: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: var(--leading-snug);
+}
+.row-meta {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  font-size: var(--text-caption); color: var(--color-ink-tertiary);
+  margin-top: var(--space-1);
+}
+.new-badge {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-primary); color: var(--color-on-primary);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* ---------- LOAD MORE ---------- */
+.load-more { display: flex; justify-content: center; margin-top: var(--space-4); }
+
+/* ---------- SMALL SCREENS ----------
+   The inline nav collapses (the real app swaps it for a hamburger
+   menu). */
+@media (max-width: 768px) {
+  .nav { display: none; }
+  .topbar { padding: 0 var(--space-4); gap: var(--space-2); }
+  .brand-city { display: none; }
+  .page { padding: var(--space-5) var(--space-4) var(--space-7); }
+}

@@ -15,3 +15,15 @@
 # them — a converted PNG is a different file, and the visual diff would
 # fail for a reason that has nothing to do with the UI.
 *.png binary
+
+# Memory-bank markdown must keep LF endings.
+#
+# The specsmd engine's `bolt-complete.cjs` extracts YAML frontmatter with
+# the regex `/^---\n([\s\S]+?)\n---/`, which requires a bare `\n`. With
+# Git's default `core.autocrlf` behaviour on Windows, a committed `.md`
+# file is checked out with CRLF line endings, the regex does not match,
+# and the completion gate dies with "Invalid bolt file (no frontmatter)".
+#
+# The same failure hits every CRLF-checked-out memory-bank file, whether
+# it was written by hand or by the engine itself.
+*.md text eol=lf

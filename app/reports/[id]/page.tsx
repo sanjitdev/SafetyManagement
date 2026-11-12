@@ -1,31 +1,63 @@
 /**
- * 1.12 Report — My Reports Detail
+ * 1.12 Report — My Reports Detail (mockup 16).
  *
- * Two-region layout at large viewport, single column at medium:
- *   - LEFT: hero (status pill + ticket ID + Bangla title + ward/age),
- *     photo gallery with per-photo delete, status trail.
- *   - RIGHT: metadata card (category, ward, SLA, resolution time),
- *     feel-heard feedback prompt when status === 'resolved'.
+ * Intent 009 / Unit 004 — citizen surface re-composition.
  *
- * Photos live as data URLs in the dev store today; v1.1 swaps to S3/MinIO
- * keys. The DELETE handler is intentionally lightweight so the demo can
- * show the citizen's "delete individual photos" affordance; it remains a
- * valid citizen-only mutation (PLAT-REQ-001).
+ * WHAT CHANGED (presentation only)
+ * --------------------------------
+ * The page now matches mockup 16:
  *
- * All user-facing copy routes through `lib/i18n/keys.ts` per
- * `team.md` Forbidden rule (no hardcoded strings). Status pill, trail
- * titles, feedback prompt, photo-delete dialog, and metadata labels are
- * all i18n-keyed.
+ *   - The HERO carries the PUBLIC ticket code as a pill (with an
+ *     icon), the category title, the ward + age line, and the status
+ *     pill. The internal id never reaches the DOM.
+ *   - The status trail is the `Timeline` primitive — an ordered list
+ *     where EVERY step carries an ICON and a TIMESTAMP, so the state
+ *     of the report is readable without colour and without a legend.
+ *     The four steps are the locked status order:
+ *     `submitted → routed → in_progress → resolved`.
+ *   - The photos are TWO LABELLED GROUPS — "আগে" (Before, the
+ *     citizen's own photos) and "পরে" (After, the crew's photos).
+ *     Each group has a visible label AND a hint line; each tile
+ *     repeats its own label so a cropped tile still says which side
+ *     of the split it belongs to.
+ *   - Every interactive element is a design-system primitive. The
+ *     hand-rolled `<button>`s (photo delete, modal cancel/confirm)
+ *     are now `IconButton` / `Button`, and the hand-rolled modal is
+ *     now the `Modal` primitive (a native `<dialog>`, so the rest of
+ *     the page is inert while it is open).
  *
- * Matches mockup 04-my-reports-detail.html.
+ * WHAT DID NOT CHANGE
+ * -------------------
+ * The API surface, the role model and the transports are byte-
+ * identical: the page still reads `GET /api/tickets/:id`, still
+ * renders the serializer's output, and still calls the same two
+ * citizen-only mutations (`DELETE .../photos/:idx` and the feedback
+ * POST, the latter still owned by the `FeedbackPrompt` island).
+ *
+ * ON THE TRAIL
+ * ------------
+ * The serializer gives the trail as a list of TRANSITIONS (each with
+ * a `toStatus`, a timestamp, an actor label and an optional note).
+ * Mockup 16 shows the four canonical STEPS, not the transitions —
+ * a report that was filed and routed shows "submitted" and "routed"
+ * as done, "in progress" as upcoming, "resolved" as upcoming.
+ *
+ * So the trail is built from the CANONICAL step order, and each
+ * step is matched to the transition that produced it. A step with no
+ * matching transition is "upcoming" and shows an estimate instead of
+ * a timestamp — because a future step has no timestamp yet, and
+ * inventing one would be a lie.
+ *
+ * The step that is CURRENT is the one the ticket's own status names.
  */
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
+import { formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import { useLanguage } from '@/components/useLanguage';
@@ -41,6 +73,16 @@ import type { SerializedTicket as ApiSerializedTicket } from '@/lib/serializers/
 // (and so the island has a clean place to document the contract).
 import FeedbackPrompt from './feedback-prompt';
 import type { FeedbackRating } from '@/lib/citizen/feedback-rating';
+import {
+  Button,
+  IconButton,
+  Modal,
+  StatusPill,
+  Timeline,
+  type StatusKey,
+  type TimelineItem,
+} from '@/components/ui';
+import { ICONS } from '@/lib/ui/icon-map';
 
 // Local shape is the citizen branch of the canonical serializer —
 // the API only ever returns one branch at a time so the narrowing is
@@ -49,26 +91,18 @@ import type { FeedbackRating } from '@/lib/citizen/feedback-rating';
 type SerializedTicket = ApiSerializedTicket;
 type TicketStatus = SerializedTicket['status'];
 
-const STATUS_ORDER: SerializedTicket['status'][] = [  'submitted',
-  'routed',
-  'in_progress',
-  'resolved',
-];
+/**
+ * The LOCKED four-step status order.
+ *
+ * This is the order the trail renders and the order a citizen reads
+ * progress in: filed → routed → work started → fixed. It is the same
+ * order the report flow's own step indicator uses for its statuses,
+ * and the same order the mockup shows.
+ */
+const TRAIL_STEPS = ['submitted', 'routed', 'in_progress', 'resolved'] as const;
+type TrailStep = (typeof TRAIL_STEPS)[number];
 
-// The active UI language.
-//
-// This page used to hard-code `const LANG: Language = 'bn'` at module
-// scope, so the ticket detail view was ALWAYS Bangla — a user who
-// switched to English and opened one of their reports saw Bangla copy
-// with English chrome around it.
-//
-// The language now comes from the shared `useLanguage()` hook, which
-// reads the stored preference during the first render and subscribes
-// to `cityfix:language-updated`. The module-scope constant is gone;
-// `LANG` below is a per-render local so the thirty-odd call sites in
-// this file stay readable.
-
-const STATUS_TITLES_KEY: Record<SerializedTicket['status'], string> = {
+const STATUS_TITLES_KEY: Record<TicketStatus, string> = {
   submitted: 'trail.submitted',
   routed: 'trail.routed',
   in_progress: 'trail.in_progress',
@@ -77,25 +111,35 @@ const STATUS_TITLES_KEY: Record<SerializedTicket['status'], string> = {
   cancelled: 'trail.cancelled',
 };
 
-function pillClass(status: SerializedTicket['status']) {
-  switch (status) {
-    case 'resolved':
-      return { bg: 'var(--color-status-resolved-soft)', fg: 'var(--color-status-resolved)' };
-    case 'routed':
-      return { bg: 'var(--color-status-routed-soft)', fg: 'var(--color-status-routed)' };
-    case 'in_progress':
-      return { bg: 'var(--color-status-in-progress-soft)', fg: 'var(--color-status-in-progress)' };
-    case 'submitted':
-      return { bg: 'var(--color-primary-soft)', fg: 'var(--color-primary)' };
-    default:
-      return { bg: 'var(--color-surface-raised)', fg: 'var(--color-ink-secondary)' };
-  }
+/**
+ * The icon that gives each trail step its SHAPE.
+ *
+ * A trail that distinguishes its steps by hue alone is unreadable to
+ * a colour-blind user and unreadable in a greyscale printout, so the
+ * icon is mandatory — the `Timeline` primitive requires it.
+ */
+const TRAIL_STEP_ICON: Record<TrailStep, (typeof ICONS)[keyof typeof ICONS]> = {
+  submitted: ICONS.statusSubmitted,
+  routed: ICONS.statusRouted,
+  in_progress: ICONS.statusInProgress,
+  resolved: ICONS.statusResolved,
+};
+
+/**
+ * The status pill key for a ticket status.
+ *
+ * `StatusPill` carries the icon + word + colour triple, so a status
+ * is never colour-alone. The ticket status enum and the pill's key
+ * union overlap exactly, so the cast is safe.
+ */
+function statusPillKey(status: TicketStatus): StatusKey {
+  return status as StatusKey;
 }
 
 function timeAgoParts(iso: string): { value: number; unitKey: string } {
   const now = Date.now();
-  const t = new Date(iso).getTime();
-  const ms = Math.max(0, now - t);
+  const at = new Date(iso).getTime();
+  const ms = Math.max(0, now - at);
   const minutes = Math.round(ms / 60000);
   if (minutes < 60) return { value: minutes, unitKey: 'time.minutes_ago' };
   const hours = Math.round(minutes / 60);
@@ -276,6 +320,82 @@ export default function MyReportDetailPage() {
     }
   }
 
+  /**
+   * The four trail steps, built from the canonical order.
+   *
+   * A step is "done" when the ticket has passed it, "current" when
+   * the ticket's own status names it, and "upcoming" otherwise. Each
+   * step carries the transition that produced it (for its timestamp
+   * and note); a step with no transition shows the SLA estimate
+   * instead, because a future step has no timestamp yet.
+   */
+  const trailItems = useMemo<TimelineItem[]>(() => {
+    if (!ticket) return [];
+    const currentIdx = TRAIL_STEPS.indexOf(
+      (ticket.status === 'closed' || ticket.status === 'cancelled'
+        ? 'resolved'
+        : ticket.status) as TrailStep,
+    );
+    const transitionFor = (step: TrailStep) =>
+      ticket.trail.find((entry) => entry.toStatus === step);
+
+    return TRAIL_STEPS.map((step, idx) => {
+      const transition = transitionFor(step);
+      const state: TimelineItem['state'] =
+        currentIdx < 0
+          ? 'upcoming'
+          : idx < currentIdx
+            ? 'done'
+            : idx === currentIdx
+              ? 'current'
+              : 'upcoming';
+
+      const IconEntry = TRAIL_STEP_ICON[step];
+      const icon = (
+        <IconEntry.icon
+          size={14}
+          weight={IconEntry.weight}
+          aria-hidden
+          focusable="false"
+        />
+      );
+
+      // The detail line. A step that HAS happened carries its clock
+      // time and its actor; a step that has NOT yet happened carries
+      // the estimate. The actor label comes from the serializer, which
+      // anonymises internal actors for citizens ("সিটি কর্পোরেশন").
+      const detail = transition
+        ? `${formatTimestamp(transition.timestamp, LANG)} · ${transition.actorLabel}`
+        : t('detail.trail.pending', null, LANG);
+
+      return {
+        key: step,
+        title: t(STATUS_TITLES_KEY[step] as 'trail.submitted', null, LANG),
+        detail,
+        state,
+        icon,
+        aside: transition?.note ? (
+          // The `Timeline` primitive renders `aside` as a sibling of
+          // the text block inside a FLEX row, so the note is given a
+          // full-width flex basis to wrap onto its own line under
+          // the step — the same place the hand-rolled trail put it.
+          <span
+            lang={LANG}
+            style={{
+              flex: '1 0 100%',
+              marginTop: 'var(--space-1)',
+              fontSize: 'var(--text-caption)',
+              color: 'var(--color-ink-secondary)',
+              fontStyle: 'italic',
+            }}
+          >
+            “{transition.note}”
+          </span>
+        ) : null,
+      };
+    });
+  }, [ticket, LANG]);
+
   if (authed === false) {
     return (
       <div style={{ padding: 'var(--space-7) var(--space-5)' }}>
@@ -324,8 +444,6 @@ export default function MyReportDetailPage() {
     );
   }
 
-  const pill = pillClass(ticket.status);
-  const currentIdx = STATUS_ORDER.indexOf(ticket.status);
   // The serializer (lib/serializers/ticket.ts) ships the human-readable
   // ward name(s) joined in by the backend. The Bangla-first read per
   // project policy falls back to the English name, then to a generic
@@ -402,57 +520,83 @@ export default function MyReportDetailPage() {
 
         {/* LEFT */}
         <div>
+          {/* The HERO. Mockup 16: the ticket-code pill, the title,
+              the ward + age line, then the meta row (status pill,
+              ward, department). */}
           <div style={{ marginBottom: 'var(--space-5)' }}>
-            <div
+            <span
+              data-testid="report-detail-code"
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 'var(--space-3)',
-                marginBottom: 'var(--space-2)',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-1) var(--space-3)',
+                background: 'var(--color-primary-soft)',
+                color: 'var(--color-primary)',
+                borderRadius: 'var(--radius-pill)',
+                fontSize: 'var(--text-caption)',
+                fontWeight: 'var(--weight-semibold)',
+                marginBottom: 'var(--space-3)',
               }}
             >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-pill)',
-                  fontSize: 'var(--text-caption)',
-                  fontWeight: 'var(--weight-semibold)',
-                  background: pill.bg,
-                  color: pill.fg,
-                }}
-              >
-                {t(`status.${ticket.status}` as 'status.submitted', null, LANG)}
-              </span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-ink-tertiary)',
-                }}
-              >
-                {formatTicketId(ticket.id)}
-              </span>
-            </div>
+              <ICONS.verified.icon
+                size={13}
+                weight={ICONS.verified.weight}
+                aria-hidden
+              />
+              <strong>{formatTicketId(ticket.id)}</strong>
+            </span>
             <h1
               lang={LANG}
               style={{
                 margin: '0 0 var(--space-2)',
-                fontSize: 'var(--text-h2)',
+                // Mockup 16's hero H1 is `--text-h1` (24px).
+                fontSize: 'var(--text-h1)',
                 lineHeight: 1.2,
               }}
             >
               {categoryLabel(ticket, LANG)}
             </h1>
-            <div
+            <p
+              lang={LANG}
               style={{
+                margin: '0 0 var(--space-3)',
                 fontSize: 'var(--text-body)',
                 color: 'var(--color-ink-secondary)',
               }}
             >
               {wardLabel} · {createdRel} {t('time.filed', null, LANG)}
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <StatusPill
+                status={statusPillKey(ticket.status)}
+                lang={LANG}
+                size="md"
+              />
+              <span
+                lang={LANG}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-1)',
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-ink-secondary)',
+                }}
+              >
+                <ICONS.mapPin.icon
+                  size={12}
+                  weight={ICONS.mapPin.weight}
+                  aria-hidden
+                />
+                {wardLabel}
+              </span>
             </div>
           </div>
 
@@ -474,18 +618,22 @@ export default function MyReportDetailPage() {
                 marginBottom: 'var(--space-5)',
               }}
             >
-              <div
+              <h2
                 style={{
-                  fontSize: 'var(--text-micro)',
-                  color: 'var(--color-ink-tertiary)',
-                  fontWeight: 'var(--weight-semibold)',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  marginBottom: 'var(--space-2)',
+                  // A real section heading, not an uppercase
+                  // micro-label: the mockup 16 `.section-title`
+                  // uses `--text-h2` (20px) in the body colour, and
+                  // a `<h2>` gives assistive tech the document
+                  // outline the label never provided.
+                  fontSize: 'var(--text-h2)',
+                  color: 'var(--color-ink)',
+                  margin: '0 0 var(--space-2)',
+                  lineHeight: 'var(--leading-tight)',
+                  letterSpacing: 'var(--tracking-tight)',
                 }}
               >
                 {t('detail.section.description', null, LANG)}
-              </div>
+              </h2>
               <p
                 style={{
                   margin: 0,
@@ -499,13 +647,16 @@ export default function MyReportDetailPage() {
             </div>
           )}
 
-          {/* Photo groups — Bolt 007-001.
-              The Before group renders the citizen's own photos
-              (the "evidence of the issue" set) with the per-photo
-              delete affordance. The After group renders the crew's
-              photos (the "evidence of the fix") without a delete
-              affordance; it is hidden when empty. The legacy flat
-              `photoUrls` grid is gone. */}
+          {/* The TWO LABELLED PHOTO GROUPS.
+              The Before group renders the citizen's own photos (the
+              "evidence of the issue" set) with the per-photo delete
+              affordance. The After group renders the crew's photos
+              (the "evidence of the fix") without a delete affordance;
+              it is hidden when empty.
+
+              Each group has a LABEL ("আগে" / "পরে") and a hint line,
+              and each tile repeats its own label — so a cropped tile
+              still says which side of the split it belongs to. */}
           {ticket.beforePhotoUrls.length + ticket.afterPhotoUrls.length > 0 && (
             <div style={{ marginBottom: 'var(--space-5)' }}>
               {/* Before group — always rendered, may show an empty
@@ -515,97 +666,198 @@ export default function MyReportDetailPage() {
                   `beforePhotoUrls` array index the DELETE handler
                   resolves against `uploadedByRole = 'citizen'`). */}
               <div
-                style={{
-                  fontSize: 'var(--text-micro)',
-                  color: 'var(--color-ink-tertiary)',
-                  fontWeight: 'var(--weight-semibold)',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  marginBottom: 'var(--space-2)',
-                }}
+                data-testid="report-detail-photos-before"
+                style={{ marginBottom: 'var(--space-4)' }}
               >
-                {t('photo.before', null, LANG)}
-              </div>
-              {ticket.beforePhotoUrls.length > 0 ? (
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                    gap: 'var(--space-3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
+                    marginBottom: 'var(--space-2)',
                   }}
                 >
-                  {ticket.beforePhotoUrls.map((url, idx) => (
-                    <div
-                      key={`before-${idx}`}
-                      style={{
-                        position: 'relative',
-                        aspectRatio: '4 / 3',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--color-border)',
-                        background:
-                          thumbnailBackground(url) ??
-                          'var(--color-surface-raised)',
-                      }}
-                    >
-                      {isCitizen && (
-                        <button
-                          type="button"
-                          aria-label={t('detail.photo.delete_aria', null, LANG)}
-                          onClick={() => handleDeletePhoto(idx)}
-                          disabled={deletingIdx === idx}
+                  <span
+                    lang={LANG}
+                    style={{
+                      fontSize: 'var(--text-body-sm)',
+                      fontWeight: 'var(--weight-semibold)',
+                      color: 'var(--color-ink)',
+                    }}
+                  >
+                    {t('detail.photos.before_title', null, LANG)}
+                  </span>
+                  <span
+                    lang={LANG}
+                    style={{
+                      fontSize: 'var(--text-caption)',
+                      color: 'var(--color-ink-tertiary)',
+                    }}
+                  >
+                    {t('detail.photos.before_hint', null, LANG)}
+                  </span>
+                </div>
+                {ticket.beforePhotoUrls.length > 0 ? (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                      gap: 'var(--space-3)',
+                    }}
+                  >
+                    {ticket.beforePhotoUrls.map((url, idx) => (
+                      <figure
+                        key={`before-${idx}`}
+                        style={{
+                          position: 'relative',
+                          margin: 0,
+                          aspectRatio: '4 / 3',
+                          borderRadius: 'var(--radius-md)',
+                          overflow: 'hidden',
+                          border: '1px solid var(--color-border)',
+                          background:
+                            thumbnailBackground(url) ??
+                            'var(--color-surface-raised)',
+                        }}
+                      >
+                        {/* The photo itself is the image. It is a
+                            `role="img"` SPAN rather than an `<img>`
+                            because the tile is painted with a
+                            `background` shorthand; the span carries
+                            the accessible name.
+                            The role sits on THIS element and NOT on
+                            the `<figure>`, because the figure also
+                            holds the delete button — a `role="img"`
+                            ancestor would hide that button from
+                            assistive tech. */}
+                        <span
+                          role="img"
+                          lang={LANG}
+                          aria-label={t('detail.photos.before_title', null, LANG)}
                           style={{
                             position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            width: 28,
-                            height: 28,
-                            borderRadius: '50%',
-                            border: 'none',
-                            background: 'rgba(0,0,0,0.6)',
-                            color: '#fff',
-                            fontSize: 14,
-                            cursor: deletingIdx === idx ? 'wait' : 'pointer',
+                            inset: 0,
+                            backgroundImage: `url("${url}")`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          }}
+                        />
+                        <span
+                          lang={LANG}
+                          style={{
+                            position: 'absolute',
+                            top: 'var(--space-2)',
+                            left: 'var(--space-2)',
+                            zIndex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 'var(--space-1)',
+                            padding: 'var(--space-1) var(--space-2)',
+                            borderRadius: 'var(--radius-pill)',
+                            background: 'var(--color-surface-card)',
+                            color: 'var(--color-ink-secondary)',
+                            fontSize: 'var(--text-micro)',
+                            fontWeight: 'var(--weight-semibold)',
                           }}
                         >
-                          {deletingIdx === idx ? '…' : '×'}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: 'var(--space-3) var(--space-4)',
-                    background: 'var(--color-surface-raised)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--color-ink-secondary)',
-                    fontSize: 'var(--text-caption)',
-                  }}
-                >
-                  {t('photo.emptyBefore', null, LANG)}
-                </div>
-              )}
+                          {t('detail.photos.before_title', null, LANG)}
+                        </span>
+                        {isCitizen && (
+                          // The `IconButton` primitive renders a wrapper
+                          // `<span>` around the button, so the absolute
+                          // positioning belongs on a container THIS
+                          // page owns — otherwise the wrapper would sit
+                          // in the normal flow and the button would
+                          // overlay the wrong tile.
+                          <span
+                            style={{
+                              position: 'absolute',
+                              top: 'var(--space-2)',
+                              right: 'var(--space-2)',
+                              zIndex: 1,
+                            }}
+                          >
+                            <IconButton
+                              label={t('detail.photos.remove', null, LANG)}
+                              icon={
+                                <ICONS.remove.icon
+                                  size={16}
+                                  weight={ICONS.remove.weight}
+                                  aria-hidden
+                                  focusable="false"
+                                />
+                              }
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeletePhoto(idx)}
+                              disabled={deletingIdx === idx}
+                              data-testid={`report-detail-photo-remove-${idx}`}
+                              style={{
+                                // The visible control is painted at
+                                // 44px (the touch-target floor)
+                                // rather than the primitive's 32px
+                                // `sm`. The primitive sizes the
+                                // BUTTON to the floor on its own, so
+                                // this override only changes how the
+                                // control LOOKS.
+                                width: 'var(--touch-min)',
+                                height: 'var(--touch-min)',
+                              }}
+                            />
+                          </span>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: 'var(--space-3) var(--space-4)',
+                      background: 'var(--color-surface-raised)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--color-ink-secondary)',
+                      fontSize: 'var(--text-caption)',
+                    }}
+                  >
+                    {t('detail.photos.before_empty', null, LANG)}
+                  </div>
+                )}
+              </div>
 
               {/* After group — hidden entirely when empty so a
                   not-yet-resolved ticket does not draw a labelled
                   empty state. No delete affordance (the citizen did
                   not upload these photos). */}
               {ticket.afterPhotoUrls.length > 0 && (
-                <div style={{ marginTop: 'var(--space-4)' }}>
+                <div data-testid="report-detail-photos-after">
                   <div
                     style={{
-                      fontSize: 'var(--text-micro)',
-                      color: 'var(--color-ink-tertiary)',
-                      fontWeight: 'var(--weight-semibold)',
-                      letterSpacing: '0.05em',
-                      textTransform: 'uppercase',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-2)',
                       marginBottom: 'var(--space-2)',
                     }}
                   >
-                    {t('photo.after', null, LANG)}
+                    <span
+                      lang={LANG}
+                      style={{
+                        fontSize: 'var(--text-body-sm)',
+                        fontWeight: 'var(--weight-semibold)',
+                        color: 'var(--color-ink)',
+                      }}
+                    >
+                      {t('detail.photos.after_title', null, LANG)}
+                    </span>
+                    <span
+                      lang={LANG}
+                      style={{
+                        fontSize: 'var(--text-caption)',
+                        color: 'var(--color-ink-tertiary)',
+                      }}
+                    >
+                      {t('detail.photos.after_hint', null, LANG)}
+                    </span>
                   </div>
                   <div
                     style={{
@@ -615,21 +867,43 @@ export default function MyReportDetailPage() {
                     }}
                   >
                     {ticket.afterPhotoUrls.map((url, idx) => (
-                      <div
+                      <figure
                         key={`after-${idx}`}
                         style={{
                           position: 'relative',
+                          margin: 0,
                           aspectRatio: '4 / 3',
                           borderRadius: 'var(--radius-md)',
                           overflow: 'hidden',
                           border: '1px solid var(--color-border)',
                           background:
-                          thumbnailBackground(url) ??
-                          'var(--color-surface-raised)',
+                            thumbnailBackground(url) ??
+                            'var(--color-surface-raised)',
                         }}
                         role="img"
-                        aria-label={t('photo.after', null, LANG)}
-                      />
+                        aria-label={t('detail.photos.after_title', null, LANG)}
+                      >
+                        <span
+                          lang={LANG}
+                          style={{
+                            position: 'absolute',
+                            top: 'var(--space-2)',
+                            left: 'var(--space-2)',
+                            zIndex: 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 'var(--space-1)',
+                            padding: 'var(--space-1) var(--space-2)',
+                            borderRadius: 'var(--radius-pill)',
+                            background: 'var(--color-surface-card)',
+                            color: 'var(--color-ink-secondary)',
+                            fontSize: 'var(--text-micro)',
+                            fontWeight: 'var(--weight-semibold)',
+                          }}
+                        >
+                          {t('detail.photos.after_title', null, LANG)}
+                        </span>
+                      </figure>
                     ))}
                   </div>
                 </div>
@@ -654,7 +928,9 @@ export default function MyReportDetailPage() {
             </div>
           )}
 
-          {/* Status trail */}
+          {/* The status trail — the `Timeline` primitive. Every step
+              carries an icon AND a timestamp, so the state of the
+              report is readable without colour. */}
           <div
             style={{
               background: 'var(--color-surface-card)',
@@ -663,138 +939,27 @@ export default function MyReportDetailPage() {
               padding: 'var(--space-4)',
             }}
           >
-            <div
+            <h2
               style={{
-                fontSize: 'var(--text-micro)',
-                color: 'var(--color-ink-tertiary)',
-                fontWeight: 'var(--weight-semibold)',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                marginBottom: 'var(--space-4)',
+                // Real section heading — mockup 16's `.section-title`
+                // is `--text-h2` (20px) in the body colour, and the
+                // `<h2>` gives assistive tech the document outline
+                // an uppercase micro-label never provided.
+                fontSize: 'var(--text-h2)',
+                color: 'var(--color-ink)',
+                margin: '0 0 var(--space-4)',
+                lineHeight: 'var(--leading-tight)',
+                letterSpacing: 'var(--tracking-tight)',
               }}
             >
               {t('detail.section.progress', null, LANG)}
-            </div>
-            {ticket.trail.length === 0 ? (
-              <p
-                style={{
-                  margin: 0,
-                  color: 'var(--color-ink-secondary)',
-                  fontSize: 'var(--text-caption)',
-                }}
-              >
-                {t('detail.progress.empty', null, LANG)}
-              </p>
-            ) : (
-              ticket.trail.map((entry, idx) => {
-                const orderIdx = STATUS_ORDER.indexOf(entry.toStatus);
-                const isDone = orderIdx >= 0 && orderIdx <= currentIdx;
-                const isCurrent = entry.toStatus === ticket.status;
-                const isLastInList = idx === ticket.trail.length - 1;
-                const stepClass = isCurrent ? 'current' : isDone ? 'done' : 'pending';
-                return (
-                  <div
-                    key={`${entry.timestamp}-${idx}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 'var(--space-3)',
-                      position: 'relative',
-                      marginTop: idx === 0 ? 0 : 'var(--space-4)',
-                    }}
-                  >
-                    {!isLastInList && (
-                      <div
-                        aria-hidden
-                        style={{
-                          position: 'absolute',
-                          left: 11,
-                          top: 24,
-                          bottom: -16,
-                          width: 2,
-                          background:
-                            stepClass === 'done'
-                              ? 'var(--color-status-resolved)'
-                              : 'var(--color-border)',
-                        }}
-                      />
-                    )}
-                    <div
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background:
-                          stepClass === 'done'
-                            ? 'var(--color-status-resolved)'
-                            : stepClass === 'current'
-                              ? 'var(--color-primary)'
-                              : 'var(--color-surface-raised)',
-                        color:
-                          stepClass !== 'pending'
-                            ? 'var(--color-on-primary)'
-                            : 'var(--color-ink-tertiary)',
-                        fontSize: 'var(--text-micro)',
-                        fontWeight: 'var(--weight-semibold)',
-                      }}
-                      aria-hidden
-                    >
-                      {stepClass === 'done' || stepClass === 'current' ? (
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                        >
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      ) : (
-                        STATUS_ORDER.indexOf(entry.toStatus) + 1
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div
-                        lang={LANG}
-                        style={{
-                          fontWeight: 'var(--weight-semibold)',
-                          fontSize: 'var(--text-body-sm)',
-                        }}
-                      >
-                        {t(STATUS_TITLES_KEY[entry.toStatus] as 'trail.submitted', null, LANG)}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 'var(--text-caption)',
-                          color: 'var(--color-ink-tertiary)',
-                          marginTop: 2,
-                        }}
-                      >
-                        {timeAgoLabel(entry.timestamp, LANG)} · {entry.actorLabel}
-                      </div>
-                      {entry.note && (
-                        <div
-                          lang={LANG}
-                          style={{
-                            fontSize: 'var(--text-caption)',
-                            color: 'var(--color-ink-secondary)',
-                            marginTop: 4,
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          “{entry.note}”
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            </h2>
+            <Timeline
+              items={trailItems}
+              ariaLabel={t('detail.trail.label', null, LANG)}
+              lang={LANG}
+              data-testid="report-detail-trail"
+            />
           </div>
         </div>
 
@@ -889,87 +1054,39 @@ export default function MyReportDetailPage() {
         </aside>
       </div>
 
-      {/* Photo-delete confirmation modal — replaces `confirm()` so all
-          copy is i18n-keyed and the design system controls the look. */}
-      {pendingDeleteIdx != null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="photo-delete-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--color-surface-card)',
-              borderRadius: 'var(--radius-md)',
-              padding: 'var(--space-5)',
-              maxWidth: 400,
-              width: '90%',
-              boxShadow: 'var(--shadow-modal)',
-            }}
-          >
-            <h2
-              id="photo-delete-title"
-              lang={LANG}
-              style={{
-                margin: '0 0 var(--space-3)',
-                fontSize: 'var(--text-h3)',
-              }}
+      {/* Photo-delete confirmation — the `Modal` primitive (a native
+          `<dialog>`, so the page behind it is inert while it is open
+          and Escape closes it). */}
+      <Modal
+        open={pendingDeleteIdx != null}
+        onClose={cancelDeletePhoto}
+        title={t('detail.photo.delete_confirm', null, LANG)}
+        lang={LANG}
+        closeLabel={t('common.cancel', null, LANG)}
+        data-testid="report-detail-photo-delete-modal"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={cancelDeletePhoto}
+              data-testid="report-detail-photo-delete-cancel"
             >
-              {t('detail.photo.delete_confirm', null, LANG)}
-            </h2>
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--space-2)',
-                justifyContent: 'flex-end',
-                marginTop: 'var(--space-4)',
-              }}
+              {t('detail.photos.remove_no', null, LANG)}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeletePhoto}
+              data-testid="report-detail-photo-delete-confirm"
             >
-              <button
-                type="button"
-                onClick={cancelDeletePhoto}
-                style={{
-                  height: 40,
-                  padding: '0 var(--space-4)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface-card)',
-                  color: 'var(--color-ink-secondary)',
-                  fontWeight: 'var(--weight-medium)',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('common.cancel', null, LANG)}
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeletePhoto}
-                style={{
-                  height: 40,
-                  padding: '0 var(--space-4)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  background: 'var(--color-danger)',
-                  color: 'var(--color-on-danger)',
-                  fontWeight: 'var(--weight-semibold)',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('detail.photo.delete_aria', null, LANG)}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              {t('detail.photos.remove_yes', null, LANG)}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, fontSize: 'var(--text-body-sm)', color: 'var(--color-ink-secondary)' }}>
+          {t('detail.photo.delete_aria', null, LANG)}
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -991,7 +1108,7 @@ function MetaCell({ label, value, lang }: { label: string; value: string; lang: 
       <div
         lang={lang}
         style={{
-          marginTop: 4,
+          marginTop: 'var(--space-1)',
           fontWeight: 'var(--weight-medium)',
           color: 'var(--color-ink)',
         }}

@@ -34,6 +34,7 @@ import MapView from '@/components/MapView';
 import { ReportStepAside } from '@/components/ui/ReportStepAside';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
+import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
 import {
   DHAKA_DISTRICT_BBOX,
@@ -175,10 +176,10 @@ export default function LocationPage() {
       locationLat: lat,
       locationLng: lng,
       locationLabel,
-      step: 'category' as const,
+      step: 'photo' as const,
     };
     saveDraft(next);
-    router.push('/report/category');
+    router.push('/report/photo');
   }
 
   function handleMoveToBoundary() {
@@ -202,7 +203,15 @@ export default function LocationPage() {
         // reduced to auto so the section sizes to
         // its content.
         height: 'calc(100vh - var(--header-height-desktop))',
-        minHeight: 480,
+        minHeight: 'var(--space-9)',
+        // Reserve the FIXED action bar's footprint so the last
+        // element in the column is never hidden behind it. The bar
+        // is `--sticky-cta-height` tall plus its own
+        // `--space-3` padding above and below and a 1px top
+        // border; the extra `--space-8` is the clearance the
+        // mockup reserves below it.
+        paddingBottom:
+          'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-location-grid"
     >
@@ -226,7 +235,7 @@ export default function LocationPage() {
           // min-height is a floor for very short
           // viewports (e.g. phone landscape).
           height: '100%',
-          minHeight: 320,
+          minHeight: 'var(--space-9)',
         }}
       >
         <MapView
@@ -270,8 +279,8 @@ export default function LocationPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: 24,
-                height: 24,
+                width: 'var(--space-6)',
+                height: 'var(--space-6)',
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
@@ -311,6 +320,7 @@ export default function LocationPage() {
         currentStep={1}
         totalSteps={5}
         lang={LANG}
+        sticky
         title={t('report.location.h1', null, LANG)}
         help={t('report.location.help', null, LANG)}
         primary={
@@ -319,8 +329,15 @@ export default function LocationPage() {
               {t('report.location.out_of_bounds.move', null, LANG)}
             </ReportStepPrimary>
           ) : (
-            <ReportStepPrimary onClick={handleContinue}>
-              {t('report.location.continue', null, LANG)}
+            <ReportStepPrimary
+              onClick={handleContinue}
+              trailing={
+                <span aria-hidden style={{ display: 'inline-flex' }}>
+                  <ICONS.forward.icon size={16} weight={ICONS.forward.weight} />
+                </span>
+              }
+            >
+              {t('report.step.continue_next', { next: t('report.step.2', null, LANG) }, LANG)}
             </ReportStepPrimary>
           )
         }
@@ -360,7 +377,8 @@ export default function LocationPage() {
             {t('report.location.ward_label', null, LANG)}
           </dt>
           <dd style={{ margin: 0, fontWeight: 'var(--weight-semibold)' }} lang={LANG}>
-            {boot.ward?.nameBn ?? '—'} ({boot.ward?.number ?? '?'})
+            {boot.ward?.nameBn ?? t('report.location.ward_unknown', null, LANG)}
+            {boot.ward?.number ? ` (${boot.ward.number})` : ''}
           </dd>
         </dl>
 

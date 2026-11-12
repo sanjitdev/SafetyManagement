@@ -1,9 +1,9 @@
 ---
 unit: 004-citizen-surfaces
 intent: 009-ui-redesign
-status: not-started
-created: 2026-11-02T18:30:00Z
-updated: 2026-11-02T18:30:00Z
+status: complete
+created: '2026-11-02T18:30:00Z'
+updated: '2026-11-02T18:30:00Z'
 ---
 
 # Unit 004 — Citizen Surfaces (unit-brief)
@@ -53,6 +53,10 @@ core conversion path — five steps that must not gain friction.
 are approved as one coherent family.
 
 ### 010-citizen-page-implementation
+
+> Visual contract: **`citizen-surface-craft-brief.md`** (this directory).
+> Read it before implementing — it carries the approved visual world and
+> the checks the pages must pass.
 
 **As a** citizen reporting a pothole
 **I want** each step of the report flow to show where I am, what is

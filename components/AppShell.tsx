@@ -51,6 +51,20 @@ interface AppShellProps {
    * away with the page content.
    */
   subHeader?: ReactNode;
+  /**
+   * The focused, single-task shell for the report flow.
+   *
+   * Mockup 14 specifies a `header.flowbar` for a mid-flow step — the
+   * brand, a task tag and the two global controls — rather than the
+   * full city-app chrome. `variant="flow"` drops the role sidebar and
+   * the inline nav, and hides the "New report" CTA (which points at
+   * `/report/location`, the first step of the flow the citizen is
+   * already in the middle of, so it would discard the draft).
+   *
+   * The avatar / user menu is kept: the report flow is the only place
+   * a signed-in citizen has no other way to log out.
+   */
+  variant?: 'default' | 'flow';
 }
 
 export function AppShell({
@@ -60,6 +74,7 @@ export function AppShell({
   signedIn,
   surface,
   subHeader,
+  variant = 'default',
 }: AppShellProps) {
   return (
     /*
@@ -82,6 +97,7 @@ export function AppShell({
         signedIn={signedIn}
         surface={surface}
         subHeader={subHeader}
+        variant={variant}
       >
         {children}
       </AppShellInner>
@@ -96,16 +112,25 @@ function AppShellInner({
   signedIn,
   surface,
   subHeader,
+  variant = 'default',
 }: AppShellProps) {
   const [navOpen, setNavOpen] = useState(false);
+  const isFlow = variant === 'flow';
 
   if (role !== 'public') {
     return (
-      <div className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`} data-app-shell data-shell-role={role}>
-        <RoleSidebar role={role} surface={surface} onNavigate={() => setNavOpen(false)} />
-        <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
+      <div className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`} data-app-shell data-shell-role={role} data-shell-variant={isFlow ? 'flow' : undefined}>
+        {/* The focused flow shell carries NO sidebar — the sidebar's
+            third item is "/report/location", which would restart the
+            flow the citizen is in the middle of. */}
+        {!isFlow && (
+          <>
+            <RoleSidebar role={role} surface={surface} onNavigate={() => setNavOpen(false)} />
+            <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
+          </>
+        )}
         <div className="role-app-main">
-          <AppHeader lang={lang} role={role} signedIn={signedIn} compact navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
+          <AppHeader lang={lang} role={role} signedIn={signedIn} compact={!isFlow} variant={variant} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
           {subHeader}
           <main className="role-app-content">{children}</main>
         </div>

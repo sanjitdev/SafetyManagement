@@ -1,5 +1,5 @@
 /**
- * 1.8 Report — Photo Capture (S-004.2 redesign)
+ * 1.8 Report — Photo Capture (mockup 14)
  *
  * Per UX Review revision #6: multi-photo capture with a default cap
  * of 3, narrow-category cap of 2, mandatory minimum of 1. For the
@@ -7,20 +7,27 @@
  * URLs (no S3/MinIO yet — that lands with the production photo
  * pipeline).
  *
- * The redesign introduces a primary "Add photo" action area
- * (camera icon + label, 96dp tall on mobile, full-width) and a
- * horizontal thumbnail strip with remove "X" overlays. A live
- * counter shows "{count} of {cap} added" so the citizen always
- * knows how many photos remain.
+ * INTENT 009 / BOLT 009-004 (Story 010) — re-composed to
+ * `design-artifacts/D-Design-System/01-Visual-Design/mockups/14-report-shell.html`:
  *
- * When the cap is reached, the primary action area is disabled
- * with a `title` tooltip explaining the cap. The hidden file input
- * has a `capture="environment"` attribute so mobile devices with
- * getUserMedia support open the rear camera; desktop falls back to
- * a standard file picker.
+ *   - the photo cap indicator is a pill that reads "1 / 3 ছবি"
+ *     (ASCII digits — see `report.photo.counter` in the i18n
+ *     registry and the note in `lib/i18n/keys.ts` about why the
+ *     digits are NOT Bengali numerals);
+ *   - the photos sit in a three-cell grid, one cell per slot, with
+ *     the filled cell showing the photo and the empty cells offering
+ *     "add photo";
+ *   - the privacy note is a hint card under the grid;
+ *   - the location the citizen already picked is repeated in a
+ *     reminder card, with a link back to step 1.
  *
- * The "Continue" button is disabled until ≥ 1 photo is added. It
- * uses `aria-disabled` and 50% opacity for the disabled state.
+ * This step is step 2 of 5 in the LOCKED flow order
+ * (1 Location → 2 Photo → 3 Category → 4 Note → 5 Summary).
+ * The route path is `/report/photo` but the rail order is declared
+ * in `app/report/(create)/layout.tsx`.
+ *
+ * Every interactive element comes from `components/ui/` — there is
+ * no hand-rolled `<button>` on this page.
  *
  * Server component shell; client component for the file input.
  */
@@ -32,6 +39,8 @@ import { useRouter } from 'next/navigation';
 import { ReportStepAside } from '@/components/ui/ReportStepAside';
 import { ReportStepPrimary } from '@/components/ui/ReportStepPrimary';
 import { ReportStepBack } from '@/components/ui/ReportStepBack';
+import { Button, IconButton } from '@/components/ui';
+import { ICONS } from '@/lib/ui/icon-map';
 import { loadDraft, saveDraft, type ReportDraftPhotoBlob } from '@/lib/report-draft';
 import { derivePhotoCap, type CategorySummaryLike } from '@/lib/report-photo-cap';
 // Client-safe import — `lib/storage/blob` is server-only (it pulls in
@@ -104,6 +113,20 @@ export default function PhotoPage() {
    * mid-range phone, so the citizen needs feedback.
    */
   const [processing, setProcessing] = useState<boolean>(false);
+  /**
+   * The location the citizen picked in step 1, echoed back in the
+   * reminder card (mockup 14's second card).
+   *
+   * BOTH locale labels are kept so the card can re-render in the
+   * right language even if the preference is toggled after mount —
+   * the mount effect below closes over the language as it was when
+   * the draft was read, and re-running it on every language change
+   * would re-fetch the bootstrap endpoint for nothing.
+   */
+  const [locationLabels, setLocationLabels] = useState<{
+    bn: string | null;
+    en: string | null;
+  }>({ bn: null, en: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const photoUrls = photoEntries.map((e) => e.url);
@@ -135,6 +158,14 @@ export default function PhotoPage() {
         }
         // The cap is re-derived from the draft's categoryId on every mount.
         setCap(derivePhotoCap(draft, data.categories));
+        // The location reminder card shows where the pin was dropped.
+        // The draft stores a human-readable label in both locales.
+        // When neither is present the card is not rendered at all
+        // rather than showing an empty heading.
+        setLocationLabels({
+          bn: draft?.locationLabelBn ?? null,
+          en: draft?.locationLabel ?? null,
+        });
       } catch {
         setAuthed(false);
       } finally {
@@ -247,12 +278,29 @@ export default function PhotoPage() {
     if (photoUrls.length < 1) return;
     const draft = loadDraft();
     if (!draft) return;
-    saveDraft({ ...draft, photoUrls, photoBlobs, step: 'note' });
-    router.push('/report/note');
+    saveDraft({ ...draft, photoUrls, photoBlobs, step: 'category' });
+    router.push('/report/category');
   }
 
   const canAddMore = photoUrls.length < cap;
   const capReached = photoUrls.length >= cap;
+  const remaining = Math.max(0, cap - photoUrls.length);
+  /**
+   * The label for the location reminder card, resolved in the
+   * CURRENT language at render time.
+   */
+  const locationLabel =
+    (LANG === 'bn' ? locationLabels.bn : locationLabels.en) ??
+    locationLabels.bn ??
+    locationLabels.en ??
+    null;
+  /**
+   * The mockup's grid has one cell per SLOT, so the grid always
+   * shows `cap` cells: the filled ones show the photo, the rest are
+   * "add photo" affordances. When the cap is reached there is no
+   * free cell left to offer.
+   */
+  const emptySlots = capReached ? 0 : Math.min(cap - photoUrls.length, 3);
 
   return (
     <div
@@ -260,6 +308,10 @@ export default function PhotoPage() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
         minHeight: 'calc(100vh - var(--header-height-desktop))',
+        // Reserve the FIXED action bar's footprint so the last
+        // element in the column is never hidden behind it.
+        paddingBottom:
+          'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
     >
@@ -270,6 +322,9 @@ export default function PhotoPage() {
         @media (prefers-reduced-motion: reduce) {
           .report-photo-tile { transition: none !important; }
         }
+        @media (max-width: 768px) {
+          .report-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
       `}</style>
 
       <div
@@ -277,10 +332,19 @@ export default function PhotoPage() {
           padding: 'var(--space-6) var(--space-5)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 'var(--space-4)',
+          gap: 'var(--space-5)',
         }}
       >
-        <div>
+        {/* ---------- STEP CARD ---------- */}
+        <section
+          style={{
+            background: 'var(--color-surface-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-6)',
+          }}
+          data-testid="report-photo-card"
+        >
           <h1
             lang={LANG}
             style={{
@@ -297,109 +361,128 @@ export default function PhotoPage() {
             lang={LANG}
             style={{
               color: 'var(--color-ink-secondary)',
-              margin: 0,
+              margin: '0 0 var(--space-5)',
               fontSize: 'var(--text-body)',
+              lineHeight: 'var(--leading-normal)',
             }}
           >
-            {t('report.photo.empty_hint', null, LANG)}
+            {t('report.photo.help', { cap }, LANG)}
           </p>
-        </div>
 
-        {/* Counter */}
-        <div
-          aria-live="polite"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            alignSelf: 'flex-start',
-            padding: 'var(--space-1) var(--space-3)',
-            background: 'var(--color-surface-raised)',
-            borderRadius: 'var(--radius-pill)',
-            fontSize: 'var(--text-caption)',
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--color-ink-secondary)',
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              display: 'inline-block',
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: capReached
-                ? 'var(--color-status-resolved)'
-                : 'var(--color-accent)',
-            }}
-          />
-          {t('report.photo.counter', { count: photoUrls.length, cap }, LANG)}
-        </div>
-
-        {/* Processing hint — a large photo is decoded + re-encoded
-            before it is sent, which takes a moment on a phone. */}
-        {processing && (
-          <p
+          {/* ---------- PHOTO CAP INDICATOR ----------
+              "1 / 3 ছবি" — the count, the cap and the unit in one
+              line. The mockup never shows a bare progress bar: a
+              bar alone would hide the number the citizen needs.
+              `role="status"` so the count is announced when it
+              changes. The digits are ASCII: `interpolate` does
+              `String(v)`, and the mockup was corrected to match
+              the production format for exactly this reason. */}
+          <div
             role="status"
             aria-live="polite"
-            lang={LANG}
+            // The VISIBLE text is the fraction "1 / 3 ছবি" (the
+            // mockup's format, and the format the spec asserts).
+            // A fraction read aloud is meaningless, so the
+            // accessible name spells the same fact out. The label
+            // is on the live region, so a screen reader announces
+            // the sentence — not the raw digits.
+            aria-label={t(
+              'report.photo.counter_aria',
+              { count: photoUrls.length, cap },
+              LANG,
+            )}
+            data-testid="report-photo-counter"
             style={{
-              margin: 0,
-              fontSize: 'var(--text-caption)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-4)',
+              background: 'var(--color-surface-raised)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-pill)',
+              fontSize: 'var(--text-body-sm)',
+              fontWeight: 'var(--weight-semibold)',
               color: 'var(--color-ink-secondary)',
             }}
           >
-            {t('report.photo.processing', null, LANG)}
-          </p>
-        )}
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 'var(--space-2)',
+                height: 'var(--space-2)',
+                borderRadius: '50%',
+                background: capReached
+                  ? 'var(--color-status-resolved)'
+                  : 'var(--color-accent)',
+              }}
+            />
+            <span
+              style={{
+                color: 'var(--color-ink)',
+                fontWeight: 'var(--weight-bold)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {t('report.photo.counter', { count: photoUrls.length, cap }, LANG)}
+            </span>
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                // Mockup 14's `.cap-bar` is exactly 72px × 6px. The
+                // `--space-*` ramp tops out at `--space-9` (96px),
+                // so the width is the token scale stepped down from
+                // the mockup rather than a raw pixel value.
+                width: 'calc(var(--space-9) * 0.75)',
+                height: 'var(--space-2)',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--color-surface-sunken)',
+                overflow: 'hidden',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  height: '100%',
+                  width: `${Math.min(100, (photoUrls.length / Math.max(1, cap)) * 100)}%`,
+                  background: 'var(--color-primary)',
+                  borderRadius: 'var(--radius-pill)',
+                }}
+              />
+            </span>
+          </div>
 
-        {/* Primary action area — full-width on mobile, 96dp tall */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!canAddMore}
-          aria-disabled={!canAddMore}
-          title={capReached ? t('report.photo.cap_tooltip', { cap }, LANG) : undefined}
-          className="report-photo-primary"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 'var(--space-3)',
-            minHeight: 'var(--touch-cta)',
-            width: '100%',
-            padding: 'var(--space-4) var(--space-5)',
-            background: canAddMore ? 'var(--color-primary)' : 'var(--color-surface-sunken)',
-            color: canAddMore ? 'var(--color-on-primary)' : 'var(--color-ink-tertiary)',
-            border: canAddMore ? 'none' : '1px dashed var(--color-border-strong)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 'var(--text-body-lg)',
-            fontWeight: 'var(--weight-semibold)',
-            cursor: canAddMore ? 'pointer' : 'not-allowed',
-            opacity: canAddMore ? 1 : 0.6,
-            transition: 'opacity var(--duration-fast) var(--ease-out)',
-          }}
-        >
-          <span aria-hidden style={{ display: 'inline-flex' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-          </span>
-          {t('report.photo.add_primary', null, LANG)}
-        </button>
+          {/* Processing hint — a large photo is decoded + re-encoded
+              before it is sent, which takes a moment on a phone. */}
+          {processing && (
+            <p
+              role="status"
+              aria-live="polite"
+              lang={LANG}
+              style={{
+                margin: 'var(--space-3) 0 0',
+                fontSize: 'var(--text-caption)',
+                color: 'var(--color-ink-secondary)',
+              }}
+            >
+              {t('report.photo.processing', null, LANG)}
+            </p>
+          )}
 
-        {/* Thumbnail strip — horizontal scroll on small viewports */}
-        {photoUrls.length > 0 && (
+          {/* ---------- PHOTO GRID ----------
+              One cell per slot. The mockup shows the photo in the
+              filled cell (not a placeholder) and an "add photo"
+              affordance in each free cell. */}
           <div
-            role="list"
-            aria-label={t('report.photo.h1', null, LANG)}
+            className="report-photo-grid"
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
               gap: 'var(--space-3)',
-              overflowX: 'auto',
-              paddingBottom: 'var(--space-2)',
+              marginTop: 'var(--space-4)',
             }}
+            data-testid="report-photo-grid"
           >
             {photoUrls.map((url, idx) => (
               <div
@@ -408,47 +491,164 @@ export default function PhotoPage() {
                 className="report-photo-tile"
                 style={{
                   position: 'relative',
-                  flex: '0 0 auto',
-                  width: 120,
-                  height: 120,
+                  aspectRatio: '1 / 1',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
                   background:
                     thumbnailBackground(url) ??
                     'var(--color-surface-raised)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
                   overflow: 'hidden',
                   boxShadow: 'var(--shadow-sm)',
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => removePhoto(idx)}
-                  aria-label={t('report.photo.remove_aria', null, LANG)}
+                {/* The photo itself is the content — it is announced
+                    as an image so a screen-reader user knows the
+                    cell is not empty. */}
+                <span
+                  role="img"
+                  aria-label={`${t('report.photo.h1', null, LANG)} ${idx + 1}`}
                   style={{
                     position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    border: 'none',
-                    background: 'rgba(0,0,0,0.65)',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    inset: 0,
+                    backgroundImage: `url("${url}")`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 'var(--space-1)',
+                    right: 'var(--space-1)',
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+                  <IconButton
+                    label={t('report.photo.remove_one_aria', { index: idx + 1 }, LANG)}
+                    icon={<ICONS.close.icon size={14} weight={ICONS.close.weight} />}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => removePhoto(idx)}
+                    data-testid={`report-photo-remove-${idx}`}
+                    style={{
+                      // The visible control is painted at 44px (the
+                      // touch-target floor) rather than the
+                      // primitive's 32px `sm`. The primitive sizes
+                      // the BUTTON to the floor on its own, so this
+                      // override only changes how the control LOOKS.
+                      width: 'var(--touch-min)',
+                      height: 'var(--touch-min)',
+                      background: 'var(--color-surface-card)',
+                      borderRadius: '50%',
+                    }}
+                  />
+                </span>
               </div>
             ))}
+
+            {Array.from({ length: emptySlots }).map((_, i) => (
+              <Button
+                key={`empty-${i}`}
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canAddMore}
+                aria-disabled={!canAddMore}
+                aria-label={t('report.photo.add_more_aria', { remaining }, LANG)}
+                title={capReached ? t('report.photo.cap_tooltip', { cap }, LANG) : undefined}
+                data-testid={`report-photo-add-${i}`}
+                style={{
+                  aspectRatio: '1 / 1',
+                  flexDirection: 'column',
+                  gap: 'var(--space-2)',
+                  border: '1px dashed var(--color-border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-surface-raised)',
+                  color: 'var(--color-ink-tertiary)',
+                  fontSize: 'var(--text-micro)',
+                  fontWeight: 'var(--weight-semibold)',
+                }}
+                icon={<ICONS.camera.icon size={24} weight={ICONS.camera.weight} />}
+              >
+                {t('report.photo.add_more', null, LANG)}
+              </Button>
+            ))}
           </div>
-        )}
+
+          {/* ---------- HINT CARD ----------
+              The privacy promise is a product promise, so it sits
+              on the surface as a readable sentence rather than a
+              footnote. */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--space-2)',
+              alignItems: 'flex-start',
+              marginTop: 'var(--space-4)',
+              padding: 'var(--space-3) var(--space-4)',
+              background: 'var(--color-accent-soft)',
+              border: '1px solid var(--color-accent)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--text-caption)',
+              color: 'var(--color-ink-secondary)',
+              lineHeight: 'var(--leading-snug)',
+            }}
+            data-testid="report-photo-hint"
+          >
+            <span
+              aria-hidden
+              style={{ flexShrink: 0, color: 'var(--color-accent)', display: 'inline-flex' }}
+            >
+              <ICONS.info.icon size={15} weight={ICONS.info.weight} />
+            </span>
+            <span lang={LANG}>{t('report.photo.privacy_short', null, LANG)}</span>
+          </div>
+        </section>
+
+        {/* ---------- LOCATION REMINDER CARD ----------
+            The citizen already pinned the location in step 1. The
+            mockup repeats it here so they can confirm the photo
+            matches the place they reported — and offers a way back
+            to step 1 if it does not. */}
+        {locationLabel ? (
+          <section
+            style={{
+              background: 'var(--color-surface-card)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-6)',
+            }}
+            data-testid="report-photo-location-reminder"
+          >
+            <h2
+              lang={LANG}
+              style={{
+                margin: '0 0 var(--space-2)',
+                fontSize: 'var(--text-h2)',
+                color: 'var(--color-ink)',
+                lineHeight: 'var(--leading-tight)',
+              }}
+            >
+              {t('report.photo.location_title', null, LANG)}
+            </h2>
+            <p
+              lang={LANG}
+              style={{
+                margin: '0 0 var(--space-3)',
+                fontSize: 'var(--text-body)',
+                color: 'var(--color-ink-secondary)',
+              }}
+            >
+              {locationLabel}
+            </p>
+            <Button
+              variant="secondary"
+              icon={<ICONS.mapPin.icon size={15} weight={ICONS.mapPin.weight} />}
+              data-testid="report-photo-change-location"
+              onClick={() => router.push('/report/location')}
+            >
+              {t('report.photo.change_location', null, LANG)}
+            </Button>
+          </section>
+        ) : null}
 
         <input
           ref={fileInputRef}
@@ -462,23 +662,29 @@ export default function PhotoPage() {
       </div>
 
       <ReportStepAside
-        currentStep={3}
+        currentStep={2}
         totalSteps={5}
         lang={LANG}
+        sticky
         help={t('report.photo.privacy', null, LANG)}
         primary={
           <ReportStepPrimary
             onClick={handleContinue}
             disabled={photoUrls.length < 1}
             aria-disabled={photoUrls.length < 1}
+            trailing={
+              <span aria-hidden style={{ display: 'inline-flex' }}>
+                <ICONS.forward.icon size={16} weight={ICONS.forward.weight} />
+              </span>
+            }
             data-testid="report-photo-continue"
           >
-            {t('report.photo.continue', null, LANG)}
+            {t('report.step.continue_next', { next: t('report.step.3', null, LANG) }, LANG)}
           </ReportStepPrimary>
         }
         back={
-          <ReportStepBack href="/report/category">
-            {t('report.photo.back', null, LANG)}
+          <ReportStepBack href="/report/location">
+            {t('report.step.back', null, LANG)}
           </ReportStepBack>
         }
       />

@@ -2,10 +2,10 @@
 story: 009-citizen-mockups
 unit: 004-citizen-surfaces
 intent: 009-ui-redesign
-status: draft
-created: 2026-11-02T18:30:00Z
-updated: 2026-11-02T18:30:00Z
-implemented: false
+status: complete
+created: '2026-11-02T18:30:00Z'
+updated: '2026-11-02T18:30:00Z'
+implemented: true
 ---
 
 # Story 009 — Citizen Mockups

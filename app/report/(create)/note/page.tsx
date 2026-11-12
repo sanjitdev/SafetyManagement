@@ -28,6 +28,7 @@ import { ReportStepBack } from '@/components/ui/ReportStepBack';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/report-draft';
 import { photoErrorKeyForCode } from '@/lib/photo/error-code';
 import { t, type Language } from '@/lib/i18n/keys';
+import { ICONS } from '@/lib/ui/icon-map';
 import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
@@ -174,6 +175,10 @@ export default function NotePage() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
         minHeight: 'calc(100vh - var(--header-height-desktop))',
+        // Reserve the FIXED action bar's footprint so the last
+        // element in the column is never hidden behind it.
+        paddingBottom:
+          'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
     >
@@ -225,8 +230,11 @@ export default function NotePage() {
           maxLength={NOTE_MAX + 1}
           style={{
             width: '100%',
-            minHeight: 120,
-            maxHeight: 200,
+            // The textarea scale runs 96px → 192px: the floor is
+            // `--space-9` and the ceiling is twice that, which has
+            // no token of its own (the `--space-*` ramp stops at 9).
+            minHeight: 'var(--space-9)',
+            maxHeight: 'calc(var(--space-9) * 2)',
             padding: 'var(--space-3)',
             borderRadius: 'var(--radius-md)',
             border: `1px solid ${isOver ? 'var(--color-danger)' : 'var(--color-border)'}`,
@@ -276,6 +284,7 @@ export default function NotePage() {
         currentStep={4}
         totalSteps={5}
         lang={LANG}
+        sticky
         help={t('report.note.help_after_submit', null, LANG)}
         primary={
           <ReportStepPrimary
@@ -285,9 +294,11 @@ export default function NotePage() {
             leading={
               submitting ? (
                 <span aria-hidden style={{ display: 'inline-flex' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden style={{ animation: 'report-spin 0.9s linear infinite' }}>
-                    <path d="M21 12a9 9 0 1 1-6.2-8.55" />
-                  </svg>
+                  <ICONS.loading.icon
+                    size={16}
+                    weight={ICONS.loading.weight}
+                    style={{ animation: 'report-spin 0.9s linear infinite' }}
+                  />
                 </span>
               ) : null
             }
@@ -299,8 +310,8 @@ export default function NotePage() {
           </ReportStepPrimary>
         }
         back={
-          <ReportStepBack href="/report/photo">
-            {t('report.note.back', null, LANG)}
+          <ReportStepBack href="/report/category">
+            {t('report.step.back', null, LANG)}
           </ReportStepBack>
         }
       />

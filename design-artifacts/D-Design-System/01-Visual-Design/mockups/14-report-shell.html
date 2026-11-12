@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="bn" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report a problem — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="citizen-surfaces.css">
+
+  <style>
+    /* ---------- FLOW TOP BAR ----------
+       Not the app header: this is a focused, single-task shell. It
+       carries the brand, the task tag, and the two global controls. */
+    .flowbar {
+      position: sticky; top: 0; z-index: var(--z-sticky);
+      height: var(--header-height-desktop);
+      background: var(--color-surface-card);
+      border-bottom: 1px solid var(--color-border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-5);
+      gap: var(--space-4);
+    }
+    .flow-tag {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-1) var(--space-3);
+      background: var(--color-primary-soft); color: var(--color-primary);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-caption); font-weight: var(--weight-semibold);
+    }
+    .flowbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+    /* ---------- PAGE ---------- */
+    .page {
+      max-width: 760px; margin: 0 auto;
+      /* The bottom padding reserves the room the fixed action bar
+         occupies, so the LAST card is never hidden behind it.
+         `--sticky-cta-height` (64px) is the bar's content height; the
+         bar itself is that plus its own `--space-3` padding on both
+         sides and its 1px top border, so reserving only the token
+         left ~26px of the last card under the bar. The page reserves
+         the bar's real footprint plus a full space-8 of clearance. */
+      padding: var(--space-6) var(--space-5)
+               calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8));
+    }
+
+    /* ---------- STEP INDICATOR ----------
+       Five numbered steps with a connector line. A completed step is
+       a filled primary circle with a tick; the current step is an
+       accent-outlined circle with its number; a future step is a
+       sunken circle with a muted number. The connector before the
+       current step is filled, the one after it is a hairline. */
+    .steps {
+      display: flex; align-items: flex-start;
+      margin-bottom: var(--space-4);
+    }
+    .step {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      gap: var(--space-2); position: relative;
+      text-align: center;
+    }
+    /* The connector line lives on the step and stops at the next
+       step's circle, so the line's colour states the progress. */
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 15px; left: 50%; width: 100%; height: 2px;
+      background: var(--color-border);
+    }
+    .step.done:not(:last-child)::after { background: var(--color-primary); }
+    .step-dot {
+      width: var(--icon-size-xl); height: var(--icon-size-xl); border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: var(--text-body-sm); font-weight: var(--weight-bold);
+      font-variant-numeric: tabular-nums;
+      background: var(--color-surface-sunken); color: var(--color-ink-tertiary);
+      border: 1px solid var(--color-border);
+      position: relative; z-index: 1;
+    }
+    .step.done .step-dot {
+      background: var(--color-primary); color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+    .step.current .step-dot {
+      background: var(--color-surface-card); color: var(--color-primary);
+      border: 2px solid var(--color-primary);
+    }
+    .step-label {
+      font-size: var(--text-micro); font-weight: var(--weight-semibold);
+      color: var(--color-ink-tertiary); line-height: var(--leading-snug);
+    }
+    .step.done .step-label { color: var(--color-ink-secondary); }
+    .step.current .step-label { color: var(--color-primary); }
+
+    /* Progress sentence under the rail — "step 2 of 5" in words and
+       digits, so the position is never a colour-only cue. */
+    .step-progress {
+      text-align: center; margin-bottom: var(--space-6);
+      font-size: var(--text-body-sm); color: var(--color-ink-secondary);
+    }
+    .step-progress strong {
+      color: var(--color-ink); font-weight: var(--weight-semibold);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- STEP CARD ---------- */
+    .card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      margin-bottom: var(--space-5);
+    }
+    /* The card title is 24px, not 20px. At 20px it sat 1.18× above the
+       16px body copy, which is under the 1.25× floor for an adjacent
+       type step: the heading and the paragraph read as the same
+       level. 24px over 16px is 1.5×, and it matches the H1 used on
+       the other citizen surfaces, so the two read as one system. */
+    .card-title { font-size: var(--text-display-md); margin: 0 0 var(--space-2); }
+    .card-sub { font-size: var(--text-body); color: var(--color-ink-secondary); margin: 0 0 var(--space-5); }
+
+    /* ---------- PHOTO CAP INDICATOR ----------
+       "1 / 3 ছবি" — the count, the cap and the unit, in one line.
+       It is never a bare progress bar: a bar alone would hide the
+       number the citizen needs. */
+    .cap {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-body-sm); font-weight: var(--weight-semibold);
+      color: var(--color-ink-secondary);
+    }
+    .cap-count {
+      color: var(--color-ink); font-weight: var(--weight-bold);
+      font-variant-numeric: tabular-nums;
+    }
+    .cap-bar {
+      width: 72px; height: 6px; border-radius: var(--radius-pill);
+      background: var(--color-surface-sunken); overflow: hidden;
+    }
+    .cap-bar span {
+      display: block; height: 100%; width: 33%;
+      background: var(--color-primary); border-radius: var(--radius-pill);
+    }
+
+    /* ---------- PHOTO GRID ---------- */
+    .photo-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-3);
+    }
+    .photo-cell {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--color-border-strong);
+      background: var(--color-surface-raised);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--space-2);
+      color: var(--color-ink-tertiary);
+      font-size: var(--text-micro); font-weight: var(--weight-semibold);
+      text-align: center; padding: var(--space-2);
+      cursor: pointer;
+      transition: border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+    .photo-cell:hover { border-color: var(--color-primary); color: var(--color-primary); }
+    /* The one attached photo shows the photo, not a placeholder. */
+    .photo-cell.filled {
+      border-style: solid; border-color: var(--color-border);
+      background: var(--color-surface-sunken);
+      color: var(--color-ink-secondary);
+      padding: 0;
+      cursor: default;
+    }
+    .photo-cell.filled svg { display: block; width: 100%; height: 100%; }
+    .photo-cell.filled .photo-remove { display: inline-flex; }
+    .photo-remove {
+      position: absolute; top: var(--space-1); right: var(--space-1);
+      width: 28px; height: 28px; border-radius: 50%;
+      display: none; align-items: center; justify-content: center;
+      background: var(--color-surface-card); color: var(--color-ink-secondary);
+      border: 1px solid var(--color-border); cursor: pointer;
+    }
+    .photo-remove:hover { color: var(--color-danger); border-color: var(--color-danger); }
+
+    /* ---------- HINT / NOTE ---------- */
+    .hint {
+      display: flex; gap: var(--space-2); align-items: flex-start;
+      margin-top: var(--space-4);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-accent-soft);
+      border: 1px solid var(--color-accent);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+      line-height: var(--leading-snug);
+    }
+
+    /* ---------- STICKY BOTTOM ACTION BAR ---------- */
+    .actionbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky);
+      background: var(--color-surface-card);
+      border-top: 1px solid var(--color-border);
+    }
+    .actionbar-inner {
+      max-width: 760px; margin: 0 auto;
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      min-height: var(--sticky-cta-height);
+    }
+    .btn-primary { flex: 1; }
+
+    /* ---------- SMALL SCREENS ----------
+       The step rail keeps its five dots but sheds the labels to
+       numbers, and the sticky action bar stacks its two buttons. */
+    @media (max-width: 768px) {
+      .flowbar { padding: 0 var(--space-4); gap: var(--space-2); }
+      .flow-tag { display: none; }
+      .page { padding: var(--space-5) var(--space-4) calc(var(--sticky-cta-height) + var(--space-7)); }
+      .card { padding: var(--space-5) var(--space-4); }
+      .step-label { display: none; }
+      .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .actionbar-inner { padding: var(--space-3) var(--space-4); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================= FLOW TOP BAR ================= -->
+<header class="flowbar">
+  <div style="display: flex; align-items: center; gap: var(--space-4); min-width: 0;">
+    <a class="brand" href="#" aria-label="CityFix home">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 22.4c-.4 0-.74-.21-.93-.57C10.65 20.7 6.2 15.2 6.2 10 6.2 5.6 8.9 2 12.2 2S18.2 5.6 18.2 10c0 5.2-4.45 10.7-4.87 11.83-.19.36-.53.57-.93.57Z" fill="var(--color-primary)"></path>
+        <rect x="7.5" y="5.1" width="9" height="9" rx="2" fill="var(--color-surface-card)"></rect>
+        <path d="M9.6 9.5 11.3 11.2l3.4-3.6" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="brand-name">CityFix</span>
+    </a>
+
+    <span class="flow-tag">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path>
+      </svg>
+      রিপোর্ট করুন
+    </span>
+  </div>
+
+  <div class="flowbar-actions">
+    <button class="icon-btn" type="button" aria-label="ভাষা পরিবর্তন করুন">EN</button>
+    <button class="icon-btn" type="button" aria-label="অন্ধকার থিম">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ================= PAGE ================= -->
+<main class="page">
+
+  <!-- ---------- STEP INDICATOR ----------
+       Locked order: 1 Location → 2 Photo → 3 Category → 4 Note → 5 Summary. -->
+  <nav aria-label="রিপোর্টের ধাপ">
+    <ol class="steps" style="list-style: none; padding: 0; margin: 0 0 var(--space-4);">
+
+      <!-- Step 1 — completed -->
+      <li class="step done" aria-current="false">
+        <span class="step-dot" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+        </span>
+        <span class="step-label">১ · অবস্থান</span>
+      </li>
+
+      <!-- Step 2 — the current step -->
+      <li class="step current" aria-current="step">
+        <span class="step-dot" aria-hidden="true">২</span>
+        <span class="step-label">২ · ছবি</span>
+      </li>
+
+      <!-- Step 3 — future -->
+      <li class="step">
+        <span class="step-dot" aria-hidden="true">৩</span>
+        <span class="step-label">৩ · ক্যাটাগরি</span>
+      </li>
+
+      <!-- Step 4 — future -->
+      <li class="step">
+        <span class="step-dot" aria-hidden="true">৪</span>
+        <span class="step-label">৪ · নোট</span>
+      </li>
+
+      <!-- Step 5 — future -->
+      <li class="step">
+        <span class="step-dot" aria-hidden="true">৫</span>
+        <span class="step-label">৫ · সারসংক্ষেপ</span>
+      </li>
+
+    </ol>
+  </nav>
+
+  <p class="step-progress">
+    ধাপ <strong>২ / ৫</strong> — ছবি যোগ করুন
+  </p>
+
+  <!-- ---------- STEP 2 IN DETAIL: PHOTO ---------- -->
+  <section class="card">
+    <h1 class="card-title">সমস্যার ছবি যোগ করুন</h1>
+    <p class="card-sub">
+      ছবি থাকলে ক্রু দ্রুত সমস্যাটি চিনতে পারে। সর্বোচ্চ ৩টি ছবি দেওয়া যাবে, কমপক্ষে ১টি আবশ্যক।
+    </p>
+
+    <!-- Photo cap indicator: "1 / 3 ছবি" -->
+    <div class="cap" role="status" aria-label="ছবির সংখ্যা: 1টি যোগ করা হয়েছে, সর্বোচ্চ 3টি">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 7V4h16v3"></path><path d="M5 4h14a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"></path><circle cx="9" cy="10" r="1.6"></circle><path d="m20 15-3.5-3.5L9 19"></path>
+      </svg>
+      <span class="cap-count">1 / 3 ছবি</span>
+      <span class="cap-bar" aria-hidden="true"><span></span></span>
+    </div>
+
+    <!-- Photo grid -->
+    <div class="photo-grid" style="margin-top: var(--space-4);">
+
+      <!-- One photo attached — the photo itself, not a placeholder. -->
+      <div class="photo-cell filled">
+        <svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="যুক্ত ছবি: রাস্তায় গর্ত">
+          <rect width="120" height="120" fill="var(--color-surface-raised)"></rect>
+          <rect x="0" y="76" width="120" height="44" fill="var(--color-map-road)"></rect>
+          <ellipse cx="52" cy="62" rx="30" ry="18" fill="var(--color-ink-disabled)" opacity="0.85"></ellipse>
+          <ellipse cx="58" cy="66" rx="19" ry="11" fill="var(--color-ink-tertiary)"></ellipse>
+          <rect x="88" y="30" width="7" height="48" fill="var(--color-ink-tertiary)"></rect>
+          <rect x="92" y="22" width="20" height="12" rx="3" fill="var(--color-ink-disabled)"></rect>
+        </svg>
+        <button class="photo-remove" type="button" aria-label="প্রথম ছবিটি মুছুন">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Empty slot -->
+      <button class="photo-cell" type="button" aria-label="ছবি যোগ করুন — আরও ২টি যোগ করা যাবে">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path>
+        </svg>
+        <span>ছবি যোগ করুন</span>
+      </button>
+
+      <!-- Empty slot -->
+      <button class="photo-cell" type="button" aria-label="ছবি যোগ করুন — আরও ২টি যোগ করা যাবে">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path>
+        </svg>
+        <span>ছবি যোগ করুন</span>
+      </button>
+
+    </div>
+
+    <div class="hint">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; color: var(--color-accent);">
+        <circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
+      </svg>
+      <span>
+        স্পষ্ট ও আলোকিত ছবি সবচেয়ে ভালো কাজ করে। মুখ, নম্বর বা ঠিকানার গোপন ছবি যোগ করবেন না — নাম ও ঠিকানা গোপন রাখা হয়।
+      </span>
+    </div>
+  </section>
+
+  <!-- Reminder of what the citizen has already done (step 1) -->
+  <section class="card">
+    <h2 class="card-title" style="font-size: var(--text-h2);">আপনার নির্বাচিত অবস্থান</h2>
+    <p class="card-sub" style="margin-bottom: var(--space-3);">
+      পোল #14B-এর সামনে, ওয়ার্ড ১৪ · মিরপুর
+    </p>
+    <button class="btn btn-secondary" type="button">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s7-7.5 7-12a7 7 0 0 0-14 0c0 4.5 7 12 7 12Z"></path><circle cx="12" cy="10" r="2.5"></circle>
+      </svg>
+      অবস্থান পরিবর্তন করুন
+    </button>
+  </section>
+
+</main>
+
+<!-- ================= STICKY ACTION BAR ================= -->
+<div class="actionbar">
+  <div class="actionbar-inner">
+    <button class="btn btn-secondary" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path>
+      </svg>
+      পিছনে
+    </button>
+    <button class="btn btn-primary" type="button">
+      পরবর্তী ধাপ: ক্যাটাগরি
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>
+      </svg>
+    </button>
+  </div>
+</div>
+
+</body>
+</html>

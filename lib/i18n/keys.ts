@@ -762,6 +762,27 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: "You'll get a push notification when the status changes",
   },
 
+  // --- Intent 009 Bolt 009-004 — confirmation surface ----------------
+  // The confirmation page used to render the RAW internal id
+  // (`#{ticketId}`) and copy it to the clipboard. It now renders the
+  // public `#TIX-` code, so the copy payload changes with it.
+  'confirmation.code.label': { bn: 'রিপোর্ট নম্বর', en: 'Report number' },
+  // The placeholder shown while the public code is still being
+  // derived. A literal em-dash used to stand in here — a
+  // citizen-visible punctuation mark with no meaning.
+  'confirmation.code.pending': { bn: 'তৈরি হচ্ছে…', en: 'Generating…' },
+  'confirmation.code.hint': {
+    bn: 'এই নম্বরটি সংরক্ষণ করুন — এটিই আপনার রিপোর্ট শনাক্ত করে।',
+    en: 'Save this number — it is how your report is identified.',
+  },
+  'confirmation.code.copy_aria': {
+    bn: 'রিপোর্ট নম্বর {code} কপি করুন',
+    en: 'Copy report number {code}',
+  },
+  'confirmation.code.copied': { bn: 'কপি হয়েছে!', en: 'Copied!' },
+  'confirmation.trail.label': { bn: 'আপনার রিপোর্টের যাত্রা', en: 'Your report journey' },
+  'confirmation.trail.pending': { bn: 'অপেক্ষমাণ', en: 'Pending' },
+
   // Status trail preview (1.11) — what comes after submission
   'trail_preview.submitted.title': { bn: 'জমা হয়েছে', en: 'Submitted' },
   'trail_preview.submitted.time': { bn: 'এইমাত্র · আপনি', en: 'Just now · You' },
@@ -866,6 +887,10 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   'report.location.cancel': { bn: 'বাতিল', en: 'Cancel' },
   'report.location.ward_label': { bn: 'ওয়ার্ড', en: 'Ward' },
+  // The ward name / number fallback. A literal em-dash used to
+  // stand in for a missing ward, which is a citizen-visible
+  // punctuation mark with no meaning in either language.
+  'report.location.ward_unknown': { bn: 'অজানা ওয়ার্ড', en: 'Unknown ward' },
 
   'report.photo.h1': { bn: 'ছবি যোগ করুন', en: 'Add photos' },
   'report.photo.help': {
@@ -886,6 +911,30 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'report.photo.up_to': {
     bn: 'সর্বোচ্চ {count}টি ছবি',
     en: 'up to {count} photos',
+  },
+  'report.photo.add_more': {
+    bn: 'ছবি যোগ করুন',
+    en: 'Add photo',
+  },
+  'report.photo.add_more_aria': {
+    bn: 'ছবি যোগ করুন — আরও {remaining}টি যোগ করা যাবে',
+    en: 'Add photo — {remaining} more can be added',
+  },
+  'report.photo.remove_one_aria': {
+    bn: 'ছবি {index} মুছুন',
+    en: 'Remove photo {index}',
+  },
+  'report.photo.privacy_short': {
+    bn: 'স্পষ্ট ও আলোকিত ছবি সবচেয়ে ভালো কাজ করে। মুখ, নম্বর বা ঠিকানার গোপন ছবি যোগ করবেন না — নাম ও ঠিকানা গোপন রাখা হয়।',
+    en: 'Clear, well-lit photos work best. Do not include faces, phone numbers or private addresses — names and addresses are kept private.',
+  },
+  'report.photo.location_title': {
+    bn: 'আপনার নির্বাচিত অবস্থান',
+    en: 'Your selected location',
+  },
+  'report.photo.change_location': {
+    bn: 'অবস্থান পরিবর্তন করুন',
+    en: 'Change location',
   },
 
   'report.category.h1': { bn: 'সমস্যাটি কী?', en: 'What is the problem?' },
@@ -956,6 +1005,13 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     // name (see `lib/report-photo-cap.ts` → `derivePhotoCap`).
     bn: '{count} / {cap} ছবি',
     en: '{count} / {cap} photos',
+  },
+  // The counter's ACCESSIBLE name. The visible text "1 / 3 ছবি" is a
+  // fraction — a screen reader announces "1 slash 3 ছবি" with no
+  // indication of what is being counted. This label spells it out.
+  'report.photo.counter_aria': {
+    bn: '{count}টি ছবি যোগ করা হয়েছে, সর্বোচ্চ {cap}টি যোগ করা যাবে',
+    en: '{count} of {cap} photos added',
   },
   'report.photo.add_primary': {
     bn: 'প্রাথমিক ছবি যোগ করুন',
@@ -1036,10 +1092,6 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Submit as new report',
   },
   'report.summary.submitting': { bn: 'জমা হচ্ছে…', en: 'Submitting…' },
-  'report.summary.step': {
-    bn: 'ধাপ ৫/৫ — পর্যালোচনা',
-    en: 'Step 5 of 5 — Review',
-  },
 
   // Common step labels (used in the side cards across 1.7–1.10)
   'report.step_label': { bn: 'ধাপ {current}/{total}', en: 'Step {current} of {total}' },
@@ -1049,6 +1101,85 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'common.continue_category': { bn: 'পরবরতী → বিভাগ', en: 'Continue → Category' },
   'common.continue_note': { bn: 'পরবরতী → নোট', en: 'Continue → Note' },
   'common.continue_submit': { bn: 'পর্যালোচনা ও জমা', en: 'Review & Submit' },
+
+  // ------------------------------------------------------------------
+  // Intent 009 Bolt 009-004 — citizen surfaces (Story 010).
+  //
+  // Every string below is surfaced by one of the nine citizen routes
+  // and was previously either absent from the registry (the page fell
+  // back to printing the raw key) or hard-coded in a component.
+  //
+  // Placeholder rules enforced by
+  // `tests/unit/i18n-placeholder-contract.test.ts`:
+  //   - the `{name}` spelling is mandatory — `%{name}` is banned;
+  //   - the bn and en placeholder NAMES must match exactly;
+  //   - no `report.photo.*` key may carry a `{max}` placeholder.
+  // ------------------------------------------------------------------
+
+  // --- Report flow: the locked 5-step order -----------------------
+  // 1 Location → 2 Photo → 3 Category → 4 Note → 5 Summary.
+  // The step rail and the progress sentence below are the only
+  // places the ORDER is spelled out, so both live together.
+  'report.step.1': { bn: 'অবস্থান', en: 'Location' },
+  'report.step.2': { bn: 'ছবি', en: 'Photo' },
+  'report.step.3': { bn: 'ক্যাটাগরি', en: 'Category' },
+  'report.step.4': { bn: 'নোট', en: 'Note' },
+  'report.step.5': { bn: 'সারসংক্ষেপ', en: 'Summary' },
+
+  // The progress sentence under the rail. The mockup renders
+  // "ধাপ ২ / ৫ — ছবি যোগ করুন"; the digits are ASCII so the
+  // string matches the production counter format exactly.
+  'report.step.progress': {
+    bn: 'ধাপ {current} / {total} — {label}',
+    en: 'Step {current} of {total} — {label}',
+  },
+
+  // The per-step subtitle sentence that follows the step label.
+  'report.step.subtitle.location': {
+    bn: 'সমস্যার জায়গা নির্বাচন করুন',
+    en: 'Choose where the problem is',
+  },
+  'report.step.subtitle.photo': {
+    bn: 'ছবি যোগ করুন',
+    en: 'Add photos',
+  },
+  'report.step.subtitle.category': {
+    bn: 'সমস্যার ধরন বাছাই করুন',
+    en: 'Pick the problem type',
+  },
+  'report.step.subtitle.note': {
+    bn: 'একটি নোট লিখুন',
+    en: 'Write a short note',
+  },
+  'report.step.subtitle.summary': {
+    bn: 'রিপোর্টটি পর্যালোচনা করুন',
+    en: 'Review the report',
+  },
+
+  // The step pill in the sticky aside rail. Previously hard-coded
+  // Bangla inside `components/ui/ReportStepAside.tsx`.
+  'report.step.pill': {
+    bn: 'ধাপ {current} / {total}',
+    en: 'Step {current} of {total}',
+  },
+
+  // The primary CTA on a step page. Mockup 14 reads
+  // "পরবর্তী ধাপ: ক্যাটাগরি" — the button names the NEXT step, so
+  // the citizen knows exactly where the tap takes them. `{next}`
+  // is the next step's label from `report.step.N`.
+  'report.step.continue_next': {
+    bn: 'পরবর্তী ধাপ: {next}',
+    en: 'Next step: {next}',
+  },
+
+  // The back control in the step action bar. Mockup 14 reads
+  // "পিছনে" (Back) — the arrow is a leading ICON, not a
+  // character in the string, so the label itself stays a plain
+  // word and the button's accessible name is unambiguous.
+  'report.step.back': {
+    bn: 'পিছনে',
+    en: 'Back',
+  },
 
   // Auth (used in 1.7–1.10 unauth early-return)
   'auth.signin_required_long': {
@@ -1461,6 +1592,11 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'In your area in the last 24 hours',
   },
   'home.filter.all': { bn: 'সব', en: 'All' },
+  // The accessible name of the activity-feed filter chip group. The
+  // group is one tab stop with arrow-key navigation, so it needs a
+  // name of its own — the panel subtitle describes the panel, not
+  // the filter.
+  'home.filter.group_label': { bn: 'কার্যকলাপ ফিল্টার', en: 'Activity filters' },
   'home.filter.new': { bn: 'নতুন', en: 'New' },
   'home.filter.in_progress': { bn: 'চলমান', en: 'In progress' },
   'home.filter.resolved': { bn: 'সমাধান', en: 'Resolved' },
@@ -1619,6 +1755,107 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'reports.status.resolved': { bn: 'সমাধান', en: 'Resolved' },
   'reports.status.closed': { bn: 'বন্ধ', en: 'Closed' },
   'reports.status.cancelled': { bn: 'বাতিল', en: 'Cancelled' },
+
+  // --- Intent 009 Bolt 009-004 — citizen surfaces --------------------
+  // The public ticket code is now `#TIX-1234` (see
+  // `lib/format/ticket-id.ts`). It replaces the raw internal id on
+  // every citizen surface, so the code needs a label wherever it is
+  // rendered.
+  'reports.code.label': { bn: 'রিপোর্ট নম্বর', en: 'Report number' },
+  'reports.code.copy_aria': {
+    bn: 'রিপোর্ট নম্বর {code} কপি করুন',
+    en: 'Copy report number {code}',
+  },
+  'reports.code.copied': { bn: 'কপি হয়েছে', en: 'Copied' },
+
+  // The sticky filter-chip row above the report list (mockup 15).
+  // Each chip shows the size of its group, so the count is part of
+  // the chip LABEL — `FilterChipGroup` has no separate count slot.
+  'reports.filter.group_label': {
+    bn: 'রিপোর্ট ফিল্টার',
+    en: 'Report filters',
+  },
+  'reports.filter.all': { bn: 'সব', en: 'All' },
+  'reports.filter.new': { bn: 'নতুন', en: 'New' },
+  'reports.filter.active': { bn: 'চলমান', en: 'Active' },
+  'reports.filter.resolved': { bn: 'সমাধান', en: 'Resolved' },
+  'reports.filter.count': { bn: '{label} ({count})', en: '{label} ({count})' },
+  'reports.filter.loading': { bn: 'লোড হচ্ছে…', en: 'Loading…' },
+  'reports.list.heading': { bn: 'রিপোর্টের তালিকা', en: 'Report list' },
+  'reports.list.count': {
+    bn: '{count}টি রিপোর্ট',
+    en: '{count} reports',
+  },
+  'reports.load_more': { bn: 'আরও দেখুন', en: 'Load more' },
+  'reports.empty.filtered.title': {
+    bn: 'এই ফিল্টারে কিছু নেই',
+    en: 'Nothing matches this filter',
+  },
+  'reports.empty.filtered.subtitle': {
+    bn: 'অন্য ফিল্টার বেছে নিন।',
+    en: 'Try a different filter.',
+  },
+  'reports.row.view': { bn: 'রিপোর্ট দেখুন', en: 'View report' },
+  'reports.error.title': {
+    bn: 'রিপোর্ট লোড করা যায়নি',
+    en: 'Could not load reports',
+  },
+  'reports.error.retry': { bn: 'আবার চেষ্টা করুন', en: 'Try again' },
+
+  // --- The relative age on a reports row --------------------------------
+  // Mockup 15's row meta ends with the age of the report ("এইমাত্র",
+  // "৩ মিনিট আগে"). The digits are ASCII — `interpolate` does
+  // `String(v)` with no numeral conversion, and the mockup renders
+  // them the same way.
+  'reports.age.now': { bn: 'এইমাত্র', en: 'just now' },
+  'reports.age.minutes': { bn: '{count} মিনিট আগে', en: '{count} min ago' },
+  'reports.age.hours': { bn: '{count} ঘণ্টা আগে', en: '{count} hr ago' },
+  'reports.age.days': { bn: '{count} দিন আগে', en: '{count} day ago' },
+
+  // --- Report detail (mockup 16) ------------------------------------
+  // The vertical trail is now the `Timeline` primitive; each item
+  // carries an icon and a timestamp so status is never colour-alone.
+  'detail.trail.label': { bn: 'রিপোর্টের অগ্রগতি', en: 'Report progress' },
+  'detail.trail.pending': { bn: 'অপেক্ষমাণ', en: 'Pending' },
+  'detail.trail.completed': { bn: 'সম্পন্ন', en: 'Completed' },
+  'detail.photos.before_title': { bn: 'আগে', en: 'Before' },
+  'detail.photos.after_title': { bn: 'পরে', en: 'After' },
+  'detail.photos.before_hint': {
+    bn: 'আপনার দেওয়া ছবি',
+    en: 'Photos you submitted',
+  },
+  'detail.photos.after_hint': {
+    bn: 'ক্রুর কাজের ছবি',
+    en: 'Photos from the crew',
+  },
+  'detail.photos.after_empty': {
+    bn: 'কাজ শুরু হলে এখানে ছবি যোগ হবে',
+    en: 'Photos will appear here once work begins',
+  },
+  'detail.photos.before_empty': {
+    bn: 'কোনো ছবি যোগ করা হয়নি',
+    en: 'No photos were added',
+  },
+  'detail.photos.remove': { bn: 'ছবি মুছুন', en: 'Remove photo' },
+  'detail.photos.remove_confirm': {
+    bn: 'এই ছবিটি মুছে ফেলবেন?',
+    en: 'Remove this photo?',
+  },
+  'detail.photos.remove_yes': { bn: 'মুছুন', en: 'Remove' },
+  'detail.photos.remove_no': { bn: 'রাখুন', en: 'Keep' },
+  'detail.ticket_code.label': { bn: 'রিপোর্ট নম্বর', en: 'Report number' },
+  'detail.ticket_code.hint': {
+    bn: 'ফোনে এই নম্বরটি বললে কর্মী আপনার রিপোর্ট খুঁজে পাবেন।',
+    en: 'Quote this number on the phone and staff can find your report.',
+  },
+  'detail.ticket_code.copy': { bn: 'কপি করুন', en: 'Copy' },
+  'detail.ticket_code.copied': { bn: 'কপি হয়েছে', en: 'Copied' },
+  'detail.reporter_label': { bn: 'রিপোর্টকারী', en: 'Reported by' },
+  'detail.actor.anonymous': {
+    bn: 'সিটি কর্পোরেশন',
+    en: 'City corporation',
+  },
+  'detail.back_to_list': { bn: '← সব রিপোর্ট', en: '← All reports' },
 
   // Theme toggle (light / dark / system)
   'theme.toggle.aria_label': {

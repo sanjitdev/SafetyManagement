@@ -14,7 +14,7 @@ Started: 2026-09-18
 - Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 25/25 Playwright baselines passing; 1430/1430 unit tests) — **plus UI redesign Waves 0–2 in flight** (Intent 009 `009-ui-redesign`): Wave 0 CI unblock shipped (`45062d1`), Wave 1 design foundation shipped (`b279228`), Wave 2 mockups shipped AND the six auth/public pages implemented (2026-11-11, story 008); **dispatcher scope bug fixed 2026-11-12** — `requireScope` compared the department dimension with strict equality, so a ticket whose category has no department (403 `cross_department_access_denied`) was listed in the dispatcher's own queue but refused on open; the rule is now "deny only when both sides are department-scoped and they differ", and the ward check still fires first
 - Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
 - v2 Roadmap: **deck drafted 2026-10-12** (4 buckets: v1.1 follow-ups, multi-city, citizen engagement, internal tooling; see `_progress/v2-roadmap.md`; awaiting human pick of the first intent)
-- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups baselined AND the six pages implemented (2026-11-11, story 008 — the spec verified against BOTH the dev store and real Postgres on 2026-11-12); Waves 3–6 (citizen, dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
+- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups baselined AND the six pages implemented (2026-11-11, story 008 — the spec verified against BOTH the dev store and real Postgres on 2026-11-12), Wave 3 (citizen) shipped 2026-11-12 — 4 mockups (13–16) + the nine citizen routes re-composed from the `components/ui/` primitives (story 010, bolt `009-004` complete); Waves 4–6 (dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
 
 ## Log
 
@@ -6044,3 +6044,73 @@ files were `git stash`-ed and the suite re-run, and the same four
 failed. The 8 mockup failures are the same set the UI-redesign work
 left behind; per the team rule they are regenerated via the CI
 workflow, never by hand on Windows.
+
+### 2026-11-12 — UI redesign: Wave 3 closed out (citizen surfaces)
+
+Bolt `009-004-citizen-surfaces` is **complete**. Story 009 (the 4 mockups)
+and story 010 (the nine citizen routes) are both shipped. The bolt's
+verification record is in
+`.specsmd/aidlc/memory-bank/bolts/009-004-citizen-surfaces/test-walkthrough.md`;
+the implementation history and the design-craft audit are in the unit's
+`construction-log.md`.
+
+**Verification.**
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Types | `npx tsc --noEmit` | clean |
+| Unit | `npm run test:unit` | 127 files / **2186 passed** |
+| Coverage | vitest coverage | **90.09%** lines on `lib/` (floor 80%) |
+| Citizen spec | `playwright test tests/33-ui-redesign-citizen.spec.ts` | **6/6** |
+| Auth spec | `playwright test tests/32-ui-redesign-auth.spec.ts` | **18/18** |
+| i18n | `npm run check:i18n` | ok (1162 keys) |
+| Visual | `npm run test:mockups` | 25 pass / 8 fail — see below |
+
+**The 8 failing baselines are pre-existing and environmental.** They cover
+mockups `06`, `07`, `10`, `11` and `12` — mockups this wave did not touch,
+whose HTML and committed baselines are unmodified in the working tree.
+The diffs are 2–3% of pixels, with one height delta on
+`11-public-landing`, and the cause is platform font rasterisation: Noto
+Sans Bengali rasterises differently on Windows than on `ubuntu-latest`.
+The remedy is the same workflow that captures the 8 missing baselines for
+the new mockups `13`–`16`:
+
+```bash
+gh workflow run regenerate-baselines.yml -f update=true -f scope=mockups
+```
+
+The 8 new baselines were **never committed by hand**. Playwright
+silently writes a missing baseline on its first run, so a Windows capture
+would have committed a platform-specific baseline that fails on CI; the
+files were generated during verification and deleted.
+
+**A tooling defect worth recording: CRLF breaks the completion gate.**
+The specsmd engine's `bolt-complete.cjs` extracts YAML frontmatter with
+the regex `/^---\n([\s\S]+?)\n---/`, which requires a bare `\n`. With
+Git's default `core.autocrlf` behaviour on Windows, every committed
+`.md` file is checked out with CRLF, the regex does not match, and the
+gate dies with `Invalid bolt file (no frontmatter)`. The failure is
+indistinguishable from a corrupt file, and it hits every CRLF-checked-out
+memory-bank file — whether written by hand or by the engine itself.
+
+The fix is `.gitattributes`:
+
+```
+*.md text eol=lf
+```
+
+`.gitattributes` already pinned `*.sh` to LF for the same class of
+reason (a CRLF shebang breaks bash in the Linux Playwright image); the
+markdown rule is the same hazard in a different costume. `git add
+--renormalize .` plus a working-tree rewrite brought all 14 affected
+memory-bank files back to LF. The index was already LF throughout, so
+**no committed file's content changed** — only the checkout.
+
+**Two hazards cost time and will cost time again.** Two dev servers
+sharing one `.next` directory corrupt each other's route manifest:
+routes 404 while still existing on disk, static chunks 404, and the
+symptom is indistinguishable from a code defect. And the root
+`playwright.config.ts` hardcodes the server URL to port 3000, so a run
+against any other port starts a second server and triggers the same
+corruption. An environment override for the server URL would remove the
+footgun permanently; it is a follow-up, not a Wave 3 change.

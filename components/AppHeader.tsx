@@ -64,12 +64,32 @@ interface AppHeaderProps {
   signedIn?: boolean | null;
   /** Compact operational top bar used beside the role sidebar. */
   compact?: boolean;
+  /**
+   * The focused, single-task shell used by the report flow.
+   *
+   * Mockup 14 (`mockups/14-report-shell.html`) specifies a `header.flowbar`
+   * for a mid-flow step: the brand, a TASK TAG ("রিপোর্ট করুন"), and the
+   * two global controls (language + theme). It deliberately does NOT
+   * carry the city-wide navigation or the "New report" CTA.
+   *
+   * The omission is not cosmetic. The Report CTA links to
+   * `/report/location` — the FIRST step of the very flow the citizen is
+   * halfway through — so rendering it mid-flow offers a control that
+   * silently discards the draft in progress. `RoleSidebar` carries the
+   * same link as its third item.
+   *
+   * The avatar / user menu IS kept, even though mockup 14 omits it:
+   * the report flow is the one place a signed-in citizen has no other
+   * way to log out, and dropping a working affordance to match a
+   * mockup's inventory would be a functional regression.
+   */
+  variant?: 'default' | 'flow';
   /** Whether the responsive role navigation drawer is open. */
   navOpen?: boolean;
   onOpenNav?: () => void;
 }
 
-export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, navOpen = false, onOpenNav }: AppHeaderProps) {
+export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInProp, compact = false, variant = 'default', navOpen = false, onOpenNav }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname() ?? '/';
   // The shared hook owns the language. `langProp` still wins when a
@@ -152,8 +172,11 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
     { href: '/reports', label: t('header.nav.reports', null, lang), icon: ICONS.reports },
   ];
 
-  const showNav = signedIn === true && role !== 'staff';
-  const showReportCta = role !== 'staff' && signedIn !== false;
+  const showNav = signedIn === true && role !== 'staff' && variant !== 'flow';
+  const showReportCta = role !== 'staff' && signedIn !== false && variant !== 'flow';
+  // The flow variant drops the nav, the CTA and the city tagline, and
+  // carries the task tag instead — mockup 14's `.flow-tag`.
+  const isFlow = variant === 'flow';
 
   return (
     <header
@@ -161,6 +184,7 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
       className="appheader-root"
       data-role={role}
       data-compact={compact ? 'true' : undefined}
+      data-variant={isFlow ? 'flow' : undefined}
       style={{
         height: 'var(--header-height-desktop)',
         background: 'var(--color-surface-card)',
@@ -226,6 +250,35 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
             · {t('header.brand.city', null, lang)}
           </span>
         </Link>
+
+        {/* FLOW VARIANT: the task tag.
+            Mockup 14 puts a "রিপোর্ট করুন" pill next to the brand to
+            say what the citizen is currently doing. It is a LABEL, not
+            a link — the flow's own CTA would restart the flow. */}
+        {isFlow && (
+          <span
+            className="appheader-flow-tag"
+            lang={lang}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-1) var(--space-3)',
+              background: 'var(--color-primary-soft)',
+              color: 'var(--color-primary)',
+              borderRadius: 'var(--radius-pill)',
+              fontSize: 'var(--text-caption)',
+              fontWeight: 'var(--weight-semibold)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            <ICONS.newReport.icon size={16} weight={ICONS.newReport.weight} aria-hidden focusable="false" />
+            <span className="appheader-flow-tag-label">
+              {t('header.nav.report', null, lang)}
+            </span>
+          </span>
+        )}
 
         {/* Desktop inline nav (≥ 768px) */}
         {showNav && (
@@ -504,6 +557,15 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
           .appheader-burger { display: inline-flex !important; }
           .appheader-city { display: none !important; }
           .appheader-signin { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          /* The focused flow bar carries the brand, the task tag and
+             the two global controls. On a 390px phone that is too
+             much for one row, so the task tag's LABEL collapses to
+             its icon — the tag stays, it just stops pushing the
+             toggles off the right edge. */
+          .appheader-root[data-variant="flow"] .appheader-flow-tag { padding: var(--space-1); }
+          .appheader-root[data-variant="flow"] .appheader-flow-tag > span { display: none; }
         }
         @media (max-width: 640px) {
           /* Collapse the Report CTA to its plus icon below 640px.

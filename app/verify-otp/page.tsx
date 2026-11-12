@@ -421,6 +421,9 @@ function VerifyOtpInner() {
           onClick={() => setShowBackConfirm(true)}
           icon={<ICONS.back.icon size={18} weight={ICONS.back.weight} aria-hidden />}
           style={{
+            // The visible control is 40px; the primitive sizes the
+            // BUTTON to the 44px touch-target floor on its own, so
+            // this override only changes how the control LOOKS.
             width: 40,
             height: 40,
             background: 'transparent',

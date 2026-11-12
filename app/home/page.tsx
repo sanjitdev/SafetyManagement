@@ -35,10 +35,11 @@ import {
 } from '@/lib/home-filter';
 import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { formatDayLabel } from '@/lib/format/datetime';
-import { calendarDayInProductZone, todayInProductZone } from '@/lib/format/clock';
+import { calendarDayInProductZone, nowMs, todayInProductZone } from '@/lib/format/clock';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { Button, FilterChipGroup } from '@/components/ui';
 import { useSession } from '@/components/SessionProvider';
 import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
@@ -64,6 +65,7 @@ interface ActivityItem {
   categoryId: string;
   categoryName?: string;
   categoryNameBn?: string;
+  categorySlug?: string;
   wardId: string;
   wardName?: string;
   wardNameBn?: string;
@@ -113,7 +115,7 @@ interface CityConfig {
 }
 
 function formatAge(iso: string, lang: Language): string {
-  const ms = Date.now() - new Date(iso).getTime();
+  const ms = nowMs() - new Date(iso).getTime();
   const minutes = Math.floor(ms / 60_000);
   if (minutes < 60) {
     return lang === 'bn' ? `${minutes} মিনিট আগে` : `${minutes} min ago`;
@@ -252,6 +254,7 @@ export default function HomePage() {
             categoryId: t.categoryId,
             categoryName: cat?.name,
             categoryNameBn: cat?.nameBn ?? cat?.name,
+            categorySlug: cat?.slug,
             wardId: t.wardId,
             wardName: t.wardName ?? ward?.name,
             wardNameBn: t.wardNameBn ?? ward?.nameBn ?? ward?.name,
@@ -454,7 +457,7 @@ export default function HomePage() {
             position: 'relative',
             background: 'var(--color-surface-raised)',
             overflow: 'hidden',
-            minHeight: 320,
+            minHeight: 'var(--space-9)',
           }}
         >
           <CityActivityMap
@@ -489,8 +492,8 @@ export default function HomePage() {
             <span
               aria-hidden
               style={{
-                width: 8,
-                height: 8,
+                width: 'var(--space-2)',
+                height: 'var(--space-2)',
                 background: 'var(--color-primary)',
                 borderRadius: '50%',
               }}
@@ -559,21 +562,18 @@ export default function HomePage() {
             >
               {t('home.sidepanel.subtitle', null, lang)}
             </p>
-            {/* Filter pills */}
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              {(['all', 'submitted', 'in_progress', 'resolved'] as StatusFilter[]).map(
-                (f) => (
-                  <FilterPill
-                    key={f}
-                    active={filter === f}
-                    onClick={() => setFilter(f)}
-                    lang={lang}
-                  >
-                    {t(filterToI18nKey(f), null, lang)}
-                  </FilterPill>
-                ),
+            {/* Filter pills — the `FilterChipGroup` primitive (roving
+                tabindex + `aria-pressed`), not a hand-rolled pill. */}
+            <FilterChipGroup<StatusFilter>
+              options={(['all', 'submitted', 'in_progress', 'resolved'] as StatusFilter[]).map(
+                (f) => ({ value: f, label: t(filterToI18nKey(f), null, lang) }),
               )}
-            </div>
+              value={filter}
+              onChange={setFilter}
+              ariaLabel={t('home.filter.group_label', null, lang)}
+              lang={lang}
+              data-testid="home-activity-filter"
+            />
           </div>
 
           <div
@@ -611,38 +611,22 @@ export default function HomePage() {
                     alignItems: 'center',
                   }}
                 >
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={acceptNotifications}
-                    lang={lang}
-                    style={{
-                      padding: 'var(--space-1) var(--space-3)',
-                      background: 'var(--color-primary)',
-                      color: 'var(--color-on-primary)',
-                      border: 'none',
-                      borderRadius: 'var(--radius-pill)',
-                      fontSize: 'var(--text-caption)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
-                    }}
+                    data-testid="home-notifications-enable"
                   >
                     {t('home.notifications.enable', null, lang)}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={dismissNotifications}
-                    lang={lang}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--color-ink-secondary)',
-                      fontSize: 'var(--text-caption)',
-                      fontWeight: 'var(--weight-semibold)',
-                      cursor: 'pointer',
-                    }}
+                    data-testid="home-notifications-dismiss"
                   >
                     {t('home.notifications.not_now', null, lang)}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -768,38 +752,6 @@ function HomeReportTrend({ tickets, lang }: { tickets: ActivityItem[]; lang: Lan
   );
 }
 
-function FilterPill({
-  active,
-  onClick,
-  children,
-  lang,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  lang: Language;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      lang={lang}
-      style={{
-        padding: 'var(--space-1) var(--space-3)',
-        background: active ? 'var(--color-primary)' : 'var(--color-surface-raised)',
-        color: active ? 'var(--color-on-primary)' : 'var(--color-ink-secondary)',
-        border: 'none',
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 'var(--text-caption)',
-        fontWeight: 'var(--weight-semibold)',
-        cursor: 'pointer',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function ActivityCard({
   item,
   lang,
@@ -809,7 +761,19 @@ function ActivityCard({
   lang: Language;
   isNew: boolean;
 }) {
-  const categoryName = lang === 'bn' ? item.categoryNameBn : item.categoryName;
+  /*
+    * The category title. The lookup is by id against the city config,
+    * so a category the config does not carry (a category added to the
+    * database after the config was cached) resolves to `undefined` and
+    * would render an EMPTY title. The chain is name → slug → the
+    * "Other" label, mirroring `app/reports/page.tsx` — never the raw
+    * id, which is an internal handle the citizen must not see.
+    */
+  const categoryName =
+    (lang === 'bn'
+      ? item.categoryNameBn ?? item.categoryName ?? item.categorySlug
+      : item.categoryName ?? item.categorySlug ?? item.categoryNameBn) ??
+    t('category.other', null, lang);
   const wardName = lang === 'bn' ? item.wardNameBn : item.wardName;
   /*
    * The thumbnail. `startsWith('http')` used to guard this, which
@@ -842,8 +806,9 @@ function ActivityCard({
           aria-hidden
           loading="lazy"
           style={{
-            width: 56,
-            height: 56,
+            // Mockup 13's `.thumb` is exactly 64px square.
+            width: 'var(--touch-cta)',
+            height: 'var(--touch-cta)',
             borderRadius: 'var(--radius-sm)',
             objectFit: 'cover',
             background: 'var(--color-surface-raised)',
@@ -852,7 +817,7 @@ function ActivityCard({
         />
       ) : (
         /* No renderable photo → the shared "no photo" empty state. */
-        <PhotoPlaceholder size={56} lang={lang} />
+        <PhotoPlaceholder size={64} lang={lang} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
@@ -912,11 +877,11 @@ function ActivityCard({
               lang={lang}
               style={{
                 marginLeft: 'auto',
-                padding: '2px 6px',
+                padding: 'var(--space-1) var(--space-2)',
                 background: 'var(--color-primary)',
                 color: 'var(--color-on-primary)',
                 borderRadius: 'var(--radius-pill)',
-                fontSize: 10,
+                fontSize: 'var(--text-micro)',
                 fontWeight: 'var(--weight-bold)',
               }}
             >
@@ -944,8 +909,8 @@ function EmptyState({ lang, onReport }: { lang: Language; onReport: () => void }
       <div
         aria-hidden
         style={{
-          width: 56,
-          height: 56,
+          width: 'var(--touch-cta)',
+          height: 'var(--touch-cta)',
           borderRadius: '50%',
           background: 'var(--color-primary-soft)',
           display: 'inline-flex',
@@ -976,23 +941,14 @@ function EmptyState({ lang, onReport }: { lang: Language; onReport: () => void }
       >
         {t('home.empty.subtitle', null, lang)}
       </p>
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={onReport}
         lang={lang}
-        style={{
-          padding: 'var(--space-2) var(--space-4)',
-          background: 'var(--color-primary)',
-          color: 'var(--color-on-primary)',
-          border: 'none',
-          borderRadius: 'var(--radius-md)',
-          fontSize: 'var(--text-body-sm)',
-          fontWeight: 'var(--weight-semibold)',
-          cursor: 'pointer',
-        }}
+        data-testid="home-empty-cta"
       >
         {t('home.empty.cta', null, lang)}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -1014,8 +970,8 @@ function FeedSkeleton() {
         >
           <div
             style={{
-              width: 56,
-              height: 56,
+              width: 'var(--touch-cta)',
+              height: 'var(--touch-cta)',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-surface-raised)',
             }}
@@ -1024,18 +980,18 @@ function FeedSkeleton() {
             <div
               style={{
                 width: '60%',
-                height: 12,
+                height: 'var(--space-3)',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
-                marginBottom: 6,
+                borderRadius: 'var(--radius-xs)',
+                marginBottom: 'var(--space-2)',
               }}
             />
             <div
               style={{
                 width: '40%',
-                height: 10,
+                height: 'var(--space-2)',
                 background: 'var(--color-surface-raised)',
-                borderRadius: 4,
+                borderRadius: 'var(--radius-xs)',
               }}
             />
           </div>

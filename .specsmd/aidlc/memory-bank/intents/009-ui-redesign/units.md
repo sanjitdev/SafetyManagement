@@ -135,7 +135,7 @@ This yields **8 Units** and **8 Bolts** — one bolt per wave.
     summary + inline `role="alert"` on every invalid-input path.
   - The public landing stays PII-stripped.
   - Route specs + baselines are committed.
-- **Status**: mockups shipped; page implementation pending
+- **Status**: shipped
 - **File**: `units/003-auth-and-public-surfaces/unit-brief.md`
 
 ### Unit 004 — Citizen Surfaces
@@ -150,7 +150,7 @@ This yields **8 Units** and **8 Bolts** — one bolt per wave.
 - **Acceptance**: Mockups approved; the report flow keeps its
   progress indicator, photo cap indicator, dedup prompt and the
   vertical `Timeline` trail; route specs + baselines committed.
-- **Status**: not started
+- **Status**: shipped
 - **File**: `units/004-citizen-surfaces/unit-brief.md`
 
 ### Unit 005 — Dispatcher Console

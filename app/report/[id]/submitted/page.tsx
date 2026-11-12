@@ -1,21 +1,38 @@
 /**
- * 1.11 Report — Submitted Confirmation (S-004.6 redesign)
+ * 1.11 Report — Submitted Confirmation.
  *
- * Centered 720px card. Renders a large 96dp green checkmark
- * (CheckCircle2-style inline SVG), the report ID in mono font
- * with a copy-to-clipboard button, a 3-step "What happens next"
- * list, and the two CTA pair (View report, Back to home).
+ * Intent 009 / Unit 004 — citizen surface re-composition.
  *
- * The success checkmark animation is gated on a sessionStorage
- * flag set only on the first visit, so reloads of the same URL
- * do not re-animate (FR-9 acceptance).
+ * WHAT CHANGED (presentation only)
+ * --------------------------------
+ *   - The report identifier shown to the citizen is now the PUBLIC
+ *     CODE (`#TIX-XXXX`), derived from the internal id by
+ *     `formatTicketId`. Before this change the page rendered the RAW
+ *     internal id (`#{ticketId}`) and the copy button copied that raw
+ *     id — which broke the rule that no internal id ever reaches a
+ *     citizen surface.
+ *   - The status preview is the `Timeline` primitive: an ordered list
+ *     where every step carries an ICON, so the journey is readable
+ *     without colour. The four steps are the locked status order.
+ *   - Every control is a design-system primitive. The hand-rolled
+ *     `<button>`s (copy, view report, back home) are now `Button`,
+ *     and the hand-rolled SVGs are now the shared icon registry.
  *
- * If the citizen just declined a dedup match, surfaces a polite
- * toast reading the flag from sessionStorage
- * ('cityfix.reportDeclineNoted.v1').
+ * WHAT DID NOT CHANGE
+ * -------------------
+ * The API surface, the transports and the session probe are
+ * byte-identical. The page still reads the id from the route
+ * params, still probes `/api/report/bootstrap` for a citizen
+ * session, and still clears the same two sessionStorage flags.
  *
- * Server component shell; client component for the toast +
- * animation gate.
+ * THE CLIPBOARD NOW COPIES THE PUBLIC CODE
+ * -----------------------------------------
+ * A citizen who copies the number and reads it to the city
+ * corporation must read a number the corporation can look up. The
+ * raw internal id is not that number. So the clipboard carries the
+ * same `#TIX-XXXX` the page shows — the two are always the same
+ * string, and the citizen cannot end up with one in the UI and a
+ * different one on the clipboard.
  */
 
 'use client';
@@ -23,22 +40,36 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { t, type Language } from '@/lib/i18n/keys';
+import { formatTicketId } from '@/lib/format/ticket-id';
 import { useLanguage } from '@/components/useLanguage';
 import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
+import { Button, Timeline, type TimelineItem } from '@/components/ui';
+import { ICONS } from '@/lib/ui/icon-map';
 
 
-type TrailStep = {
-  key: 'submitted' | 'routed' | 'in_progress' | 'resolved';
-  titleKey: string;
-  timeKey: string;
+type TrailStep = 'submitted' | 'routed' | 'in_progress' | 'resolved';
+
+/**
+ * The LOCKED four-step journey, in order.
+ *
+ * The same order the detail page's trail uses and the same order the
+ * report flow's step indicator uses.
+ */
+const STATUS_TRAIL: TrailStep[] = ['submitted', 'routed', 'in_progress', 'resolved'];
+
+/**
+ * The icon that gives each step its SHAPE.
+ *
+ * A trail that distinguishes its steps by hue alone is unreadable to
+ * a colour-blind user, so the icon is mandatory — the `Timeline`
+ * primitive requires it.
+ */
+const TRAIL_STEP_ICON: Record<TrailStep, (typeof ICONS)[keyof typeof ICONS]> = {
+  submitted: ICONS.statusSubmitted,
+  routed: ICONS.statusRouted,
+  in_progress: ICONS.statusInProgress,
+  resolved: ICONS.statusResolved,
 };
-
-const STATUS_TRAIL: TrailStep[] = [
-  { key: 'submitted', titleKey: 'trail_preview.submitted.title', timeKey: 'trail_preview.submitted.time' },
-  { key: 'routed', titleKey: 'trail_preview.routed.title', timeKey: 'trail_preview.routed.time' },
-  { key: 'in_progress', titleKey: 'trail_preview.in_progress.title', timeKey: 'trail_preview.in_progress.time' },
-  { key: 'resolved', titleKey: 'trail_preview.resolved.title', timeKey: 'trail_preview.resolved.time' },
-];
 
 const ANIMATION_FLAG = 'cityfix.reportSubmittedAnimated.v1';
 
@@ -97,15 +128,52 @@ export default function SubmittedPage() {
     );
   }
 
-  // Current step index — for a freshly created ticket it's step 1 (submitted
-  // done, routed in progress). Status trail previews the citizen's path.
+  // The PUBLIC code. Empty until the id resolves — the route param is
+  // always present on this route, but the fallback keeps the render
+  // safe if it is not.
+  const publicCode = ticketId ? formatTicketId(ticketId) : '';
+
+  // Current step index — for a freshly created ticket it's step 1
+  // (submitted done, routed in progress). The trail previews the
+  // citizen's path.
   const currentStep = 1;
 
+  /**
+   * The trail preview.
+   *
+   * A freshly created ticket has ONE transition (submitted). The
+   * other three steps have not happened yet, so they carry the
+   * "pending" line rather than a timestamp — a future step has no
+   * timestamp, and inventing one would be a lie.
+   */
+  const trailItems: TimelineItem[] = STATUS_TRAIL.map((step, idx) => {
+    const IconEntry = TRAIL_STEP_ICON[step];
+    const state: TimelineItem['state'] =
+      idx < currentStep ? 'done' : idx === currentStep ? 'current' : 'upcoming';
+    return {
+      key: step,
+      title: t(`trail.${step}` as 'trail.submitted', null, LANG),
+      detail:
+        state === 'upcoming'
+          ? t('confirmation.trail.pending', null, LANG)
+          : t(`trail_preview.${step}.time` as 'trail_preview.submitted.time', null, LANG),
+      state,
+      icon: (
+        <IconEntry.icon
+          size={14}
+          weight={IconEntry.weight}
+          aria-hidden
+          focusable="false"
+        />
+      ),
+    };
+  });
+
   async function handleCopy() {
-    if (!ticketId) return;
+    if (!publicCode) return;
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(ticketId);
+        await navigator.clipboard.writeText(publicCode);
       } else {
         // Fallback: select + document.execCommand
         const el = document.getElementById('report-id-text') as HTMLSpanElement | null;
@@ -123,7 +191,7 @@ export default function SubmittedPage() {
       window.setTimeout(() => setShowCopiedToast(false), 1500);
     } catch {
       // Clipboard write was blocked — the citizen can still select
-      // the ID manually because it's user-selectable text.
+      // the code manually because it's user-selectable text.
     }
   }
 
@@ -193,10 +261,8 @@ export default function SubmittedPage() {
               gap: 'var(--space-1)',
             }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            {t('confirmation.copied', null, LANG)}
+            <ICONS.check.icon size={12} weight="bold" aria-hidden />
+            {t('confirmation.code.copied', null, LANG)}
           </div>
         )}
 
@@ -206,8 +272,8 @@ export default function SubmittedPage() {
             aria-hidden
             className={animateCheck ? 'report-check-anim' : undefined}
             style={{
-              width: 96,
-              height: 96,
+              width: 'var(--space-9)',
+              height: 'var(--space-9)',
               background: 'var(--color-status-resolved-soft)',
               borderRadius: '50%',
               display: 'flex',
@@ -217,20 +283,7 @@ export default function SubmittedPage() {
               color: 'var(--color-status-resolved)',
             }}
           >
-            <svg
-              width="56"
-              height="56"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="8 12 11 15 16 9" />
-            </svg>
+            <ICONS.statusResolved.icon size={56} weight={ICONS.statusResolved.weight} />
           </div>
           <h1
             lang={LANG}
@@ -259,7 +312,8 @@ export default function SubmittedPage() {
           </p>
         </div>
 
-        {/* Ticket ID — mono, copyable */}
+        {/* The PUBLIC report code — mono, copyable. The internal id
+            never reaches this surface. */}
         <div
           style={{
             display: 'flex',
@@ -281,60 +335,41 @@ export default function SubmittedPage() {
               color: 'var(--color-ink-secondary)',
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+            <ICONS.verified.icon
+              size={14}
+              weight={ICONS.verified.weight}
               aria-hidden
-            >
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-            <span>{t('confirmation.ticket_id_label', null, LANG)}</span>
+            />
+            <span>{t('confirmation.code.label', null, LANG)}</span>
             <strong
               id="report-id-text"
+              data-testid="report-confirmation-code"
               style={{
                 color: 'var(--color-ink)',
                 fontWeight: 'var(--weight-semibold)',
                 userSelect: 'all',
               }}
             >
-              #{ticketId || 'TIX-...'}
+              {publicCode || t('confirmation.code.pending', null, LANG)}
             </strong>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleCopy}
-              disabled={!ticketId}
-              aria-label={t('confirmation.copy_id', null, LANG)}
-              style={{
-                marginLeft: 'var(--space-2)',
-                padding: 'var(--space-1) var(--space-3)',
-                background: 'var(--color-surface-card)',
-                color: 'var(--color-ink)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: 'var(--text-caption)',
-                fontWeight: 'var(--weight-semibold)',
-                cursor: ticketId ? 'pointer' : 'not-allowed',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 'var(--space-1)',
-                minHeight: 'var(--touch-min)',
-              }}
+              disabled={!publicCode}
+              aria-label={t('confirmation.code.copy_aria', null, LANG)}
+              icon={<ICONS.note.icon size={12} weight={ICONS.note.weight} aria-hidden />}
+              data-testid="report-confirmation-copy"
+              style={{ marginLeft: 'var(--space-2)' }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
               {t('confirmation.copy_id', null, LANG)}
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Status trail */}
+        {/* The status trail — the `Timeline` primitive. Every step
+            carries an icon, so the journey is readable without
+            colour. */}
         <div
           style={{
             background: 'var(--color-surface-page)',
@@ -343,89 +378,12 @@ export default function SubmittedPage() {
             marginBottom: 'var(--space-6)',
           }}
         >
-          {STATUS_TRAIL.map((step, idx) => {
-            const isLast = idx === STATUS_TRAIL.length - 1;
-            const isDone = idx < currentStep;
-            const isCurrent = idx === currentStep;
-            return (
-              <div
-                key={step.key}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 'var(--space-3)',
-                  position: 'relative',
-                  marginTop: idx === 0 ? 0 : 'var(--space-3)',
-                }}
-                className={`trail-step ${isDone ? 'done' : isCurrent ? 'current' : 'pending'}`}
-              >
-                {!isLast && (
-                  <div
-                    aria-hidden
-                    style={{
-                      position: 'absolute',
-                      left: 11,
-                      top: 24,
-                      bottom: -12,
-                      width: 2,
-                      background: isDone
-                        ? 'var(--color-status-resolved)'
-                        : 'var(--color-border)',
-                    }}
-                  />
-                )}
-                <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isDone
-                      ? 'var(--color-status-resolved)'
-                      : isCurrent
-                        ? 'var(--color-primary)'
-                        : 'var(--color-surface-raised)',
-                    color: isDone || isCurrent ? 'var(--color-on-primary)' : 'var(--color-ink-tertiary)',
-                    fontSize: 'var(--text-micro)',
-                    fontWeight: 'var(--weight-semibold)',
-                  }}
-                  aria-hidden
-                >
-                  {isDone ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    idx + 1
-                  )}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    lang={LANG}
-                    style={{
-                      fontWeight: 'var(--weight-semibold)',
-                      fontSize: 'var(--text-body-sm)',
-                    }}
-                  >
-                    {t(step.titleKey as 'trail_preview.submitted.title', null, LANG)}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-caption)',
-                      color: 'var(--color-ink-tertiary)',
-                      marginTop: 2,
-                      opacity: isDone || isCurrent ? 1 : 0.6,
-                    }}
-                  >
-                    {t(step.timeKey as 'trail_preview.submitted.time', null, LANG)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <Timeline
+            items={trailItems}
+            ariaLabel={t('confirmation.trail.label', null, LANG)}
+            lang={LANG}
+            data-testid="report-confirmation-trail"
+          />
         </div>
 
         {/* What happens next — 3-step list */}
@@ -481,39 +439,25 @@ export default function SubmittedPage() {
             gap: 'var(--space-3)',
           }}
         >
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
             onClick={() => router.push(`/reports/${ticketId}`)}
             disabled={!ticketId}
-            style={{
-              minHeight: 'var(--touch-cta)',
-              background: 'var(--color-primary)',
-              color: 'var(--color-on-primary)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: ticketId ? 'pointer' : 'not-allowed',
-            }}
+            data-testid="report-confirmation-view"
+            style={{ minHeight: 'var(--touch-cta)' }}
           >
             {t('confirmation.view_report', null, LANG)}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={() => router.push('/home')}
-            style={{
-              minHeight: 'var(--touch-cta)',
-              background: 'transparent',
-              color: 'var(--color-ink)',
-              border: '1px solid var(--color-border-strong)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--text-body-lg)',
-              fontWeight: 'var(--weight-semibold)',
-              cursor: 'pointer',
-            }}
+            data-testid="report-confirmation-home"
+            style={{ minHeight: 'var(--touch-cta)' }}
           >
             {t('confirmation.back_home', null, LANG)}
-          </button>
+          </Button>
         </div>
 
         {/* Trust line */}
@@ -526,18 +470,12 @@ export default function SubmittedPage() {
             justifyContent: 'center',
           }}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+          <ICONS.security.icon
+            size={14}
+            weight={ICONS.security.weight}
             style={{ color: 'var(--color-ink-tertiary)' }}
             aria-hidden
-          >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
+          />
           <span
             lang={LANG}
             style={{

@@ -39,6 +39,7 @@
 import { useState } from 'react';
 import { t, type Language } from '@/lib/i18n/keys';
 import { useLanguage } from '@/components/useLanguage';
+import { Button } from '@/components/ui';
 // The rating vocabulary lives in a dependency-free module so this
 // `'use client'` island never pulls `next/headers` (via the
 // service's `lib/db-switch` import) into the client bundle.
@@ -142,30 +143,22 @@ export default function FeedbackPrompt({
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
             {RATING_ORDER.map((r) => (
-              <button
+              <Button
                 key={r}
-                type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => submit(r)}
                 disabled={pending}
                 aria-pressed={rating === r}
+                data-testid={`report-feedback-rating-${r}`}
                 style={{
-                  height: 36,
-                  padding: '0 var(--space-3)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${
-                    rating === r
-                      ? 'var(--color-primary)'
-                      : 'var(--color-border-strong)'
-                  }`,
-                  background: 'var(--color-surface-card)',
+                  borderColor:
+                    rating === r ? 'var(--color-primary)' : 'var(--color-border-strong)',
                   color: rating === r ? 'var(--color-primary)' : 'var(--color-ink)',
-                  fontWeight: 'var(--weight-medium)',
-                  fontSize: 'var(--text-caption)',
-                  cursor: pending ? 'wait' : 'pointer',
                 }}
               >
                 {t(RATING_LABEL_KEY[r] as 'detail.feedback.rating.positive', null, LANG)}
-              </button>
+              </Button>
             ))}
           </div>
         </>
@@ -185,43 +178,29 @@ export default function FeedbackPrompt({
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {RATING_ORDER.map((r) => (
-              <button
+              <Button
                 key={r}
-                type="button"
+                variant="secondary"
                 onClick={() => submit(r)}
                 disabled={pending}
+                data-testid={`report-feedback-rating-${r}`}
                 style={{
-                  height: 40,
-                  padding: '0 var(--space-4)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-primary)',
-                  background: 'var(--color-surface-card)',
+                  borderColor: 'var(--color-primary)',
                   color: 'var(--color-primary)',
-                  fontWeight: 'var(--weight-semibold)',
-                  cursor: pending ? 'wait' : 'pointer',
                 }}
               >
                 {t(RATING_LABEL_KEY[r] as 'detail.feedback.rating.positive', null, LANG)}
-              </button>
+              </Button>
             ))}
             {onDispute && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={onDispute}
                 disabled={pending}
-                style={{
-                  height: 40,
-                  padding: '0 var(--space-4)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-strong)',
-                  background: 'var(--color-surface-card)',
-                  color: 'var(--color-ink)',
-                  fontWeight: 'var(--weight-medium)',
-                  cursor: pending ? 'wait' : 'pointer',
-                }}
+                data-testid="report-feedback-dispute"
               >
                 {t('detail.feedback.dispute', null, LANG)}
-              </button>
+              </Button>
             )}
           </div>
         </>

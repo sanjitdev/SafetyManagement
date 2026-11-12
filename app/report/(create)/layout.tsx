@@ -27,17 +27,58 @@ import { usePathname } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { useLanguage } from '@/components/useLanguage';
 import { StepIndicator } from '@/components/ui';
+import { t } from '@/lib/i18n/keys';
 
+/**
+ * The locked 5-step order (mockups 14, UX spec 1.8/1.9/1.10/1.11):
+ *
+ *   1 Location → 2 Photo → 3 Category → 4 Note → 5 Summary
+ *
+ * This table is the single place the rail order is declared, and the
+ * step pages' navigation follows the same order: each step's
+ * "Continue" pushes the next path in this list.
+ *
+ * Before Intent 009 the CODE navigated Location → Category → Photo
+ * while the RAIL, the `StepIndicator` primitive's own docblock, the
+ * UX specs (1.7 "Step 1 of 4: Location", 1.8 "Step 2 of 4: Photo",
+ * 1.9 "Step 3 of 4: Category") and mockup 14 all said Photo is
+ * step 2 and Category is step 3. The navigation was the outlier and
+ * has been corrected to match the contract.
+ */
 const STEP_BY_PATH: Record<string, number> = {
   '/report/location': 1,
-  '/report/category': 2,
-  '/report/photo': 3,
+  '/report/photo': 2,
+  '/report/category': 3,
   '/report/note': 4,
   '/report/summary': 5,
 };
 
-const STEP_LABELS_BN = ['অবস্থান', 'বিভাগ', 'ছবি', 'নোট', 'সারাংশ'];
-const STEP_LABELS_EN = ['Location', 'Category', 'Photo', 'Note', 'Summary'];
+/**
+ * The i18n key for each step's rail label. The rail labels are
+ * resolved through the registry (rather than a module-level array
+ * of literals) so the copy lives in ONE place — `lib/i18n/keys.ts`
+ * — and the `check:i18n` script can verify every step label.
+ */
+const STEP_LABEL_KEYS = [
+  'report.step.1',
+  'report.step.2',
+  'report.step.3',
+  'report.step.4',
+  'report.step.5',
+] as const;
+
+/**
+ * The i18n key for each step's progress sentence. The sentence
+ * under the rail reads "ধাপ ২ / ৫ — ছবি যোগ করুন" (mockup 14), so
+ * the position is never a colour-only cue.
+ */
+const STEP_SUBTITLE_KEYS = [
+  'report.step.subtitle.location',
+  'report.step.subtitle.photo',
+  'report.step.subtitle.category',
+  'report.step.subtitle.note',
+  'report.step.subtitle.summary',
+] as const;
 
 function resolveCurrentStep(pathname: string | null): number {
   if (!pathname) return 1;
@@ -51,11 +92,13 @@ export default function ReportLayout({ children }: { children: ReactNode }) {
   // same preference as the header and the step pages themselves.
   const { lang } = useLanguage();
   const currentStep = resolveCurrentStep(pathname);
-  const stepLabels = lang === 'bn' ? STEP_LABELS_BN : STEP_LABELS_EN;
+  const stepLabels = STEP_LABEL_KEYS.map((key) => t(key, null, lang));
+  const stepSubtitle = t(STEP_SUBTITLE_KEYS[currentStep - 1], null, lang);
 
   return (
     <AppShell
       role="citizen"
+      variant="flow"
       subHeader={
         <div
           className="report-layout-step-labels"
@@ -72,7 +115,31 @@ export default function ReportLayout({ children }: { children: ReactNode }) {
             labels={stepLabels}
             lang={lang}
             className="report-step-indicator"
+            data-testid="report-step-indicator"
           />
+          {/* The progress sentence under the rail. The mockup puts
+              it there so the position is never a colour-only cue —
+              the digits and the words carry it. */}
+          <p
+            lang={lang}
+            data-testid="report-step-progress"
+            style={{
+              margin: 'var(--space-2) 0 0',
+              textAlign: 'center',
+              fontSize: 'var(--text-body-sm)',
+              color: 'var(--color-ink-secondary)',
+            }}
+          >
+            {t(
+              'report.step.progress',
+              {
+                current: currentStep,
+                total: 5,
+                label: stepSubtitle,
+              },
+              lang,
+            )}
+          </p>
         </div>
       }
     >
