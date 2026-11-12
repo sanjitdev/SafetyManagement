@@ -1,6 +1,6 @@
 # CityFix — Visual Design
 
-The visual layer for CityFix. Defines the design tokens, the component library, and 16 hero mockups that establish the visual language for every page.
+The visual layer for CityFix. Defines the design tokens, the component library, and 21 hero mockups that establish the visual language for every page.
 
 ## Brand personality
 
@@ -31,12 +31,14 @@ Two rules govern every component:
 |---|---|
 | `tokens.css` | The single source of truth for the visual language. CSS custom properties only — colors, type, spacing, radii, shadows, motion. |
 | `components.html` | A self-documenting library of every component pattern, applied to the tokens. Open in browser to scan. |
-| `gallery.html` | Entry point. Embedded previews of all 16 mockups + link to component library. |
+| `gallery.html` | Entry point. Embedded previews of all 21 mockups + link to component library. |
+| `mockups/citizen-surfaces.css` | Shared chrome for the citizen surfaces (mockups 13–16): citizen-facing components layered on `tokens.css`. |
+| `mockups/dispatcher-surfaces.css` | Shared chrome for the dispatcher console (mockups 17–21): dispatcher-facing components layered on `tokens.css`. |
 | `mockups/01-welcome.html` | First-run welcome screen. Pure typography moment. |
 | `mockups/02-home-city-activity.html` | Map + activity bottom sheet + Report CTA. **Retired** — superseded by `13`. |
 | `mockups/03-report-submitted.html` | Confirmation + 4-step status trail + ticket ID. |
 | `mockups/04-my-reports-detail.html` | Before/after photos + metadata + feedback prompt. |
-| `mockups/05-daily-queue-dashboard.html` | Habib's cockpit. Desktop 3-region layout. |
+| `mockups/05-daily-queue-dashboard.html` | Habib's cockpit. Desktop 3-region layout. **Retired** — superseded by `17`. |
 | `mockups/06-field-app-home.html` | Rashid's start-of-day. Web-first, phone fallback. |
 | `mockups/07-status-in-progress.html` | Rashid's hands-busy live work view (`.theme-outdoor`). |
 | `mockups/08-login.html` | Sign-in. Two-region auth shell: form + civic story column. |
@@ -48,6 +50,11 @@ Two rules govern every component:
 | `mockups/14-report-shell.html` | Five-step report flow shell + the photo step in full detail. |
 | `mockups/15-my-reports.html` | The citizen's own report list. Filter chips + ticket-id pills. |
 | `mockups/16-report-detail-trail.html` | Report detail. Vertical status trail + before/after photo groups. |
+| `mockups/17-triage-queue.html` | The dispatcher's triage queue. 3-region cockpit: filter rail · ticket list · detail pane. Supersedes `05`. |
+| `mockups/18-dispatcher-ticket-detail.html` | Full dispatcher ticket detail. Before/after photo groups, internal notes, searchable crew picker, sticky action bar. |
+| `mockups/19-dispatcher-map.html` | The full-bleed city map. Floating filter, zoom, legend and selected-ticket controls over the canvas. |
+| `mockups/20-dispatcher-monitor.html` | The dark ops board for a wall display. KPI row + queue ticker, SLA breaches, category and ward load. |
+| `mockups/21-dispatcher-performance.html` | Performance page. Weekly trend line, category bars, SLA bullet — each with its data table. |
 
 ## How to view
 
@@ -76,6 +83,13 @@ design-artifacts/D-Design-System/01-Visual-Design/
     14-report-shell.html
     15-my-reports.html
     16-report-detail-trail.html
+    17-triage-queue.html
+    18-dispatcher-ticket-detail.html
+    19-dispatcher-map.html
+    20-dispatcher-monitor.html
+    21-dispatcher-performance.html
+    citizen-surfaces.css        ← shared chrome for mockups 13–16
+    dispatcher-surfaces.css     ← shared chrome for mockups 17–21
 ```
 
 ## Token highlights
@@ -130,7 +144,7 @@ Category accents give each report category one colour for its iconography: stree
 
 ## Coverage rationale
 
-These 16 mockups cover the structural patterns used across the app:
+These 21 mockups cover the structural patterns used across the app:
 
 | Mockup | Patterns defined |
 |---|---|
@@ -138,7 +152,7 @@ These 16 mockups cover the structural patterns used across the app:
 | Home / City Activity | Map, bottom sheet, floating action button, activity feed, sticky header with notifications |
 | Report Submitted | Hero confirmation, status trail, ticket ID, sticky CTA, secondary link |
 | My Reports Detail | Photo pair + multi-photo overflow, metadata block, feedback prompt, compact trail |
-| Daily Queue Dashboard | Desktop 3-region layout, stats strip, filter rail, ticket list, detail pane, keyboard hints |
+| Daily Queue Dashboard | Desktop 3-region layout, stats strip, filter rail, ticket list, detail pane, keyboard hints. **Retired** — superseded by the Triage Queue. |
 | Field App Home | Top bar, quick-stats, today's queue, in-flow CTA |
 | Status: In Progress | Hands-busy full-bleed work view in the high-contrast outdoor palette |
 | Log in | Two-region auth shell, error summary linked to the field, show/hide password, recovery path |
@@ -150,6 +164,11 @@ These 16 mockups cover the structural patterns used across the app:
 | Report flow shell | Numbered five-step rail with connector line, photo cap indicator, photo grid with remove affordance, sticky bottom action bar |
 | My reports | Filter chips with live counts, report row with status + ward + public ticket-id pill + relative time |
 | Report detail & trail | Vertical status trail with per-step icon and timestamp, labelled before/after photo groups, note-edit affordance |
+| Triage Queue | Dispatcher 3-region cockpit (filter rail / ticket list / detail pane), SLA countdown chip on every row, internal-id pill, dispatcher-only working note, keyboard shortcuts |
+| Dispatcher ticket detail | Before/after photo groups with empty resolution slots, dispatcher-only internal notes, searchable crew-picker combobox, reporter contact block, audit trail, sticky action bar |
+| Dispatcher map | Full-bleed map canvas with floating filter panel, zoom stack, shape-keyed legend, scale bar, selected-ticket card |
+| Dispatcher monitor | Dark wall-display ops board: scaled KPI row, unassigned queue ticker, SLA-breach panel, category and hourly-arrival breakdowns, ward load, department load, crew coverage |
+| Dispatcher performance | Trend line with per-series dash patterns and end labels, category bars with printed counts, SLA bullet against the 48-hour target, a sortable data table per chart |
 
 The remaining pages are spec'd well enough that engineering can build them from the spec + tokens without separate mockups. Component patterns are defined in `components.html`.
 
@@ -171,13 +190,17 @@ The remaining pages are spec'd well enough that engineering can build them from 
 
 Each primitive carries its own accessibility contract, and each contract has a unit test in `tests/unit/components/`.
 
+### The shared surface stylesheets
+
+`tokens.css` is the single token source for every surface; the two shared stylesheets add the chrome that only one audience sees. `mockups/citizen-surfaces.css` backs mockups 13–16 and `mockups/dispatcher-surfaces.css` backs mockups 17–21, and they are deliberately kept apart: the citizen `.ticket-id` pill is the PUBLIC `#TIX-` code a citizen quotes to the call centre, while the dispatcher's `.internal-id` pill is the internal reference — the two must never be confused.
+
 ## How engineering should use these
 
 1. **The token names are the contract; the implementation is free.** Pages compose primitives — they do not define their own styles.
 2. **Build components, not screens.** A page that hand-rolls a `<button>` has already gone wrong.
 3. **Match Bangla typography.** Use Noto Sans Bengali (or its equivalent) for any Bangla text. Do not assume system fonts will render Bangla correctly on all platforms.
 4. **Test the outdoor theme.** Rashid's Status: In Progress uses `.theme-outdoor`. Validate it on actual sunlight-readable displays before shipping.
-5. **Use the dashboard mockup as the desktop reference.** Three-region layout (filter rail / list / detail) is the dispatcher pattern. Other desktop pages follow the same structure with variations.
+5. **Use the triage-queue mockup (17) as the desktop reference.** Three-region layout (filter rail / list / detail) is the dispatcher pattern. Other desktop pages follow the same structure with variations. Mockup 05 is retired and kept for reference only.
 
 ## What the tests enforce
 

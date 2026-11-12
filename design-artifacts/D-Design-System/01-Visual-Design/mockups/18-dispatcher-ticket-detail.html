@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="bn" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>টিকিট বিবরণ · CityFix ডিসপ্যাচ</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="dispatcher-surfaces.css">
+
+  <style>
+    /* ---------- PAGE ---------- */
+    .dpage { max-width: 1080px; }
+
+    /* ---------- BREADCRUMB HEADER ---------- */
+    .crumb-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--space-5); flex-wrap: wrap;
+      padding-bottom: var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: var(--space-5);
+    }
+    .crumb {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      font-size: var(--text-body-sm); color: var(--color-accent);
+      text-decoration: none; font-weight: var(--weight-semibold);
+      min-height: var(--touch-min);
+    }
+    .crumb:hover { color: var(--color-accent-hover); }
+    .crumb-title { font-size: var(--text-h1); margin: var(--space-2) 0 var(--space-2); }
+    .crumb-pills { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+    .crumb-meta {
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+      margin: 0; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+    }
+
+    /* ---------- PHOTO AREAS ---------- */
+    .photo-block { margin-bottom: var(--space-6); }
+    .photo-block-head {
+      display: flex; align-items: center; gap: var(--space-2);
+      margin-bottom: var(--space-3); flex-wrap: wrap;
+    }
+    .photo-block-label {
+      font-size: var(--text-body-sm); font-weight: var(--weight-bold); color: var(--color-ink);
+    }
+    .photo-block-sub { font-size: var(--text-caption); color: var(--color-ink-tertiary); }
+    .photo-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-3);
+    }
+    .photo-cell {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-raised);
+      overflow: hidden;
+      margin: 0;
+    }
+    .photo-cell > svg { display: block; width: 100%; height: 100%; }
+    /* The per-tile label repeats the group label ON the photo, so a
+       single cropped tile still says which side of the split it is. */
+    .photo-tag {
+      position: absolute; top: var(--space-2); left: var(--space-2);
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px var(--space-2);
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-xs);
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      color: var(--color-ink); line-height: var(--leading-snug);
+    }
+    .photo-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--space-2); aspect-ratio: 4 / 3;
+      border: 1px dashed var(--color-border-strong);
+      border-radius: var(--radius-md);
+      color: var(--color-ink-tertiary);
+      font-size: var(--text-caption); text-align: center;
+      padding: var(--space-3);
+    }
+
+    /* ---------- TWO-COLUMN BODY ---------- */
+    .detail-cols {
+      display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+      gap: var(--space-6); align-items: start;
+    }
+
+    /* ---------- COMBOBOX PANEL ---------- */
+    .picker-panel {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+    .picker-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap;
+    }
+    .picker-title { font-size: var(--text-h3); margin: 0; }
+    .picker-hint {
+      font-size: var(--text-micro); color: var(--color-ink-tertiary);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+
+    /* ---------- INTERNAL NOTES ---------- */
+    .note-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .notes-head {
+      display: flex; align-items: center; gap: var(--space-2);
+      margin-bottom: var(--space-1); flex-wrap: wrap;
+    }
+
+    /* ---------- AUDIT TRAIL ---------- */
+    .audit-list { list-style: none; padding: 0; margin: 0; }
+    .audit-row {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-border);
+      font-size: var(--text-caption);
+    }
+    .audit-row:last-child { border-bottom: none; }
+    .audit-icon {
+      width: var(--icon-size-md); height: var(--icon-size-md); flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: var(--color-surface-raised); color: var(--color-ink-secondary);
+    }
+    .audit-body { flex: 1; min-width: 0; }
+    .audit-what { color: var(--color-ink); font-weight: var(--weight-semibold); }
+    .audit-meta { color: var(--color-ink-tertiary); margin-top: 2px; }
+
+    /* ---------- REPORTER BLOCK ---------- */
+    .contact-row {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .contact-row:last-child { border-bottom: none; }
+    .contact-label { font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: 0.04em; }
+    .contact-value { font-size: var(--text-body-sm); font-weight: var(--weight-medium); }
+
+    /* ---------- STICKY ACTION BAR ----------
+       `position: sticky; bottom: 0` keeps the bar pinned to the
+       bottom of the viewport while the content scrolls. Because a
+       static screenshot cannot demonstrate that, the page renders a
+       long content column so the bar visibly sits OVER content. */
+    .sticky-wrap {
+      position: sticky; bottom: 0;
+      margin: var(--space-6) calc(var(--space-5) * -1) calc(var(--space-8) * -1);
+      z-index: var(--z-sticky);
+    }
+    .action-bar {
+      border-radius: 0;
+      border-left: none; border-right: none; border-bottom: none;
+    }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 1024px) {
+      .detail-cols { grid-template-columns: minmax(0, 1fr); }
+      .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================= DISPATCHER TOPBAR ================= -->
+<header class="dtopbar">
+  <div style="display: flex; align-items: center; gap: var(--space-5); min-width: 0;">
+    <a class="dbrand" href="#" aria-label="CityFix ডিসপ্যাচ হোম">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 22.4c-.4 0-.74-.21-.93-.57C10.65 20.7 6.2 15.2 6.2 10 6.2 5.6 8.9 2 12.2 2S18.2 5.6 18.2 10c0 5.2-4.45 10.7-4.87 11.83-.19.36-.53.57-.93.57Z" fill="var(--color-primary)"></path>
+        <rect x="7.5" y="5.1" width="9" height="9" rx="2" fill="var(--color-surface-card)"></rect>
+        <path d="M9.6 9.5 11.3 11.2l3.4-3.6" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="dbrand-name">CityFix ডিসপ্যাচ</span>
+    </a>
+
+    <nav class="dnav" aria-label="ডিসপ্যাচার নেভিগেশন">
+      <a class="dnav-item active" href="#" aria-current="page">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path>
+        </svg>
+        ট্রায়াজ
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle>
+        </svg>
+        মানচিত্র
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12h4l3 8 4-16 3 8h4"></path>
+        </svg>
+        মনিটর
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path>
+        </svg>
+        কর্মক্ষমতা
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+        </svg>
+        ডিডাপ
+      </a>
+    </nav>
+  </div>
+
+  <div class="dtopbar-actions">
+    <button class="icon-btn" type="button" aria-label="অনুসন্ধান">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+      </svg>
+    </button>
+    <button class="icon-btn" type="button" aria-label="বিজ্ঞপ্তি, ৩টি নতুন">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 7-2 7h16s-2-2-2-7"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path>
+      </svg>
+    </button>
+    <div class="didentity">
+      <span class="davatar" aria-hidden="true">হা</span>
+      <span class="didentity-text">
+        <span class="didentity-name">হাবিব উল্লাহ</span>
+        <span class="didentity-role">ডিসপ্যাচার · ওয়ার্ড ১৪</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- ================= PAGE ================= -->
+<main class="dpage">
+
+  <!-- ---------- BREADCRUMB HEADER ---------- -->
+  <header class="crumb-head">
+    <div>
+      <a class="crumb" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M11 18l-6-6 6-6"></path>
+        </svg>
+        ট্রায়াজ কিউ-তে ফিরে যান
+      </a>
+
+      <h1 class="crumb-title">রাস্তার আলো নেই · পোল #14B</h1>
+
+      <div class="crumb-pills">
+        <span class="status status-routed">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 4h5v5M19 4l-8 8"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path>
+          </svg>
+          রাউট
+        </span>
+        <span class="ward">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s7-7.5 7-12a7 7 0 0 0-14 0c0 4.5 7 12 7 12Z"></path><circle cx="12" cy="10" r="2.5"></circle>
+          </svg>
+          ওয়ার্ড ১৪ · মিরপুর
+        </span>
+        <!-- The dispatcher's INTERNAL reference. NOT the citizen's
+             public "#TIX-" code. -->
+        <span class="internal-id">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M9 12h6"></path>
+          </svg>
+          <strong>INT-8F42</strong>
+        </span>
+        <span class="ward">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 15V5a2 2 0 0 1 2-2h4l2 3h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path>
+          </svg>
+          বৈদ্যুতিক বিভাগ
+        </span>
+      </div>
+
+      <p class="crumb-meta">
+        <span>জমা হয়েছে ২৩ মিনিট আগে · ১১:০৪</span>
+        <span aria-hidden="true">·</span>
+        <span>৪ জন রিপোর্টার</span>
+      </p>
+    </div>
+  </header>
+
+  <!-- ---------- TWO-COLUMN BODY ---------- -->
+  <div class="detail-cols">
+
+    <!-- ===== LEFT COLUMN ===== -->
+    <div>
+
+      <!-- ---------- PHOTOS: BEFORE (citizen) ---------- -->
+      <section class="photo-block" aria-label="রিপোর্টারের দেওয়া ছবি">
+        <div class="photo-block-head">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--color-ink-secondary);">
+            <circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>
+          </svg>
+          <span class="photo-block-label">আগে</span>
+          <span class="photo-block-sub">রিপোর্টারের দেওয়া ২টি ছবি · সমস্যার আগের অবস্থা</span>
+        </div>
+
+        <div class="photo-grid">
+          <figure class="photo-cell">
+            <span class="photo-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 7v5l3 2"></path>
+              </svg>
+              আগে
+            </span>
+            <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="রাতের রাস্তা, স্ট্রিটলাইট জ্বলছে না">
+              <rect width="160" height="120" fill="var(--color-surface-sunken)"></rect>
+              <rect x="0" y="74" width="160" height="46" fill="var(--color-map-road)"></rect>
+              <rect x="34" y="18" width="6" height="60" fill="var(--color-ink-tertiary)"></rect>
+              <rect x="112" y="18" width="6" height="60" fill="var(--color-ink-tertiary)"></rect>
+              <path d="M26 16h22l-5-8h-12Z" fill="var(--color-ink-disabled)"></path>
+              <path d="M104 16h22l-5-8h-12Z" fill="var(--color-ink-disabled)"></path>
+              <circle cx="37" cy="20" r="3.4" fill="var(--color-ink-disabled)"></circle>
+              <circle cx="115" cy="20" r="3.4" fill="var(--color-ink-disabled)"></circle>
+              <path d="M0 96h160" stroke="var(--color-ink-tertiary)" stroke-width="2" stroke-dasharray="14 12" opacity="0.55"></path>
+            </svg>
+          </figure>
+
+          <figure class="photo-cell">
+            <span class="photo-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 7v5l3 2"></path>
+              </svg>
+              আগে
+            </span>
+            <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="বিকেলে স্ট্রিটলাইটের নিচে অন্ধকার রাস্তা">
+              <rect width="160" height="120" fill="var(--color-surface-sunken)"></rect>
+              <rect x="0" y="80" width="160" height="40" fill="var(--color-map-road)"></rect>
+              <rect x="70" y="10" width="9" height="72" fill="var(--color-ink-tertiary)"></rect>
+              <path d="M58 8h34l-7-8h-20Z" fill="var(--color-ink-disabled)"></path>
+              <circle cx="75" cy="14" r="5" fill="var(--color-ink-disabled)"></circle>
+              <ellipse cx="75" cy="98" rx="40" ry="10" fill="var(--color-ink-disabled)" opacity="0.28"></ellipse>
+              <path d="M0 104h160" stroke="var(--color-ink-tertiary)" stroke-width="2" stroke-dasharray="14 12" opacity="0.55"></path>
+            </svg>
+          </figure>
+
+          <figure class="photo-cell">
+            <span class="photo-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 7v5l3 2"></path>
+              </svg>
+              আগে
+            </span>
+            <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="বৃষ্টির রাতে পোলের চারপাশ অন্ধকার">
+              <rect width="160" height="120" fill="var(--color-surface-sunken)"></rect>
+              <rect x="0" y="86" width="160" height="34" fill="var(--color-map-road)"></rect>
+              <path d="M14 92h132" stroke="var(--color-ink-tertiary)" stroke-width="3" stroke-dasharray="10 8" opacity="0.5"></path>
+              <circle cx="80" cy="44" r="26" fill="var(--color-ink-disabled)" opacity="0.22"></circle>
+            </svg>
+          </figure>
+        </div>
+      </section>
+
+      <!-- ---------- PHOTOS: AFTER (crew) ---------- -->
+      <section class="photo-block" aria-label="সমাধানের পরের ছবি">
+        <div class="photo-block-head">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--color-ink-secondary);">
+            <circle cx="12" cy="12" r="9"></circle><path d="m8 12 3 3 5-6"></path>
+          </svg>
+          <span class="photo-block-label">পরে</span>
+          <span class="photo-block-sub">ক্রু সি-এর ১টি ছবি · সমাধানের পরের অবস্থা</span>
+        </div>
+
+        <div class="photo-grid">
+          <figure class="photo-cell">
+            <span class="photo-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m8 12 3 3 5-6"></path>
+              </svg>
+              পরে
+            </span>
+            <svg viewBox="0 0 160 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="স্ট্রিটলাইট জ্বলছে, রাস্তায় আলো পড়েছে">
+              <rect width="160" height="120" fill="var(--color-surface-sunken)"></rect>
+              <rect x="0" y="74" width="160" height="46" fill="var(--color-map-road)"></rect>
+              <rect x="34" y="18" width="6" height="60" fill="var(--color-ink-tertiary)"></rect>
+              <rect x="112" y="18" width="6" height="60" fill="var(--color-ink-tertiary)"></rect>
+              <path d="M26 16h22l-5-8h-12Z" fill="var(--color-ink-tertiary)"></path>
+              <path d="M104 16h22l-5-8h-12Z" fill="var(--color-ink-tertiary)"></path>
+              <circle cx="37" cy="20" r="4.6" fill="var(--color-warning)"></circle>
+              <circle cx="115" cy="20" r="4.6" fill="var(--color-warning)"></circle>
+              <path d="M37 24 12 92h50Z" fill="var(--color-warning)" opacity="0.14"></path>
+              <path d="M115 24 90 92h50Z" fill="var(--color-warning)" opacity="0.14"></path>
+              <path d="M0 96h160" stroke="var(--color-ink-tertiary)" stroke-width="2" stroke-dasharray="14 12" opacity="0.55"></path>
+            </svg>
+          </figure>
+
+          <!-- The empty resolution slot: the crew has not uploaded the
+               second photo yet. -->
+          <div class="photo-empty">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><circle cx="12" cy="12" r="3.4"></circle>
+            </svg>
+            <span>ক্রু ছবি এখনো আপলোড হয়নি</span>
+          </div>
+
+          <div class="photo-empty">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path><circle cx="12" cy="12" r="3.4"></circle>
+            </svg>
+            <span>ক্রু ছবি এখনো আপলোড হয়নি</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- THE REPORTER'S DESCRIPTION ---------- -->
+      <section class="dsection" aria-label="রিপোর্টারের বর্ণনা">
+        <h2 class="dsection-title">রিপোর্টারের বর্ণনা</h2>
+        <p class="dsection-sub">রিপোর্টার নিজের ভাষায় সমস্যাটির বর্ণনা দিয়েছেন।</p>
+        <div class="dcard">
+          <p style="margin: 0; font-size: var(--text-body); color: var(--color-ink-secondary); line-height: var(--leading-relaxed);">
+            পোল #14B-এর সামনে ৩টি স্ট্রিটলাইট বেকআপ, গত ৩ দিন ধরে। রাতে সমস্যাটা বেশি দেখা যায়।
+            গতকাল সকালে একবার ফোন করেছিলাম কিন্তু কোনো উত্তর পাইনি।
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- INTERNAL NOTES ----------
+           Dispatcher-only. The distinction from citizen-facing content
+           is carried by a LABEL and a rule, never by colour alone. -->
+      <section class="dsection" aria-label="অভ্যন্তরীণ নোট">
+        <div class="notes-head">
+          <h2 class="dsection-title" style="margin: 0;">অভ্যন্তরীণ নোট</h2>
+          <span class="internal-note-tag">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+            </svg>
+            শুধু ডিসপ্যাচার ও তদারকি
+          </span>
+        </div>
+        <p class="dsection-sub" style="margin-top: var(--space-1);">
+          এই নোটগুলো নাগরিক দেখতে পান না। ক্রু ও তদারকি দল পড়তে পারেন।
+        </p>
+
+        <div class="note-list">
+          <article class="internal-note">
+            <div class="internal-note-head">
+              <span class="internal-note-tag">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+                </svg>
+                অভ্যন্তরীণ
+              </span>
+              <span class="internal-note-author">হাবিব উল্লাহ</span>
+              <span class="internal-note-time">১১:২০</span>
+            </div>
+            <p class="internal-note-body">
+              পোল #14B এর ফিউজ বক্স চেক করুন, লাইন ২-এ সমস্যা হতে পারে। গত মাসে একই পোলে দুটি কাজ হয়েছিল।
+            </p>
+          </article>
+
+          <article class="internal-note">
+            <div class="internal-note-head">
+              <span class="internal-note-tag">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+                </svg>
+                অভ্যন্তরীণ
+              </span>
+              <span class="internal-note-author">সাব্বির হাসান</span>
+              <span class="internal-note-time">১১:০৬</span>
+            </div>
+            <p class="internal-note-body">
+              চারজন একই পোল থেকে রিপোর্ট করেছেন। সম্ভবত একটি সমস্যা, ডিডাপ পরে এক বিল করবে।
+            </p>
+          </article>
+        </div>
+
+        <!-- Note composer -->
+        <form class="note-composer">
+          <label class="combobox-label" for="note-input" style="display: block; margin-bottom: var(--space-2);">নতুন অভ্যন্তরীণ নোট</label>
+          <textarea id="note-input" placeholder="শুধু ডিসপ্যাচার ও তদারকি দল দেখতে পাবে" aria-describedby="note-composer-hint"></textarea>
+          <div class="note-composer-foot">
+            <span id="note-composer-hint" class="picker-hint">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+              </svg>
+              নোট নাগরিকের টাইমলাইনে দেখা যাবে না
+            </span>
+            <button class="btn btn-primary btn-sm" type="button">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+              </svg>
+              নোট সংরক্ষণ করুন
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---------- STATUS TRAIL ---------- -->
+      <section class="dsection" aria-label="অগ্রগতি">
+        <h2 class="dsection-title">অগ্রগতি</h2>
+        <p class="dsection-sub">প্রতিটি ধাপের সময় ও দায়িত্বপ্রাপ্ত বিভাগ।</p>
+
+        <div class="dcard">
+          <ol class="timeline">
+            <li class="trail-step done">
+              <span class="trail-dot" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6L9 17l-5-5"></path>
+                </svg>
+              </span>
+              <div class="trail-body">
+                <div class="trail-title">জমা হয়েছে</div>
+                <div class="trail-time">২৩ মিনিট আগে · ১১:০৪ · রহিম এইচ.</div>
+                <p class="trail-note">৪ জন নাগরিক একই সমস্যা জমা দিয়েছেন।</p>
+              </div>
+            </li>
+
+            <li class="trail-step done">
+              <span class="trail-dot" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6L9 17l-5-5"></path>
+                </svg>
+              </span>
+              <div class="trail-body">
+                <div class="trail-title">রাউট হয়েছে</div>
+                <div class="trail-time">১৮ মিনিট আগে · ১১:১১ · বৈদ্যুতিক বিভাগ</div>
+                <p class="trail-note">সাব্বির হাসান (ডিসপ্যাচার) সংশ্লিষ্ট বিভাগে পাঠিয়েছেন।</p>
+              </div>
+            </li>
+
+            <li class="trail-step current" aria-current="step">
+              <span class="trail-dot" aria-hidden="true">৩</span>
+              <div class="trail-body">
+                <div class="trail-title">কাজ চলছে</div>
+                <div class="trail-time">এখনো শুরু হয়নি · ক্রু বরাদ্দের অপেক্ষায়</div>
+                <p class="trail-note">SLA উইন্ডোর ৪৫ ঘণ্টা অতিবাহিত হয়েছে।</p>
+              </div>
+            </li>
+
+            <li class="trail-step">
+              <span class="trail-dot" aria-hidden="true">৪</span>
+              <div class="trail-body">
+                <div class="trail-title">সমাধান হবে</div>
+                <div class="trail-time" style="opacity: 0.7;">আনুমানিক ৩ ঘণ্টার মধ্যে</div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== RIGHT COLUMN ===== -->
+    <div>
+
+      <!-- ---------- SLA COUNTDOWN (large) ---------- -->
+      <section class="sla-panel sla-panel-warning" aria-label="SLA কাউন্টডাউন" style="margin-bottom: var(--space-5);">
+        <div class="sla-panel-top">
+          <span class="sla-panel-label">SLA কাউন্টডাউন</span>
+          <span class="sla-panel-state">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="13" r="8"></circle><path d="M12 9v4M9 3h6"></path>
+            </svg>
+            শেষ হতে অল্প বাকি
+          </span>
+        </div>
+        <div class="sla-panel-figure">৩ ঘণ্টা বাকি</div>
+        <div class="sla-bar" role="img" aria-label="লক্ষ্যের ৪৫ ঘণ্টা অতিবাহিত, ৪৮ ঘণ্টার লক্ষ্যের মধ্যে ৩ ঘণ্টা বাকি">
+          <div class="sla-bar-fill" style="width: 94%;"></div>
+        </div>
+        <div class="sla-panel-target">অতিবাহিত ৪৫ ঘণ্টা · লক্ষ্য ৪৮ ঘণ্টা</div>
+      </section>
+
+      <!-- ---------- CREW PICKER COMBOBOX ----------
+           The live page has only a raw `<select>` today. The redesign
+           ships a SEARCHABLE combobox: type to narrow by crew name,
+           ward or service area. The dropdown is deliberately shown
+           OPEN in this mockup so the pattern is reviewable, and it
+           carries a search query plus a no-match empty state. -->
+      <section class="picker-panel" aria-label="ক্রু নির্বাচন">
+        <div class="picker-head">
+          <h2 class="picker-title">ক্রু বরাদ্দ</h2>
+          <span class="picker-hint">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path>
+            </svg>
+            টাইপ করে খুঁজুন
+          </span>
+        </div>
+
+        <div class="combobox">
+          <label class="combobox-label" for="crew-search">ক্রু খুঁজুন</label>
+          <div class="combobox-control">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <input
+              class="combobox-input"
+              id="crew-search"
+              type="text"
+              role="combobox"
+              value="ক্রু"
+              placeholder="ক্রুর নাম, ওয়ার্ড বা সার্ভিস এরিয়া লিখুন"
+              aria-label="ক্রু খুঁজুন"
+              aria-expanded="true"
+              aria-controls="crew-list"
+              aria-autocomplete="list"
+              aria-activedescendant="crew-opt-2" />
+            <span class="combobox-caret" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"></path>
+              </svg>
+            </span>
+          </div>
+
+          <ul class="combobox-list" id="crew-list" role="listbox" aria-label="ক্রুর তালিকা">
+            <li class="combobox-option" id="crew-opt-1" role="option" aria-selected="false">
+              <span class="combobox-option-body">
+                <span class="combobox-option-name">ক্রু রোদের সকাল</span>
+                <span class="combobox-option-meta">
+                  <span>ওয়ার্ড ১৪ · মিরপুর</span>
+                  <span aria-hidden="true">·</span>
+                  <span>বর্তমান লোড ৪টি</span>
+                </span>
+              </span>
+            </li>
+
+            <!-- The ACTIVE option: aria-selected plus a check icon. -->
+            <li class="combobox-option" id="crew-opt-2" role="option" aria-selected="true">
+              <span class="combobox-option-body">
+                <span class="combobox-option-name">ক্রু সি-এ · সকাল বিভাগ</span>
+                <span class="combobox-option-meta">
+                  <span>ওয়ার্ড ১৪ ও ১৩ · মিরপুর ও কাজীপুর</span>
+                  <span aria-hidden="true">·</span>
+                  <span>বর্তমান লোড ২টি</span>
+                </span>
+              </span>
+              <span class="combobox-option-check" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 6 9 17l-5-5"></path>
+                </svg>
+              </span>
+            </li>
+
+            <li class="combobox-option" id="crew-opt-3" role="option" aria-selected="false">
+              <span class="combobox-option-body">
+                <span class="combobox-option-name">ক্রু বি · রাস্তা মেরামত</span>
+                <span class="combobox-option-meta">
+                  <span>ওয়ার্ড ১৫ · উত্তরা</span>
+                  <span aria-hidden="true">·</span>
+                  <span>বর্তমান লোড ৭টি</span>
+                </span>
+              </span>
+            </li>
+
+            <li class="combobox-option" id="crew-opt-4" role="option" aria-selected="false">
+              <span class="combobox-option-body">
+                <span class="combobox-option-name">ক্রু ডি · ড্রেনেজ</span>
+                <span class="combobox-option-meta">
+                  <span>ওয়ার্ড ১৪ · মিরপুর</span>
+                  <span aria-hidden="true">·</span>
+                  <span>বর্তমান লোড ৩টি</span>
+                </span>
+              </span>
+            </li>
+
+            <li class="combobox-option" id="crew-opt-5" role="option" aria-selected="false">
+              <span class="combobox-option-body">
+                <span class="combobox-option-name">ক্রু সি-বি · সকাল ও রাস্তা</span>
+                <span class="combobox-option-meta">
+                  <span>ওয়ার্ড ১৩ · কাজীপুর</span>
+                  <span aria-hidden="true">·</span>
+                  <span>বর্তমান লোড ৫টি</span>
+                </span>
+              </span>
+            </li>
+
+            <!-- The EMPTY state for the search query. It is shown
+                 alongside the matches so both patterns are reviewable
+                 in the same static frame. -->
+            <li class="combobox-empty" role="presentation">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path><path d="M8.5 8.5 13.5 13.5M13.5 8.5 8.5 13.5"></path>
+              </svg>
+              <strong>কোনো মিল পাওয়া যায়নি</strong>
+              <span>“উত্তরা টিম” খুঁজে কিছু পাওয়া যায়নি · সব ফিল্টার মুছে আবার চেষ্টা করুন</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="action-stack" style="margin-top: var(--space-4);">
+          <button class="btn btn-primary" type="button">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 13h4l3 7 4-16 3 9h4"></path>
+            </svg>
+            ক্রুতে বরাদ্দ করুন
+          </button>
+        </div>
+      </section>
+
+      <!-- ---------- REPORTER CONTACT ---------- -->
+      <section class="dcard" style="margin-bottom: var(--space-5);" aria-label="রিপোর্টারের যোগাযোগ">
+        <h2 class="dsection-title" style="font-size: var(--text-h3); margin-bottom: var(--space-2);">রিপোর্টারের যোগাযোগ</h2>
+        <div class="contact-row">
+          <span class="contact-label">নাম</span>
+          <span class="contact-value">রহিম উদ্দিন</span>
+        </div>
+        <div class="contact-row">
+          <span class="contact-label">ফোন</span>
+          <span class="contact-value">+৮৮০১৯৯০০০০১</span>
+        </div>
+        <div class="contact-row">
+          <span class="contact-label">ভেরিফায়েড</span>
+          <span class="contact-value">
+            <span class="status status-resolved">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m8 12 3 3 5-6"></path>
+              </svg>
+              যাচাইকৃত
+            </span>
+          </span>
+        </div>
+        <div class="contact-row">
+          <span class="contact-label">আগের রিপোর্ট</span>
+          <span class="contact-value">৩টি</span>
+        </div>
+      </section>
+
+      <!-- ---------- AUDIT TRAIL ---------- -->
+      <section class="dcard" aria-label="অডিট ট্রেল">
+        <h2 class="dsection-title" style="font-size: var(--text-h3); margin-bottom: var(--space-1);">অডিট ট্রেল</h2>
+        <p class="dsection-sub" style="font-size: var(--text-micro); margin-bottom: var(--space-2);">কে কী করেছে, সময়সহ।</p>
+
+        <ul class="audit-list">
+          <li class="audit-row">
+            <span class="audit-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M6 13l6 6 6-6"></path>
+              </svg>
+            </span>
+            <span class="audit-body">
+              <span class="audit-what">টিকিট জমা হয়েছে</span>
+              <span class="audit-meta">১১:০৪ · সিস্টেম · রিপোর্টার কোড অনুযায়ী</span>
+            </span>
+          </li>
+          <li class="audit-row">
+            <span class="audit-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 4h5v5M19 4l-8 8"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path>
+              </svg>
+            </span>
+            <span class="audit-body">
+              <span class="audit-what">বৈদ্যুতিক বিভাগে রাউট করা হয়েছে</span>
+              <span class="audit-meta">১১:১১ · সাব্বির হাসান (ডিসপ্যাচার)</span>
+            </span>
+          </li>
+          <li class="audit-row">
+            <span class="audit-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+              </svg>
+            </span>
+            <span class="audit-body">
+              <span class="audit-what">অভ্যন্তরীণ নোট যোগ করা হয়েছে</span>
+              <span class="audit-meta">১১:১২ · হাবিব উল্লাহ (ডিসপ্যাচার)</span>
+            </span>
+          </li>
+          <li class="audit-row">
+            <span class="audit-icon" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13" r="8"></circle><path d="M12 9v4M9 3h6"></path>
+              </svg>
+            </span>
+            <span class="audit-body">
+              <span class="audit-what">SLA উইন্ডো শুরু</span>
+              <span class="audit-meta">১১:০৪ · সিস্টেম · লক্ষ্য ৪৮ ঘণ্টা</span>
+            </span>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <!-- ---------- STICKY ACTION BAR ----------
+       Pinned to the bottom of the viewport while the content scrolls.
+       The content above it is long enough that the bar visibly sits
+       OVER content rather than at the end of the document. -->
+  <div class="sticky-wrap">
+    <div class="action-bar">
+      <div class="action-bar-group">
+        <button class="btn btn-primary" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 13h4l3 7 4-16 3 9h4"></path>
+          </svg>
+          ক্রুতে বরাদ্দ করুন
+        </button>
+        <button class="btn btn-secondary" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 4h5v5M19 4l-8 8"></path><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"></path>
+          </svg>
+          বিভাগে রাউট করুন
+        </button>
+      </div>
+
+      <span class="sla-chip sla-chip-warning">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="13" r="8"></circle><path d="M12 9v4M9 3h6"></path>
+        </svg>
+        <span class="sla-figure">৩ ঘণ্টা বাকি</span>
+        <span class="sla-target">· লক্ষ্য ৪৮ ঘণ্টা</span>
+      </span>
+
+      <span class="action-bar-meta">
+        শেষ আপডেট ১২ মিনিট আগে<br />
+        হাবিব উল্লাহ (ডিসপ্যাচার)
+      </span>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

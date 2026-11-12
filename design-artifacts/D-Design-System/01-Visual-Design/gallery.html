@@ -102,10 +102,10 @@
 <div style="padding: var(--space-8) var(--space-5) var(--space-6); text-align: center;">
   <h1 style="font-size: var(--text-display-xl); margin: 0 0 var(--space-3);">CityFix — Mockups</h1>
   <p style="font-size: var(--text-body-lg); color: var(--color-ink-secondary); max-width: 680px; margin: 0 auto; line-height: 1.55;">
-    Apple-like calm confidence. Bangla-first. Civic trust. 16 mockups re-skinned for the web: large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+    Apple-like calm confidence. Bangla-first. Civic trust. 21 mockups re-skinned for the web: large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
   </p>
   <p style="font-size: var(--text-body-sm); color: var(--color-ink-tertiary); max-width: 680px; margin: var(--space-2) auto 0; line-height: 1.55;">
-    Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public · Wave 3 citizen surfaces
+    Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public · Wave 3 citizen surfaces · Wave 4 dispatcher console
   </p>
   <div style="margin-top: var(--space-4);">
     <span class="viewport-tag">1440 × 900 · large</span>
@@ -133,7 +133,7 @@
 
 <!-- Mockups grid — each mockup shown at large viewport -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-8);">
-  <div class="section-note" style="margin-bottom: var(--space-5);">16 mockups, Wave 1 foundations + Wave 2 auth &amp; public + Wave 3 citizen surfaces</div>
+  <div class="section-note" style="margin-bottom: var(--space-5);">21 mockups, Wave 1 foundations + Wave 2 auth &amp; public + Wave 3 citizen surfaces + Wave 4 dispatcher console</div>
 
   <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-5);">
 
@@ -203,8 +203,8 @@
         <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 05 — Daily Queue Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">05 · Daily Queue Dashboard (Habib · desktop)</div>
-        <div class="mockup-desc">Dispatcher's cockpit. 3-region layout: filter rail · ticket list · detail pane. Defines the desktop pattern. Web-only at large viewport.</div>
+        <div class="mockup-title">05 · Daily Queue Dashboard (Habib · desktop) <span class="viewport-tag">retired — superseded by 17</span></div>
+        <div class="mockup-desc">Dispatcher's cockpit. 3-region layout: filter rail · ticket list · detail pane. The original desktop pattern. Retired in Wave 4: mockup 17 is the current triage-queue design — this card is kept for reference only, not as a competing design. Web-only at large viewport.</div>
         <span class="viewport-tag">1440 × 900</span>
         <br/>
         <a href="mockups/05-daily-queue-dashboard.html" class="mockup-link">Open full →</a>
@@ -378,6 +378,81 @@
       </div>
     </div>
 
+    <!-- 17 Triage Queue — Wave 4 (current dispatcher cockpit) -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/17-triage-queue.html" class="iframe-large" scrolling="auto" title="Mockup 17 — Triage Queue"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">17 · Triage Queue (Wave 4)</div>
+        <div class="mockup-desc">The dispatcher's cockpit, superseding mockup 05. Three regions under one dark dispatcher top bar: a filter rail with status and ward groups plus keyboard shortcuts, a ticket list headed by a four-tile KPI strip, and the selected ticket's detail pane. Every ticket row carries an SLA countdown chip, a reporter count and the dispatcher's internal id.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/17-triage-queue.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 18 Dispatcher ticket detail — Wave 4 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/18-dispatcher-ticket-detail.html" class="iframe-large" scrolling="auto" title="Mockup 18 — Dispatcher ticket detail"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">18 · Dispatcher ticket detail (Wave 4)</div>
+        <div class="mockup-desc">The full ticket, opened. Breadcrumb header with the internal-id pill, a two-column body: labelled before/after photo groups on the left with the crew's empty resolution slots, the reporter's own words, dispatcher-only internal notes, and the status trail; on the right a searchable crew-picker combobox, the reporter's contact block and the audit trail. A sticky action bar pins the assign and route buttons plus the SLA chip to the bottom of the viewport.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/18-dispatcher-ticket-detail.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 19 Dispatcher map — Wave 4 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/19-dispatcher-map.html" class="iframe-large" scrolling="auto" title="Mockup 19 — Dispatcher map"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">19 · Dispatcher map (Wave 4)</div>
+        <div class="mockup-desc">The city as a full-bleed canvas with every control floating over it: a ward/category/status filter panel top-left, the zoom and locate stack top-right, a shape-keyed legend bottom-left that reuses the map's own pin geometry, a scale bar and last-updated stamp bottom-right, and a selected-ticket card bottom-centre with its own assign actions. Ticket pins encode status by shape, not colour alone.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/19-dispatcher-map.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 20 Dispatcher monitor — Wave 4 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/20-dispatcher-monitor.html" class="iframe-large" scrolling="auto" title="Mockup 20 — Dispatcher monitor board"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">20 · Dispatcher monitor board (Wave 4)</div>
+        <div class="mockup-desc">The operations board on a municipal office wall. It is a fixed grid, not a scroll: a connection state and clock in the header, a five-figure KPI row scaled up for three-metre reading, then three body columns — the unassigned queue ticker and the SLA-breach panel, the category breakdown and hourly arrivals, and the ward load, department load and crew coverage. Every figure is tabular and the tone is carried by a top edge rule as well as a colour.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/20-dispatcher-monitor.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
+    <!-- 21 Dispatcher performance — Wave 4 -->
+    <div class="mockup-card">
+      <div class="mockup-preview">
+        <iframe src="mockups/21-dispatcher-performance.html" class="iframe-large" scrolling="auto" title="Mockup 21 — Dispatcher performance"></iframe>
+      </div>
+      <div class="mockup-meta">
+        <div class="mockup-title">21 · Dispatcher performance (Wave 4)</div>
+        <div class="mockup-desc">The numbers page. A four-tile summary and a range picker, then three charts — a weekly trend line whose series carry their own dash patterns and end labels, a category bar chart with the count printed beside every bar, and an SLA bullet showing the average resolution time against the 48-hour target. Each chart ships a sortable data table, so no chart is read by colour alone.</div>
+        <span class="viewport-tag">1440 × 900</span>
+        <span class="viewport-tag">1024 × 768</span>
+        <br/>
+        <a href="mockups/21-dispatcher-performance.html" class="mockup-link">Open full →</a>
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -400,6 +475,11 @@
           <li>Citizen report flow (create)</li>
           <li>Citizen report list (my reports)</li>
           <li>Citizen report detail (detail trail)</li>
+          <li>Dispatcher triage queue (current)</li>
+          <li>Dispatcher ticket detail</li>
+          <li>Dispatcher map</li>
+          <li>Dispatcher monitor board</li>
+          <li>Dispatcher performance page</li>
         </ul>
       </div>
       <div>
@@ -412,6 +492,10 @@
           <li>Status trail (4-step timeline)</li>
           <li>KPI strip (3 metric tiles)</li>
           <li>Ticket-id pill (public code)</li>
+          <li>SLA countdown chip</li>
+          <li>Searchable crew-picker combobox</li>
+          <li>Internal-id pill (dispatcher reference)</li>
+          <li>Filter rail</li>
         </ul>
       </div>
       <div>
@@ -439,7 +523,7 @@
           <li>Map + side panel (home)</li>
           <li>Centered confirmation card</li>
           <li>Gallery + metadata (detail)</li>
-          <li>3-region desktop (dashboard)</li>
+          <li>3-region desktop (triage queue)</li>
           <li>Two-region auth shell (login, register)</li>
           <li>Centered OTP card (verify)</li>
           <li>Hero + stats + map card (landing)</li>
@@ -448,6 +532,9 @@
           <li>Stepped flow shell + sticky CTA (report)</li>
           <li>Filterable list of my reports (my reports)</li>
           <li>Vertical trail + photo groups (detail)</li>
+          <li>Map + floating controls (dispatcher map)</li>
+          <li>Dark ops board (monitor)</li>
+          <li>Labelled chart with data table (performance)</li>
         </ul>
       </div>
     </div>
@@ -456,7 +543,7 @@
 
 <!-- Footer -->
 <footer style="padding: var(--space-7) var(--space-5); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption); border-top: 1px solid var(--color-border);">
-  CityFix visual design · Tokens + 16 mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
+  CityFix visual design · Tokens + 21 mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
 </footer>
 
 </body>

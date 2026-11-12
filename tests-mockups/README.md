@@ -6,10 +6,10 @@ This folder holds the **committed PNG baselines** for CityFix's design mockups. 
 
 | Subfolder | Committed? | Purpose |
 |---|---|---|
-| `baselines/` | **Yes** | PNG baselines captured from the 16 design mockups (33 viewport combinations). |
+| `baselines/` | **Yes** | PNG baselines captured from the 21 design mockups (43 viewport combinations). |
 | `artifacts/` | No (.gitignored) | Playwright diff artifacts, HTML report, temp files. |
 
-## The 33 baselines
+## The 43 baselines
 
 Captured at the web-first design canvases. Names map to the mockup HTML files in `design-artifacts/D-Design-System/01-Visual-Design/mockups/`.
 
@@ -35,10 +35,19 @@ Captured at the web-first design canvases. Names map to the mockup HTML files in
 | `01-mockups.spec.ts/14-report-shell-{1440x900,1024x768}.png` | `mockups/14-report-shell.html` | 1440 / 1024 | Wave 3 — report flow shell |
 | `01-mockups.spec.ts/15-my-reports-{1440x900,1024x768}.png` | `mockups/15-my-reports.html` | 1440 / 1024 | Wave 3 — citizen report list |
 | `01-mockups.spec.ts/16-report-detail-trail-{1440x900,1024x768}.png` | `mockups/16-report-detail-trail.html` | 1440 / 1024 | Wave 3 — report detail + status trail |
+| `01-mockups.spec.ts/17-triage-queue-{1440x900,1024x768}.png` | `mockups/17-triage-queue.html` | 1440 / 1024 | Wave 4 — dispatcher triage queue (current) |
+| `01-mockups.spec.ts/18-dispatcher-ticket-detail-{1440x900,1024x768}.png` | `mockups/18-dispatcher-ticket-detail.html` | 1440 / 1024 | Wave 4 — dispatcher ticket detail |
+| `01-mockups.spec.ts/19-dispatcher-map-{1440x900,1024x768}.png` | `mockups/19-dispatcher-map.html` | 1440 / 1024 | Wave 4 — dispatcher map |
+| `01-mockups.spec.ts/20-dispatcher-monitor-{1440x900,1024x768}.png` | `mockups/20-dispatcher-monitor.html` | 1440 / 1024 | Wave 4 — dispatcher monitor board |
+| `01-mockups.spec.ts/21-dispatcher-performance-{1440x900,1024x768}.png` | `mockups/21-dispatcher-performance.html` | 1440 / 1024 | Wave 4 — dispatcher performance |
 
 (The `01-mockups.spec.ts/` subfolder is the spec-file folder. Future spec files (`02-*.spec.ts`, `03-*.spec.ts`) will produce sibling subfolders named after themselves.)
 
-Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4). Mockups 08–16 are captured at large + medium.
+Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4). Mockups 08–16 are captured at large + medium. Mockups 17–21 (Wave 4, dispatcher console) are captured at large + medium.
+
+### Wave 4 baselines are not committed yet
+
+The ten Wave 4 PNGs (`17-triage-queue` … `21-dispatcher-performance`, large + medium each) do not exist in `baselines/` yet. They will be captured on `ubuntu-latest` by the `regenerate-baselines.yml` workflow — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. Until that refresh lands, `npm run test:mockups` treats the missing files as "create and pass" locally, but CI needs the refreshed set committed alongside this wiring change.
 
 ## ⚠️ The baselines are platform-specific — refresh them in CI, not on your machine
 
@@ -91,7 +100,7 @@ gh workflow run regenerate-baselines.yml
 npm run test:report
 ```
 
-`npm test` runs the full Playwright suite (just `tests/01-mockups.spec.ts` today — 33 viewport baselines).
+`npm test` runs the full Playwright suite (just `tests/01-mockups.spec.ts` today — 43 viewport baselines).
 
 On Windows and macOS the suite fails against the CI-generated baselines; that is the platform difference described above, not a regression. CI is the source of truth.
 

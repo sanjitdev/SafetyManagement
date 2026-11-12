@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="bn" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>কর্মক্ষমতা · CityFix ডিসপ্যাচ</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="dispatcher-surfaces.css">
+
+  <style>
+    /* ---------- PAGE ---------- */
+    .dpage { max-width: 1280px; }
+
+    /* ---------- PAGE HEADER ---------- */
+    .perf-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--space-5); flex-wrap: wrap;
+      padding-bottom: var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: var(--space-6);
+    }
+    .perf-head-title { font-size: var(--text-h1); margin: 0 0 var(--space-2); }
+    .perf-head-sub {
+      font-size: var(--text-body); color: var(--color-ink-secondary);
+      margin: 0; max-width: 620px;
+    }
+
+    /* ---------- RANGE PICKER ----------
+       A control group, not tabs: every option is a button, and the
+       active one is carried by aria-pressed AND a filled surface AND a
+       bold weight, never by colour alone. */
+    .range-picker {
+      display: inline-flex; align-items: center; gap: var(--space-1);
+      padding: var(--space-1);
+      background: var(--color-surface-page);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-input);
+    }
+    .range-option {
+      min-height: var(--touch-min);
+      padding: 0 var(--space-4);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--color-ink-secondary);
+      font-family: inherit; font-size: var(--text-body-sm);
+      font-weight: var(--weight-medium);
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+    .range-option:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+    .range-option[aria-pressed="true"] {
+      background: var(--color-primary-soft);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      font-weight: var(--weight-bold);
+    }
+
+    /* ---------- CHART CARD ---------- */
+    .chart-card {
+      background: var(--color-surface-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+    }
+    .chart-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--space-4); flex-wrap: wrap;
+      margin-bottom: var(--space-4);
+    }
+    .chart-title { font-size: var(--text-h3); margin: 0 0 var(--space-1); }
+    .chart-sub {
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+      margin: 0; max-width: 620px;
+    }
+
+    /* ---------- LEGEND ----------
+       Every legend entry carries a DASH SAMPLE that reproduces the
+       series' stroke pattern exactly, plus the series name. The sample
+       is the shape channel, so the legend works with colour removed. */
+    .chart-legend {
+      display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+    }
+    .legend-entry {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      font-size: var(--text-body-sm); color: var(--color-ink);
+      font-weight: var(--weight-medium);
+    }
+    .legend-sample { flex-shrink: 0; display: inline-flex; }
+
+    /* ---------- SVG CHART ---------- */
+    .chart-figure {
+      position: relative;
+      margin: 0;
+      background: var(--color-surface-page);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+    .chart-svg { display: block; width: 100%; height: auto; }
+    .chart-axis-line { stroke: var(--color-border-strong); stroke-width: 1; }
+    .chart-grid-line { stroke: var(--color-border); stroke-width: 1; stroke-dasharray: 3 5; }
+    .chart-axis-text {
+      font-family: var(--font-body); font-size: 11px;
+      fill: var(--color-ink-tertiary);
+    }
+    .chart-axis-title {
+      font-family: var(--font-body); font-size: 11px;
+      fill: var(--color-ink-secondary); font-weight: 600;
+    }
+    /* The direct end-label. It names the series in words at the end
+       of the line, so the chart is readable without the legend. */
+    .chart-end-label {
+      font-family: var(--font-body); font-size: 12px; font-weight: 700;
+      fill: var(--color-ink);
+    }
+    .chart-dot { stroke: var(--color-surface-page); stroke-width: 2; }
+    .chart-point-marker { fill: var(--color-surface-page); stroke-width: 2.5; }
+
+    /* ---------- DATA TABLE ----------
+       The table carries the accessible content. The chart is
+       decorative, and the table is always present in the DOM. */
+    .data-table-wrap {
+      margin-top: var(--space-4);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .data-table-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-surface-page);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .data-table-title {
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--color-ink-secondary);
+    }
+    .data-table { width: 100%; border-collapse: collapse; font-size: var(--text-body-sm); }
+    .data-table caption {
+      text-align: left; padding: var(--space-2) var(--space-3);
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+      background: var(--color-surface-page);
+    }
+    .data-table th, .data-table td {
+      padding: var(--space-2) var(--space-3);
+      text-align: right;
+      border-bottom: 1px solid var(--color-border);
+      font-variant-numeric: tabular-nums;
+    }
+    .data-table thead th {
+      background: var(--color-surface-raised);
+      color: var(--color-ink-secondary);
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      letter-spacing: 0.04em; text-transform: uppercase;
+      border-bottom: 1px solid var(--color-border-strong);
+      padding: 0;
+    }
+    .data-table th:first-child, .data-table td:first-child { text-align: left; }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: var(--color-surface-raised); }
+    /* The sortable header. The th element carries aria-sort and the
+       button inside it is the actual control. */
+    .th-sort {
+      width: 100%;
+      min-height: var(--touch-min);
+      display: inline-flex; align-items: center; justify-content: flex-end;
+      gap: 5px;
+      padding: var(--space-2) var(--space-3);
+      background: transparent; border: none;
+      color: inherit; font-family: inherit; font-size: inherit;
+      font-weight: inherit; letter-spacing: inherit; text-transform: inherit;
+      cursor: pointer;
+    }
+    .th-sort:first-child { justify-content: flex-start; }
+    .th-sort:hover { color: var(--color-ink); }
+    .th-sort-icon { flex-shrink: 0; opacity: 0.5; }
+    .data-table th[aria-sort="ascending"] .th-sort-icon,
+    .data-table th[aria-sort="descending"] .th-sort-icon { opacity: 1; color: var(--color-primary); }
+    .table-series {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      font-weight: var(--weight-medium); color: var(--color-ink);
+    }
+    .table-swatch { flex-shrink: 0; display: inline-flex; }
+
+    /* ---------- TWO-COLUMN CHART ROW ---------- */
+    .chart-row {
+      display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      gap: var(--space-5);
+      align-items: start;
+    }
+
+    /* ---------- CATEGORY BARS ---------- */
+    .cat-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .cat-row { display: grid; grid-template-columns: 132px minmax(0, 1fr) 56px; align-items: center; gap: var(--space-3); }
+    .cat-name {
+      font-size: var(--text-body-sm); color: var(--color-ink);
+      font-weight: var(--weight-medium);
+      display: flex; align-items: center; gap: 6px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cat-track {
+      display: block;
+      height: 28px; background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .cat-fill { display: block; height: 100%; border-radius: var(--radius-sm); }
+    .cat-value {
+      font-size: var(--text-body); font-weight: var(--weight-bold);
+      font-variant-numeric: tabular-nums; text-align: right; color: var(--color-ink);
+    }
+    .cat-note {
+      font-size: var(--text-micro); color: var(--color-ink-tertiary);
+      margin: var(--space-2) 0 0;
+    }
+
+    /* ---------- SLA BULLET ----------
+       The TARGET is a RULE (a vertical line with a triangular cap),
+       the VALUE is a BAR. They are different SHAPES, so the target
+       never depends on colour to be distinguishable from the value.
+       A RANGE BAND sits behind both. */
+    .bullet {
+      display: flex; flex-direction: column; gap: var(--space-3);
+      padding: var(--space-5);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-surface-page);
+    }
+    /* The target label row hugs the track so the label reads as the
+       caption of the tick below it. */
+    .bullet-target-row + .bullet-track { margin-top: calc(var(--space-3) * -1 + 2px); }
+    .bullet-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--space-3);
+    }
+    .bullet-label {
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--color-ink-secondary);
+    }
+    .bullet-value {
+      font-size: var(--text-display-lg); font-weight: var(--weight-bold);
+      line-height: var(--leading-tight); font-variant-numeric: tabular-nums;
+    }
+    .bullet-sub {
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+      margin: 0;
+    }
+    .bullet-track {
+      position: relative;
+      height: 64px;
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    /* The target label sits ABOVE the track, on its own row, so it
+       never covers the band or the value bar it describes. */
+    .bullet-target-row {
+      position: relative;
+      height: 22px;
+    }
+    .bullet-target-label {
+      position: absolute; top: 0;
+      transform: translateX(-50%);
+      font-size: var(--text-micro); font-weight: var(--weight-bold);
+      color: var(--color-ink);
+      white-space: nowrap;
+      background: var(--color-surface-page);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-xs);
+      padding: 1px var(--space-2);
+    }
+    /* The RANGE BAND: the acceptable window, drawn behind the bar. */
+    .bullet-band {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      background: var(--color-success-soft);
+      border-right: 1px dashed var(--color-success);
+    }
+    /* The VALUE: a horizontal BAR from the left edge. */
+    .bullet-bar {
+      position: absolute; left: 0; bottom: 12px;
+      height: 22px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      background: var(--color-primary);
+    }
+    /* The TARGET: a vertical RULE with a triangular cap. A different
+       shape from the value bar by construction. */
+    .bullet-target {
+      position: absolute; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--color-warning);
+    }
+    .bullet-target::before {
+      content: '';
+      position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 9px solid var(--color-warning);
+    }
+    .bullet-scale {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: var(--text-micro); color: var(--color-ink-tertiary);
+      font-variant-numeric: tabular-nums;
+    }
+    .bullet-legend {
+      display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+      font-size: var(--text-caption); color: var(--color-ink-secondary);
+    }
+    .bullet-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .bullet-key-bar {
+      width: 22px; height: 12px; border-radius: 3px;
+      background: var(--color-primary);
+    }
+    .bullet-key-rule {
+      width: 3px; height: 18px; background: var(--color-warning);
+    }
+    .bullet-key-band {
+      width: 22px; height: 12px; border-radius: 3px;
+      background: var(--color-success-soft);
+      border: 1px dashed var(--color-success);
+    }
+
+    /* ---------- SUMMARY TILES ---------- */
+    .perf-tiles {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-4);
+    }
+    .perf-tile .stat-value { font-size: var(--text-display-md); }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 1024px) {
+      .chart-row { grid-template-columns: minmax(0, 1fr); }
+      .perf-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================= DISPATCHER TOPBAR ================= -->
+<header class="dtopbar">
+  <div style="display: flex; align-items: center; gap: var(--space-5); min-width: 0;">
+    <a class="dbrand" href="#" aria-label="CityFix ডিসপ্যাচ হোম">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 22.4c-.4 0-.74-.21-.93-.57C10.65 20.7 6.2 15.2 6.2 10 6.2 5.6 8.9 2 12.2 2S18.2 5.6 18.2 10c0 5.2-4.45 10.7-4.87 11.83-.19.36-.53.57-.93.57Z" fill="var(--color-primary)"></path>
+        <rect x="7.5" y="5.1" width="9" height="9" rx="2" fill="var(--color-surface-card)"></rect>
+        <path d="M9.6 9.5 11.3 11.2l3.4-3.6" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="dbrand-name">CityFix ডিসপ্যাচ</span>
+    </a>
+
+    <nav class="dnav" aria-label="ডিসপ্যাচার নেভিগেশন">
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path>
+        </svg>
+        ট্রায়াজ
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.6"></circle>
+        </svg>
+        মানচিত্র
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12h4l3 8 4-16 3 8h4"></path>
+        </svg>
+        মনিটর
+      </a>
+      <!-- The performance page is the ACTIVE section. -->
+      <a class="dnav-item active" href="#" aria-current="page">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path>
+        </svg>
+        কর্মক্ষমতা
+      </a>
+      <a class="dnav-item" href="#">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3 4 7v6c0 4.5 3.4 7.6 8 8.5 4.6-.9 8-4 8-8.5V7Z"></path>
+        </svg>
+        ডিডাপ
+      </a>
+    </nav>
+  </div>
+
+  <div class="dtopbar-actions">
+    <button class="icon-btn" type="button" aria-label="অনুসন্ধান">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+      </svg>
+    </button>
+    <button class="icon-btn" type="button" aria-label="বিজ্ঞপ্তি, ৩টি নতুন">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 7-2 7h16s-2-2-2-7"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path>
+      </svg>
+    </button>
+    <div class="didentity">
+      <span class="davatar" aria-hidden="true">হা</span>
+      <span class="didentity-text">
+        <span class="didentity-name">হাবিব উল্লাহ</span>
+        <span class="didentity-role">ডিসপ্যাচার · ওয়ার্ড ১৪</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- ================= PAGE ================= -->
+<main class="dpage">
+
+  <!-- ---------- PAGE HEADER ---------- -->
+  <header class="perf-head">
+    <div>
+      <h1 class="perf-head-title">কর্মক্ষমতা</h1>
+      <p class="perf-head-sub">
+        ঢাকা উত্তর সিটি কর্পোরেশন · ওয়ার্ড ১২ থেকে ২০ · গত ৯০ দিনের তথ্য থেকে হিসাব করা।
+        প্রতিটি চার্টের তথ্য নিচের টেবিলেও আছে, টেবিলের কলামগুলো সাজানো যায়।
+      </p>
+    </div>
+
+    <!-- The range picker. One option is active; the active state is
+         carried by aria-pressed AND a filled surface AND a bold
+         weight, never by colour alone. -->
+    <div class="range-picker" role="group" aria-label="সময়সীমা বেছে নিন">
+      <button class="range-option" type="button" aria-pressed="false">৭ দিন</button>
+      <button class="range-option" type="button" aria-pressed="true">৩০ দিন</button>
+      <button class="range-option" type="button" aria-pressed="false">৯০ দিন</button>
+    </div>
+  </header>
+
+  <!-- ---------- SUMMARY TILES ---------- -->
+  <section class="perf-tiles" aria-label="সারাংশ" style="margin-bottom: var(--space-6);">
+    <div class="stat-tile perf-tile">
+      <span class="stat-label">মোট রিপোর্ট</span>
+      <span class="stat-value">১,৪৮২</span>
+      <span class="stat-delta is-bad">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5M6 11l6-6 6 6"></path>
+        </svg>
+        গত মাসের চেয়ে ১৮% বেশি
+      </span>
+    </div>
+    <div class="stat-tile perf-tile">
+      <span class="stat-label">সমাধান হয়েছে</span>
+      <span class="stat-value">১,৩৫৪</span>
+      <span class="stat-delta is-good">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14M6 13l6 6 6-6"></path>
+        </svg>
+        সাফল্যের হার ৯৩%
+      </span>
+    </div>
+    <div class="stat-tile perf-tile">
+      <span class="stat-label">গড় সমাধানের সময়</span>
+      <span class="stat-value">৫১ ঘণ্টা</span>
+      <span class="stat-delta is-bad">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 19V5M6 11l6-6 6 6"></path>
+        </svg>
+        লক্ষ্য ৪৮ ঘণ্টা ছাড়িয়েছে
+      </span>
+    </div>
+    <div class="stat-tile perf-tile">
+      <span class="stat-label">ফেরত দেওয়া হয়েছে</span>
+      <span class="stat-value">৪৬</span>
+      <span class="stat-delta">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14"></path>
+        </svg>
+        সব ধরনের ৩%
+      </span>
+    </div>
+  </section>
+
+  <!-- ================= TREND LINE CHART ================= -->
+  <section class="dsection" aria-label="সাপ্তাহিক টিকিটের প্রবণতা">
+    <div class="chart-card">
+      <div class="chart-head">
+        <div>
+          <h2 class="chart-title">সাপ্তাহিক টিকিটের প্রবণতা</h2>
+          <p class="chart-sub">
+            গত ১০ সপ্তাহের রিপোর্ট, সমাধান ও ফেরত দেওয়ার সংখ্যা। প্রতিটি সিরিজের নিজস্ব ড্যাশ নকশা আছে এবং শেষে নাম লেখা, তাই রঙ ছাড়লেও চার্টটি পড়া যায়।
+          </p>
+        </div>
+
+        <!-- The legend. Each entry reproduces its series' dash pattern. -->
+        <div class="chart-legend" role="list" aria-label="সিরিজের ব্যাখ্যা">
+          <span class="legend-entry" role="listitem">
+            <span class="legend-sample" aria-hidden="true">
+              <svg width="30" height="12" viewBox="0 0 30 12">
+                <path d="M1 6 H29" stroke="var(--color-primary)" stroke-width="3" stroke-linecap="round"></path>
+              </svg>
+            </span>
+            নতুন
+          </span>
+          <span class="legend-entry" role="listitem">
+            <span class="legend-sample" aria-hidden="true">
+              <svg width="30" height="12" viewBox="0 0 30 12">
+                <path d="M1 6 H29" stroke="var(--color-success)" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 5"></path>
+              </svg>
+            </span>
+            সমাধান
+          </span>
+          <span class="legend-entry" role="listitem">
+            <span class="legend-sample" aria-hidden="true">
+              <svg width="30" height="12" viewBox="0 0 30 12">
+                <path d="M1 6 H29" stroke="var(--color-warning)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 5"></path>
+              </svg>
+            </span>
+            ফেরত দেওয়া
+          </span>
+        </div>
+      </div>
+
+      <!-- The chart is decorative: the table below carries the content. -->
+      <figure class="chart-figure">
+        <svg class="chart-svg" viewBox="0 0 1120 340" role="img" aria-label="সাপ্তাহিক প্রবণতার চার্ট। নতুন রিপোর্ট ধারাবাহিকভাবে বেড়েছে, সমাধান ধারাবাহিকভাবে বেড়েছে, ফেরত দেওয়া স্থির। বিস্তারিত নিচের টেবিলে।">
+          <!-- Y axis grid + labels -->
+          <g>
+            <line class="chart-grid-line" x1="56" y1="280" x2="1060" y2="280"></line>
+            <line class="chart-grid-line" x1="56" y1="210" x2="1060" y2="210"></line>
+            <line class="chart-grid-line" x1="56" y1="140" x2="1060" y2="140"></line>
+            <line class="chart-grid-line" x1="56" y1="70" x2="1060" y2="70"></line>
+            <line class="chart-axis-line" x1="56" y1="20" x2="56" y2="280"></line>
+            <line class="chart-axis-line" x1="56" y1="280" x2="1060" y2="280"></line>
+            <text class="chart-axis-text" x="46" y="284" text-anchor="end">০</text>
+            <text class="chart-axis-text" x="46" y="214" text-anchor="end">৩০</text>
+            <text class="chart-axis-text" x="46" y="144" text-anchor="end">৬০</text>
+            <text class="chart-axis-text" x="46" y="74" text-anchor="end">৯০</text>
+            <text class="chart-axis-title" x="56" y="12">টিকিট সংখ্যা</text>
+          </g>
+
+          <!-- X axis week labels -->
+          <g>
+            <text class="chart-axis-text" x="62" y="300" text-anchor="middle">সপ্তাহ ১</text>
+            <text class="chart-axis-text" x="168" y="300" text-anchor="middle">সপ্তাহ ২</text>
+            <text class="chart-axis-text" x="274" y="300" text-anchor="middle">সপ্তাহ ৩</text>
+            <text class="chart-axis-text" x="380" y="300" text-anchor="middle">সপ্তাহ ৪</text>
+            <text class="chart-axis-text" x="486" y="300" text-anchor="middle">সপ্তাহ ৫</text>
+            <text class="chart-axis-text" x="592" y="300" text-anchor="middle">সপ্তাহ ৬</text>
+            <text class="chart-axis-text" x="698" y="300" text-anchor="middle">সপ্তাহ ৭</text>
+            <text class="chart-axis-text" x="804" y="300" text-anchor="middle">সপ্তাহ ৮</text>
+            <text class="chart-axis-text" x="910" y="300" text-anchor="middle">সপ্তাহ ৯</text>
+            <text class="chart-axis-text" x="1016" y="300" text-anchor="middle">সপ্তাহ ১০</text>
+          </g>
+
+          <!-- SERIES 1: নতুন (new) — solid stroke, filled round markers -->
+          <g>
+            <polyline
+              fill="none" stroke="var(--color-primary)" stroke-width="3.5"
+              stroke-linecap="round" stroke-linejoin="round"
+              points="62,238 168,224 274,203 380,196 486,168 592,140 698,119 804,91 910,77 1016,63"></polyline>
+            <circle class="chart-dot" cx="62" cy="238" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="168" cy="224" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="274" cy="203" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="380" cy="196" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="486" cy="168" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="592" cy="140" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="698" cy="119" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="804" cy="91" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="910" cy="77" r="4.5" fill="var(--color-primary)"></circle>
+            <circle class="chart-dot" cx="1016" cy="63" r="4.5" fill="var(--color-primary)"></circle>
+            <!-- Direct end-label naming the series. -->
+            <text class="chart-end-label" x="1026" y="58">নতুন ৭৮</text>
+          </g>
+
+          <!-- SERIES 2: সমাধান (resolved) — dashed stroke, hollow SQUARE
+               markers. The dash pattern AND the marker shape both
+               differ from series 1. -->
+          <g>
+            <polyline
+              fill="none" stroke="var(--color-success)" stroke-width="3.5"
+              stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 6"
+              points="62,252 168,245 274,231 380,224 486,203 592,182 698,168 804,147 910,133 1016,119"></polyline>
+            <rect class="chart-point-marker" x="57.5" y="247.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="163.5" y="240.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="269.5" y="226.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="375.5" y="219.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="481.5" y="198.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="587.5" y="177.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="693.5" y="163.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="799.5" y="142.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="905.5" y="128.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <rect class="chart-point-marker" x="1011.5" y="114.5" width="9" height="9" stroke="var(--color-success)"></rect>
+            <text class="chart-end-label" x="1026" y="114">সমাধান ৬২</text>
+          </g>
+
+          <!-- SERIES 3: ফেরত দেওয়া (cancelled) — dotted stroke, hollow
+               TRIANGLE markers. Two more shape channels. -->
+          <g>
+            <polyline
+              fill="none" stroke="var(--color-warning)" stroke-width="3.5"
+              stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"
+              points="62,270 168,266 274,268 380,262 486,264 592,259 698,262 804,258 910,261 1016,257"></polyline>
+            <path class="chart-point-marker" d="M62 264 L67.5 274 L56.5 274 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M168 260 L173.5 270 L162.5 270 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M274 262 L279.5 272 L268.5 272 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M380 256 L385.5 266 L374.5 266 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M486 258 L491.5 268 L480.5 268 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M592 253 L597.5 263 L586.5 263 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M698 256 L703.5 266 L692.5 266 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M804 252 L809.5 262 L798.5 262 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M910 255 L915.5 265 L904.5 265 Z" stroke="var(--color-warning)"></path>
+            <path class="chart-point-marker" d="M1016 251 L1021.5 261 L1010.5 261 Z" stroke="var(--color-warning)"></path>
+            <text class="chart-end-label" x="1026" y="252">ফেরত দেওয়া ৯</text>
+          </g>
+        </svg>
+      </figure>
+
+      <!-- ---------- THE DATA TABLE ----------
+           The chart's accessible content. Always present, never
+           behind a toggle, and sortable. -->
+      <div class="data-table-wrap">
+        <div class="data-table-head">
+          <span class="data-table-title">সাপ্তাহিক তথ্য</span>
+          <span class="board-legend-item" style="font-size: var(--text-micro); color: var(--color-ink-tertiary);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h13M3 12h9M3 18h5"></path><path d="M17 8v8M21 10v4"></path>
+            </svg>
+            কলামের শিরোনামে বাটন চাপলে সাজানো যায়
+          </span>
+        </div>
+        <table class="data-table">
+          <caption>গত ১০ সপ্তাহের রিপোর্ট, সমাধান ও ফেরত দেওয়ার সংখ্যা।</caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  সপ্তাহ
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="ascending">
+                <button class="th-sort" type="button">
+                  নতুন
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 19V5M6 11l6-6 6 6"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  সমাধান
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  ফেরত দেওয়া
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  সাফল্যের হার
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>সপ্তাহ ১</td>
+              <td>২৭</td>
+              <td>২১</td>
+              <td>৪</td>
+              <td>৭৮%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ২</td>
+              <td>৩৫</td>
+              <td>২৬</td>
+              <td>৫</td>
+              <td>৭৪%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৩</td>
+              <td>৪৯</td>
+              <td>৩৭</td>
+              <td>৪</td>
+              <td>৭৬%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৪</td>
+              <td>৫২</td>
+              <td>৪২</td>
+              <td>৬</td>
+              <td>৮১%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৫</td>
+              <td>৭১</td>
+              <td>৫৮</td>
+              <td>৫</td>
+              <td>৮২%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৬</td>
+              <td>৮৮</td>
+              <td>৭৪</td>
+              <td>৭</td>
+              <td>৮৪%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৭</td>
+              <td>৯৬</td>
+              <td>৮৫</td>
+              <td>৫</td>
+              <td>৮৯%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৮</td>
+              <td>১১৩</td>
+              <td>৯৯</td>
+              <td>৮</td>
+              <td>৮৮%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ৯</td>
+              <td>১২১</td>
+              <td>১১০</td>
+              <td>৭</td>
+              <td>৯১%</td>
+            </tr>
+            <tr>
+              <td>সপ্তাহ ১০</td>
+              <td>১৩০</td>
+              <td>১১৮</td>
+              <td>৯</td>
+              <td>৯১%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CATEGORY BARS + SLA BULLET ================= -->
+  <section class="dsection chart-row" aria-label="ক্যাটাগরি ভাঙড়ি এবং SLA বুলেট">
+
+    <!-- ---------- CATEGORY BAR CHART ---------- -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <div>
+          <h2 class="chart-title">ক্যাটাগরি অনুযায়ী রিপোর্ট</h2>
+          <p class="chart-sub">গত ৩০ দিনে, বেশি থেকে কম। প্রতিটি বারের পাশে ক্যাটাগরির নাম ও সংখ্যা আছে।</p>
+        </div>
+      </div>
+
+      <div class="cat-list">
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-streetlight)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6h5.4c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"></path>
+            </svg>
+            রাস্তার আলো
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 100%; background: var(--color-cat-streetlight);"></span></span>
+          <span class="cat-value">২৮৪</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-pothole)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 18h18"></path><path d="M5 18v-3M10 18v-6M15 18v-9M20 18v-4"></path>
+            </svg>
+            রাস্তার গর্ত
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 79%; background: var(--color-cat-pothole);"></span></span>
+          <span class="cat-value">২২৫</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-drain)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3.5c3 3.6 5.5 6.6 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3 2.5-6 5.5-9.6Z"></path>
+            </svg>
+            ড্রেনেজ
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 63%; background: var(--color-cat-drain);"></span></span>
+          <span class="cat-value">১৮০</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-garbage)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"></path>
+            </svg>
+            আবর্জনা
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 46%; background: var(--color-cat-garbage);"></span></span>
+          <span class="cat-value">১৩১</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-sanitation)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3h6l1 4h3l-2 14H7L5 7h3Z"></path>
+            </svg>
+            পয়ঃনিষ্কাশন
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 32%; background: var(--color-cat-sanitation);"></span></span>
+          <span class="cat-value">৯২</span>
+        </div>
+        <div class="cat-row">
+          <span class="cat-name">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-other)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+            </svg>
+            অন্যান্য
+          </span>
+          <span class="cat-track"><span class="cat-fill" style="width: 38%; background: var(--color-cat-other);"></span></span>
+          <span class="cat-value">১০৮</span>
+        </div>
+      </div>
+
+      <p class="cat-note">সব ক্যাটাগরি মিলিয়ে ১,০২০টি রিপোর্ট। বাকি ৪৬২টি অন্য সময়ের উপর।</p>
+
+      <!-- The category chart's data table. -->
+      <div class="data-table-wrap">
+        <div class="data-table-head">
+          <span class="data-table-title">ক্যাটাগরি তথ্য</span>
+        </div>
+        <table class="data-table">
+          <caption>গত ৩০ দিনে ক্যাটাগরি অনুযায়ী রিপোর্ট সংখ্যা, বেশি থেকে কম।</caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  ক্যাটাগরি
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="descending">
+                <button class="th-sort" type="button">
+                  সংখ্যা
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 5v14M6 13l6 6 6-6"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  গড় সমাধানের সময়
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-streetlight)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6h5.4c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"></path>
+                    </svg>
+                  </span>
+                  রাস্তার আলো
+                </span>
+              </td>
+              <td>২৮৪</td>
+              <td>৩৮ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-pothole)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 18h18"></path><path d="M5 18v-3M10 18v-6M15 18v-9M20 18v-4"></path>
+                    </svg>
+                  </span>
+                  রাস্তার গর্ত
+                </span>
+              </td>
+              <td>২২৫</td>
+              <td>৬২ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-drain)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 3.5c3 3.6 5.5 6.6 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3 2.5-6 5.5-9.6Z"></path>
+                    </svg>
+                  </span>
+                  ড্রেনেজ
+                </span>
+              </td>
+              <td>১৮০</td>
+              <td>৭১ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-garbage)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"></path>
+                    </svg>
+                  </span>
+                  আবর্জনা
+                </span>
+              </td>
+              <td>১৩১</td>
+              <td>২৯ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-sanitation)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 3h6l1 4h3l-2 14H7L5 7h3Z"></path>
+                    </svg>
+                  </span>
+                  পয়ঃনিষ্কাশন
+                </span>
+              </td>
+              <td>৯২</td>
+              <td>২৬ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>
+                <span class="table-series">
+                  <span class="table-swatch" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-cat-other)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="9"></circle>
+                    </svg>
+                  </span>
+                  অন্যান্য
+                </span>
+              </td>
+              <td>১০৮</td>
+              <td>৪১ ঘণ্টা</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ---------- SLA BULLET ----------
+         One value against one target. The value is a BAR; the target
+         is a RULE with a triangular cap. The shapes differ, so the
+         target never depends on colour to be distinguishable. -->
+    <div class="chart-card">
+      <div class="chart-head">
+        <div>
+          <h2 class="chart-title">SLA বুলেট</h2>
+          <p class="chart-sub">গড় সমাধানের সময় বনাম ৪৮ ঘণ্টার লক্ষ্য।</p>
+        </div>
+      </div>
+
+      <div class="bullet">
+        <div class="bullet-head">
+          <div>
+            <div class="bullet-label">গড় সমাধানের সময়</div>
+            <p class="bullet-sub">৩০ দিনের গড় · লক্ষ্য ৪৮ ঘণ্টা</p>
+          </div>
+          <div style="text-align: right;">
+            <div class="bullet-value">৫১ ঘণ্টা</div>
+            <div class="bullet-sub">লক্ষ্যের চেয়ে ৩ ঘণ্টা বেশি</div>
+          </div>
+        </div>
+
+        <!-- The target is named on its own row ABOVE the track, so the
+             label never covers the band or the value bar. -->
+        <div class="bullet-target-row" aria-hidden="true">
+          <span class="bullet-target-label" style="left: 66.67%; transform: translateX(-50%);">লক্ষ্য ৪৮ ঘণ্টা</span>
+        </div>
+
+        <!-- The bullet. Scale: 0 to 72 hours. -->
+        <div class="bullet-track" role="img" aria-label="গড় সমাধানের সময় ৫১ ঘণ্টা, লক্ষ্য ৪৮ ঘণ্টা। লক্ষ্যের ব্যান্ড ০ থেকে ৪৮ ঘণ্টা। ৫১ ঘণ্টা ব্যান্ডের বাইরে।">
+          <!-- RANGE BAND: 0 to 48 hours = 66.67% of the track. -->
+          <span class="bullet-band" style="width: 66.67%;"></span>
+          <!-- VALUE BAR: 51 hours = 70.83% of the track. -->
+          <span class="bullet-bar" style="width: 70.83%;"></span>
+          <!-- TARGET RULE: 48 hours = 66.67%. -->
+          <span class="bullet-target" style="left: 66.67%;"></span>
+        </div>
+
+        <div class="bullet-scale">
+          <span>০ ঘণ্টা</span>
+          <span>২৪ ঘণ্টা</span>
+          <span>৪৮ ঘণ্টা</span>
+          <span>৭২ ঘণ্টা</span>
+        </div>
+
+        <div class="bullet-legend">
+          <span class="bullet-legend-item">
+            <span class="bullet-key-band" aria-hidden="true"></span>
+            লক্ষ্যের ব্যান্ড · ০ থেকে ৪৮ ঘণ্টা
+          </span>
+          <span class="bullet-legend-item">
+            <span class="bullet-key-bar" aria-hidden="true"></span>
+            অর্জিত মান · ৫১ ঘণ্টা
+          </span>
+          <span class="bullet-legend-item">
+            <span class="bullet-key-rule" aria-hidden="true"></span>
+            লক্ষ্যের রেখা · ৪৮ ঘণ্টা
+          </span>
+        </div>
+      </div>
+
+      <!-- The bullet's own data table. -->
+      <div class="data-table-wrap">
+        <div class="data-table-head">
+          <span class="data-table-title">SLA তথ্য</span>
+        </div>
+        <table class="data-table">
+          <caption>SLA বুলেটের পিছনের সংখ্যা।</caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  বিবরণ
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button class="th-sort" type="button">
+                  মান
+                  <span class="th-sort-icon" aria-hidden="true">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M8 9l4-4 4 4M16 15l-4 4-4-4"></path>
+                    </svg>
+                  </span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>গড় সমাধানের সময়</td>
+              <td>৫১ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>লক্ষ্য</td>
+              <td>৪৮ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>লক্ষ্যের ব্যান্ডের শেষ</td>
+              <td>৪৮ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>লক্ষ্যের বাইরে</td>
+              <td>৩ ঘণ্টা</td>
+            </tr>
+            <tr>
+              <td>লক্ষ্যের মধ্যে সমাধান</td>
+              <td>৮৭%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

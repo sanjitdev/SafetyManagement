@@ -14,7 +14,7 @@ Started: 2026-09-18
 - Development: complete (5 Work Orders shipped; 19 Rahim+Rashid specs aligned to web-first 2026-10-04; 25/25 Playwright baselines passing; 1430/1430 unit tests) — **plus UI redesign Waves 0–2 in flight** (Intent 009 `009-ui-redesign`): Wave 0 CI unblock shipped (`45062d1`), Wave 1 design foundation shipped (`b279228`), Wave 2 mockups shipped AND the six auth/public pages implemented (2026-11-11, story 008); **dispatcher scope bug fixed 2026-11-12** — `requireScope` compared the department dimension with strict equality, so a ticket whose category has no department (403 `cross_department_access_denied`) was listed in the dispatcher's own queue but refused on open; the rule is now "deny only when both sides are department-scoped and they differ", and the ward check still fires first
 - Operation: **v1 launched 2026-10-12** (deployed to Vercel + Neon; auto-deploy on `main`; cityfix-bd.vercel.app is the public URL; all 4 roles work end-to-end; 5 v1.1 follow-ups explicitly deferred)
 - v2 Roadmap: **deck drafted 2026-10-12** (4 buckets: v1.1 follow-ups, multi-city, citizen engagement, internal tooling; see `_progress/v2-roadmap.md`; awaiting human pick of the first intent)
-- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups baselined AND the six pages implemented (2026-11-11, story 008 — the spec verified against BOTH the dev store and real Postgres on 2026-11-12), Wave 3 (citizen) shipped 2026-11-12 — 4 mockups (13–16) + the nine citizen routes re-composed from the `components/ui/` primitives (story 010, bolt `009-004` complete); Waves 4–6 (dispatcher, crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
+- UI Redesign: **in progress** (opened 2026-11-02 as AIDLC Intent 009 `009-ui-redesign`) — 8 waves, one unit per wave; Wave 0 (CI unblock) + Wave 1 (design foundation) shipped, Wave 2 (auth + public) mockups baselined AND the six pages implemented (2026-11-11, story 008 — the spec verified against BOTH the dev store and real Postgres on 2026-11-12), Wave 3 (citizen) shipped 2026-11-12 — 4 mockups (13–16) + the nine citizen routes re-composed from the `components/ui/` primitives (story 010, bolt `009-004` complete); Wave 4 (dispatcher) mockups drafted 2026-11-12 — 5 mockups (17–21) + the new `dispatcher-surfaces.css`, **awaiting human mockup approval** before Story 012 implements the six dispatcher routes; Waves 5–6 (crew, admin) pending. Direction: Accessible + Swiss/Minimal, Bangla-first. Mockup-approval gate before each implementation wave.
 
 ## Log
 
@@ -6114,3 +6114,84 @@ symptom is indistinguishable from a code defect. And the root
 against any other port starts a second server and triggers the same
 corruption. An environment override for the server URL would remove the
 footgun permanently; it is a follow-up, not a Wave 3 change.
+
+### 2026-11-12 — UI redesign: Wave 4 mockups drafted (dispatcher console)
+
+Story 011 of bolt `009-005-dispatcher-console` is **drafted and awaiting
+human approval**. Five new mockups, one new shared stylesheet, and the
+gallery / README / spec wiring:
+
+| Mockup | Surface | The pattern it introduces |
+|--------|---------|---------------------------|
+| `17-triage-queue.html` | `/dispatcher` | The 3-region triage layout — filter rail / ticket list / detail pane |
+| `18-dispatcher-ticket-detail.html` | `/dispatcher/tickets/[id]` | Sticky action bar, searchable crew-picker combobox, internal notes |
+| `19-dispatcher-map.html` | `/dispatcher/map` | Full-bleed map, shape-encoded pins, floating controls + legend |
+| `20-dispatcher-monitor.html` | `/dispatcher/monitor` | The first `.theme-dark` surface — a dark ops board for a wall display |
+| `21-dispatcher-performance.html` | `/dispatcher/performance` | Trend line + category bars + SLA bullet, each with a visible sortable table |
+
+`mockups/dispatcher-surfaces.css` is **new**, not an extension of
+`citizen-surfaces.css`. The citizen stylesheet carries the `.ticket-id`
+pill, which is the citizen-facing `tkt_*` code; the dispatcher's
+identifier is a different thing and now has its own `.internal-id`
+primitive. Reusing the citizen class would have published an internal id
+on a citizen surface.
+
+**Four things in these mockups do not exist in the product today**, and
+their existence in the design is the whole reason Story 012 is a
+re-composition rather than a redesign:
+
+1. **The 3-region triage layout.** `app/dispatcher/page.tsx`'s own header
+   comment still advertises a filter rail / queue list / detail, but the
+   page is now a dashboard with no detail pane. `05-daily-queue-dashboard`
+   was the retired desktop reference; mockup `17` supersedes it.
+2. **The SLA countdown chip.** `SlaPolicy` is seeded but consulted on no
+   dispatcher surface, and `components/ui/charts/SlaBullet.tsx` has zero
+   call sites. The chip shows the **remaining** time against the target —
+   not elapsed, not a static "48h" label — and is tone-coded with an icon
+   and a word alongside the colour, never colour alone.
+3. **The searchable crew-picker combobox.** The crew picker is a raw
+   `<select>` today. The mockup is an ARIA `combobox` rendered open, with
+   an active option and an empty state visible at once so both patterns
+   are reviewable.
+4. **Charts that never encode a series by hue alone.** The trend line
+   gives each series a distinct dash pattern *and* marker shape *and* a
+   direct end-label; the SLA bullet distinguishes its value bar from its
+   target rule by shape; every chart ships a visible, sortable data table.
+
+**Measured, not asserted.** All five mockups were rendered in Chromium at
+1440×900 and measured in-browser for horizontal overflow, elements
+bleeding past the viewport, and clipped text. Final state:
+
+```
+17-triage-queue.html            scrollHeight 1111  overflowX 0  clipped []
+18-dispatcher-ticket-detail.html scrollHeight 2206  overflowX 0  clipped []
+19-dispatcher-map.html          scrollHeight 900   overflowX 0  clipped []
+20-dispatcher-monitor.html      scrollHeight 900   overflowX 0  clipped []
+21-dispatcher-performance.html  scrollHeight 2413  overflowX 0  clipped []
+All five: zero emoji, zero <script> tags, no console or page errors.
+```
+
+`tests/unit/ui/mockup-tokens.test.ts` → **3 passed**.
+
+**The monitor board earned its own repair round.** Its first draft
+ellipsised all five urgent-queue titles (`scrollWidth` 160–194 against a
+`clientWidth` of 107–111) — unreadable on a wall display from across the
+room. The obvious fix (let the trailing items shrink) was the wrong one:
+a flex item with `flex-shrink: 1` and `overflow: hidden` **truncates its
+own text rather than disappearing**, so the ward name was cut mid-word.
+The fix that worked was editorial — the sub-line carried the ward, the
+department and the reporter count, and the department duplicated the
+category already named in the title above, so it was **removed**. The
+ward is now the only truncating item, and it carries the ellipsis.
+
+**Two gaps recorded rather than papered over.**
+
+- `tests/unit/ui/mockup-tokens.test.ts` globs `*.html` inside
+  `mockups/`, so it **does not cover `dispatcher-surfaces.css`**. The
+  token-purity guarantee for the new shared stylesheet is currently
+  unchecked by a test. Extending the glob is a Wave 7 candidate.
+- The 10 baselines for mockups `17`–`21` are **not committed**, and must
+  be captured on `ubuntu-latest` by the `regenerate-baselines.yml`
+  workflow — the same run that captures the 8 still-missing baselines for
+  mockups `13`–`16`. A Windows capture would fail on CI by 2–3% of
+  pixels, above the `0.005` tolerance.

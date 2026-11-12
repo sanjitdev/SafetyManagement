@@ -5,7 +5,7 @@ import { compareMockupVsBuild } from './helpers/compare';
 /**
  * Mockup baseline capture for CityFix.
  *
- * Loads the 16 hero mockups in design-artifacts/D-Design-System/01-Visual-Design/mockups/
+ * Loads the 21 hero mockups in design-artifacts/D-Design-System/01-Visual-Design/mockups/
  * at the design-canvas viewports and asserts full-page screenshots against committed
  * baselines under tests-mockups/baselines/.
  *
@@ -72,6 +72,12 @@ test.describe('CityFix mockup baselines', () => {
     { id: '14-report-shell', file: '14-report-shell.html', viewports: ['LARGE', 'MEDIUM'] as const },
     { id: '15-my-reports', file: '15-my-reports.html', viewports: ['LARGE', 'MEDIUM'] as const },
     { id: '16-report-detail-trail', file: '16-report-detail-trail.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    // Mockups 17–21 — Wave 4 (dispatcher console). Captured at large + medium.
+    { id: '17-triage-queue', file: '17-triage-queue.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '18-dispatcher-ticket-detail', file: '18-dispatcher-ticket-detail.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '19-dispatcher-map', file: '19-dispatcher-map.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '20-dispatcher-monitor', file: '20-dispatcher-monitor.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '21-dispatcher-performance', file: '21-dispatcher-performance.html', viewports: ['LARGE', 'MEDIUM'] as const },
   ]) {
     for (const vp of viewports) {
       const viewport = vp === 'LARGE' ? WEB_LARGE : vp === 'MEDIUM' ? WEB_MEDIUM : PHONE_WIDTH;

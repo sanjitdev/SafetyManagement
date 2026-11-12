@@ -1,0 +1,719 @@
+/* CityFix — Dispatcher surface mockup chrome
+ *
+ * Shared by mockups 17–21 (the dispatcher console: triage queue, ticket
+ * detail, map, monitor, performance). These five pages are ONE
+ * product, so they share ONE chrome: same topbar, same nav, same
+ * buttons, same status pills, same SLA vocabulary, same focus
+ * treatment.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS A SEPARATE FILE FROM citizen-surfaces.css
+ * ---------------------------------------------------------------------------
+ * The citizen chrome and the dispatcher chrome are DIFFERENT products
+ * with different audiences, and they differ in one way that is
+ * dangerous to blur: THE IDENTITY OF A TICKET.
+ *
+ *   `.ticket-id` (citizen)  = the PUBLIC short code "#TIX-4820". A
+ *     citizen quotes it to the call centre. It is the ONLY id a
+ *     citizen ever sees.
+ *
+ *   `.internal-id` (this file) = the dispatcher's INTERNAL database
+ *     reference (e.g. "INT-8F42"). It exists so a dispatcher, a
+ *     supervisor and an audit log can point at the same row without
+ *     exposing the internal surrogate key to the public.
+ *
+ * These are DIFFERENT THINGS and must never be confused with one
+ * another. Reusing the citizen `.ticket-id` class on the dispatcher
+ * surfaces would (a) tell the reader the internal id is a public
+ * ticket code, and (b) make it trivially easy for a later edit to
+ * start shipping the internal id where the public code belongs.
+ * Hence a separate class name, a separate file, and this comment.
+ *
+ * Everything else in this file is deliberately parallel to
+ * `citizen-surfaces.css` — the focus treatment and the scrollbar
+ * theming are IDENTICAL across the product (one focus ring, one
+ * scrollbar), and the button vocabulary is the same physical size
+ * (`--touch-min`) on every surface. Where the dispatcher needs
+ * something the citizen does not (a filter rail, an SLA countdown, a
+ * crew combobox, a sticky action bar), it is purpose-built here with
+ * a purpose-built class name rather than a bent citizen class.
+ *
+ * ---------------------------------------------------------------------------
+ * APPEARANCE — dark is the default
+ * ---------------------------------------------------------------------------
+ * `lib/theme/appearance.ts` sets `APPEARANCE_DEFAULT = 'dark'`. The
+ * mockups render DARK: the `<html>` element carries
+ * `class="theme-dark"`, exactly as the live app's boot script does.
+ */
+
+/* ---------- BASE ---------- */
+body {
+  font-family: var(--font-body);
+  background: var(--color-surface-page);
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: var(--tracking-tight); font-weight: var(--weight-semibold); }
+
+/* ---------- BROWSER SURFACES ----------
+   The scrollbar, the text selection and the caret are part of the
+   product. These blocks are byte-for-byte the same as
+   `citizen-surfaces.css`: one scrollbar treatment across the whole
+   product. */
+::selection {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+html { scrollbar-color: var(--color-border-strong) var(--color-surface-page); }
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-strong) var(--color-surface-page); }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--color-surface-page); }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-surface-page);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--color-ink-tertiary); }
+
+/* ---------- FOCUS ----------
+   ONE focus treatment for the whole product: the tokenised ring.
+   Identical to the citizen surfaces — a keyboard user moving from
+   the citizen app to the dispatcher console must find the same ring
+   in the same place. */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-input);
+}
+:where(a, button, [role="button"], input, select, textarea):focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---------- DISPATCHER TOPBAR ----------
+   The dispatcher's own chrome. Distinct from the citizen topbar in
+   one way only: the nav carries the dispatcher SECTIONS rather than
+   the citizen's pages. */
+.dtopbar {
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  height: var(--header-height-desktop);
+  background: var(--color-surface-card);
+  border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-5);
+  gap: var(--space-4);
+}
+.dbrand { display: inline-flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--color-ink); }
+.dbrand-name { font-size: var(--text-body-lg); font-weight: var(--weight-bold); letter-spacing: var(--tracking-tight); }
+.dbrand-org { font-size: var(--text-body-sm); color: var(--color-ink-secondary); }
+
+.dnav { display: flex; align-items: center; gap: var(--space-1); }
+.dnav-item {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-body-sm); font-weight: var(--weight-medium);
+  color: var(--color-ink-secondary); text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.dnav-item:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+.dnav-item.active { background: var(--color-primary-soft); color: var(--color-primary); font-weight: var(--weight-semibold); }
+
+.dtopbar-actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* The dispatcher's identity block: who is signed in, and in which
+   operating scope. The scope is a WORD, not a colour. */
+.didentity { display: flex; align-items: center; gap: var(--space-2); }
+.didentity-text { display: flex; flex-direction: column; }
+.didentity-name { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
+.didentity-role { font-size: var(--text-micro); color: var(--color-ink-tertiary); line-height: var(--leading-snug); }
+.davatar {
+  width: var(--icon-size-xl); height: var(--icon-size-xl); border-radius: var(--radius-pill);
+  background: var(--color-primary-soft); color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+}
+
+/* ---------- BUTTONS ----------
+   The same vocabulary and the same physical size as the citizen
+   surfaces: height comes from `--touch-min` so a button is the same
+   size on every surface of the product. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--touch-min); padding: 0 var(--space-5);
+  border-radius: var(--radius-input); border: 1px solid transparent;
+  font-family: inherit; font-size: var(--text-body); font-weight: var(--weight-semibold);
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-primary:active { background: var(--color-primary-pressed); }
+.btn-secondary {
+  background: var(--color-surface-card); color: var(--color-ink);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover { background: var(--color-surface-raised); border-color: var(--color-border-input); }
+.btn-ghost {
+  background: transparent; color: var(--color-ink);
+  border-color: var(--color-border); border-radius: var(--radius-pill);
+  min-height: var(--touch-min); padding: 0 var(--space-5);
+}
+.btn-ghost:hover { background: var(--color-surface-raised); border-color: var(--color-border-strong); }
+.btn-danger { background: var(--color-danger); color: var(--color-on-danger); }
+.btn-danger:hover { background: var(--color-danger); }
+.btn:disabled, .btn[aria-disabled="true"] {
+  background: var(--color-surface-raised); color: var(--color-ink-disabled);
+  border-color: var(--color-border); cursor: not-allowed;
+}
+.btn-primary:disabled, .btn-primary[aria-disabled="true"] { background: var(--color-surface-raised); }
+.btn-sm { min-height: var(--touch-min); padding: 0 var(--space-4); font-size: var(--text-body-sm); }
+
+.icon-btn {
+  width: var(--touch-min); height: var(--touch-min);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill); color: var(--color-ink-secondary); cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.icon-btn:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+
+/* ---------- PAGE ---------- */
+.dpage { max-width: var(--layout-desktop); margin: 0 auto; padding: var(--space-6) var(--space-5) var(--space-8); }
+.dpage-title { font-size: var(--text-h1); margin: 0 0 var(--space-2); }
+.dpage-sub { font-size: var(--text-body); color: var(--color-ink-secondary); margin: 0 0 var(--space-5); }
+.dsection { margin-bottom: var(--space-6); }
+.dsection-title { font-size: var(--text-h2); margin: 0 0 var(--space-1); }
+.dsection-sub { font-size: var(--text-caption); color: var(--color-ink-secondary); margin: 0 0 var(--space-4); }
+
+/* ---------- STATUS PILL ----------
+   Icon + word + colour. Never colour alone. */
+.status {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px var(--space-2); border-radius: var(--radius-pill);
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
+  line-height: var(--leading-snug);
+}
+.status-submitted { background: var(--color-status-submitted-soft); color: var(--color-status-submitted); }
+.status-routed { background: var(--color-status-routed-soft); color: var(--color-status-routed); }
+.status-in-progress { background: var(--color-status-in-progress-soft); color: var(--color-status-in-progress); }
+.status-resolved { background: var(--color-status-resolved-soft); color: var(--color-status-resolved); }
+.status-paused { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
+.status-error { background: var(--color-status-error-soft); color: var(--color-status-error); }
+.status-warning { background: var(--color-status-warning-soft); color: var(--color-status-warning); }
+.status-cancelled { background: var(--color-status-cancelled-soft); color: var(--color-status-cancelled); }
+.status-closed { background: var(--color-status-closed-soft); color: var(--color-status-closed); }
+
+/* ---------- WARD PILL ---------- */
+.ward {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-surface-raised); border-radius: var(--radius-pill);
+  color: var(--color-ink-secondary); font-weight: var(--weight-semibold);
+  font-size: var(--text-micro); white-space: nowrap;
+}
+
+/* ---------- INTERNAL ID PILL ----------
+   The dispatcher's INTERNAL reference (e.g. "INT-8F42").
+   NOT the citizen's public "#TIX-" code — see the file header. */
+.internal-id {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-ink-secondary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.internal-id strong { color: var(--color-ink); font-weight: var(--weight-semibold); }
+
+/* ---------- REPORTER-COUNT CHIP ----------
+   How many people are on a ticket. A COUNT, not a status. */
+.count-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-secondary);
+  font-size: var(--text-micro); font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+/* ---------- FILTER RAIL ----------
+   The dispatcher's left rail: a list of filters, each with a live
+   count. The ACTIVE filter is carried by a left accent bar, a
+   background, a weight change AND `aria-current` — never by colour
+   alone. */
+.rail {
+  background: var(--color-surface-card);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-5);
+  overflow-y: auto;
+}
+.rail-head { font-size: var(--text-micro); color: var(--color-ink-tertiary); font-weight: var(--weight-bold); letter-spacing: 0.05em; text-transform: uppercase; }
+.rail-group { display: flex; flex-direction: column; gap: var(--space-1); }
+.rail-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  width: 100%; min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: transparent; border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: var(--text-body-sm); font-weight: var(--weight-medium);
+  color: var(--color-ink-secondary); text-align: left; cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.rail-item:hover { background: var(--color-surface-raised); color: var(--color-ink); }
+.rail-item[aria-current="true"], .rail-item[aria-pressed="true"] {
+  background: var(--color-primary-soft);
+  border-left-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--weight-bold);
+}
+.rail-count {
+  padding: 1px var(--space-2);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-secondary);
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.rail-item[aria-current="true"] .rail-count,
+.rail-item[aria-pressed="true"] .rail-count {
+  background: var(--color-primary); color: var(--color-on-primary);
+}
+
+/* The keyboard-shortcut hint block. A `<kbd>` is the conventional
+   affordance for "press this key". */
+.shortcut-block {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-surface-page);
+}
+.shortcut-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-caption); color: var(--color-ink-secondary);
+  min-height: var(--space-5);
+}
+.shortcut-row + .shortcut-row { margin-top: var(--space-1); }
+kbd {
+  font-family: var(--font-mono); font-size: var(--text-micro);
+  padding: 2px var(--space-2);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  color: var(--color-ink);
+}
+
+/* ---------- SEARCH FIELD ---------- */
+.search-field {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  color: var(--color-ink-tertiary);
+}
+.search-field input {
+  flex: 1; min-width: 0;
+  background: transparent; border: none; outline: none;
+  color: var(--color-ink); font-family: inherit; font-size: var(--text-body-sm);
+  min-height: var(--touch-min);
+}
+.search-field input::placeholder { color: var(--color-ink-tertiary); }
+
+/* ---------- KPI / STAT TILE ---------- */
+.stat-tile {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-1);
+}
+.stat-label {
+  font-size: var(--text-micro); color: var(--color-ink-secondary);
+  font-weight: var(--weight-bold); letter-spacing: 0.04em; text-transform: uppercase;
+}
+.stat-value {
+  font-size: var(--text-display-md); font-weight: var(--weight-semibold);
+  color: var(--color-ink); line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stat-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-micro); font-weight: var(--weight-semibold);
+  color: var(--color-ink-secondary);
+}
+.stat-delta.is-good { color: var(--color-success); }
+.stat-delta.is-bad { color: var(--color-danger); }
+.stat-delta.is-warn { color: var(--color-warning); }
+
+/* ---------- TICKET ROW ----------
+   The triage list row. The SELECTED row is carried by a left accent
+   bar, a thicker border, a raised background AND `aria-selected` —
+   never by colour alone. */
+.ticket-row {
+  position: relative;
+  display: flex; gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  text-align: left; width: 100%;
+  font-family: inherit; color: var(--color-ink);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.ticket-row:hover { border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+.ticket-row[aria-selected="true"] {
+  border-color: var(--color-primary);
+  border-left-width: 4px;
+  border-left-color: var(--color-primary);
+  background: var(--color-surface-raised);
+}
+.ticket-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ticket-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.ticket-row-title {
+  font-size: var(--text-body-sm); font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+}
+.ticket-row-sub {
+  font-size: var(--text-caption); color: var(--color-ink-secondary);
+  margin: 0; line-height: var(--leading-snug);
+}
+.ticket-row-meta {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  font-size: var(--text-micro); color: var(--color-ink-tertiary);
+}
+.ticket-row-meta .sep { color: var(--color-ink-disabled); }
+
+/* ---------- PHOTO PLACEHOLDER ----------
+   The stand-in for a citizen photo. It is a gradient placeholder, not
+   a real image, so the mockup renders offline with no binary assets.
+   Raw hex is permitted ONLY here: a photo placeholder gradient has no
+   token, and inventing one for a decorative gradient would put a
+   colour in the token file that no product surface uses. */
+.photo-ph {
+  flex-shrink: 0;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: block;
+}
+.photo-ph-sm { width: 56px; height: 56px; }
+.photo-ph-md { width: 88px; height: 88px; }
+.photo-ph-lg { width: 132px; height: 132px; }
+.photo-ph svg { display: block; width: 100%; height: 100%; }
+
+/* ---------- SLA COUNTDOWN CHIP ----------
+   The chip shows the REMAINING time against the target, never the
+   elapsed time. It is tone-coded by how close the ticket is to
+   breaching its SLA window, and the tone is ALWAYS accompanied by an
+   icon AND a word, so it is never colour-alone.
+
+   The three tones:
+     .sla-chip-danger    লক্ষ্য ছাড়িয়েছে   (breached / imminent)
+     .sla-chip-warning   শেষ হতে অল্প বাকি  (approaching)
+     .sla-chip-ok        সময়মতো আছে       (comfortable)          */
+.sla-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  white-space: nowrap;
+  line-height: var(--leading-snug);
+}
+.sla-chip .sla-figure { font-variant-numeric: tabular-nums; }
+.sla-chip .sla-target { font-weight: var(--weight-medium); opacity: 0.85; }
+.sla-chip-danger {
+  background: var(--color-danger-soft); color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.sla-chip-warning {
+  background: var(--color-warning-soft); color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+.sla-chip-ok {
+  background: var(--color-success-soft); color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+/* ---------- SLA PANEL ----------
+   The larger variant: the remaining figure is the headline, and a
+   bar shows elapsed-vs-target. */
+.sla-panel {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-card);
+}
+.sla-panel-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3);
+}
+.sla-panel-label {
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+.sla-panel-figure {
+  font-size: var(--text-display-md); font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.sla-panel-state {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-caption); font-weight: var(--weight-bold);
+}
+.sla-panel-target {
+  font-size: var(--text-caption); color: var(--color-ink-secondary);
+}
+.sla-bar {
+  height: var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.sla-bar-fill { height: 100%; border-radius: var(--radius-pill); }
+.sla-panel-danger { border-color: var(--color-danger); }
+.sla-panel-danger .sla-panel-figure,
+.sla-panel-danger .sla-panel-state { color: var(--color-danger); }
+.sla-panel-danger .sla-bar-fill { background: var(--color-danger); }
+.sla-panel-warning { border-color: var(--color-warning); }
+.sla-panel-warning .sla-panel-figure,
+.sla-panel-warning .sla-panel-state { color: var(--color-warning); }
+.sla-panel-warning .sla-bar-fill { background: var(--color-warning); }
+.sla-panel-ok { border-color: var(--color-success); }
+.sla-panel-ok .sla-panel-figure,
+.sla-panel-ok .sla-panel-state { color: var(--color-success); }
+.sla-panel-ok .sla-bar-fill { background: var(--color-success); }
+
+/* ---------- STICKY ACTION BAR ----------
+   Pinned to the bottom of the viewport while the content scrolls.
+   The dispatcher is often on a phone in the field, so the bar's
+   height comes from the same `--sticky-cta-height` the citizen
+   surfaces use. */
+.action-bar {
+  position: sticky; bottom: 0; z-index: var(--z-sticky);
+  min-height: var(--sticky-cta-height);
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-surface-card);
+  border-top: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-lg);
+}
+.action-bar-group { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; }
+.action-bar-meta {
+  margin-left: auto;
+  font-size: var(--text-micro); color: var(--color-ink-tertiary);
+  text-align: right;
+  line-height: var(--leading-snug);
+}
+
+/* ---------- COMBOBOX (crew picker) ----------
+   The searchable crew picker. A real ARIA combobox: the input
+   carries `role="combobox"`, `aria-expanded`, `aria-controls` and
+   `aria-activedescendant`; the list is a `role="listbox"` of
+   `role="option"` children. */
+.combobox { position: relative; display: flex; flex-direction: column; gap: var(--space-2); }
+.combobox-label {
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+.combobox-control {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  color: var(--color-ink-tertiary);
+}
+.combobox-input {
+  flex: 1; min-width: 0;
+  background: transparent; border: none; outline: none;
+  color: var(--color-ink); font-family: inherit; font-size: var(--text-body);
+  min-height: var(--touch-min);
+}
+.combobox-input::placeholder { color: var(--color-ink-tertiary); }
+.combobox-caret { color: var(--color-ink-tertiary); }
+.combobox-list {
+  list-style: none; margin: 0; padding: var(--space-1);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  max-height: 320px; overflow-y: auto;
+}
+.combobox-option {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.combobox-option:hover { background: var(--color-surface-raised); }
+.combobox-option[aria-selected="true"] {
+  background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+.combobox-option[aria-selected="true"] .combobox-option-name { color: var(--color-primary); font-weight: var(--weight-bold); }
+.combobox-option-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.combobox-option-name { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); }
+.combobox-option-meta {
+  font-size: var(--text-micro); color: var(--color-ink-tertiary);
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.combobox-option-check { color: var(--color-primary); }
+.combobox-empty {
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  font-size: var(--text-body-sm); color: var(--color-ink-secondary);
+}
+.combobox-empty strong { display: block; color: var(--color-ink); margin-top: var(--space-1); }
+
+/* ---------- INTERNAL NOTE ----------
+   Dispatcher-only notes. Distinct from citizen-facing content by a
+   LABEL (and a rule), not by a colour alone — the colour reinforces
+   the label, it does not carry it. */
+.internal-note {
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-info);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.internal-note-head {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+.internal-note-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px var(--space-2);
+  background: var(--color-info-soft); color: var(--color-info-text);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-micro); font-weight: var(--weight-bold);
+  letter-spacing: 0.03em; text-transform: uppercase;
+}
+.internal-note-author { font-size: var(--text-micro); font-weight: var(--weight-semibold); color: var(--color-ink-secondary); }
+.internal-note-time { font-size: var(--text-micro); color: var(--color-ink-tertiary); font-variant-numeric: tabular-nums; }
+.internal-note-body { font-size: var(--text-body-sm); color: var(--color-ink); margin: 0; line-height: var(--leading-relaxed); }
+
+.note-composer {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-card);
+  padding: var(--space-3);
+}
+.note-composer textarea {
+  width: 100%;
+  min-height: 88px;
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-input);
+  color: var(--color-ink); font-family: inherit; font-size: var(--text-body-sm);
+  padding: var(--space-3); resize: vertical;
+}
+.note-composer-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); margin-top: var(--space-3);
+}
+
+/* ---------- META GRID ----------
+   The dispatcher's field grid: a label above a value. */
+.meta-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.meta-grid-label {
+  font-size: var(--text-micro); color: var(--color-ink-tertiary);
+  font-weight: var(--weight-bold); letter-spacing: 0.04em; text-transform: uppercase;
+}
+.meta-grid-value {
+  margin-top: var(--space-1);
+  font-size: var(--text-body-sm); font-weight: var(--weight-medium); color: var(--color-ink);
+}
+
+/* ---------- TIMELINE (status trail / audit) ----------
+   The shared vertical trail. Each step carries an icon AND a
+   timestamp; the connector is a hairline that turns primary on the
+   steps already taken. */
+.timeline { list-style: none; padding: 0; margin: 0; }
+.trail-step { display: flex; align-items: flex-start; gap: var(--space-3); position: relative; }
+.trail-step + .trail-step { margin-top: var(--space-5); }
+.trail-step::before {
+  content: '';
+  position: absolute;
+  left: 15px; top: 34px; bottom: calc(var(--space-5) * -1);
+  width: 2px; background: var(--color-border);
+}
+.trail-step:last-child::before { display: none; }
+.trail-step.done::before { background: var(--color-primary); }
+.trail-dot {
+  width: var(--icon-size-xl); height: var(--icon-size-xl); flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-surface-sunken); color: var(--color-ink-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-body-sm); font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  position: relative; z-index: 1;
+}
+.trail-step.done .trail-dot { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+.trail-step.current .trail-dot { background: var(--color-surface-card); color: var(--color-primary); border: 2px solid var(--color-primary); }
+.trail-body { flex: 1; min-width: 0; padding-top: var(--space-1); }
+.trail-title { font-size: var(--text-body-sm); font-weight: var(--weight-semibold); display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.trail-time { font-size: var(--text-caption); color: var(--color-ink-tertiary); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.trail-note { font-size: var(--text-caption); color: var(--color-ink-secondary); margin: var(--space-2) 0 0; }
+
+/* ---------- CARD ---------- */
+.dcard {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+/* ---------- EMPTY STATE ---------- */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  padding: var(--space-8) var(--space-5);
+  text-align: center;
+  color: var(--color-ink-secondary);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+.empty-state-title { font-size: var(--text-body); font-weight: var(--weight-semibold); color: var(--color-ink); margin: 0; }
+.empty-state-sub { font-size: var(--text-caption); margin: 0; }
+
+/* ---------- SMALL SCREENS ----------
+   The dispatcher console is a desktop-first surface, but the field
+   dispatcher opens it on a phone, so the regions stack. */
+@media (max-width: 1024px) {
+  .dnav { display: none; }
+  .meta-grid { grid-template-columns: minmax(0, 1fr); }
+  .action-bar { flex-wrap: wrap; }
+}
