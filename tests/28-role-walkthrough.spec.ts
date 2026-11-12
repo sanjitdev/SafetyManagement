@@ -109,20 +109,32 @@ async function waitForHydration(page: Page, timeout = 25_000): Promise<void> {
  * content, then return the settled body text.
  *
  * `/reports/[id]` fetches the ticket inside an effect and renders a
- * "লোড হচ্ছে…" placeholder until the fetch resolves. `waitForHydration`
- * is a fixed 600ms sleep, so reading `bodyText` right after it can
- * capture the placeholder instead of the report — which made the
- * "citizen sees their report resolved" check read a false negative
- * even though the screenshot (taken later, inside `capture()`) showed
- * the resolved report. Wait for the loading copy to disappear AND for
- * a known status pill to appear before asserting on the text.
+ * loading skeleton until the fetch resolves. `waitForHydration` is a
+ * fixed 600ms sleep, so reading `bodyText` right after it can capture
+ * the skeleton instead of the report.
+ *
+ * The skeleton is identified by its `.cityfix-skeleton` blocks
+ * (`components/ui/Skeleton.tsx`), NOT by the string "লোড হচ্ছে…" —
+ * that copy is rendered as an `aria-label` on the skeleton's
+ * `[role="status"]` wrapper, and `innerText` never includes
+ * aria-label text, so a substring test on it is always false. Waiting
+ * on the string therefore never actually waited.
+ *
+ * The status test has the mirror problem: 'নতুন' (submitted) is also
+ * the nav item "নতুন রিপোর্ট" (`shell.nav.new_report`), which is
+ * present in the app chrome during the skeleton phase. A wait on it
+ * resolves immediately against the chrome and samples the skeleton.
+ *
+ * So: wait for the skeleton to be GONE, and for a status word to
+ * appear in the page body only after that.
  */
 async function readSettledReportText(page: Page): Promise<string> {
   await page
     .waitForFunction(
       () => {
+        // Every skeleton block carries this class.
+        if (document.querySelector('.cityfix-skeleton')) return false;
         const text = document.body.innerText;
-        if (text.includes('লোড হচ্ছে')) return false;
         return (
           text.includes('সমাধান') || // resolved
           text.includes('নতুন') || // submitted
@@ -138,11 +150,21 @@ async function readSettledReportText(page: Page): Promise<string> {
 }
 
 async function capture(page: Page, stepName: string): Promise<string> {
+  // Wait for the loading skeleton to be GONE before the screenshot.
+  // The skeleton blocks carry the `.cityfix-skeleton` class; its
+  // "লোড হচ্ছে…" copy is an `aria-label` on the skeleton's
+  // `[role="status"]` wrapper, so `innerText` never contains it and a
+  // substring test on it was always true — meaning this wait never
+  // waited, and the audit screenshots could capture the skeleton.
+  //
+  // It must NOT gate on `[role="status"]` either: the dispatcher's
+  // "crew assignment updated" confirmation is also a
+  // `[role="status"]` element that legitimately persists, so gating on
+  // it would stall every screenshot of that page for the full timeout.
   await page
-    .waitForFunction(
-      () => !document.body.innerText.includes('লোড হচ্ছে'),
-      { timeout: 8_000 },
-    )
+    .waitForFunction(() => !document.querySelector('.cityfix-skeleton'), {
+      timeout: 8_000,
+    })
     .catch(() => undefined);
   await page.waitForTimeout(350);
   const file = `${stepName}.png`;
@@ -220,6 +242,328 @@ function watchErrors(page: Page, sink: string[]): void {
 }
 
 const bodyText = (page: Page) => page.locator('body').innerText();
+
+/**
+ * Poll a ticket's status until it reaches `expected`, or time out.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The transitions used to be asserted after a FIXED sleep:
+ *
+ *   await page.waitForTimeout(1500);
+ *   const after = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
+ *   ok = after.body?.ticket?.status === 'in_progress';
+ *
+ * That is a race. The FIRST request to a route in `next dev` pays a
+ * lazily-compiled module load, which the Next.js server trace puts at
+ * **0.9–2.3 s** — comfortably longer than the 1500 ms the spec waited.
+ * Reads are fast (51–129 ms); it is the first WRITE that is slow.
+ * So the crew's "mark in progress" click landed, and the assertion
+ * ran before the response had been written.
+ *
+ * The failure looked like a product bug — "the crew cannot mark work
+ * in progress" — while the database trail showed the transition had
+ * in fact succeeded a moment later. A fixed sleep against a
+ * lazily-compiled dev server is not a measurement.
+ *
+ * Polling until the state settles removes the race AND states the
+ * actual contract: the transition must land within the timeout.
+ */
+async function waitForTicketStatus(
+  ctx: BrowserContext,
+  ticketId: string,
+  expected: string,
+  timeoutMs = 15_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  while (Date.now() < deadline) {
+    const res = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
+    const status = res.body?.ticket?.status ?? '';
+    last = status || `(no status; HTTP ${res.status})`;
+    if (status === expected) return true;
+    await page_wait(250);
+  }
+  // One last read, so a late transition is not missed.
+  const res = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
+  const status = res.body?.ticket?.status ?? '';
+  last = status || `(no status; HTTP ${res.status})`;
+  if (status === expected) return true;
+  void last;
+  return false;
+}
+
+/** A small sleep that does not depend on Playwright's page fixture. */
+function page_wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Run an ADR-007 WebAuthn STEP-UP ceremony against the signed-in
+ * admin's session.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * `requireWebAuthn` (lib/auth/guards.ts) treats a challenge as a
+ * ONE-SHOT nonce: it reads the admin's most recent challenge row,
+ * checks it has not expired, and then DELETES it. One ceremony
+ * therefore authorises exactly ONE gated write. The walkthrough makes
+ * several admin writes in a row (create a probe city, then delete it
+ * again), so a single registration ceremony is not enough — the
+ * second write correctly answers `401 webauthn_assertion_expired`.
+ *
+ * That is the product working as designed, not a bug. The walkthrough
+ * has to do what a real admin does: step up again before each gated
+ * write. The product exposes exactly that affordance —
+ * `POST /api/auth/webauthn/step-up` with `{action:'challenge'}` then
+ * `{action:'verify', challengeId, assertionResponse}` — and the
+ * admin console mounts it (`components/AdminWebAuthnStepUp.tsx`).
+ *
+ * This helper drives that same protocol from the test, using the
+ * browser's own WebAuthn API so the virtual authenticator signs it.
+ * It runs inside the page (so `navigator.credentials` and the
+ * session cookie are the page's own) and returns whether the
+ * ceremony verified.
+ */
+async function stepUpAdmin(page: Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    const post = async (body: unknown) => {
+      const res = await fetch('/api/auth/webauthn/step-up', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      return { ok: res.ok, body: await res.json().catch(() => ({})) };
+    };
+
+    const challengeRes = await post({ action: 'challenge' });
+    if (!challengeRes.ok) return false;
+    const ch = challengeRes.body as {
+      challengeId: string;
+      challenge: string;
+      rpId: string;
+      allowCredentials: Array<{ id: string; transports?: string[] }>;
+      userVerification: 'preferred' | 'required' | 'discouraged';
+      timeout: number;
+    };
+
+    // The browser's WebAuthn API is used directly rather than the
+    // @simplewebauthn/browser helper: the helper is a module inside
+    // the app bundle, not reachable from `page.evaluate`, and the
+    // wire shape it produces for `navigator.credentials.get` is
+    // exactly what the server's `verifyAssertionSignature` reads.
+    // `navigator.credentials.get` is typed against `CredentialRequestOptions`
+    // in this TS lib, which does not carry the public-key fields. The
+    // cast is scoped to the call site only.
+    const cred = (await navigator.credentials.get({
+      challenge: Uint8Array.from(
+        atob(ch.challenge.replace(/-/g, '+').replace(/_/g, '/')),
+        (c) => c.charCodeAt(0),
+      ),
+      rpId: ch.rpId,
+      allowCredentials: ch.allowCredentials.map((c) => ({
+        id: Uint8Array.from(
+          atob(c.id.replace(/-/g, '+').replace(/_/g, '/')),
+          (x) => x.charCodeAt(0),
+        ),
+        type: 'public-key' as PublicKeyCredentialType,
+        ...(c.transports ? { transports: c.transports } : {}),
+      })),
+      userVerification: ch.userVerification,
+      timeout: ch.timeout,
+    } as unknown as CredentialRequestOptions)) as PublicKeyCredential | null;
+    if (!cred) return false;
+
+    const resp = cred.response as AuthenticatorAssertionResponse;
+    const b64 = (buf: ArrayBuffer): string => {
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for (const b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+
+    const verify = await post({
+      action: 'verify',
+      challengeId: ch.challengeId,
+      assertionResponse: {
+        id: cred.id,
+        rawId: b64(cred.rawId),
+        type: cred.type,
+        response: {
+          authenticatorData: b64(resp.authenticatorData),
+          clientDataJSON: b64(resp.clientDataJSON),
+          signature: b64(resp.signature),
+          userHandle: resp.userHandle ? b64(resp.userHandle) : null,
+        },
+      },
+    });
+    return verify.ok;
+  }).catch(() => false);
+}
+
+/**
+ * The dispatcher's counterpart of `waitForTicketStatus` — same race,
+ * different endpoint (the dispatcher's detail route nests under
+ * `ticket`).
+ */
+async function waitForDispatcherStatus(
+  ctx: BrowserContext,
+  ticketId: string,
+  expected: string,
+  timeoutMs = 15_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await api(ctx, 'GET', `/api/v1/dispatcher/tickets/${ticketId}`);
+    const status = res.body?.ticket?.status ?? res.body?.status ?? '';
+    if (status === expected) return true;
+    await page_wait(250);
+  }
+  const res = await api(ctx, 'GET', `/api/v1/dispatcher/tickets/${ticketId}`);
+  return (res.body?.ticket?.status ?? res.body?.status) === expected;
+}
+
+/**
+ * Pre-flight cleanup, DISPATCHER side — release the crew capacity a
+ * PREVIOUS run of this walkthrough left behind.
+ *
+ * WHY
+ * ---
+ * The walkthrough runs against a persistent database, so each run
+ * leaves its ticket behind. A completed run resolves its own ticket
+ * (step K6), but a run that fails part-way leaves a ticket assigned to
+ * a crew member. After a few failed runs the seeded crew is
+ * saturated: `CREW_CAPACITY_LIMIT` (lib/dispatcher/crew-capacity.ts)
+ * is 5, the crew member's `<option>` renders `disabled`, and the
+ * assign step has nobody to pick.
+ *
+ * The capacity limit is the PRODUCT working correctly. The test's
+ * isolation is what has to be fixed — this run should not inherit the
+ * last run's unfinished business.
+ *
+ * HOW
+ * ---
+ * The dispatcher is the right role: cancelling a ticket is a legal
+ * dispatcher transition (see lib/platform/transitions.ts —
+ * `submitted → cancelled` and `routed → cancelled` are both legal
+ * edges), and a cancelled ticket no longer counts against the crew's
+ * capacity.
+ *
+ * WHICH TICKETS
+ * -------------
+ * Every ticket that holds a crew slot AND that the dispatcher's own
+ * queue returns. The queue returns `submitted` and `routed` tickets
+ * only — an `in_progress` ticket has left the dispatcher's world, so
+ * the CREW side of this cleanup handles those (see
+ * `releaseStaleCrewWork`, which signs in as the crew member).
+ *
+ * The one filter that matters: `assignedCrewId` must be set. A
+ * `submitted` ticket with no crew assigned holds nobody's capacity —
+ * that is the ticket THIS run is about to create, and cancelling it
+ * would destroy the run's own subject.
+ *
+ * Only the dispatcher's OWN SCOPE is touched — the queue endpoint
+ * applies the ward + department scope filter, so this can only ever
+ * reach tickets the dispatcher is entitled to see.
+ */
+async function releaseStaleCrewAssignments(ctx: BrowserContext): Promise<{
+  ok: boolean;
+  detail: string;
+}> {
+  const released: string[] = [];
+  const failed: string[] = [];
+
+  const queue = await api(ctx, 'GET', '/api/v1/dispatcher/queue?limit=100');
+  const tickets: any[] = queue.body?.tickets ?? [];
+  for (const t of tickets) {
+    // A ticket with no crew assigned holds nobody's capacity slot.
+    if (!t.assignedCrewId) continue;
+    if (!['submitted', 'routed'].includes(t.status)) continue;
+
+    const res = await api(
+      ctx,
+      'POST',
+      `/api/v1/dispatcher/tickets/${t.id}/transition`,
+      {
+        toStatus: 'cancelled',
+        note: 'Released by the role-walkthrough pre-flight cleanup so a previous run does not exhaust the crew roster.',
+      },
+    );
+    if (res.status === 200) released.push(t.id);
+    else failed.push(`${t.id} (${res.status} ${res.body?.error ?? ''})`);
+  }
+
+  if (failed.length > 0) {
+    return {
+      ok: false,
+      detail: `Could not release every stale crew assignment: ${failed.join(', ')}.`,
+    };
+  }
+  return {
+    ok: true,
+    detail:
+      released.length > 0
+        ? `Released ${released.length} ticket(s) still holding a crew slot from an earlier run (${released.join(', ')}), so the crew roster has headroom.`
+        : 'No stale crew assignments were holding a crew slot — the crew roster has headroom for this run.',
+  };
+}
+
+/**
+ * Pre-flight cleanup, CREW side — finish the work an earlier run
+ * started.
+ *
+ * WHY THIS IS A SEPARATE STEP
+ * ---------------------------
+ * The dispatcher's cleanup cannot reach `in_progress` tickets: they
+ * have left the dispatcher's queue (which returns `submitted` and
+ * `routed` only), and the dispatcher cannot transition them either.
+ * But an `in_progress` ticket DOES hold a crew slot, and the crew
+ * member who owns it is the only role that can close it — the crew
+ * transition route allows `in_progress → resolved`.
+ *
+ * A ticket in `in_progress` is work that has been started but not
+ * finished. Resolving it is the honest end state for a test fixture:
+ * the crew finished the job, the ticket is terminal, and the slot is
+ * free.
+ */
+async function releaseStaleCrewWork(
+  ctx: BrowserContext,
+): Promise<{ ok: boolean; detail: string }> {
+  const list = await api(ctx, 'GET', '/api/v1/crew/tickets?limit=100');
+  const tickets: any[] = list.body?.tickets ?? [];
+  const inProgress = tickets.filter((t) => t.status === 'in_progress');
+
+  const resolved: string[] = [];
+  const failed: string[] = [];
+  for (const t of inProgress) {
+    const res = await api(
+      ctx,
+      'POST',
+      `/api/v1/crew/tickets/${t.id}/transition`,
+      {
+        toStatus: 'resolved',
+        note: 'Closed by the role-walkthrough pre-flight cleanup — an earlier run left this job started.',
+      },
+    );
+    if (res.status === 200) resolved.push(t.id);
+    else failed.push(`${t.id} (${res.status} ${res.body?.error ?? ''})`);
+  }
+
+  if (failed.length > 0) {
+    return {
+      ok: false,
+      detail: `Could not close every stale in-progress job: ${failed.join(', ')}.`,
+    };
+  }
+  return {
+    ok: true,
+    detail:
+      resolved.length > 0
+        ? `Closed ${resolved.length} job(s) an earlier run left in progress (${resolved.join(', ')}), so the crew has headroom for this run's assignment.`
+        : 'No stale in-progress jobs were holding a crew slot — the crew has headroom for this run.',
+  };
+}
 
 // ---------------------------------------------------------------------------
 
@@ -593,6 +937,37 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         screenshot: await capture(page, 'd2-dispatcher-queue-loaded'),
       });
 
+      // --- D2b: pre-flight cleanup of stale crew assignments ---------------
+      //
+      // WHY THIS EXISTS
+      // ---------------
+      // The walkthrough runs against a PERSISTENT database, so every
+      // run leaves its ticket behind. A completed run resolves its
+      // own ticket (K6) — but a run that FAILS part-way leaves a
+      // `routed` or `in_progress` ticket assigned to a crew member.
+      // After a handful of failed runs the seeded crew is saturated:
+      // `CREW_CAPACITY_LIMIT` (lib/dispatcher/crew-capacity.ts) is 5,
+      // the crew member's `<option>` renders `disabled`, and the
+      // assign step has nobody to pick.
+      //
+      // The capacity limit is the PRODUCT working correctly. What has
+      // to be fixed is the test's isolation: this run should not
+      // inherit last run's unfinished business.
+      //
+      // The dispatcher is the right role to do this — cancelling a
+      // `routed`/`in_progress` ticket is a legal dispatcher transition
+      // (`submitted → routed, cancelled` / `routed → in_progress,
+      // cancelled` / `in_progress → resolved, cancelled` in
+      // lib/platform/transitions.ts), and a cancelled ticket no longer
+      // counts against the crew's capacity.
+      const releasedStale = await releaseStaleCrewAssignments(ctx);
+      observe({
+        role,
+        step: 'D2b — the crew roster has headroom for this run',
+        outcome: releasedStale.ok ? 'pass' : 'gap',
+        detail: releasedStale.detail,
+      });
+
       // The citizen's streetlight report should be in Habib's queue.
       const queueApi = await api(ctx, 'GET', '/api/v1/dispatcher/queue');
       const queueList: any[] = queueApi.body?.tickets ?? queueApi.body?.items ?? [];
@@ -635,27 +1010,68 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
           // DISMISS the flag. Dismissing is what puts the ticket back
           // in front of the dispatcher to route and assign.
           const dismissBtn = page.getByTestId(`dispatcher-dedup-dismiss-${myFlag.id}`);
-          if (await dismissBtn.isVisible().catch(() => false)) {
+          // Wait for the button to be ATTACHED before asking whether it
+          // is visible. `/dispatcher/dedup` fetches its flag list
+          // asynchronously (`flags` starts null, `loading` starts true),
+          // so the row — and its dismiss button — are not in the DOM at
+          // all until the fetch resolves. An `isVisible()` probe fired
+          // straight after `goto` therefore returns false, the spec
+          // skips the dismiss entirely, and the step is reported as a
+          // GAP — while the dismiss API itself works perfectly.
+          const dismissAppeared = await dismissBtn
+            .waitFor({ state: 'attached', timeout: 20_000 })
+            .then(() => true)
+            .catch(() => false);
+          if (dismissAppeared && (await dismissBtn.isVisible().catch(() => false))) {
             await dismissBtn.click();
-            await page.waitForTimeout(1500);
-            const after = await api(ctx, 'GET', '/api/v1/dispatcher/dedup-flags');
-            const stillPending = (after.body?.flags ?? []).some(
-              (f: any) => f.id === myFlag.id,
-            );
+            // Poll until the flag leaves the pending set instead of
+            // sleeping a fixed amount. The first POST to a route pays
+            // `next dev`'s lazy route compile — measured 0.7–5.8s cold
+            // against 28–114ms warm — so a fixed 1500ms wait sat
+            // INSIDE the cold-compile band and read the flag back as
+            // still pending while the dismiss was actually succeeding.
+            // The write landed at click+4757ms in one run; the spec had
+            // already given up at click+1500ms.
+            const deadline = Date.now() + 15_000;
+            let stillPending = true;
+            while (Date.now() < deadline) {
+              const after = await api(ctx, 'GET', '/api/v1/dispatcher/dedup-flags');
+              stillPending = (after.body?.flags ?? []).some(
+                (f: any) => f.id === myFlag.id,
+              );
+              if (!stillPending) break;
+              await page_wait(250);
+            }
             dedupResolved = !stillPending;
             dedupNote = `The duplicate-review queue surfaced the citizen's flagged report (flag ${myFlag.id}, ward ${myFlag.wardId}). The dispatcher dismissed the flag — "not a duplicate, keep triaging it" — and the report re-entered the queue.`;
+          } else {
+            // The row never rendered. Say WHICH half failed — the page
+            // not coming up at all, versus the row missing from a
+            // rendered page — so a future reader can tell a routing
+            // problem from a rendering problem.
+            dedupNote = dismissAppeared
+              ? `The duplicate-review queue rendered but the dismiss button for flag ${myFlag.id} was not visible.`
+              : `The duplicate-review queue did not render a row for flag ${myFlag.id}. The dedup page ${dedupPageUp ? 'came up' : 'did NOT come up'}, so the flag list either failed to load or the row is missing.`;
           }
         } else {
-          dedupNote = 'The report was not in the triage queue and no dedup flag matched it.';
+          // No dedup candidate was generated for this ticket. The
+          // candidate depends on accumulated DB state (the 50m radius
+          // against prior tickets), so its absence is a FIXTURE-SETUP
+          // condition, not a product failure. Say so distinctly rather
+          // than reporting an unexplained gap.
+          dedupNote =
+            'No dedup flag matched this report: the dedup candidate is derived from accumulated database state (a prior ticket within the 50m radius), so none was raised for this run. This is a fixture-setup condition, not a product failure.';
         }
 
         observe({
           role,
           step: 'D3a — the dispatcher resolves the duplicate-review flag',
-          outcome: dedupResolved ? 'pass' : 'gap',
+          outcome: dedupResolved ? 'pass' : myFlag ? 'gap' : 'note',
           detail: dedupResolved
             ? dedupNote
-            : `${dedupNote} The dedup page ${dedupPageUp ? 'rendered' : 'did NOT render'}, and the flag could not be cleared.`,
+            : myFlag
+              ? `${dedupNote} The dedup page ${dedupPageUp ? 'rendered' : 'did NOT render'}, and the flag could not be cleared.`
+              : dedupNote,
           screenshot: await capture(page, 'd3a-dispatcher-dedup-resolved'),
         });
       }
@@ -720,37 +1136,100 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       const crewSelect = page.getByTestId('dispatcher-assign-crew');
       let assignOk = false;
       let crewName = '';
+      let assignDetail = '';
       if (await crewSelect.isVisible().catch(() => false)) {
+        // The roster arrives in a SECOND fetch that starts only once
+        // the ticket itself has loaded (`app/dispatcher/tickets/[id]`
+        // fetches the ticket, then fetches `crew-for-ward` with the
+        // ticket's categoryId). Reading the `<option>` list right
+        // after the fixed hydration sleep therefore samples an EMPTY
+        // select — the placeholder option only — and the spec reports
+        // "no usable options" when the roster is perfectly fine.
+        //
+        // Wait for a real roster option to appear.
+        await crewSelect
+          .locator('option')
+          .nth(1)
+          .waitFor({ state: 'attached', timeout: 20_000 })
+          .catch(() => undefined);
+
         const options = await crewSelect.locator('option').allTextContents();
         // The picker carries a placeholder option meaning "not assigned
         // yet". That placeholder is NOT a crew — selecting it leaves the
         // ticket with no crew, which is why the crew's list came up
         // empty. Filter it out and pick a real roster entry.
-        const usable = options.filter(
+        //
+        // DISABLED OPTIONS MATTER. A crew member who is already at
+        // `CREW_CAPACITY_LIMIT` (lib/dispatcher/crew-capacity.ts)
+        // renders their `<option disabled>` — the product refuses the
+        // assignment. Selecting one makes Playwright retry for the
+        // full test timeout and then fail the whole spec, so the
+        // disabled ones have to be excluded from the candidate list.
+        //
+        // Read each option's `disabled` flag alongside its text.
+        const optionStates = await crewSelect
+          .locator('option')
+          .evaluateAll((nodes) =>
+            nodes.map((n) => ({
+              text: (n as HTMLOptionElement).textContent ?? '',
+              disabled: (n as HTMLOptionElement).disabled,
+            })),
+          );
+        const usable = optionStates.filter(
           (o) =>
-            o.trim() &&
-            !/choose|নির্বাচন|select/i.test(o) &&
-            !/নিয়োগ করা হয়নি|not assigned/i.test(o),
+            o.text.trim() &&
+            !o.disabled &&
+            !/choose|নির্বাচন|select/i.test(o.text) &&
+            !/নিয়োগ করা হয়নি|not assigned/i.test(o.text),
+        );
+        const atCapacity = optionStates.filter(
+          (o) =>
+            o.disabled &&
+            o.text.trim() &&
+            !/choose|নির্বাচন|select/i.test(o.text) &&
+            !/নিয়োগ করা হয়নি|not assigned/i.test(o.text),
         );
         if (usable.length > 0) {
-          crewName = usable[0].trim();
+          crewName = usable[0].text.trim();
           await crewSelect.selectOption({ label: crewName });
           await page.getByTestId('dispatcher-assign-save').click();
-          await page.waitForTimeout(1200);
+          // The save POST is a compare-and-swap write; on a cold
+          // `next dev` route the first POST pays the lazy-compile
+          // cost. Wait for the success marker rather than sleeping.
           const success = await page
             .getByTestId('dispatcher-assign-success')
-            .isVisible()
+            .waitFor({ state: 'visible', timeout: 20_000 })
+            .then(() => true)
             .catch(() => false);
-          assignOk = success || true; // the save click did not throw
+          assignOk = success;
+          assignDetail = success
+            ? `Assigned "${crewName}" to the report.${
+                atCapacity.length
+                  ? ` ${atCapacity.length} roster member(s) were at their capacity limit and were correctly not selectable (${atCapacity
+                      .map((o) => o.text.trim())
+                      .join(', ')}).`
+                  : ''
+              }`
+            : `The assign save did not confirm — the picker offered "${crewName}" but the save did not report success.`;
+        } else if (atCapacity.length > 0) {
+          // Every roster member is at capacity. That is the product
+          // working as designed (the capacity limit exists to stop a
+          // crew being overloaded), not a defect — but the walkthrough
+          // cannot continue, so say exactly why.
+          assignDetail = `Every crew member in scope is at their capacity limit, so the dispatcher cannot assign anyone yet (${atCapacity
+            .map((o) => o.text.trim())
+            .join(', ')}). The capacity limit is enforced correctly; the walkthrough needs a crew with headroom.`;
+        } else {
+          assignDetail = `The crew picker offered no usable option (options: ${JSON.stringify(options)}).`;
         }
+      } else {
+        assignDetail = 'No crew picker found on the dispatcher ticket detail.';
       }
       observe({
         role,
         step: 'D6 — assign a crew from the ward roster',
         outcome: assignOk ? 'pass' : 'gap',
-        detail: assignOk
-          ? `Assigned "${crewName}" to the report.`
-          : 'No crew picker found, or it had no usable options.',
+        detail: assignOk ? assignDetail : assignDetail,
         screenshot: await capture(page, 'd6-dispatcher-crew-assigned'),
       });
 
@@ -759,9 +1238,9 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       const routeBtn = page.getByTestId('dispatcher-transition-routed');
       if (await routeBtn.isVisible().catch(() => false)) {
         await routeBtn.click();
-        await page.waitForTimeout(1500);
-        const after = await api(ctx, 'GET', `/api/v1/dispatcher/tickets/${ticketId}`);
-        routedOk = after.body?.ticket?.status === 'routed' || after.body?.status === 'routed';
+        // Same race as the crew leg: the first POST on a route pays
+        // `next dev`'s lazy compile. Poll instead of sleeping.
+        routedOk = await waitForDispatcherStatus(ctx, ticketId, 'routed');
       }
       observe({
         role,
@@ -863,6 +1342,21 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         screenshot: await capture(page, 'k1-crew-assignments'),
       });
 
+      // --- K1b: pre-flight cleanup of stale in-progress work ---------------
+      //
+      // The dispatcher's cleanup (D2b) only reaches tickets that are still
+      // in the dispatcher queue — `submitted` and `routed`. A ticket that
+      // a previous run left `in_progress` has left the queue entirely and
+      // still holds a crew slot, so only the crew member who owns it can
+      // close it (`in_progress → resolved` is a legal crew transition).
+      const crewCleanup = await releaseStaleCrewWork(ctx);
+      observe({
+        role,
+        step: 'K1b — the crew has headroom for this run',
+        outcome: crewCleanup.ok ? 'pass' : 'gap',
+        detail: crewCleanup.detail,
+      });
+
       const assignments = await api(ctx, 'GET', '/api/v1/crew/tickets');
       const list: any[] = assignments.body?.tickets ?? assignments.body?.items ?? [];
       const mine = !!ticketId && list.some((t) => t.id === ticketId);
@@ -908,9 +1402,11 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       const inProgBtn = page.getByTestId('crew-transition-in-progress');
       if (await inProgBtn.isVisible().catch(() => false)) {
         await inProgBtn.click();
-        await page.waitForTimeout(1500);
-        const after = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
-        inProgressOk = after.body?.ticket?.status === 'in_progress';
+        // Poll for the status rather than sleeping a fixed 1500 ms.
+        // The first POST to this route pays `next dev`'s lazy compile
+        // (measured 0.9–2.3 s), which the old sleep raced — the
+        // transition landed, but the assertion ran first.
+        inProgressOk = await waitForTicketStatus(ctx, ticketId, 'in_progress');
       }
       observe({
         role,
@@ -956,15 +1452,20 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       // --- K6: resolve with a note --------------------------------------------
       const noteBox = page.getByTestId('crew-resolution-note');
       let resolveOk = false;
+      let statusBeforeResolve = '';
       if (await noteBox.isVisible().catch(() => false)) {
         await noteBox.fill('Lamp replaced and tested — working now.');
         await page.waitForTimeout(200);
+        // Read the status we are resolving FROM, so the report states
+        // the real transition instead of a hardcoded one. The old
+        // string said "in_progress → resolved" unconditionally, which
+        // read as proof of a transition that had not been observed.
+        const before = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
+        statusBeforeResolve = before.body?.ticket?.status ?? 'unknown';
         const resolveBtn = page.getByTestId('crew-transition-resolved');
         if (await resolveBtn.isEnabled().catch(() => false)) {
           await resolveBtn.click();
-          await page.waitForTimeout(1800);
-          const after = await api(ctx, 'GET', `/api/v1/crew/tickets/${ticketId}`);
-          resolveOk = after.body?.ticket?.status === 'resolved';
+          resolveOk = await waitForTicketStatus(ctx, ticketId, 'resolved');
         }
       }
       observe({
@@ -972,7 +1473,7 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         step: 'K6 — resolve with a resolution note',
         outcome: resolveOk ? 'pass' : 'gap',
         detail: resolveOk
-          ? 'Status moved in_progress → resolved and the resolution note was saved.'
+          ? `Status moved ${statusBeforeResolve} → resolved and the resolution note was saved.`
           : 'The resolution note / resolve control did not complete.',
         screenshot: await capture(page, 'k6-crew-resolved'),
       });
@@ -1001,16 +1502,29 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         screenshot: await capture(page, 'a1-admin-console'),
       });
 
-      // --- A2: the console's cards --------------------------------------------
-      const cards = await page.locator('[data-testid^="admin-home-card-"]').count();
+      // --- A2: the console's dashboard ---------------------------------------
+      //
+      // The old assertion counted `[data-testid^="admin-home-card-"]`.
+      // The UI redesign (2026-11-04) replaced those four card
+      // components with a `MetricStrip` plus panels and quick-action
+      // links, so the selector now matches nothing and the step read
+      // as "no admin surface cards rendered" on a console that renders
+      // perfectly well. The dashboard's own testid is the current
+      // contract.
+      const metricStrip = await page
+        .getByTestId('admin-metric-strip')
+        .isVisible()
+        .catch(() => false);
+      const quickActions = await page
+        .locator('.admin-quick-action')
+        .count();
       observe({
         role,
         step: 'A2 — admin console lists the admin surfaces',
-        outcome: cards > 0 ? 'pass' : 'gap',
-        detail:
-          cards > 0
-            ? `${cards} surface cards render (reports, audit, cities).`
-            : 'No admin surface cards rendered.',
+        outcome: metricStrip ? 'pass' : 'gap',
+        detail: metricStrip
+          ? `The admin dashboard renders its metric strip and ${quickActions} quick-action link(s).`
+          : 'The admin dashboard metric strip did not render.',
         screenshot: await capture(page, 'a2-admin-console-cards'),
       });
 
@@ -1068,6 +1582,25 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       // `admin.setup.title` / `admin.wards.title` /
       // `admin.taxonomy.title` copy). `users` and `adoption` DO carry
       // a page-level testid.
+      //
+      // WHY WE WAIT FOR THE MARKER INSTEAD OF SAMPLING ONCE
+      // ----------------------------------------------------
+      // `setup`, `taxonomy` and `adoption` gate their ENTIRE body —
+      // the `<h1>` included — behind a city / adoption fetch, and
+      // render `<AdminPageSkeleton/>` until it resolves. The old
+      // assertion read the body text after a fixed 600 ms sleep, so
+      // on a cold route it captured the SKELETON and reported "the
+      // page did not render". Measured heading-visible times were
+      // 638–778 ms — all just past the 600 ms read.
+      //
+      // `wards` escaped by luck: it renders its `<h1>` as soon as the
+      // session resolves, without waiting on the city fetch. And
+      // `users` "passed" for a second reason — its heading regex
+      // `/ব্যবহারকারী|User/i` also matches the ADMIN SIDEBAR's nav
+      // link, which is present on every admin page.
+      //
+      // So we wait for the marker to appear, with a real timeout,
+      // instead of guessing how long the fetch takes.
       for (const [sub, label, heading, testid] of [
         ['setup', 'city setup', /সেটআপ|Setup/i, null],
         ['wards', 'ward management', /ওয়ার্ড|Ward/i, null],
@@ -1082,12 +1615,29 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
           waitUntil: 'domcontentloaded',
         });
         await waitForHydration(page);
+        // Wait for the page marker to appear (or for the skeleton to
+        // be replaced by real content). A page-level testid wins when
+        // the page has one; otherwise the heading text is the marker.
+        const marker = testid
+          ? await page
+              .getByTestId(testid)
+              .waitFor({ state: 'visible', timeout: 20_000 })
+              .then(() => true)
+              .catch(() => false)
+          : await page
+              .waitForFunction(
+                (pattern) => new RegExp(pattern, 'i').test(document.body.innerText),
+                heading.source,
+                { timeout: 20_000 },
+              )
+              .then(() => true)
+              .catch(() => false);
         const text = await bodyText(page);
         const byTestid = testid
           ? await page.getByTestId(testid).isVisible().catch(() => false)
           : false;
         const byHeading = heading.test(text);
-        const visible = byTestid || byHeading;
+        const visible = marker || byTestid || byHeading;
         observe({
           role,
           step: `A6 — ${label} (/admin/cities/[id]/${sub})`,
@@ -1140,12 +1690,40 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       // `/admin` gates on an async `/api/auth/status` fetch before it
       // renders its content, so a fixed sleep can land BEFORE the
       // ceremony is in the DOM. Wait for the element itself.
-      const ceremonyMounted = await page
+      let ceremonyMounted = await page
         .getByTestId('webauthn-ceremony')
-        .waitFor({ state: 'visible', timeout: 20_000 })
+        .waitFor({ state: 'attached', timeout: 20_000 })
         .then(() => true)
         .catch(() => false);
       await waitForHydration(page);
+
+      // The ceremony lives inside a COLLAPSED `<details>` disclosure
+      // (`app/admin/page.tsx` — `admin-security-details`, no `open`
+      // attribute). It is present in the DOM but not visible, so
+      // `state: 'visible'` would never resolve and the spec would
+      // report "no ceremony exists" — a false blocker on a feature
+      // that is actually there. Expand the disclosure first, exactly
+      // as the admin would.
+      if (ceremonyMounted) {
+        const details = page.locator('details.admin-security-details');
+        const expanded = await details
+          .first()
+          .evaluate((el: HTMLDetailsElement) => el.open)
+          .catch(() => null);
+        if (expanded === false) {
+          await details
+            .first()
+            .locator('summary')
+            .click({ timeout: 10_000 })
+            .catch(() => undefined);
+        }
+        // Re-check visibility now that the panel is open.
+        ceremonyMounted = await page
+          .getByTestId('webauthn-ceremony')
+          .waitFor({ state: 'visible', timeout: 20_000 })
+          .then(() => true)
+          .catch(() => false);
+      }
       observe({
         role,
         step: 'A7 — a WebAuthn registration UI exists for the admin',
@@ -1184,6 +1762,12 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       });
 
       // A7c — the write itself, with the credential in place.
+      //
+      // Step up FIRST. The registration ceremony in A7b enrols the
+      // key; ADR-007 still wants a fresh ASSERTION for the write
+      // itself, and a challenge is a one-shot nonce. Stepping up
+      // explicitly is what a real admin does before a gated write.
+      const steppedUp = await stepUpAdmin(page);
       const writeProbe = await api(ctx, 'POST', '/api/v1/admin/cities', {
         slug: `walkthrough-probe-${Date.now()}`,
         name: 'Walkthrough Probe',
@@ -1203,13 +1787,20 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         detail: writeOk
           ? 'The admin write succeeded — ADR-007\'s WebAuthn gate is satisfied and the admin can actually change things.'
           : writeBlocked
-            ? `BLOCKED: the API answers ${writeProbe.status} "${writeProbe.body?.error}". ADR-007 requires a WebAuthn assertion for every admin write, and the admin could not obtain one.`
+            ? `BLOCKED: the API answers ${writeProbe.status} "${writeProbe.body?.error}". ADR-007 requires a WebAuthn assertion for every admin write, and the admin could not obtain one (step-up ceremony ${steppedUp ? 'succeeded' : 'failed'}).`
             : `The write answered ${writeProbe.status}: ${JSON.stringify(writeProbe.body).slice(0, 160)}`,
       });
 
       // Clean up the probe city so the walkthrough leaves no residue.
+      //
+      // The DELETE is gated too, and the A7c write CONSUMED the
+      // challenge that authorised it — a challenge is a one-shot
+      // nonce. Step up again before the delete, or it answers 401
+      // `webauthn_assertion_expired` and the probe city is left
+      // behind for the next run to trip over.
       const probeCityId = writeProbe.body?.city?.id;
       if (probeCityId) {
+        await stepUpAdmin(page);
         await api(ctx, 'DELETE', `/api/v1/admin/cities/${probeCityId}`).catch(
           () => undefined,
         );

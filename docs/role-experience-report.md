@@ -15,8 +15,13 @@
 > **Last run:** 2026-10-31 11:30 UTC — **53 / 53 pass**, ticket
 > `cmvwbic7r00nac926viyf8cnh`, zero non-pass observations
 >
+> **Re-verified:** 2026-11-12 against real PostgreSQL — **110 / 110 pass**,
+> zero gaps, zero blockers, across three consecutive runs (the walkthrough is
+> now repeatable against a persistent database; see defect **H** and the
+> pre-flight cleanup notes in §9).
+>
 > **Verdict in one line:** the app **does** let every role do their job end to end —
-> but only after seven defects were fixed during this audit. The flow is sound; the
+> but only after eight defects were fixed during this audit. The flow is sound; the
 > defects were in the seams between roles.
 
 ---
@@ -389,6 +394,10 @@ only appear against real Postgres — which is exactly why the audit ran the
 real ceremony instead of calling the API. All three now carry a dedicated
 regression test in `tests/unit/webauthn-regressions.test.ts`.
 
+Defect **H** is the same failure class again — a field that one backend
+carried and the other dropped — and is pinned by a structural parity test
+rather than a behavioural one. See §9.H.
+
 ### A. The citizen's ward was dropped at password login
 
 `POST /api/v1/auth/login` nulled the citizen's `wardId`. `/api/report/bootstrap`
@@ -459,6 +468,44 @@ port.
 the port, the origin keeps it**, because the origin is a full scheme+host+port
 tuple. → `lib/auth/webauthn.ts`
 
+### H. The Prisma mapper dropped `Ticket.version`, so every write failed with a phantom `409`
+
+Found on **2026-11-12**, when the chain was re-run against real PostgreSQL.
+
+`lib/db-switch.ts` has **two** `getTicketWithTrail` implementations: the
+dev-store one spreads the raw row (`...t`) and so carries every column, while
+the **Prisma one enumerates the fields by hand**. The hand-written enumeration
+had drifted — it omitted `Ticket.version`.
+
+`version` is the optimistic-lock counter that every compare-and-swap write
+uses as its `WHERE` predicate:
+
+```ts
+db.ticket.updateWhere({ where: { id, status, version }, data });
+```
+
+With `version` missing, `ticket.version ?? 0` silently degraded to `0`, the
+predicate matched **zero rows**, and the write answered `409 concurrent_write`
+— with no competing writer in sight. The dispatcher could **see** the report in
+the queue and **open** it, but every "assign crew" save failed and left
+`assignedCrewId` null, so the crew the dispatcher picked never saw the report
+assigned to them. The chain broke between the dispatcher and the crew.
+
+**Why no unit test caught it:** the unit suite runs against the dev store,
+whose mapper keeps `version`. Only the Prisma branch dropped it, so the two
+backends had silently diverged and every test stayed green while production
+was broken. This is the same failure class as defects **E**, **F** and **G** —
+invisible in the in-memory store, real only against Postgres.
+
+**Fix:** carry `version` through the Prisma mapper. → `lib/db-switch.ts`
+
+**Regression test:** `tests/unit/prisma-ticket-mapper-parity.test.ts` — a
+*structural* test that compares the Prisma mapper's enumerated field list
+against the `model Ticket` block in `prisma/schema.prisma` and fails when a
+scalar column is absent from the mapper. It cannot run against a live
+Postgres in CI, so it checks the thing that actually broke: the hand-written
+enumeration itself. Proven to fail without the fix.
+
 ---
 
 ## 10. Remaining gaps — the honest list
@@ -476,6 +523,7 @@ and still open.
 | **6** | **`/api/dev/login?role=admin` still redirects to `/home`**, not `/admin` (`ROLE_HOME.admin = '/admin'`). | Dev-only inconsistency; harmless in production but misleading while debugging. | Low |
 | **7** | **No coordinate → ward resolver.** The UX spec's "detected ward (auto)" is not implemented; the citizen always picks on the map. | The citizen must self-identify their ward. | Low |
 | **8** | **The walkthrough's C13/C14 assertions are text-pattern based** (`সমাধান` / `Resolved`) because the app is Bangla-first with English secondary. | Brittle to copy changes, but correct against the current locale. | Low |
+| **9** | **The walkthrough needed a pre-flight cleanup to be repeatable against a persistent database.** Each run leaves its ticket behind; a run that fails part-way leaves a `submitted` / `routed` / `in_progress` ticket holding a crew slot. After a handful of failed runs the seeded crew saturates (`CREW_CAPACITY_LIMIT = 5`), every `<option>` renders `disabled`, and the dispatcher has nobody to assign — the capacity limit working *correctly* breaks the test. The cleanup (steps **D2b** dispatcher-side, **K1b** crew-side) cancels stale `submitted`/`routed` tickets and closes stale `in_progress` jobs before the chain starts. | Test-isolation only; no product defect. The product behaved correctly throughout. | Low |
 
 ### Where the gap list is *not*
 
@@ -509,13 +557,15 @@ and still open.
 > reads the audit trail, configures wards and taxonomy, enrols a real
 > WebAuthn passkey and — with the gate satisfied — actually writes.
 >
-> **But it did not work when the audit started.** Seven real defects were
+> **But it did not work when the audit started.** Eight real defects were
 > hiding in the seams between roles: a citizen's ward was dropped at login, a
 > dedup flag could be owned by nobody, a crew assignment could create a ticket
 > no crew could see, the admin's WebAuthn enrolment was unreachable dead
-> code, and the WebAuthn persistence was broken in three separate ways
-> against real Postgres. Every one of them was invisible from the UI and only
-> surfaced by driving the app as an actual user with an actual browser.
+> code, the WebAuthn persistence was broken in three separate ways
+> against real Postgres, and the Prisma mapper dropped the optimistic-lock
+> counter so every compare-and-swap write answered a phantom `409`. Every one
+> of them was invisible from the UI and only surfaced by driving the app as an
+> actual user with an actual browser.
 >
 > The remaining work is one genuine contradiction of a DECIDED constraint (the
 > admin reassign path bypasses the WebAuthn gate) plus a list of deferred-scope

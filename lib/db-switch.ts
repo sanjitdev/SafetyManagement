@@ -1082,6 +1082,25 @@ export async function getTicketWithTrail(
     // dev-store and Prisma paths return the same `DevTicketWithTrail`
     // shape. The key is internal — the citizen serializer strips it.
     dedupKey: t.dedupKey ?? null,
+    // Optimistic-lock counter (2026-11-08). Carried through for the
+    // same reason: the dev-store mapper spreads the raw row and so
+    // keeps `version`, while this mapper enumerates fields by hand.
+    //
+    // It MUST be here. Every compare-and-swap write reads the
+    // version off this row and uses it as the predicate:
+    // `db.ticket.updateWhere({ where: { id, version } })`. When this
+    // mapper omitted it, `ticket.version ?? 0` silently degraded to
+    // `0` and every such write against real Postgres matched zero
+    // rows and answered `409 concurrent_write` — even with no
+    // competing writer in sight. The dev store kept the field, so
+    // the unit suite (which runs against the dev store) stayed green
+    // while production was broken.
+    //
+    // The symptom was a dispatcher who could SEE a report in the
+    // queue and open it, but whose "assign crew" save failed and
+    // left `assignedCrewId` null — so the crew the dispatcher picked
+    // never saw the report assigned to them.
+    version: t.version,
     // Prisma returns Date objects; DevTicketWithTrail stores
     // ISO strings. The serializer (lib/serializers/ticket.ts)
     // already handles both shapes, so this is a type-only
