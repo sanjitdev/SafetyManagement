@@ -54,8 +54,20 @@ describe('the design artifacts reference only defined tokens', () => {
     ).toEqual([]);
   });
 
-  it('every mockup references only defined tokens', () => {
-    const files = readdirSync(MOCKUP_DIR).filter((file) => file.endsWith('.html'));
+  it('every mockup and mockup stylesheet references only defined tokens', () => {
+    // The shared surface stylesheets (`citizen-surfaces.css`,
+    // `dispatcher-surfaces.css`) are part of the mockup chrome — the
+    // mockups link them and every rule they hold lands on screen. A
+    // `var(--token)` typo in one of them resolves to NOTHING and the
+    // declaration it belonged to is silently dropped, exactly as the
+    // `--color-primary-on` rename did in Wave 1.1. So the stylesheets
+    // are scanned alongside the HTML.
+    //
+    // `tokens.css` itself lives one directory up and is the SOURCE of
+    // truth, so it is deliberately not in this directory.
+    const files = readdirSync(MOCKUP_DIR).filter(
+      (file) => file.endsWith('.html') || file.endsWith('.css'),
+    );
     expect(files.length).toBeGreaterThan(0);
 
     const failures: string[] = [];

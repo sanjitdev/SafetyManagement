@@ -6204,3 +6204,22 @@ All 18 PNGs for mockups `13`–`16` and `17`–`21` are now committed. The
 committed set is **43 viewport combinations** — 21 mockups at large, 20
 at medium, 2 at the 390 × 844 phone fallback — every one of them
 produced by the platform that asserts on them.
+
+**The route-spec baselines are a separate family, and they are stale.**
+The `regenerate-baselines.yml` workflow covers two families: the static
+mockup PNGs under `01-mockups.spec.ts/`, and the per-WO route-spec PNGs
+that drive the *real app* through a live dev server. Running with
+`scope=mockups` regenerates the first and skips the second. The route-spec
+set was last refreshed at `ebdba41`, and **42 commits** have landed since
+— including Waves 2 and 3, which re-composed the auth, public and citizen
+surfaces. Those baselines therefore assert against screens that no longer
+exist, and the route-spec step fails on CI.
+
+The delta is measurable rather than asserted. The same 14 route-spec
+failures appear on the pre-Wave-4 commit `2dea1e0`; the Wave 4 commit
+range `70bc91e..154543c` touches **no app code at all** — the only file
+it changes under `app/`, `lib/`, `components/` or `tests/` is
+`tests/01-mockups.spec.ts`, and the mockup visual-regression step is
+**green**. The newly-failing specs are all citizen/auth/admin surfaces
+Wave 4 never touched. The fix is to refresh the route-spec family on CI
+(`scope=route-specs`), not to change product code.

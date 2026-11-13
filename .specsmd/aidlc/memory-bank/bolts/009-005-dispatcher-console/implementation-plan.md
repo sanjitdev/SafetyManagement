@@ -71,7 +71,55 @@ The wave must land four things that **do not exist today**:
 
 **Filters are applied server-side and echoed back.** Today the queue reads `?q=` and never writes it back, and there is no ward or status filter at all. The wave adds ward + status filters that are sent as query parameters to the existing list endpoint, and the selected values are read back from the URL so a shared link reproduces the same filtered queue. `?q=` keeps working — the existing search box is not removed, it is finally wired.
 
+> **CORRECTION — this paragraph was wrong when written, and the Stage 2
+> reconnaissance proved it.** `app/api/v1/dispatcher/queue/route.ts` does
+> **not** accept a `ward` query parameter. Its `QuerySchema`
+> (route.ts:42-50) carries `status`, `limit` and `cityId` only, and
+> Zod's default object parsing **strips unknown keys**, so a `ward=`
+> sent today is silently discarded rather than rejected. Ward scoping
+> is hard-bound to the session at route.ts:128
+> (`if (session!.wardId && t.wardId !== session!.wardId) return false`).
+>
+> The plan's claim that "the wave adds ward + status filters that are
+> sent as query parameters to the existing list endpoint" is therefore
+> **not implementable as written**. Two options, and the choice is the
+> human's:
+>
+> - **(a) Add `ward` to the existing endpoint's `QuerySchema` plus a
+>   filter clause**, still intersected with the session's ward so the
+>   authorisation boundary is untouched. The plan's "presentation-layer
+>   only / API surface unchanged" constraint is broken by one additive,
+>   optional query parameter.
+> - **(b) Filter ward client-side** against the already-fetched page
+>   of tickets. No API change at all, but the ward list is derived from
+>   the fetched page, so a ward with no ticket *in the fetched page*
+>   cannot appear in the filter rail.
+>
+> `status` needs no such decision — the endpoint already accepts
+> `status` as a single-value `submitted | routed` enum, and omitting
+> it returns both.
+>
+> Note also that the queue's `status` enum is `submitted | routed`
+> only — it does **not** include `in_progress`. The mockups' status
+> filter rail lists four states. The extra states must come from a
+> second source, not from this endpoint.
+
 **The SLA countdown chip is new.** It reads the ticket's submitted timestamp and the seeded `SlaPolicy` target for its category, and shows the **remaining** time against that target — not the elapsed time, not a static "48h" label. It turns tone-coded (success / warning / danger) as the remaining time crosses the policy thresholds. The chip is a `components/ui/` primitive because the same chip appears in the triage list row, the ticket detail header and the monitor board.
+
+> **CORRECTION — the SLA target has no read path today.** The
+> `SlaPolicy` model exists in `prisma/schema.prisma` (lines 139-158)
+> with `resolveHours` per category, and `prisma/seed.ts` (lines
+> 162-168) upserts five policies for Dhaka — but **no application code
+> reads them**, and the seed's own comment says so. There is no
+> existing field on the serialized ticket carrying the target, and no
+> endpoint that returns it. The chip therefore cannot be built purely
+> from data the API already returns; the wave must add a read path
+> (a field on the dispatcher-serialized ticket, or a lookup endpoint).
+> This is the same class of change as the `ward` decision above, and
+> it is the one place where the wave is **not** presentation-layer
+> only. The alternative — hard-coding the five target hours in the
+> component — would duplicate the seed and break the moment the seed
+> changes, which is why it is not an option.
 
 **The crew picker is a new searchable combobox.** A raw `<select>` cannot be searched, and a dispatcher's crew list is long enough that scrolling a native select is the wrong interaction. The combobox is an ARIA `combobox` with `aria-expanded`, `aria-controls`, `aria-activedescendant`, keyboard navigation (arrow keys, Enter, Escape), and a filtered list of crews. It replaces the `<select>` on the ticket detail page.
 
