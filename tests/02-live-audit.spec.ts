@@ -127,6 +127,54 @@ test.describe('Welcome — primary CTA contrast', () => {
   });
 });
 
+test.describe('Auth story panel — contrast', () => {
+  /**
+   * The login/register story panel is a DARK surface in every theme.
+   *
+   * It used to paint `--color-surface-inverse`, which flips with the
+   * theme: in dark mode it resolves to #F7FAFC (near-white) while the
+   * panel's copy stays `--color-ink-on-dark` #F9FAFB — a ~1.02:1 pair,
+   * i.e. the whole panel is invisible. It only looked correct in light
+   * mode, which is not the default. The panel now uses `--color-rail`,
+   * which is dark in both themes.
+   *
+   * This asserts the panel's own ink/background pair, so a future
+   * "tidy-up" back to surface-inverse fails here instead of shipping.
+   */
+  const PANELS = [
+    { name: 'login', url: '/login', selector: '.login-story' },
+    { name: 'register', url: '/register', selector: '.register-story' },
+  ] as const;
+
+  for (const panel of PANELS) {
+    for (const theme of ['dark', 'light'] as const) {
+      test(`${panel.name} story panel is legible in ${theme} mode`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await setAppearance(page, theme);
+        await page.goto(BASE + panel.url);
+        await expect(page.locator(panel.selector)).toBeVisible();
+
+        const ratio = await page.locator(panel.selector).evaluate((el) => {
+          const parse = (c: string): number[] => (c.match(/\d+/g) ?? []).map(Number);
+          const luminance = (c: string): number => {
+            const [r = 0, g = 0, b = 0] = parse(c).map((v) => {
+              const s = v / 255;
+              return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          };
+          const s = getComputedStyle(el);
+          const bg = luminance(s.backgroundColor);
+          const fg = luminance(s.color);
+          return (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05);
+        });
+
+        expect(ratio).toBeGreaterThan(4.5);
+      });
+    }
+  }
+});
+
 test.describe('Theme toggle', () => {
   /**
    * The theme control is a single 36x36 sun/moon icon button in the

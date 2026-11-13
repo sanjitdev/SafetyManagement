@@ -791,7 +791,10 @@ function RegisterInner() {
             .register-story {
               position: relative;
               overflow: hidden;
-              background: var(--color-surface-inverse);
+              /* Dark in every theme — see the note in app/login/page.tsx.
+               * --color-surface-inverse flips to near-white in dark mode
+               * and would leave the panel's on-dark copy invisible. */
+              background: var(--color-rail);
               color: var(--color-ink-on-dark);
               padding: var(--space-8);
               display: flex;
