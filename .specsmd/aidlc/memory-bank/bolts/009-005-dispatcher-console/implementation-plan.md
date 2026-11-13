@@ -104,6 +104,106 @@ The wave must land four things that **do not exist today**:
 > filter rail lists four states. The extra states must come from a
 > second source, not from this endpoint.
 
+> **SECOND CORRECTION — the `ward` gap and the `status` gap are
+> different in kind, and the difference was verified rather than
+> assumed.** Zod's two failure modes were checked directly against the
+> repo's own `zod`:
+>
+> ```
+> status=in_progress -> REJECTED (400 invalid_query)
+> ward=ward_14       -> {"limit":50}   (unknown key silently stripped)
+> ```
+>
+> An **unknown key** is stripped, so `ward=` today is ignored in
+> silence. An **enum violation** is rejected, so `status=in_progress`
+> today is a hard `400 invalid_query`, not a silent no-op. A client that
+> put four states in the filter rail and sent them to this endpoint would
+> get a 400 for the two it does not accept — so the mockup's four-state
+> rail cannot be driven from this endpoint as it stands.
+>
+> The `status` filter is applied at the **database** level
+> (route.ts:90-96, `status: { in: wantedStatuses }`), and
+> `wantedStatuses` defaults to `['submitted','routed']`
+> (route.ts:85). So `in_progress` tickets are never fetched at all —
+> **client-side filtering cannot recover them**, which rules out the
+> option that works for `ward`.
+>
+> The two decisions therefore have different option sets:
+>
+> | Gap | Option A | Option B |
+> |---|---|---|
+> | `ward` | (a) add `ward` to `QuerySchema` + a filter clause, intersected with the session's ward so the authorisation boundary is untouched | (b) filter client-side against the fetched page — works, because ward scoping happens in code at route.ts:128 and every fetched ticket already carries its ward |
+> | `status` | (a) widen the enum to the four states the mockup shows and drop the `status: { in: … }` DB filter for the extra states | (b) keep the endpoint as-is and source the other states from a second endpoint |
+>
+> **Recommendation: option (a) for both.** `ward` is one additive
+> optional query parameter on an endpoint that already filters ward in
+> code; `status` is one enum widened from two members to four, plus
+> moving the status filter from the DB `where` into the existing
+> code-level filter so the extra states are reachable. Both are additive
+> and neither touches the authorisation boundary: the session's ward
+> still wins, because the session filter is applied **after** the
+> requested-ward filter.
+
+> **THIRD CORRECTION — the mockup's ward rail is not reachable, and
+> that changes which option is correct.** The mockup
+> `17-triage-queue.html` lists **four** wards in its ward rail:
+> ওয়ার্ড ১৪ · মিরপুর, ওয়ার্ড ১৩ · কাজীপুর, ওয়ার্ড ১৫ · উত্তরা, ওয়ার্ড ১৬ ·
+> ভর্তিপাড়া. But the dispatcher's session is bound to **one** ward:
+> `lib/dev-store.ts:563` sets the dispatcher persona's `wardId` to
+> `ward_14` (`lib/dev-store.ts:355`), and the queue route hard-filters
+> `if (session!.wardId && t.wardId !== session!.wardId) return false`
+> (route.ts:128). A ward-bound dispatcher therefore **only ever sees
+> ward 14** — three of the mockup's four rail entries would select zero
+> rows, no matter what the API accepts.
+>
+> A `ward` query parameter cannot fix this. It can only narrow *within*
+> the session's ward; it cannot widen it, because widening a ward-bound
+> dispatcher's view is precisely the authorisation boundary. So option
+> (a) for `ward` is **not** the right shape either: it would add a
+> parameter that can only ever return the one ward the caller already
+> has.
+>
+> The **ward rail in the mockup is wrong**, not the API. The three
+> defensible shapes are:
+>
+> - **(a) The rail lists only the session's ward.** One entry, no filter
+>   needed, no API change. But the mockup's rail is a design element —
+>   a single-entry filter is not a filter, and it loses the "scope by
+>   ward" affordance the mockup is demonstrating.
+> - **(b) The rail lists the wards the dispatcher's city actually
+>   contains, and selecting one *narrows* rather than *widens*.** The
+>   selected ward must be intersected with the session's ward, so a
+>   ward-bound dispatcher can select only their own ward; a city-wide
+>   admin sees all of them. This needs the `ward` param (option (a)
+>   above) AND the mockup redrawn with the rail showing what the
+>   signed-in dispatcher can actually reach.
+> - **(c) The rail is a *scope* control, not a filter** — it changes
+>   which dispatcher's queue you are looking at, and it is disabled
+>   (with a visible "your ward only" note) when the session is
+>   ward-bound. No API change; the rail becomes honest about the
+>   boundary.
+>
+> **Recommendation: (b)** — it keeps the design intent (a ward rail is
+> a real affordance the mockup demonstrates), it keeps the
+> authorisation boundary exactly where it is, and it makes the mockup
+> truthful rather than aspirational. It needs the mockup redrawn, and
+> the ward list needs a source: the **dev store seeds only 2 wards**
+> (`ward_14`, `ward_15` — `lib/dev-store.ts:433-458`) while
+> **real Postgres seeds 50** (`prisma/seed.ts:355-377`, `for (let n =
+> 1; n <= 50; n += 1)`). The route spec must therefore read the ward
+> list off the API and assert against **that**, never against a
+> hard-coded ward constant — the same rule the dev-store/Postgres
+> divergence imposes everywhere else in this wave.
+
+> **A fourth, separate gap: the ward list has no read path.** There is
+> no dispatcher-facing endpoint that returns the wards a dispatcher may
+> filter by. `GET /api/v1/admin/cities/<id>/wards` exists but is
+> **admin**-gated, so a dispatcher cannot call it. Option (b) therefore
+> needs a small read path — a dispatcher-scoped ward list, or the ward
+> list folded into the queue response's metadata (the queue already
+> returns `pendingDedupCount` alongside `tickets`, so there is a
+> precedent for a counts/meta block on this response).
+
 **The SLA countdown chip is new.** It reads the ticket's submitted timestamp and the seeded `SlaPolicy` target for its category, and shows the **remaining** time against that target — not the elapsed time, not a static "48h" label. It turns tone-coded (success / warning / danger) as the remaining time crosses the policy thresholds. The chip is a `components/ui/` primitive because the same chip appears in the triage list row, the ticket detail header and the monitor board.
 
 > **CORRECTION — the SLA target has no read path today.** The
