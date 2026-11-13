@@ -6205,7 +6205,7 @@ committed set is **43 viewport combinations** — 21 mockups at large, 20
 at medium, 2 at the 390 × 844 phone fallback — every one of them
 produced by the platform that asserts on them.
 
-**The route-spec baselines are a separate family, and they are stale.**
+**The route-spec baselines are a separate family, and they were stale.**
 The `regenerate-baselines.yml` workflow covers two families: the static
 mockup PNGs under `01-mockups.spec.ts/`, and the per-WO route-spec PNGs
 that drive the *real app* through a live dev server. Running with
@@ -6223,3 +6223,48 @@ it changes under `app/`, `lib/`, `components/` or `tests/` is
 **green**. The newly-failing specs are all citizen/auth/admin surfaces
 Wave 4 never touched. The fix is to refresh the route-spec family on CI
 (`scope=route-specs`), not to change product code.
+
+**The route-spec refresh has now landed — and the first reading of it was
+inverted.** CI run `43381371631` (`scope=route-specs`) regenerated the
+family against HEAD `154543c` and uploaded all 81 PNGs. A diff against the
+committed set showed **20 files differing** and none added or removed.
+
+The refreshed PNGs *looked* older at a glance — English nav, a blue pin
+mark — while the committed ones showed Bangla nav and a newer-looking
+green mark. That first reading was wrong, and the way to settle it was to
+stop eyeballing and ask what the **source** can produce at each commit:
+
+| What differs | Committed baseline | Refreshed baseline | Source that produces it |
+|---|---|---|---|
+| Brand mark | dark ink teardrop + blue arc | civic-blue pin, carved white square eye | `374f01b` (Nov 11) |
+| Brand size | 44 px | 34 px | `9f6ec08` (Nov 11) |
+| Nav / body language | Bangla | English | `a6f2ec0` (Nov 11) |
+| Ticket code | `#d26edaaa` (bare internal id) | `#TIX-Z8UQ` (base-36 public code) | `84a8f58` (Nov 13) |
+| Citizen detail | single "আগের ছবি" section | Wave 3 `Before` / `After` sections | `84a8f58` (Nov 13) |
+
+**Every one of those four source commits post-dates the baseline capture
+at `ebdba41` (Nov 8).** So the refreshed PNGs render *current HEAD* and the
+committed PNGs render the *Nov 8* application. The committed baselines
+were not "newer" — they were **older**, and they asserted screens that had
+been fixed days earlier.
+
+The decisive evidence is the ticket code, because it is derived, not
+stylistic. At `ebdba41`, `lib/format/ticket-id.ts` exported
+`formatTicketId(id)` → `#` + the bare internal id (`#d26edaaa` — exactly
+what the committed PNG shows). The base-36 public code (`#TIX-Z8UQ`) came
+with `84a8f58` in Wave 3. The committed baseline therefore contains a
+string that its own capture-time source **could not have emitted**.
+
+**The 20 refreshed PNGs are committed.** The static mockup family
+(`01-mockups.spec.ts/`) was verified byte-identical between the artifact
+and the repo before the copy, and every **dispatcher** route-spec baseline
+(`10`, `11`, `12`, `13`, `21`) was also byte-identical — so Wave 4's
+dispatcher surfaces are untouched by this refresh, and only the auth,
+home-feed, report, map, admin and citizen surfaces that Waves 2 and 3
+re-composed moved. The whole set now matches the CI artifact exactly.
+
+The lesson worth keeping: a refreshed baseline that *looks* older is not
+evidence of a stale refresh. The baseline asserts a rendered application,
+so the only sound question is **which source state can produce the pixels
+in it** — and the answer here was that the committed pixels were the
+impossible ones.

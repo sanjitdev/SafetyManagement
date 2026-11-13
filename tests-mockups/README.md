@@ -6,10 +6,10 @@ This folder holds the **committed PNG baselines** for CityFix's design mockups. 
 
 | Subfolder | Committed? | Purpose |
 |---|---|---|
-| `baselines/` | **Yes** | PNG baselines captured from the 21 design mockups (43 viewport combinations). |
+| `baselines/` | **Yes** | PNG baselines in two families: the 21 static design mockups (43 viewport combinations) under `01-mockups.spec.ts/`, and the per-WO route-spec PNGs that assert the **real app** under the other spec-file folders. |
 | `artifacts/` | No (.gitignored) | Playwright diff artifacts, HTML report, temp files. |
 
-## The 43 baselines
+## The 43 static-mockup baselines
 
 Captured at the web-first design canvases. Names map to the mockup HTML files in `design-artifacts/D-Design-System/01-Visual-Design/mockups/`.
 
@@ -50,6 +50,23 @@ Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024
 The eighteen PNGs for mockups `13`–`16` (Wave 3, citizen) and `17`–`21` (Wave 4, dispatcher) were captured on `ubuntu-latest` by CI run `43287756140` — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. The workflow regenerated the full set, re-ran the suite as a stability check (the second pass was pixel-clean, so no mockup renders a live clock or an animation), and uploaded the result as the `refreshed-baselines` artifact.
 
 The committed set is now **43 viewport combinations** — 21 mockups at large, 20 at medium, and 2 at the 390 × 844 phone fallback. All 43 were produced by the platform that asserts on them.
+
+### The route-spec baselines are a second family, and they were refreshed too
+
+This folder holds **two** baseline families, and only the first one is the static mockups:
+
+| Family | Location | Asserted by | What it renders |
+|---|---|---|---|
+| Static mockups | `01-mockups.spec.ts/` | `npm run test:mockups` | Pure HTML + CSS from `design-artifacts/` |
+| Route specs | `05-…`, `06-…`, `17-…`, `19-…`, `20-…`, and the rest | `npm test` (Playwright) | The **real app**, through a live dev server |
+
+The route-spec family was last refreshed at `ebdba41` (2026-11-08) and **42 commits** landed after it — including Waves 2 and 3, which re-composed the auth, public and citizen surfaces. Those baselines asserted screens that no longer existed, and the route-spec step failed on CI.
+
+CI run `43381371631` (`scope=route-specs`) regenerated the family against HEAD and uploaded all 81 PNGs. **20 of them changed** — the auth, home-feed, report, map, admin and citizen surfaces that Waves 2 and 3 re-composed. The static mockup family was byte-identical between the artifact and the repo, and so was **every dispatcher route-spec baseline** (`10`, `11`, `12`, `13`, `21`), so Wave 4's dispatcher surfaces were untouched by the refresh.
+
+**A refreshed baseline that *looks* older is not evidence of a stale refresh.** The refreshed route-spec PNGs showed English nav and a blue pin mark, while the committed ones showed Bangla nav and a newer-looking green mark — and the committed ones turned out to be the impossible ones. The decisive evidence was the ticket code: the committed baseline showed `#d26edaaa` (the bare internal id), which is exactly what `lib/format/ticket-id.ts` produced on **2026-11-08**, whereas the base-36 public code `#TIX-Z8UQ` only arrived with `84a8f58` in Wave 3. The committed pixels were rendering an application four commits and five days older than they claimed.
+
+The whole set now matches the CI artifact exactly. The full reasoning, with the commit-by-commit attribution table, is in `_progress/00-design-log.md`.
 
 ## ⚠️ The baselines are platform-specific — refresh them in CI, not on your machine
 
