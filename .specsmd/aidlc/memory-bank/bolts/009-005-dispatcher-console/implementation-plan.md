@@ -221,6 +221,43 @@ The wave must land four things that **do not exist today**:
 > component — would duplicate the seed and break the moment the seed
 > changes, which is why it is not an option.
 
+> **FOURTH CORRECTION — the dev store has no SLA policy at all, so the
+> read path must be mirrored or it throws.** This was not in the
+> original plan and it is the hard blocker of the three.
+>
+> `SlaPolicy` exists in `prisma/schema.prisma` and is seeded for five
+> categories in `prisma/seed.ts` (`DHAKA_SLA_POLICIES`: streetlight 72h,
+> pothole 168h, drainage 120h, garbage 48h, other 168h). But the
+> in-memory dev store — which is what `CITYFIX_DEV_STORE=1` runs, and
+> what `tests/34-ui-redesign-dispatcher.spec.ts` runs against — has
+> **no `slaPolicy` entity at all**. The `Store` interface
+> (`lib/dev-store.ts:296-315`) declares `cities`, `wards`, `categories`,
+> `departments`, `users`, `tickets`, `trail`, `audit`, `sessions`,
+> `otps`, `dedupFlags`, `webAuthnChallenges` and `ticketPhotos` — and
+> no SLA collection. There is no `slaPolicy` delegate on the dev
+> store's `db` object either (`lib/dev-store.ts:1252-2225`).
+>
+> The consequence is worse than "no data". `db.slaPolicy.findMany(...)`
+> in dev mode is `undefined.findMany` — a **TypeError**, not an empty
+> result. So a read path that reads the policy through the standard
+> `db` accessor **crashes the dev-store run**, and the wave's own route
+> spec cannot pass.
+>
+> The wave must therefore **mirror the entity into the dev store**:
+> a `DevSlaPolicy` type, a `Map` on the `Store`, the five Dhaka
+> policies seeded alongside the categories, and an `slaPolicy` delegate
+> exposing the `findMany` / `findUnique` calls the read path uses.
+> This is the team rule in force: *"the dev store must mirror every
+> fix."* (Compare `project_concurrency_defect.md` — the dev store
+> mirrors all five concurrency fixes, so a defect that only appears in
+> dev mode is caught by the dev-mode run.)
+>
+> This is a fourth piece of work the plan did not budget for, and it
+> is the reason the wave's `estimated_files` (24) and
+> `avg_complexity` (3) both under-count. The wave is not
+> presentation-layer only in four places now: `ward`, `status`, the
+> SLA read path, and the dev-store SLA mirror.
+
 **The crew picker is a new searchable combobox.** A raw `<select>` cannot be searched, and a dispatcher's crew list is long enough that scrolling a native select is the wrong interaction. The combobox is an ARIA `combobox` with `aria-expanded`, `aria-controls`, `aria-activedescendant`, keyboard navigation (arrow keys, Enter, Escape), and a filtered list of crews. It replaces the `<select>` on the ticket detail page.
 
 **The chart kit replaces the hand-rolled SVG.** The performance page's line chart and donut are replaced with `TrendLine` and `CategoryBar` from `components/ui/charts/`, and the SLA summary with `SlaBullet`. Every one of them ships a **visible, sortable** data table (`ChartFrame` renders it behind a real `aria-expanded` button), and `TrendLine` gives each series a distinct **dash pattern** alongside its colour, so no series is encoded by hue alone. The `SlaBullet` distinguishes its value bar from its target tick by **shape**.
