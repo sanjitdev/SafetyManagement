@@ -8,9 +8,9 @@
  * closed, cancelled}) as a circle pin colored by status.
  *
  * Supersedes the v1 SVG placeholder that the home page
- * used through Bolt 005-004. Per the project memory
- * (`aidlc/spaces/default/memory/project.md →
- * Corrections`, learned 2026-10-11), the MapLibre +
+ * used through Bolt 005-004. Per the standing project rules
+ * (`.specsmd/aidlc/memory-bank/standards/rules/project.md`,
+ * Corrections, learned 2026-10-11), the MapLibre +
  * OpenStreetMap basemap is the v1 contract for every
  * city-facing map surface; the SVG placeholder was the
  * pre-pilot fallback and is retired with this bolt.

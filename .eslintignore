@@ -15,9 +15,7 @@ playwright-report/
 tests-mockups/baselines/
 tests-mockups/artifacts/
 tests-mockups/html-report/
-.puku-cli/
 .specsmd/
-aidlc/
 design-artifacts/
 prisma/migrations/
 next-env.d.ts

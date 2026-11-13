@@ -52,7 +52,7 @@ export default defineConfig({
     /**
      * Coverage configuration.
      *
-     * Mandate: `aidlc/spaces/default/memory/team.md` → "Testing Posture
+     * Mandate: `.specsmd/aidlc/memory-bank/standards/rules/team.md` → "Testing Posture
      * (affirms org.md defaults)" — "Coverage floor: 80% line coverage
      * (inherited from org.md via the active scope; applies to
      * mvp / enterprise / feature / infra / classic)". org.md adds

@@ -2,41 +2,66 @@
 
 Product name is **CityFix** (`docs/idea.md`); the repo folder is named `SafetyManagement`.
 
-## Current lane — AIDLC + specsmd
+## Current lane — specsmd
 
-New work in this repo is driven by **AIDLC** (the `aidlc/` space, the `.puku-cli/` AIDLC
-engine and tools) and **specsmd** (`.specsmd/`). Both are the only sanctioned workflow.
+New work in this repo is driven by **specsmd** (`.specsmd/`). It is the only sanctioned
+workflow. The AIDLC lane (`aidlc/`, `.puku-cli/`, `.puku/`) was removed on 2026-11-13.
 
 | Path | Role |
 |---|---|
-| `.puku-cli/` | AIDLC engine, agents, hooks, sensors, rules, tools — the CLI launcher is `.puku-cli/tools/aidlc.ts` (Bun runtime) |
-| `aidlc/` | AIDLC space state: `spaces/default/memory/` (org/team/project rules), `spaces/default/intents/` |
-| `.specsmd/` | specsmd memory bank: `aidlc/memory-bank/` (bolts, ADRs, handoffs) and `aidlc/agents/` |
-| `design-artifacts/` | Design contract — the source of truth Mimir builds against; UI/UX requirements live here |
+| `.specsmd/aidlc/agents/` | The four agents: `master`, `inception`, `construction`, `operations` |
+| `.specsmd/aidlc/skills/` | 26 skills, grouped `master/`, `inception/`, `construction/`, `operations/` |
+| `.specsmd/aidlc/memory-bank/` | The work: `intents/`, `bolts/`, `standards/`, `operations/` |
+| `.specsmd/aidlc/memory-bank/standards/rules/` | Standing org/team/project rules, preserved from the retired AIDLC lane |
+| `.specsmd/aidlc/templates/` | Standards, inception, and bolt-type templates |
+| `.specsmd/aidlc/scripts/` | `bolt-complete.cjs`, `status-integrity.cjs`, `artifact-validator.cjs` |
+| `design-artifacts/` | Design contract — the source of truth the build uses; UI/UX requirements live here |
 | `docs/` | Project documentation, including `idea.md` (product brief input) |
 
-Invoke the AIDLC CLI with the project default scope:
+Only `.specsmd/aidlc/memory-bank/` is committed. `agents/`, `skills/`, `templates/`, and
+`scripts/` are a per-developer runtime cache the specsmd installer recreates — so a fresh
+clone has the memory bank but **not** `bolt-complete.cjs`. Re-install specsmd before running
+the bolt-complete gate.
+
+Entry point is the Master Agent:
 
 ```
-AWS_AIDLC_DEFAULT_SCOPE=feature bun .puku-cli/tools/aidlc.ts <command>
+/specsmd-master-agent
 ```
 
-Never invoke the framework files with Node — they use Bun-specific runtime features.
+Then route by phase — `/specsmd-inception-agent`, `/specsmd-construction-agent`,
+`/specsmd-operations-agent` (each takes `--unit="{name}"`, and Construction takes
+`--bolt-id="{id}"`).
+
+Invariants that matter more than the file layout:
+
+- **Never auto-select a bolt.** `bolt-list` must ask which one to work on.
+- **Final bolt stage runs `node .specsmd/aidlc/scripts/bolt-complete.cjs {bolt-id}`.** Never
+  hand-edit story files — the script cascades bolt → stories → unit → intent status.
+- **A bolt's `bolt.md` flips to `in-progress` before any stage work begins.**
+- **Checkpoints stop the turn.** Everything not marked a checkpoint auto-continues; nothing
+  else does.
 
 ---
 
-## Legacy lane — Whiteport Design Studio (WDS)
+## Removed lanes
+
+**AIDLC** — `aidlc/`, `.puku-cli/`, and `.puku/` were deleted on 2026-11-13. The standing
+org/team/project rules survived: they now live at
+`.specsmd/aidlc/memory-bank/standards/rules/`. Do not re-introduce AIDLC or `.puku-cli/`;
+specsmd owns the workflow.
+
+**Whiteport Design Studio (WDS)** — the repo-local tooling trees (`_bmad/`, `.wds/`) were
+removed on 2026-11-09, along with the 13 `wds-*` skill installs in
+`C:\Users\BS707\.claude\skills\`. They were untracked, installer-generated, and superseded.
+The `wds-*` skills hard-read `_bmad/wds/config.yaml`, so they could not be removed
+piecemeal.
 
 The WDS lane produced `design-artifacts/` and `_progress/` during the 2026-09-18 discovery
 pass. Those artifacts **remain the contract the build uses** and are still tracked — do not
 delete them.
 
-The repo-local WDS/BMad tooling trees (`_bmad/`, `.wds/`) were removed on 2026-11-09, along
-with the 13 `wds-*` skill installs in `C:\Users\BS707\.claude\skills\`. They were untracked,
-installer-generated, and superseded by AIDLC/specsmd. The `wds-*` skills hard-read
-`_bmad/wds/config.yaml`, so they could not be removed piecemeal.
-
-**Do not run the WDS lane against `design-artifacts/` again** — AIDLC writes there too, and
+**Do not run the WDS lane against `design-artifacts/` again** — specsmd writes there too, and
 interleaving the two forks the artifacts.
 
 ### Project layout (WDS-produced, still live)

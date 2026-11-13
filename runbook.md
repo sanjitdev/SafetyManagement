@@ -247,7 +247,7 @@ npm run typecheck      # tsc --noEmit
 ## Verification command
 
 The project's recorded Construction Verification Command (from
-`aidlc/spaces/default/memory/project.md`) is:
+`.specsmd/aidlc/memory-bank/standards/rules/project.md`) is:
 
 ```
 npx tsc --noEmit && npm run test:unit && npm run test:mockups && curl -fs http://localhost:3000/

@@ -1,5 +1,111 @@
 # Maintenance Log
 
+## 2026-11-13T00:00:00Z - AIDLC lane removed entirely; specsmd is the only workflow
+
+**Triggered by**: user (Master Agent route → *"remove aidlc on the root, only keep specsmd"*)
+
+**Reason**: this supersedes the 2026-11-10 decision below, which retired the stale
+`aidlc/spaces/default/intents/` tree but deliberately kept the method tree. The reason to
+keep it was that `.puku-cli/rules/aidlc.md` `@`-imported `org.md` / `team.md` /
+`project.md` into every session's ambient context. With the lane gone, that `@`-import
+stub was the method tree's **only** remaining consumer — keeping the tree would have
+preserved a dependency on a runner that is no longer installed.
+
+### Deleted
+
+| Path | Files | Size | Tracked | Restorable |
+|---|---|---|---|---|
+| `aidlc/` | 8 | 37 KB | yes | `git checkout` |
+| `.puku-cli/` | 309 | 7.4 MB | **no** (gitignored) | re-clone of the AIDLC distribution only |
+| `.puku/plans/` | 1 | — | yes | `git checkout` |
+
+`.puku-cli/` was never committed (`git ls-files .puku-cli` → 0), so its removal is the one
+irreversible part of this pass.
+
+### Preserved
+
+The three standing rules were copied **byte-identical** (SHA-256 verified) to
+`standards/rules/` immediately before deletion, with a `README.md` recording provenance:
+
+- `standards/rules/org.md` — framework defaults (trunk-based dev, commit hygiene, review posture)
+- `standards/rules/team.md` — testing posture, visual-baseline fidelity, mandated practices
+- `standards/rules/project.md` — CityFix scope, corrections, hosting/gating decisions
+
+`phases/{ideation,inception,construction,operation}.md` were **not** preserved: they
+describe AIDLC phase mechanics rather than standing engineering rules, and they are
+retrievable from git history at the commit before 2026-11-13.
+
+### Citations re-pointed
+
+`aidlc/spaces/default/memory/{org,team,project}.md` → `standards/rules/{org,team,project}.md`.
+
+| File | Citations |
+|---|---|
+| `standards/coding-standards.md` | 3 (+2 new cross-reference bullets for `rules/org.md` and `rules/README.md`) |
+| `standards/decision-index.md` | 4 |
+| `standards/index.md` | 1 |
+| `memory-bank/README.md` | 1 |
+| `HANDOFF.md` | 2, plus removal of the `.puku-cli/tools/aidlc.ts` launcher bullet |
+| `README.md` (root) | 10 |
+| `runbook.md` | 1 |
+| `vitest.config.ts` | 1 |
+| `docs/ARCHITECTURE.md`, `docs/TESTING_REPORT.md` (2), `docs/PROJECT_AUDIT.md`, `docs/PRODUCTION_READINESS_CHECKLIST.md`, `docs/production-readiness-check.md` (2), `docs/running.md` (3) | 11 |
+| `docs/adr/ADR-007-admin-write-webauthn.md`, `docs/adr/ADR-016-monitor-read-marker.md` | 8 |
+| `app/home/page.tsx`, `components/CityActivityMap.tsx`, `components/ui/index.ts` | 3 |
+
+Two stale claims were removed rather than re-pointed:
+
+- `README.md` told readers **NEVER** to delete
+  `aidlc/spaces/default/knowledge/documentkb/`. That directory never existed in this repo.
+- `intents/002-citizen-report-flow/ideation/README.md` asserted the method tree *"remains
+  live"*. It now says the lane was removed on 2026-11-13 and that the per-file provenance
+  headers describe the 2026-11-10 state.
+
+### Config and docs
+
+- `AGENTS.md` — rewritten. Was "Current lane — AIDLC + specsmd … both are the only
+  sanctioned workflow"; now "Current lane — specsmd" with a `Removed lanes` section
+  covering both AIDLC and WDS. Also records the two invariants that bite: never
+  auto-select a bolt, and the final stage must run `bolt-complete.cjs`.
+- `.gitignore` — the AI-DLC committed-vs-ignored section removed (8219 → 4822 chars); the
+  `# BEGIN AI-DLC:gitignore` marker relabelled, since no AIDLC tool manages that block.
+- `.eslintignore`, `.prettierignore`, `eslint.config.mjs` — `.puku-cli/` and `aidlc/`
+  ignore entries and the matching header comment removed.
+
+### Not changed, deliberately
+
+- **Dated records keep the path they were written against.** Bolt `ddd-*.md` records,
+  `intents/002-citizen-report-flow/ideation/**`, `intents/001-platform-foundation/requirements.md`,
+  this log, and `_progress/00-design-log.md` still cite `aidlc/spaces/default/memory/`.
+  Those are provenance for work completed under the old lane; rewriting them would
+  falsify the record. The rule applied: *logs keep history, live guides point at the
+  truth.*
+- **`CLAUDE.md`** (root) — already stale before this pass (claims "No application code
+  yet" while 31 routes ship) and out of scope here. It only `@AGENTS.md`-imports.
+- **`design-artifacts/`** — untouched. See the WDS note in `AGENTS.md`: specsmd writes
+  there too, and interleaving the two forks the artifacts.
+
+### Verification
+
+| Gate | Command | Result |
+|---|---|---|
+| Types | `npx tsc --noEmit` | clean |
+| Lint | `npx eslint .` | 0 errors, 94 warnings — all pre-existing `no-unused-vars` in `tests/`; none in a file this pass touched |
+
+No unit or Playwright suite was run: the pass deletes no code and changes no runtime
+behaviour.
+
+### Deliberately not swept in
+
+The working tree carried ~40 unrelated modifications and deletions (design-artifacts
+mockups, several `app/` pages) before this pass began. None were touched, and none belong
+in the commit that lands this removal.
+
+No source code semantics touched. No tests touched. No PRD/spec/design changed. This pass
+removes a workflow lane and reconciles the documents that cited it.
+
+---
+
 ## 2026-11-12T15:00:00Z - Dispatcher 403 on opening a report: the null-department scope rule
 
 **Triggered by**: user report — *"from a dispatcher account I get 403 when opening a report."*

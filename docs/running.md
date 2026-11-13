@@ -388,7 +388,7 @@ There is no separate backend service. The API surface is the
 
 All handlers go through the service layer in `lib/` — no raw Prisma
 or raw SQL in route handlers (per the Forbidden rules in
-`aidlc/spaces/default/memory/team.md`).
+`.specsmd/aidlc/memory-bank/standards/rules/team.md`).
 
 The full contract for every operation — request shape, response shape,
 guard requirements and error codes — is in
@@ -400,7 +400,7 @@ served live at `/api/docs` with Swagger UI at `/api/docs/spec`.
 ## Construction Verification Command
 
 The canonical end-to-end check, per
-`aidlc/spaces/default/memory/project.md → Walking Skeleton`:
+`.specsmd/aidlc/memory-bank/standards/rules/project.md → Walking Skeleton`:
 
 ```sh
 npx tsc --noEmit && npm run test:unit && npm run test:mockups && curl -fs http://localhost:3000/
@@ -456,6 +456,6 @@ node scripts/ci-env.mjs npx next build
 - **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)** — 31 open flags
 - **docs/idea.md** — canonical problem statement
 - **design-artifacts/C-UX-Scenarios/** — spec-as-contract artifacts
-- **aidlc/spaces/default/memory/{org,team,project}.md** — the project memory
+- **.specsmd/aidlc/memory-bank/standards/rules/{org,team,project}.md** — the standing project rules
 - **_progress/00-design-log.md** — per-Bolt progress record
 - **AGENTS.md** — WDS / agent skill setup

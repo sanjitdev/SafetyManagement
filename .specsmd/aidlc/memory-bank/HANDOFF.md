@@ -109,20 +109,17 @@ From `bolts/plan.md`:
 
 `npx tsc --noEmit && npm run test:unit && npm run test:mockups && curl -fs http://localhost:3000/`
 
-(Recorded in `aidlc/spaces/default/memory/team.md` and
-`aidlc/spaces/default/memory/project.md`.)
+(Recorded in `standards/rules/team.md` and
+`standards/rules/project.md`.)
 
 ## Conventions the Construction Agent must follow
 
-Per `aidlc/spaces/default/memory/{org,team,project}.md`:
+Per `standards/rules/{org,team,project}.md`:
 
 - **Trunk branch is `prd-development`** (specialises
   org.md's `main`).
 - **Squash-merge Bolts into trunk**; commit message
   uses the Bolt slug.
-- **Use the puku-cli / AIDLC CLI launcher**:
-  `.puku-cli/tools/aidlc.ts` (Bun runtime, ≥ v1.4.0).
-  Always set `AWS_AIDLC_DEFAULT_SCOPE=feature`.
 - **Result types** for service layer; **never throw
   across service boundaries**.
 - **Zod schemas** at every API boundary.

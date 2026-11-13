@@ -78,7 +78,7 @@ follow these rules.
 ### Testing strategy
 
 - **Methodology**: test-after (affirmed 2026-10-04, see
-  `aidlc/spaces/default/memory/team.md`).
+  `rules/team.md`).
 - **Coverage floor**: 80% line coverage on `feature` scope.
 - **Visual regression**: Playwright baselines are gating. New
   mockup → new baseline. Tolerance `0.005`. Baselines under
@@ -147,9 +147,13 @@ follow these rules.
 
 ## Cross-References
 
-- **Team rules** (additive): `aidlc/spaces/default/memory/team.md` —
+- **Team rules** (additive): `rules/team.md` —
   the per-team affirmed practices (testing posture, deploy policy,
   code style specialization).
-- **Project rules** (additive): `aidlc/spaces/default/memory/project.md` —
+- **Project rules** (additive): `rules/project.md` —
   the per-project specialisation (TypeScript strict, path alias,
   tech-stack pinning).
+- **Org rules** (baseline): `rules/org.md` — the framework defaults the
+  team and project layers specialise.
+- **Provenance**: `rules/README.md` — where these came from and why they
+  were preserved.

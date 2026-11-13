@@ -190,7 +190,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| 1.1 | Repository is a git repository with a clean, linear history | ✅ | 135 commits, squash-merged per `aidlc/spaces/default/memory/org.md` |
+| 1.1 | Repository is a git repository with a clean, linear history | ✅ | 135 commits, squash-merged per `.specsmd/aidlc/memory-bank/standards/rules/org.md` |
 | 1.2 | TypeScript strict mode enabled, `tsc --noEmit` clean | ✅ | `npx tsc --noEmit` → clean |
 | 1.3 | `isolatedModules: true`; no const-enum access | ✅ | `tsconfig.json`; enforced by `project.md` Forbidden |
 | 1.4 | Path alias `@/` → repo root resolves | ✅ | `tsconfig.json` |

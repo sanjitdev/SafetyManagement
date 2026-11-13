@@ -29,8 +29,8 @@ const compat = new FlatCompat({
  *   2. The rules that remain `error` are the ones that indicate real
  *      defects rather than style preferences.
  *
- *   3. Tooling / generated trees (`.puku-cli/`, `.specsmd/`, `aidlc/`)
- *      are NOT product code and are excluded.
+ *   3. Tooling / generated trees (`.specsmd/`) are NOT product code and
+ *      are excluded.
  */
 const config = [
   {
@@ -48,9 +48,7 @@ const config = [
       'tests-mockups/artifacts/**',
       'tests-mockups/html-report/**',
       // Agent / framework tooling — not product code
-      '.puku-cli/**',
       '.specsmd/**',
-      'aidlc/**',
       // Design artifacts are static HTML/SVG reference material
       'design-artifacts/**',
       // Generated Prisma client artefacts

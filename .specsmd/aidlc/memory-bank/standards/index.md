@@ -64,5 +64,6 @@ For CityFix, all seven already exist and are committed as of
 - **Source artifacts** (the project's pre-specsmd planning
   that was rebased into these standards):
   - `design-artifacts/E-Development/000-tech-audit.md`.
-  - `aidlc/spaces/default/memory/{org,team,project}.md`.
+  - `rules/{org,team,project}.md` (preserved from the retired AIDLC lane;
+    see `rules/README.md`).
   - `_progress/00-design-log.md`.

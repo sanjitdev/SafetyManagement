@@ -302,7 +302,8 @@ new path against the in-memory store.
 
 ## Migration safety
 
-Per `aidlc/spaces/default/memory/phases/operation.md`
+Per the AIDLC operation-phase rules (retired 2026-11-13 with the AIDLC
+lane; in git history)
 (Infrastructure Safety, Deployment Procedures), the v1.1 Bolt
 that implements this must not land the migration blind.
 
@@ -629,19 +630,21 @@ that already owns the monitor half):
   prior deferral ADR, same shape).
 - `.specsmd/aidlc/memory-bank/standards/tech-stack.md` — the
   pinned stack.
-- `aidlc/spaces/default/memory/org.md` — testing posture, the
+- `.specsmd/aidlc/memory-bank/standards/rules/org.md` — testing posture, the
   80% coverage floor, deployment guardrails.
-- `aidlc/spaces/default/memory/team.md` — service-layer
+- `.specsmd/aidlc/memory-bank/standards/rules/team.md` — service-layer
   `Result<T, E>`, Zod at every API boundary, named exports under
   `lib/`, `writeAudit(...)` for state changes, the
   `tsc --noEmit` and `test:unit` mandates.
-- `aidlc/spaces/default/memory/project.md` — Tech Stack; the
+- `.specsmd/aidlc/memory-bank/standards/rules/project.md` — Tech Stack; the
   Forbidden section (four-role model fixed, migration
   ownership); the Mandated verification commands.
-- `aidlc/spaces/default/memory/phases/operation.md` — the
+- AIDLC `phases/operation.md` (retired 2026-11-13; in git
+  history) — the
   infrastructure-safety, deployment-procedure, and
   rollback/smoke-test guardrails this migration must satisfy.
-- `aidlc/spaces/default/memory/phases/construction.md` — the
+- AIDLC `phases/construction.md` (retired 2026-11-13; in git
+  history) — the
   code-completeness and error-handling guardrails the v1.1
   implementation must satisfy.
 - `_progress/00-design-log.md` — the batch-build entry of

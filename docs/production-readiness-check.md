@@ -35,7 +35,7 @@ npm run build         # prisma generate && next build
 
 The full lifecycle requires a running app: `npm run dev` (or `npm run dev:feat` for the in-memory dev store), then `npx playwright test` for the 34 route-spec files (358 specs). The route specs are also run in CI — see `PRODUCTION_READINESS_CHECKLIST.md` row 9.7.
 
-**Branching:** the team's trunk is `prd-development` per `aidlc/spaces/default/memory/team.md`; the current checkout is `main`. Reconcile before branching or opening a PR.
+**Branching:** the team's trunk is `prd-development` per `.specsmd/aidlc/memory-bank/standards/rules/team.md`; the current checkout is `main`. Reconcile before branching or opening a PR.
 
 # CityFix – Production Readiness Audit & Completion Plan
 
@@ -992,7 +992,7 @@ Create and maintain these files:
 
 | Deliverable | Build from |
 |---|---|
-| `ARCHITECTURE.md` | `design-artifacts/E-Development/000-tech-audit.md`, `.specsmd/aidlc/memory-bank/standards/*`, `aidlc/spaces/default/memory/{org,team,project}.md`, `prisma/schema.prisma`, `next.config.js` |
+| `ARCHITECTURE.md` | `design-artifacts/E-Development/000-tech-audit.md`, `.specsmd/aidlc/memory-bank/standards/*`, `.specsmd/aidlc/memory-bank/standards/rules/{org,team,project}.md`, `prisma/schema.prisma`, `next.config.js` |
 | `API_DOCUMENTATION.md` | `npm run docs:generate` → `app/api/docs/spec/route.ts` (OpenAPI) + the Swagger UI at `/api/docs`; cross-check against the 65 live route handlers |
 | `TESTING_REPORT.md` | `npm run test:unit:coverage`, the 32 Playwright specs, and `.github/workflows/ci.yml` |
 | `DEPLOYMENT_GUIDE.md` | `docs/running.md`, `.env.example`, `.vercel/`, `scripts/` |

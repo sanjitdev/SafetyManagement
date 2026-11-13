@@ -97,8 +97,8 @@ and the 6 open gaps.
 
 ## Cross-references
 
-- **AIDLC memory** (project's older layer):
-  `aidlc/spaces/default/memory/{org,team,project}.md`.
+- **Standing org/team/project rules** (preserved from the retired AIDLC
+  lane): `standards/rules/{org,team,project}.md`.
 - **Design artifacts** (WDS pipeline):
   `design-artifacts/`.
 - **Design log**: `_progress/00-design-log.md`.

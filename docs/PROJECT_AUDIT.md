@@ -280,16 +280,19 @@ The durable fix is structural, not more rules: a `middleware.ts` baseline, a rou
 
 ## 7. Governance
 
-### The AIDLC memory stack
+### The standing rules stack
+
+Preserved from the retired AIDLC lane on 2026-11-13; they now live under
+`.specsmd/aidlc/memory-bank/standards/rules/`.
 
 Four layers, each adding specialisation:
 
 | Layer | File | Role |
 |---|---|---|
-| Org | `aidlc/spaces/default/memory/org.md` | Framework defaults — trunk-based dev, testing posture, guard policy |
-| Team | `aidlc/spaces/default/memory/team.md` | CityFix's affirmed practices |
-| Project | `aidlc/spaces/default/memory/project.md` | The pinned stack, the decisions, the learnings |
-| Phase | `aidlc/spaces/default/memory/phases/*.md` | Guardrails per phase |
+| Org | `.specsmd/aidlc/memory-bank/standards/rules/org.md` | Framework defaults — trunk-based dev, testing posture, guard policy |
+| Team | `.specsmd/aidlc/memory-bank/standards/rules/team.md` | CityFix's affirmed practices |
+| Project | `.specsmd/aidlc/memory-bank/standards/rules/project.md` | The pinned stack, the decisions, the learnings |
+| Phase | *(retired)* | Per-phase AIDLC guardrails — removed with the AIDLC lane; in git history |
 
 ### Affirmed team rules
 

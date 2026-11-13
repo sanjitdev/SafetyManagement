@@ -18,9 +18,7 @@ tests-mockups/artifacts/
 tests-mockups/html-report/
 
 # Agent / framework tooling — not product code
-.puku-cli/
 .specsmd/
-aidlc/
 
 # Design artifacts — static HTML/SVG reference material
 design-artifacts/

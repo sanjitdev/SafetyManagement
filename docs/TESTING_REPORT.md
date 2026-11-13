@@ -2,7 +2,7 @@
 
 **Report date:** 2026-11-08
 **Codebase:** `main` @ `be9f2b0`
-**Test philosophy:** `test-after` (affirmed in `aidlc/spaces/default/memory/team.md`)
+**Test philosophy:** `test-after` (affirmed in `.specsmd/aidlc/memory-bank/standards/rules/team.md`)
 
 ---
 
@@ -469,7 +469,7 @@ The suite runs `workers: 1` and `fullyParallel: false`. The dev store is a singl
 
 ### The project's Construction Verification Command
 
-Recorded in `aidlc/spaces/default/memory/project.md`:
+Recorded in `.specsmd/aidlc/memory-bank/standards/rules/project.md`:
 
 ```bash
 npx tsc --noEmit && npm run test:unit && npm run test:mockups && curl -fs http://localhost:3000/

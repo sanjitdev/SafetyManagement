@@ -54,7 +54,7 @@ lib/**                   Service layer — all business logic            (23,521
 prisma/schema.prisma     16 models
 ```
 
-The rule the codebase actually follows, stated in `aidlc/spaces/default/memory/team.md`:
+The rule the codebase actually follows, stated in `.specsmd/aidlc/memory-bank/standards/rules/team.md`:
 
 - **Route handlers are thin adapters.** Parse the request (Zod), call a `lib/` service function, serialise the result. Measured on 2026-10-27: the `app/api` route files hold 0% unit coverage and no business logic; `lib/**` holds 90.89% lines / 80.85% branches / 94.11% functions.
 - **No raw SQL or direct Prisma in route handlers.** No `$queryRaw` / `$executeRaw` exists anywhere in the repo. Prisma access is confined to `lib/db-switch.ts`, `lib/admin/users-db.ts` and `lib/platform/push.ts`.

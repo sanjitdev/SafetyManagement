@@ -147,7 +147,7 @@ handlers never know which is active; only the env var
 ### ADR-005 — Four-role auth model (citizen / dispatcher / crew / admin)
 
 - **Date**: 2026-09-18
-- **Source**: `aidlc/spaces/default/memory/project.md` (Inception, 2026-09-18)
+- **Source**: `rules/project.md` (Inception, 2026-09-18)
 - **Status**: Affirmed; cannot be revisited without a UX Review + Work Order revision.
 
 **Context**: CityFix's v1 surface is a four-sided marketplace
@@ -264,8 +264,8 @@ admin writes. Pinned by `tests/unit/transition-webauthn.test.ts`.
 ### ADR-008 — Test-after methodology + 80% line coverage on `feature` scope
 
 - **Date**: 2026-10-04
-- **Source**: `aidlc/spaces/default/memory/team.md`,
-  `aidlc/spaces/default/memory/org.md` (testing posture)
+- **Source**: `rules/team.md`,
+  `rules/org.md` (testing posture)
 - **Status**: Affirmed; org.md default for greenfield
   projects; team.md confirms; project.md is silent (inherits).
 
@@ -383,9 +383,9 @@ tolerance `0.005`).
 - **Tech audit** (source for ADRs 001-004, 007):
   `design-artifacts/E-Development/000-tech-audit.md`.
 - **Inception corrections** (source for ADRs 005, 006):
-  `aidlc/spaces/default/memory/project.md` (Corrections).
+  `rules/project.md` (Corrections).
 - **Org/team policy** (source for ADR 008):
-  `aidlc/spaces/default/memory/{org,team}.md` (Testing
+  `rules/{org,team}.md` (Testing
   Posture).
 - **Project design log**: `_progress/00-design-log.md` — the
   narrative of how these decisions were reached.

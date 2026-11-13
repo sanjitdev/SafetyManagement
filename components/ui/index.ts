@@ -9,9 +9,9 @@
  * Adding a new primitive:
  *   1. Implement the component in this directory.
  *   2. Add a `tests/unit/components/<Name>.test.tsx` covering
- *      happy path + at least two error/edge cases (per
- *      `aidlc/spaces/default/memory/phases/construction.md`
- *      testing standards).
+ *      happy path + at least two error/edge cases (per the
+ *      testing standards in
+ *      `.specsmd/aidlc/memory-bank/standards/coding-standards.md`).
  *   3. Re-export below.
  *   4. Add the i18n keys it needs to `lib/i18n/keys.ts`.
  *

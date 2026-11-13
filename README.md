@@ -77,7 +77,7 @@ both the citizen and the city corporation can read.
 > unmaintainable; trust signals (status trail, push, feel-heard
 > feedback) are how observability translates into restored trust.**
 
-— *Source: `aidlc/spaces/default/memory/project.md` → WO-001 intent
+— *Source: `.specsmd/aidlc/memory-bank/standards/rules/project.md` → WO-001 intent
 framing (2026-10-04)*
 
 The headline finding from the trigger-map workshop is that
@@ -333,7 +333,7 @@ Top strip + hero block + step log + progress note composer + primary
 
 - **Node.js 20 LTS** (per `package.json → engines`).
 
-### Pinned architecture decisions (`aidlc/spaces/default/memory/project.md`)
+### Pinned architecture decisions (`.specsmd/aidlc/memory-bank/standards/rules/project.md`)
 
 - **Framework**: Next.js 14 (App Router) + TypeScript strict +
   Tailwind v3 + `tokens.css` (design-token source of truth).
@@ -362,7 +362,7 @@ route.
 ### The four-role model
 
 Decided in Inception (2026-09-18) and pinned in
-`aidlc/spaces/default/memory/project.md → Decided`. The four roles
+`.specsmd/aidlc/memory-bank/standards/rules/project.md → Decided`. The four roles
 are:
 
 | Role | Surface | Auth | Scope |
@@ -481,7 +481,7 @@ per role).
 ### Construction Verification Command
 
 The recorded end-to-end verification, per
-`aidlc/spaces/default/memory/project.md → Walking Skeleton`:
+`.specsmd/aidlc/memory-bank/standards/rules/project.md → Walking Skeleton`:
 
 ```sh
 npx tsc --noEmit && npm run test:unit && npm run test:mockups && curl -fs http://localhost:3000/
@@ -521,9 +521,9 @@ but the production target is Vercel as of v1 launch (2026-10-12).
 ## Testing posture
 
 The project's testing posture is **test-after** (affirmed in
-`aidlc/spaces/default/memory/team.md → Testing Posture`) with an
+`.specsmd/aidlc/memory-bank/standards/rules/team.md → Testing Posture`) with an
 **80% line-coverage floor** on `mvp / enterprise / feature / infra /
-classic` scopes (inherited from `aidlc/spaces/default/memory/org.md
+classic` scopes (inherited from `.specsmd/aidlc/memory-bank/standards/rules/org.md
 → Testing Posture`).
 
 ### Live counts (last verified 2026-10-12)
@@ -599,8 +599,8 @@ Tolerance is **0.005** (per `team.md`).
 ## Mandated + Forbidden rules
 
 The team's top rules for new contributors, condensed from
-`aidlc/spaces/default/memory/team.md` and
-`aidlc/spaces/default/memory/project.md`. Read both files in full
+`.specsmd/aidlc/memory-bank/standards/rules/team.md` and
+`.specsmd/aidlc/memory-bank/standards/rules/project.md`. Read both files in full
 before opening your first PR.
 
 ### Mandated
@@ -635,8 +635,6 @@ before opening your first PR.
 - **NEVER** change the four-role model, WebAuthn-mandatory-for-admin,
   or dedup-not-merge without re-running UX Review + Work Order
   revision.
-- **NEVER** delete the `aidlc/spaces/default/knowledge/documentkb/`
-  tree — identity and tombstones are gone forever.
 
 ---
 
@@ -646,7 +644,7 @@ CityFix is built via the **AI-DLC Construction loop**. Each unit
 ships as one **Bolt** — a single commit on `prd-development`
 (the project's trunk branch — note: the project's trunk is
 `prd-development`, not the org-default `main`; see
-`aidlc/spaces/default/memory/team.md → Way of Working`) named by the
+`.specsmd/aidlc/memory-bank/standards/rules/team.md → Way of Working`) named by the
 Bolt slug.
 
 ```
@@ -722,6 +720,6 @@ Private project; all rights reserved.
 - Canonical scenario specs: `design-artifacts/C-UX-Scenarios/00-ux-scenarios.md`
 - Canonical design tokens: `design-artifacts/D-Design-System/01-Visual-Design/tokens.css`
 - Canonical Work Orders: `design-artifacts/E-Development/WO-000..004-*.md`
-- Canonical project memory: `aidlc/spaces/default/memory/{org,team,project}.md`
+- Canonical project memory: `.specsmd/aidlc/memory-bank/standards/rules/{org,team,project}.md`
 - Per-Bolt progress: `_progress/00-design-log.md`
 - Agent setup: `AGENTS.md`

@@ -41,8 +41,11 @@ the move:
 
 The AIDLC **method tree** (`aidlc/spaces/default/memory/` — `org.md`,
 `team.md`, `project.md`, the four phase rule files) was **not** moved and
-**not** retired. It remains live and is still what `.puku-cli/rules/aidlc.md`
-imports into every session's ambient context.
+**not** retired at that point. As of 2026-11-13 the whole AIDLC lane is gone:
+the three standing rule files were copied to
+`.specsmd/aidlc/memory-bank/standards/rules/` and the four phase files were
+retired. The provenance headers inside this folder still describe the
+2026-11-10 state — read "remains live" in them as of that date.
 
 ## A note on the decision trail
 

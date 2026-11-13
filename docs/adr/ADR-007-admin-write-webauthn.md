@@ -698,13 +698,14 @@ admin hits first.
   require WebAuthn").
 - `.specsmd/aidlc/memory-bank/bolts/005-001-webauthn-and-auth/ddd-01-domain-model.md`
   — the original ADR-007 analysis.
-- `aidlc/spaces/default/memory/org.md` — testing posture, the 80%
+- `.specsmd/aidlc/memory-bank/standards/rules/org.md` — testing posture, the 80%
   coverage floor, architecture standards.
-- `aidlc/spaces/default/memory/team.md` — service-layer
+- `.specsmd/aidlc/memory-bank/standards/rules/team.md` — service-layer
   `Result<T, E>`, Zod at every API boundary, the `tsc --noEmit`
   and `test:unit` mandates.
-- `aidlc/spaces/default/memory/project.md` — the Tech Stack (auth
+- `.specsmd/aidlc/memory-bank/standards/rules/project.md` — the Tech Stack (auth
   model) and the Forbidden section (the four-role model is fixed).
-- `aidlc/spaces/default/memory/phases/inception.md` — the
+- AIDLC `phases/inception.md` (retired 2026-11-13 with the AIDLC lane;
+  in git history) — the
   architecture standards this ADR is written against (Context,
   Decision, Consequences, Alternatives Rejected).

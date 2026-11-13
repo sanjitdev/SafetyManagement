@@ -1005,6 +1005,6 @@ function FeedSkeleton() {
 // The home map is now `components/CityActivityMap.tsx`,
 // a MapLibre GL JS canvas backed by the same OSM raster
 // basemap + Dhaka District polygon as `MapView` (1.7) +
-// `DispatcherMap` (3.5). See the project memory
-// (`aidlc/spaces/default/memory/project.md →
+// `DispatcherMap` (3.5). See the standing project rules
+// (`.specsmd/aidlc/memory-bank/standards/rules/project.md →
 // Corrections`, learned 2026-10-11) for the rationale.
