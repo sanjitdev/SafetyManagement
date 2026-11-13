@@ -24,8 +24,9 @@ name: Regenerate mockup baselines
 #
 # SCOPE — TWO FAMILIES OF BASELINE
 #
-#   1. `01-mockups.spec.ts/` — 25 static mockup HTML files, asserted
-#      by `npm run test:mockups`. These are pure HTML + CSS.
+#   1. `01-mockups.spec.ts/` — the 4 static role dashboards (citizen,
+#      dispatcher, crew, admin), asserted by `npm run test:mockups`.
+#      These are pure HTML + CSS.
 #   2. The per-WO route-spec directories (05-, 06-, 07-, 08-, 10-,
 #      11-, 12-, 13-, 14-, 15-, 16-, 17-, 18-, 19-, 20-, 21-, 23-)
 #      — asserted by `npm test` (Playwright). These are REAL app

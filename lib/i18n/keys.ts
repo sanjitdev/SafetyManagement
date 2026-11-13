@@ -31,6 +31,11 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   /**
    * The splash headline — mockup 01-welcome.
    *
+   * NOTE (2026-11-13): the page-per-page mockups were replaced by the four
+   * role dashboards, so `01-welcome.html` no longer exists. The line-break
+   * rule below is retained here as the record of the contract this copy
+   * was authored against.
+   *
    * The mockup breaks the line after "আপনার শহরের" and closes with a
    * danda, so the headline is authored with a `<br/>` and rendered
    * through `dangerouslySetInnerHTML` (the same pattern
@@ -44,6 +49,9 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   },
   /**
    * The lede under the splash headline — mockup 01-welcome.
+   *
+   * NOTE (2026-11-13): `01-welcome.html` no longer exists — see the note
+   * on `splash.headline`.
    *
    * The public landing's `public.hero.subhead` is the SAME sentence
    * with one clause swapped ("মানচিত্রে দেখুন" for "অগ্রগতি দেখুন"),
@@ -193,7 +201,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Private · secure',
   },
 
-  // --- Public landing: stats row (mockup 11-public-landing) ---
+  // --- Public landing: stats row (mockup 11-public-landing — removed 2026-11-13) ---
   // The three counters are backed by real city data via
   // `computeStats` in app/api/v1/activity/public/route.ts, not
   // authored constants. The labels are static; the values are not.
@@ -262,7 +270,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'City statistics for this month',
   },
 
-  // --- Public landing: trust cards (mockup 11-public-landing) ---
+  // --- Public landing: trust cards (mockup 11-public-landing — removed 2026-11-13) ---
   'public.trust.government.title': {
     bn: 'সরকার পরিচালিত',
     en: 'Government run',
@@ -288,7 +296,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'The full service in both languages.',
   },
 
-  // --- Public landing: filter chips (mockup 11-public-landing) ---
+  // --- Public landing: filter chips (mockup 11-public-landing — removed 2026-11-13) ---
   'public.filter.all': { bn: 'সব', en: 'All' },
   'public.filter.new': { bn: 'নতুন', en: 'New' },
   'public.filter.active': { bn: 'চলমান', en: 'Active' },
@@ -342,7 +350,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     en: 'Map colour key',
   },
 
-  // --- Public landing: footer (mockup 11-public-landing) ---
+  // --- Public landing: footer (mockup 11-public-landing — removed 2026-11-13) ---
   'public.footer.note': {
     bn: 'CityFix — ঢাকা উত্তর সিটি কর্পোরেশনের নাগরিক সেবা পোর্টাল। মানচিত্রের তথ্য © OpenStreetMap অবদানকারীদের, MapLibre-এর মাধ্যমে প্রদর্শিত।',
     en: 'CityFix — the citizen service portal of Dhaka North City Corporation. Map data © OpenStreetMap contributors, displayed via MapLibre.',

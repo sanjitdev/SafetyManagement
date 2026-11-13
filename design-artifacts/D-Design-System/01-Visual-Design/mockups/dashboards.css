@@ -1,0 +1,1135 @@
+/* ============================================================================
+   dashboards.css — shared chrome for the four role dashboards
+   ----------------------------------------------------------------------------
+   Source of truth: the four reference images in `ui-design/`
+     - admin-dashboard.png
+     - citien-dashboard.png
+     - dispatcher-portal.png
+     - Crew Portal Dashboard.png
+
+   These four mockups REPLACE the 21 that preceded them. The earlier set was
+   page-per-page (login, register, OTP, report flow, ticket detail …); this
+   set is dashboard-per-role, because the reference images define four
+   dashboards and nothing else.
+
+   The reference images are photographic/rendered PNGs, so the values here are
+   SAMPLED from them and expressed through the tokens in `tokens.css` wherever
+   a token already carries that meaning. Nothing here invents a colour that
+   `tokens.css` does not name — the token-purity test
+   (`tests/unit/ui/mockup-tokens.test.ts`) enforces exactly that, and it
+   scans this file like any other mockup stylesheet.
+
+   DESIGN LANGUAGE READ FROM THE REFERENCES
+   ----------------------------------------
+   1. The rail is a deep navy (`--color-rail`) carrying the brand mark, the
+      role's nav, a skyline illustration and a footer (status + user).
+   2. The active nav item is a FILLED PILL in civic blue — not an inset edge
+      bar. The references are unambiguous on this.
+   3. Every KPI is a card with a big figure, a label, and a CIRCULAR TINTED
+      ICON BADGE. Dispatcher and admin additionally carry a trend % and a
+      sparkline; citizen and crew do not.
+   4. Cards are white on an off-white page, separated by hairline borders and
+      soft shadows — never by shadow stacks.
+   5. Status is carried by colour AND a glyph AND a word, never colour alone.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Page frame
+   -------------------------------------------------------------------------- */
+
+.dash {
+  --dash-pad: 20px;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  background: var(--color-surface-page);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.dash * { box-sizing: border-box; }
+
+.dash-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The content column. The references use a max-width well under the
+   viewport and left-align it, so the dashboard reads as a document rather
+   than a stretched band. */
+.dash-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-6) var(--space-6) var(--space-7);
+}
+
+/* --------------------------------------------------------------------------
+   2. The rail
+   -------------------------------------------------------------------------- */
+
+.dash-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px 16px;
+  color: var(--color-rail-ink);
+  background: var(--color-rail);
+}
+
+/* Brand lockup: the mark is a white map pin with a blue dot, sitting left of
+   the wordmark. The tagline names the role. */
+.dash-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 18px;
+  border-bottom: 1px solid var(--color-rail-border);
+  color: inherit;
+  text-decoration: none;
+}
+
+.dash-brand-text { min-width: 0; }
+.dash-brand-text strong {
+  display: block;
+  color: var(--color-rail-ink);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.dash-brand-text small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-rail-ink-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.dash-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  margin-top: 16px;
+  overflow-y: auto;
+}
+
+.dash-nav-link {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--color-rail-ink-muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: color 140ms ease, background 140ms ease;
+}
+.dash-nav-link svg { flex: 0 0 auto; }
+.dash-nav-link:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
+
+/* The active item is a FILLED civic-blue pill. */
+.dash-nav-link.is-active {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font-weight: 600;
+}
+.dash-nav-link.is-active svg { color: var(--color-on-primary); }
+
+/* The badge on a nav item (the dispatcher's unread count). */
+.dash-nav-badge {
+  margin-left: auto;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9999px;
+  color: var(--color-on-primary);
+  background: var(--color-danger);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rail foot. Two variants across the references: a civic tagline under a
+   heart (citizen, admin) and an online-status + crew id (crew). */
+.dash-rail-foot {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-rail-border);
+  color: var(--color-rail-ink-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.dash-rail-tagline {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.dash-rail-tagline svg { flex: 0 0 auto; margin-top: 1px; color: var(--color-rail-accent); }
+.dash-rail-tagline span { display: block; }
+
+.dash-online {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-rail-ink);
+  font-weight: 600;
+}
+.dash-online i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+.dash-crew-id { margin-top: 3px; color: var(--color-rail-ink-muted); font-size: 11px; }
+
+/* The user footer (admin, dispatcher). */
+.dash-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-rail-border);
+}
+.dash-avatar {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-rail-ink);
+  background: var(--color-surface-raised);
+  font-size: 12px;
+  font-weight: 700;
+}
+.dash-user-text { min-width: 0; flex: 1; }
+.dash-user-text strong {
+  display: block;
+  color: var(--color-rail-ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-user-text small { display: block; color: var(--color-rail-ink-muted); font-size: 11px; }
+.dash-user svg { flex: 0 0 auto; color: var(--color-rail-ink-muted); }
+
+/* --------------------------------------------------------------------------
+   3. Top bar
+   -------------------------------------------------------------------------- */
+
+.dash-topbar {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 var(--space-6);
+  background: var(--color-surface-card);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dash-search {
+  width: min(420px, 42%);
+  min-width: 220px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-ink-tertiary);
+  background: var(--color-surface-page);
+}
+.dash-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: var(--color-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+.dash-search input::placeholder { color: var(--color-ink-tertiary); }
+
+.dash-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dash-bell {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: var(--color-ink-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+.dash-bell:hover { color: var(--color-ink); background: var(--color-surface-raised); }
+.dash-bell-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-surface-card);
+  border-radius: 9999px;
+  color: var(--color-on-primary);
+  background: var(--color-danger);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The range select (admin) and the date chip (crew). */
+.dash-select {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-card);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.dash-select svg { flex: 0 0 auto; color: var(--color-ink-tertiary); }
+.dash-select select {
+  appearance: none;
+  border: 0;
+  outline: 0;
+  color: var(--color-ink);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.dash-datechip {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-card);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.dash-datechip svg { flex: 0 0 auto; color: var(--color-ink-tertiary); }
+
+/* The top-right user (citizen, dispatcher, admin): dark circle + name. */
+.dash-account { display: flex; align-items: center; gap: 9px; }
+.dash-account .dash-avatar { color: var(--color-on-primary); background: var(--color-rail); }
+.dash-account-name { color: var(--color-ink); font-size: 13.5px; font-weight: 600; }
+.dash-account svg { color: var(--color-ink-tertiary); }
+
+/* --------------------------------------------------------------------------
+   4. Page heading
+   -------------------------------------------------------------------------- */
+
+.dash-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: var(--space-5);
+}
+.dash-heading h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+.dash-heading p {
+  margin: 5px 0 0;
+  color: var(--color-ink-secondary);
+  font-size: 13.5px;
+}
+
+/* --------------------------------------------------------------------------
+   5. Cards
+   -------------------------------------------------------------------------- */
+
+.dash-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+}
+
+.dash-card-head {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+.dash-card-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.dash-card-head h2 svg { color: var(--color-ink-secondary); }
+.dash-card-head .dash-link { margin-left: auto; }
+
+.dash-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dash-link:hover { color: var(--color-primary-hover); }
+
+/* --------------------------------------------------------------------------
+   6. KPI cards
+   -------------------------------------------------------------------------- */
+
+/* Citizen and crew: badge + figure + label, no trend. */
+.dash-kpis { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); }
+.dash-kpis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dash-kpis-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.dash-kpi {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-xs);
+}
+
+/* The circular tinted icon badge — the strongest single motif in the
+   references. It appears on every KPI card on all four dashboards. */
+.dash-kpi-badge {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.dash-kpi-badge.is-success { color: var(--color-status-resolved); background: var(--color-status-resolved-soft); }
+.dash-kpi-badge.is-warning { color: var(--color-status-in-progress); background: var(--color-status-in-progress-soft); }
+.dash-kpi-badge.is-danger  { color: var(--color-danger); background: var(--color-danger-soft); }
+.dash-kpi-badge.is-violet  { color: var(--color-accent); background: var(--color-accent-soft); }
+
+.dash-kpi-body { min-width: 0; flex: 1; }
+/* The figure, the label and the trend are spans, so they need to be told to
+   stack — an inline span lays them out side by side. */
+.dash-kpi-value {
+  display: block;
+  color: var(--color-ink);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.dash-kpi-label {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+}
+
+/* Dispatcher and admin: the KPI splits into a left reading and a right
+   sparkline, with the trend % beneath the figure. */
+.dash-kpi.is-split { align-items: flex-start; gap: 10px; }
+.dash-kpi.is-split .dash-kpi-badge { width: 38px; height: 38px; flex-basis: 38px; }
+.dash-kpi.is-split .dash-kpi-value { font-size: 24px; }
+.dash-kpi-spark { flex: 0 0 84px; align-self: stretch; display: flex; align-items: flex-end; }
+.dash-kpi-spark svg { width: 100%; height: 38px; overflow: visible; }
+
+.dash-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.dash-trend.is-up { color: var(--color-success); }
+.dash-trend.is-down { color: var(--color-danger); }
+
+/* --------------------------------------------------------------------------
+   7. The report CTA (citizen)
+   -------------------------------------------------------------------------- */
+
+.dash-cta {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  text-decoration: none;
+}
+.dash-cta-icon { flex: 0 0 auto; display: grid; place-items: center; }
+.dash-cta-body { min-width: 0; flex: 1; }
+.dash-cta-body strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.dash-cta-body small { display: block; margin-top: 3px; opacity: 0.85; font-size: 12.5px; }
+.dash-cta-arrow {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  background: var(--color-primary-pressed);
+}
+
+/* --------------------------------------------------------------------------
+   8. Panels and grids
+   -------------------------------------------------------------------------- */
+
+.dash-grid { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); }
+.dash-grid-2 { grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); }
+.dash-grid-3 { grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.85fr) minmax(280px, 1fr); }
+.dash-grid-crew { grid-template-columns: minmax(280px, 0.95fr) minmax(340px, 1.35fr) minmax(280px, 1fr); }
+.dash-grid-half { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* --------------------------------------------------------------------------
+   9. Report / job rows
+   -------------------------------------------------------------------------- */
+
+.dash-rows { display: flex; flex-direction: column; }
+
+.dash-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: inherit;
+  text-decoration: none;
+}
+.dash-row:last-child { border-bottom: 0; }
+.dash-row:hover { background: var(--color-surface-page); }
+
+/* The photo thumbnail. Real photographs are out of scope for a mockup, so
+   each is a gradient placeholder in the shape of the subject. */
+.dash-thumb {
+  width: 52px;
+  height: 44px;
+  flex: 0 0 52px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--color-surface-raised);
+}
+.dash-thumb.is-road {
+  background:
+    linear-gradient(160deg, var(--color-surface-sunken) 0 46%, #6b7280 46% 52%, #4b5563 52% 100%);
+}
+.dash-thumb.is-lamp {
+  background:
+    radial-gradient(circle at 62% 26%, #fde68a 0 16%, transparent 17%),
+    linear-gradient(175deg, #1f2937 0 52%, #374151 52% 100%);
+}
+.dash-thumb.is-bin {
+  background:
+    linear-gradient(150deg, #4b5563 0 46%, #15803d 46% 100%);
+}
+.dash-thumb.is-pipe {
+  background:
+    linear-gradient(180deg, #e2e8f0 0 38%, #3b82f6 38% 58%, #e2e8f0 58% 100%);
+}
+.dash-thumb.is-bench {
+  background:
+    linear-gradient(165deg, #b45309 0 44%, #78350f 44% 100%);
+}
+
+.dash-row-body { min-width: 0; flex: 1; }
+.dash-row-title {
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-row-meta svg { flex: 0 0 auto; }
+.dash-row-age {
+  flex: 0 0 auto;
+  color: var(--color-ink-tertiary);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* The mono ticket code — the dispatcher's internal reference. */
+.dash-ticket-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.dash-ticket-code i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-status-submitted);
+}
+.dash-ticket-code i.is-pending { background: var(--color-status-in-progress); }
+.dash-ticket-code i.is-assigned { background: var(--color-accent); }
+.dash-ticket-code i.is-progress { background: var(--color-status-routed); }
+.dash-ticket-code i.is-resolved { background: var(--color-status-resolved); }
+
+.dash-row-chevron { flex: 0 0 auto; color: var(--color-ink-tertiary); }
+
+/* --------------------------------------------------------------------------
+   10. Status pills
+   -------------------------------------------------------------------------- */
+
+.dash-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dash-pill.is-new { color: var(--color-status-routed); background: var(--color-status-routed-soft); }
+.dash-pill.is-progress { color: var(--color-status-in-progress); background: var(--color-status-in-progress-soft); }
+.dash-pill.is-resolved { color: var(--color-status-resolved); background: var(--color-status-resolved-soft); }
+.dash-pill.is-closed { color: var(--color-status-submitted); background: var(--color-status-submitted-soft); }
+.dash-pill.is-pending { color: var(--color-status-in-progress); background: var(--color-status-in-progress-soft); }
+.dash-pill.is-assigned { color: var(--color-accent); background: var(--color-accent-soft); }
+.dash-pill.is-high { color: var(--color-danger); background: var(--color-danger-soft); }
+
+/* --------------------------------------------------------------------------
+   11. The map card
+   -------------------------------------------------------------------------- */
+
+.dash-map {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-map-bg);
+}
+/* Only the map's own drawing layer fills the card — the popup and the zoom
+   controls live inside `.dash-map` too and carry their own icon sizes. */
+.dash-map > svg.dash-map-canvas { display: block; width: 100%; height: 100%; }
+
+.dash-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--color-ink-secondary);
+  font-size: 11.5px;
+}
+.dash-map-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dash-map-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dash-map-legend .legend-new { background: var(--color-status-routed); }
+.dash-map-legend .legend-progress { background: var(--color-status-in-progress); }
+.dash-map-legend .legend-resolved { background: var(--color-status-resolved); }
+.dash-map-legend .legend-assigned { background: var(--color-accent); }
+
+/* The zoom control stack (dispatcher + crew maps). */
+.dash-map-zoom {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.dash-map-zoom button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: var(--color-ink-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+.dash-map-zoom button + button { border-top: 1px solid var(--color-border); }
+.dash-map-zoom button:hover { color: var(--color-ink); background: var(--color-surface-raised); }
+
+/* The selected-ticket popup that floats over the map. */
+.dash-map-popup {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-card);
+  box-shadow: var(--shadow-md);
+}
+.dash-map-popup .dash-thumb { width: 44px; height: 38px; flex-basis: 44px; }
+.dash-map-popup strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dash-map-popup small {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   12. Charts
+   -------------------------------------------------------------------------- */
+
+.dash-chart-body { padding: var(--space-4); }
+
+.dash-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--color-ink-secondary);
+  font-size: 11.5px;
+}
+.dash-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dash-chart-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dash-chart-legend i.legend-total { background: var(--color-primary); }
+.dash-chart-legend i.legend-resolved { background: var(--color-status-resolved); }
+.dash-chart-legend i.legend-pending { background: var(--color-danger); }
+.dash-chart-legend i.legend-created { background: var(--color-primary); }
+
+/* The grouped bar chart (dispatcher report trends). Drawn as inline SVG so
+   the bar geometry is exact; the frame and axis labels are shared with the
+   line chart. */
+.dash-bars { width: 100%; height: 168px; overflow: visible; }
+.dash-bars .grid { stroke: var(--color-border); stroke-width: 1; }
+.dash-bars .axis-text {
+  fill: var(--color-ink-tertiary);
+  font-size: 10px;
+  font-family: var(--font-body);
+}
+
+/* The line chart frame (citizen statistics, admin reports trend). */
+.dash-line { width: 100%; height: 150px; overflow: visible; }
+.dash-line .grid { stroke: var(--color-border); stroke-width: 1; }
+.dash-line .axis-text {
+  fill: var(--color-ink-tertiary);
+  font-size: 10px;
+  font-family: var(--font-body);
+}
+.dash-line .series-total { fill: none; stroke: var(--color-primary); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.dash-line .series-resolved { fill: none; stroke: var(--color-status-resolved); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.dash-line .series-pending { fill: none; stroke: var(--color-danger); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.dash-line .dot-total { fill: var(--color-primary); }
+.dash-line .dot-resolved { fill: var(--color-status-resolved); }
+.dash-line .dot-pending { fill: var(--color-danger); }
+
+/* The donut (dispatcher crew availability, admin crew activity). */
+.dash-donut-wrap { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); }
+.dash-donut {
+  width: 104px;
+  height: 104px;
+  flex: 0 0 104px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--color-status-resolved) 0 57%, var(--color-border) 57% 100%);
+}
+.dash-donut::before {
+  content: '';
+  width: 76px;
+  height: 76px;
+  grid-area: 1 / 1;
+  border-radius: 50%;
+  background: var(--color-surface-card);
+}
+.dash-donut span {
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.dash-donut strong { color: var(--color-ink); font-size: 22px; font-weight: 700; line-height: 1; }
+.dash-donut small { color: var(--color-ink-tertiary); font-size: 10.5px; }
+
+.dash-stat-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.dash-stat-list li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink-secondary);
+  font-size: 12px;
+}
+.dash-stat-list i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ink-tertiary); }
+.dash-stat-list i.is-active { background: var(--color-status-resolved); }
+.dash-stat-list i.is-busy { background: var(--color-status-in-progress); }
+.dash-stat-list i.is-away { background: var(--color-status-submitted); }
+.dash-stat-list strong { color: var(--color-ink); font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------------------
+   13. Quick actions
+   -------------------------------------------------------------------------- */
+
+/* The dispatcher's: two small tiles, the first one primary. */
+.dash-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: var(--space-4); }
+.dash-tile {
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-card);
+  text-decoration: none;
+  text-align: center;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.dash-tile:hover { transform: translateY(-1px); border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+.dash-tile svg { flex: 0 0 auto; }
+.dash-tile span { font-size: 12px; font-weight: 600; }
+.dash-tile.is-primary {
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+}
+.dash-tile.is-primary:hover { background: var(--color-primary-hover); }
+
+/* The admin's: four large coloured tiles, each with a title and a subtitle. */
+.dash-actions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: var(--space-4); }
+.dash-action {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-ink);
+  background: var(--color-surface-card);
+  text-decoration: none;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.dash-action:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.dash-action > svg { flex: 0 0 auto; }
+.dash-action-text { min-width: 0; }
+.dash-action-text strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-action-text small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-ink-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-action.is-primary { border-color: var(--color-primary); color: var(--color-on-primary); background: var(--color-primary); }
+.dash-action.is-primary .dash-action-text strong { color: var(--color-on-primary); }
+.dash-action.is-primary .dash-action-text small { color: var(--color-on-primary); opacity: 0.82; }
+.dash-action.is-violet { border-color: var(--color-accent); color: var(--color-on-accent); background: var(--color-accent); }
+.dash-action.is-violet .dash-action-text strong { color: var(--color-on-accent); }
+.dash-action.is-violet .dash-action-text small { color: var(--color-on-accent); opacity: 0.82; }
+.dash-action.is-success { border-color: var(--color-success); color: var(--color-on-primary); background: var(--color-success); }
+.dash-action.is-success .dash-action-text strong { color: var(--color-on-primary); }
+.dash-action.is-success .dash-action-text small { color: var(--color-on-primary); opacity: 0.82; }
+
+/* --------------------------------------------------------------------------
+   14. Crew-specific pieces
+   -------------------------------------------------------------------------- */
+
+/* The greeting block with the hard-hat badge. */
+.dash-greet { display: flex; align-items: flex-start; gap: 14px; }
+.dash-greet-badge {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.dash-greet h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+.dash-greet p { margin: 4px 0 0; color: var(--color-ink-secondary); font-size: 13.5px; }
+
+/* The vertical status trail on the crew detail panel. */
+.dash-trail { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; }
+.dash-trail li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 16px;
+}
+.dash-trail li:last-child { padding-bottom: 0; }
+.dash-trail li::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  left: 12px;
+  width: 2px;
+  background: var(--color-border);
+}
+.dash-trail li:last-child::before { display: none; }
+.dash-trail-dot {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  background: var(--color-status-submitted);
+}
+.dash-trail li.is-done .dash-trail-dot { background: var(--color-status-resolved); }
+.dash-trail li.is-current .dash-trail-dot { background: var(--color-primary); }
+.dash-trail-text strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dash-trail li:not(.is-done):not(.is-current) .dash-trail-text strong { color: var(--color-ink-tertiary); }
+.dash-trail-text small { display: block; margin-top: 2px; color: var(--color-ink-tertiary); font-size: 11.5px; }
+
+/* The detail panel's action bar. */
+.dash-detail-actions { display: flex; gap: 9px; padding: var(--space-4); }
+
+.dash-btn {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 15px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.dash-btn.is-primary { border: 1px solid var(--color-primary); color: var(--color-on-primary); background: var(--color-primary); }
+.dash-btn.is-outline { border: 1px solid var(--color-primary); color: var(--color-primary); background: transparent; }
+.dash-btn.is-outline:hover { background: var(--color-primary-soft); }
+
+/* The "Need Help?" band — the blue field with the illustrated worker. */
+.dash-help {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-primary-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-primary-soft);
+}
+.dash-help-text { min-width: 0; flex: 1; }
+.dash-help h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+.dash-help h2 svg { color: var(--color-primary); }
+.dash-help p { margin: 6px 0 10px; color: var(--color-ink-secondary); font-size: 12.5px; line-height: 1.5; }
+
+/* The green civic band (citizen "Together for a Better City"). */
+.dash-civic {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-status-resolved-soft);
+  border-radius: var(--radius-card);
+  background: var(--color-status-resolved-soft);
+}
+.dash-civic-text { min-width: 0; flex: 1; }
+.dash-civic h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+.dash-civic h2 svg { color: var(--color-status-resolved); }
+.dash-civic p { margin: 6px 0 0; color: var(--color-ink-secondary); font-size: 12.5px; line-height: 1.5; }
+
+/* The citizen's hero band — the photo strip behind the greeting. */
+.dash-hero {
+  position: relative;
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) var(--space-5);
+  padding: var(--space-6) var(--space-6) 30px;
+  overflow: hidden;
+}
+.dash-hero-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dash-hero-inner { position: relative; }
+.dash-hero h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+.dash-hero p { margin: 6px 0 0; color: var(--color-ink-secondary); font-size: 15px; }
+
+/* --------------------------------------------------------------------------
+   15. Activity feed
+   -------------------------------------------------------------------------- */
+
+.dash-activity { margin: 0; padding: 0; list-style: none; display: grid; }
+.dash-activity li {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-ink-secondary);
+  font-size: 12.5px;
+}
+.dash-activity li:last-child { border-bottom: 0; }
+.dash-activity-badge {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+}
+.dash-activity-badge.is-done { background: var(--color-status-resolved); }
+.dash-activity li > span:nth-child(2) { flex: 1; min-width: 0; }
+.dash-activity time { flex: 0 0 auto; color: var(--color-ink-tertiary); font-size: 11.5px; }
+
+/* --------------------------------------------------------------------------
+   16. Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1280px) {
+  .dash-grid-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dash-grid-crew { grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.3fr); }
+}
+
+@media (max-width: 1080px) {
+  .dash { grid-template-columns: 68px minmax(0, 1fr); }
+  .dash-brand-text,
+  .dash-nav-link span,
+  .dash-rail-foot { display: none; }
+  .dash-nav-link { justify-content: center; padding: 0; }
+  .dash-nav-badge { position: absolute; margin: 0; transform: translate(12px, -12px); }
+  .dash-nav-link { position: relative; }
+  .dash-grid-2,
+  .dash-grid-crew { grid-template-columns: minmax(0, 1fr); }
+  .dash-kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .dash-content { padding: var(--space-5) var(--space-4) var(--space-6); }
+  .dash-topbar { padding: 0 var(--space-4); }
+  .dash-kpis-4,
+  .dash-kpis-3 { grid-template-columns: minmax(0, 1fr); }
+  .dash-grid-3,
+  .dash-grid-half { grid-template-columns: minmax(0, 1fr); }
+  .dash-hero { margin: calc(var(--space-5) * -1) calc(var(--space-4) * -1) var(--space-4); padding: var(--space-5) var(--space-4) 26px; }
+  .dash-hero h1 { font-size: 27px; }
+}

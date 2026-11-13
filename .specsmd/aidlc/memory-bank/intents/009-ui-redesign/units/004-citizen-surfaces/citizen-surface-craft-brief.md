@@ -307,6 +307,24 @@ card now carries `aspect-ratio: 600 / 460` and the SVG uses
 `/reports/[id]` carries a **vertical** `Timeline` with a per-step icon
 and a timestamp on every step. Use `components/ui/Timeline.tsx`.
 
+**The step's `aside` note lives INSIDE the body column, not beside
+it.** The mockup's `.trail-note` is a block inside `.trail-body`
+(`flex: 1; min-width: 0`), so the note sits under the timestamp at the
+body's full width.
+
+The React port got this wrong by rendering the note as a flex
+**sibling** of the body with `flex: '1 0 100%'` to push it onto its
+own line. But the step row is `flex-wrap: nowrap`, so a 100% basis
+starved the body: it collapsed to **width 0** and the timestamp
+wrapped **one word per line** ("৩০ অক্টো, ২০২৬, ০৯:১৫ AM · সিটি
+কর্পোরেশন" stacked down a narrow strip). The trail measured **968px
+tall for four steps**; with the note inside the body it is **365px**.
+
+A full-width flex basis is not a way to force a line break in a
+non-wrapping flex row. It is a way to starve the sibling. If a
+sibling's width needs to be full, the sibling needs to be a **block
+child of the body column**, not a row peer of it.
+
 The detail page also keeps, from earlier intents:
 
 - the **labelled before/after photo groups** (Intent 007) — each group
@@ -316,6 +334,12 @@ The detail page also keeps, from earlier intents:
 
 **No raw internal id is visible on any citizen surface.** Not the
 database id, not the row id, not a UUID. The pill is the public code.
+
+Note that the raw id still appears in the page's *RSC flight payload*
+(the URL segment). That is the address of the page, not a leaked
+field — it is not in the rendered text, and the citizen cannot see it
+without opening devtools. The rule is about what the surface shows,
+not about what the transport carries.
 
 ## 15. Icons
 

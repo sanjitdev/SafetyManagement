@@ -6268,3 +6268,87 @@ evidence of a stale refresh. The baseline asserts a rendered application,
 so the only sound question is **which source state can produce the pixels
 in it** — and the answer here was that the committed pixels were the
 impossible ones.
+
+---
+
+## Live verification run — 2026-11-12 — and the Timeline collapse it found
+
+The Construction Verification Command was run end to end for the
+first time against a live dev server:
+
+| Leg | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run test:unit` | 2186 passed / 127 files |
+| `npm run test:mockups` | 14 failed / 29 passed — **the same 14 as before**, all Windows-vs-CI rasterisation drift |
+| `curl` root route | HTTP 200, 38 132 bytes |
+
+The mockup leg needs a note. The 14 failures are **not** regressions.
+Each is a 0.02–0.03 pixel ratio against a 0.005 tolerance, one of
+them fails a **height** comparison ("Expected 1024×1526, received
+1024×1566"), `git log 154543c..HEAD -- mockups/ tokens.css` is
+**empty** since the CI baselines were captured, and the failing set
+includes mockups nobody touched (17-triage-queue, 18-dispatcher-ticket-
+detail, 20-dispatcher-monitor). A height mismatch is font-metric
+drift. The baselines are CI-captured on ubuntu-latest and a Windows
+capture rasterises Bengali differently; they are regenerated through
+the workflow, never by hand here.
+
+### What the live run found that the audits did not
+
+Every audit so far read source and tokens. Rendering the real page in
+a browser found a defect none of them caught.
+
+`/reports/[id]` renders the vertical trail through
+`components/ui/Timeline.tsx`. The trail looked **correct in source**
+and **wrong on screen**: each timestamp wrapped **one word per
+line**, stacking
+
+> ৩০ অক্টো, ২০২৬, / ০৯:১৫ / AM · / সিটি / কর্পোরেশন
+
+down a narrow strip beside the icon. Measured in the browser, the
+step's text column had **width 0**, and the trail measured **968px
+tall for four steps**.
+
+**Cause.** The call site in `app/reports/[id]/page.tsx` rendered the
+step's note as a flex **sibling** of the body column with
+`flex: '1 0 100%'`, intending to push it onto its own line. The step
+row is `flex-wrap: nowrap`, so a 100% flex basis does not force a
+line break — it **starves the sibling**, and the body collapsed to
+zero width.
+
+**Fix.** The note belongs **inside** the body column, which is what
+the mockup does: `.trail-note` is a block inside `.trail-body`
+(`flex: 1; min-width: 0`). The `Timeline` primitive now renders
+`aside` as a block child of the body column, and the call site passes
+a plain block.
+
+| | before | after |
+|---|---|---|
+| body column width | 0px | 546px |
+| trail height (4 steps) | 968px | 365px |
+| timestamp | one word per line | one line |
+
+This is the same class of error as the `preserveAspectRatio="slice"`
+crop and the mis-anchored street labels: a rule that holds in the
+mockup's CSS can be broken by a structurally different React port.
+**Measuring the rendered box is the only way to see it.** The audit
+read the source, found a plausible flex basis, and passed it.
+
+The rule is now in `citizen-surface-craft-brief.md` §14: a full-width
+flex basis is not a way to force a line break in a non-wrapping flex
+row — it is a way to starve the sibling.
+
+### One thing that looked like a defect and was not
+
+`GET /api/tickets/:id` returns no `publicId` field, and the detail
+page HTML contains the raw internal id (`ticket_seed_edge_03`) five
+times, which looks exactly like a §14 violation.
+
+It is not. Every occurrence is in the **RSC flight payload** — the
+URL segment Next.js serialises — not in rendered text. Stripping
+scripts and styles shows the id **absent** from what the citizen
+sees, and the surface shows the public code `#TIX-0WN7` instead. The
+rule governs what a surface *shows*, not what the transport carries.
+Checked rather than assumed, because the same grep would have found
+a genuine leak.

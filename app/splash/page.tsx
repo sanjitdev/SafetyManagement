@@ -16,6 +16,12 @@
  * illustration is dropped and the hero runs full width, exactly as the
  * mockup's own media query does.
  *
+ * NOTE (2026-11-13): the page-per-page mockups were replaced by the four
+ * role dashboards, so `01-welcome.html` no longer exists. The composition
+ * described above is retained here as the record of the contract this
+ * page was built against; the surviving visual reference is
+ * `mockups/01-citizen-dashboard.html`.
+ *
  * WHAT THIS CHANGE DID NOT DO
  * ---------------------------
  * The mockup's CTA pair ("নিবন্ধন করুন" / "লগইন") is deliberately NOT

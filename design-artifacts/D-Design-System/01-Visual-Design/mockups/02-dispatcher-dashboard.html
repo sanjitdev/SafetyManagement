@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dispatcher Dashboard — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="dashboards.css">
+
+  <style>
+    /* The dispatcher is the busiest surface in the references: four KPI cards
+       with sparklines, a wide map, a queue list, and a three-panel bottom
+       row (crew availability donut, quick-action tiles, grouped bars). */
+
+    .dis-map-card { min-height: 0; }
+    .dis-map { height: 300px; }
+
+    .dis-legend-row { display: flex; align-items: center; gap: 12px; }
+
+    .dis-bottom { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(260px, 0.85fr) minmax(300px, 1.1fr); gap: var(--space-4); }
+  </style>
+</head>
+<body>
+<div class="dash">
+
+  <!-- ============================ THE RAIL ============================ -->
+  <aside class="dash-rail">
+    <a class="dash-brand" href="#">
+      <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2C7.6 2 4 5.5 4 9.9c0 5.4 8 12.1 8 12.1s8-6.7 8-12.1C20 5.5 16.4 2 12 2z" fill="#F7F9FF"/>
+        <circle cx="12" cy="9.8" r="3.4" fill="#1E40AF"/>
+      </svg>
+      <span class="dash-brand-text">
+        <strong>CityFix</strong>
+        <small>Dispatcher Portal</small>
+      </span>
+    </a>
+
+    <nav class="dash-nav" aria-label="Primary">
+      <a class="dash-nav-link is-active" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10.6 12 3l9 7.6V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+        <span>Assignments</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 13c-3.3 0-6 1.7-6 4v2h12v-2c0-2.3-2.7-4-6-4zm8 .5c-.6 0-1.2.1-1.7.2 1.3 1 2.1 2.4 2.1 4.3v1.5h5.6v-2c0-2.2-2.7-4-6-4z"/></svg>
+        <span>Crews</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 7v13h7v-4h4v4h7V7l-6-3z"/></svg>
+        <span>Map</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm7-6v-5a7 7 0 0 0-5-6.7V3a2 2 0 0 0-4 0v1.3A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+        <span>Notifications</span>
+        <span class="dash-nav-badge">3</span>
+      </a>
+    </nav>
+
+    <div class="dash-user">
+      <span class="dash-avatar">DS</span>
+      <span class="dash-user-text">
+        <strong>Dipon Shah</strong>
+        <small>Dispatcher</small>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+  </aside>
+
+  <!-- ============================ THE MAIN ============================ -->
+  <div class="dash-main">
+
+    <header class="dash-topbar">
+      <div class="dash-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" placeholder="Search reports..." aria-label="Search reports" />
+      </div>
+      <div class="dash-topbar-right">
+        <button class="dash-bell" type="button" aria-label="Notifications, 3 unread">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dash-bell-badge">3</span>
+        </button>
+        <span class="dash-select">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Today
+        </span>
+      </div>
+    </header>
+
+    <div class="dash-content">
+
+      <div class="dash-heading">
+        <div>
+          <h1>Dispatcher Dashboard</h1>
+          <p>Live overview of reports and crew activity across the city</p>
+        </div>
+        <span class="dash-select">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          Gulshan · Wards 12
+        </span>
+      </div>
+
+      <!-- The four KPI cards, each with a sparkline and a trend. -->
+      <section class="dash-kpis dash-kpis-4">
+        <div class="dash-kpi is-split">
+          <span class="dash-kpi-badge">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h3l5 4V6L6 10zm13.5 2a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2z"/></svg>
+          </span>
+          <span class="dash-kpi-body">
+            <span class="dash-kpi-label">New Reports</span>
+            <span class="dash-kpi-value">48</span>
+            <span class="dash-trend is-up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+              12%
+            </span>
+          </span>
+          <span class="dash-kpi-spark">
+            <svg viewBox="0 0 84 38" aria-hidden="true">
+              <path d="M2 30 L14 25 L26 27 L38 18 L50 21 L62 12 L74 14 L82 7" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="dash-kpi is-split">
+          <span class="dash-kpi-badge is-warning">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </span>
+          <span class="dash-kpi-body">
+            <span class="dash-kpi-label">Pending Review</span>
+            <span class="dash-kpi-value">22</span>
+            <span class="dash-trend is-up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+              5%
+            </span>
+          </span>
+          <span class="dash-kpi-spark">
+            <svg viewBox="0 0 84 38" aria-hidden="true">
+              <path d="M2 28 L14 22 L26 25 L38 14 L50 18 L62 9 L74 13 L82 6" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="dash-kpi is-split">
+          <span class="dash-kpi-badge is-success">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2 2 0 0 1-2.8-2.8z"/></svg>
+          </span>
+          <span class="dash-kpi-body">
+            <span class="dash-kpi-label">In Progress</span>
+            <span class="dash-kpi-value">36</span>
+            <span class="dash-trend is-down">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              8%
+            </span>
+          </span>
+          <span class="dash-kpi-spark">
+            <svg viewBox="0 0 84 38" aria-hidden="true">
+              <path d="M2 26 L14 20 L26 23 L38 12 L50 16 L62 8 L74 11 L82 5" fill="none" stroke="#15803D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+
+        <div class="dash-kpi is-split">
+          <span class="dash-kpi-badge is-violet">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+          </span>
+          <span class="dash-kpi-body">
+            <span class="dash-kpi-label">Resolved</span>
+            <span class="dash-kpi-value">90</span>
+            <span class="dash-trend is-up">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+              14%
+            </span>
+          </span>
+          <span class="dash-kpi-spark">
+            <svg viewBox="0 0 84 38" aria-hidden="true">
+              <path d="M2 32 L14 28 L26 30 L38 20 L50 24 L62 14 L74 18 L82 9" fill="none" stroke="#0369A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+      </section>
+
+      <!-- The map and the queue -->
+      <section class="dash-grid dash-grid-2">
+        <article class="dash-card dis-map-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              City Map
+            </h2>
+            <div class="dash-map-legend dis-legend-row" style="margin-left:auto;">
+              <span><i class="legend-new"></i>New</span>
+              <span><i class="legend-progress"></i>In Progress</span>
+              <span><i class="legend-assigned"></i>Assigned</span>
+              <span><i class="legend-resolved"></i>Resolved</span>
+              <a class="dash-link" href="#">View Full Map</a>
+            </div>
+          </header>
+          <div class="dash-map dis-map">
+            <svg class="dash-map-canvas" viewBox="0 0 760 300" preserveAspectRatio="xMidYMid slice" aria-label="City map of live reports">
+              <rect width="760" height="300" fill="#E9EEF6"/>
+              <path d="M0 88h760M0 190h760" stroke="#FFFFFF" stroke-width="10"/>
+              <path d="M140 0v300M392 0v300M612 0v300" stroke="#FFFFFF" stroke-width="8"/>
+              <path d="M0 138 760 112M60 300 300 0M540 300 700 0" stroke="#FFFFFF" stroke-width="5"/>
+              <path d="M0 236c80-10 130 12 190 4s96-30 152-18 110 34 180 24 140-18 238-8v62H0z" fill="#CFE3F5"/>
+              <path d="M430 210c30-8 56 2 80 0s44-20 72-14 34 22 62 18" stroke="#CFE3F5" stroke-width="13" fill="none"/>
+              <rect x="238" y="214" width="74" height="56" rx="8" fill="#E0EFE3"/>
+              <rect x="524" y="26" width="60" height="48" rx="7" fill="#E0EFE3"/>
+              <rect x="60" y="212" width="46" height="40" rx="6" fill="#E0EFE3"/>
+              <!-- pins -->
+              <g transform="translate(96 62)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#1E40AF"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(228 54)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#0369A1"/>
+                <path d="m-5.5-11 4.4 5 7-9" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <g transform="translate(348 120)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#0369A1"/>
+                <path d="m-5.5-11 4.4 5 7-9" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <g transform="translate(470 74)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#B45309"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(566 158)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#0369A1"/>
+                <path d="m-5.5-11 4.4 5 7-9" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <g transform="translate(668 108)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#1E40AF"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(266 200)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#15803D"/>
+                <path d="m-5-11 3.4 4.2L5.4-14" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <g transform="translate(632 232)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#15803D"/>
+                <path d="m-5-11 3.4 4.2L5.4-14" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <!-- the selected ticket -->
+              <g transform="translate(300 96)">
+                <rect width="196" height="58" rx="9" fill="#FFFFFF" stroke="#E2E8F0"/>
+                <rect x="9" y="10" width="38" height="38" rx="6" fill="#4B5563"/>
+                <text x="58" y="26" font-size="11" font-weight="600" fill="#020617" font-family="Noto Sans Bengali, sans-serif">Pothole on Main Road</text>
+                <text x="58" y="42" font-size="10" font-weight="600" fill="#C81E1E" font-family="Noto Sans Bengali, sans-serif">High Priority</text>
+                <text x="132" y="42" font-size="10" fill="#5C6C83" font-family="Noto Sans Bengali, sans-serif">2m ago</text>
+              </g>
+            </svg>
+            <div class="dash-map-zoom">
+              <button type="button" aria-label="Zoom in">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+              <button type="button" aria-label="Zoom out">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="dash-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+              Recent Reports
+            </h2>
+            <a class="dash-link" href="#">View All</a>
+          </header>
+          <div class="dash-rows">
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-road"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Pothole on Main Road</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Gulshan-1
+                </span>
+              </span>
+              <span class="dash-pill is-new">New</span>
+              <span class="dash-pill is-high">High</span>
+              <span class="dash-row-age">2m ago</span>
+            </a>
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-lamp"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Street Light Not Working</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Banani
+                </span>
+              </span>
+              <span class="dash-pill is-progress">In Progress</span>
+              <span class="dash-row-age">25m ago</span>
+            </a>
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-bin"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Overflowing Dustbin</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Mohakhali
+                </span>
+              </span>
+              <span class="dash-pill is-resolved">Resolved</span>
+              <span class="dash-row-age">1h ago</span>
+            </a>
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-pipe"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Water Leakage</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Mirpur-10
+                </span>
+              </span>
+              <span class="dash-pill is-new">New</span>
+              <span class="dash-row-age">1h ago</span>
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <!-- Crew availability · Quick actions · Report trends -->
+      <section class="dis-bottom">
+        <article class="dash-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 13c-3.3 0-6 1.7-6 4v2h12v-2c0-2.3-2.7-4-6-4zm8 .5c-.6 0-1.2.1-1.7.2 1.3 1 2.1 2.4 2.1 4.3v1.5h5.6v-2c0-2.2-2.7-4-6-4z"/></svg>
+              Crew Availability
+            </h2>
+            <a class="dash-link" href="#">View Crews</a>
+          </header>
+          <div class="dash-donut-wrap">
+            <div class="dash-donut">
+              <span>
+                <strong>4</strong>
+                <small>Available<br />of 7</small>
+              </span>
+            </div>
+            <ul class="dash-stat-list">
+              <li>
+                <i class="is-active"></i>
+                <span>Rafiq Team<br /><small style="color:var(--color-ink-tertiary)">Available · Near Gulshan</small></span>
+                <strong>3</strong>
+              </li>
+              <li>
+                <i class="is-busy"></i>
+                <span>Aziz Team<br /><small style="color:var(--color-ink-tertiary)">On a job</small></span>
+                <strong>2</strong>
+              </li>
+              <li>
+                <i class="is-away"></i>
+                <span>Hasan Team<br /><small style="color:var(--color-ink-tertiary)">Available · Near Banani</small></span>
+                <strong>2</strong>
+              </li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="dash-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
+              Quick Actions
+            </h2>
+          </header>
+          <div class="dash-tiles">
+            <a class="dash-tile is-primary" href="#">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 13c-3.3 0-6 1.7-6 4v2h12v-2c0-2.3-2.7-4-6-4zm8 .5c-.6 0-1.2.1-1.7.2 1.3 1 2.1 2.4 2.1 4.3v1.5h5.6v-2c0-2.2-2.7-4-6-4z"/></svg>
+              <span>Assign Crew</span>
+            </a>
+            <a class="dash-tile" href="#">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+              <span>View Reports</span>
+            </a>
+            <a class="dash-tile" href="#">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span>Track Report</span>
+            </a>
+            <a class="dash-tile" href="#">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 13c-3.3 0-6 1.7-6 4v2h12v-2c0-2.3-2.7-4-6-4zm8 .5c-.6 0-1.2.1-1.7.2 1.3 1 2.1 2.4 2.1 4.3v1.5h5.6v-2c0-2.2-2.7-4-6-4z"/></svg>
+              <span>Manage Crews</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="dash-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+              Report Trends
+            </h2>
+            <span class="dash-select" style="margin-left:auto;">
+              This Week
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </header>
+          <div class="dash-chart-body">
+            <div class="dash-chart-legend" style="margin-bottom:10px;">
+              <span><i class="legend-created"></i>Created</span>
+              <span><i class="legend-resolved"></i>Resolved</span>
+            </div>
+            <!-- The reference draws the trends as a VERTICAL grouped bar
+                 chart: seven day-groups side by side, each carrying a
+                 created bar and a resolved bar, against a 0 / 50 / 100
+                 y-axis. The left gutter (x < 34) is reserved for the
+                 y-axis labels so they never touch the plot area. -->
+            <svg class="dash-bars" viewBox="0 0 320 168" role="img"
+                 aria-label="Report trends this week: created and resolved, Monday to Sunday">
+              <!-- y-axis gridlines and labels -->
+              <line class="grid" x1="34" y1="10" x2="314" y2="10"/>
+              <line class="grid" x1="34" y1="50" x2="314" y2="50"/>
+              <line class="grid" x1="34" y1="90" x2="314" y2="90"/>
+              <line class="grid" x1="34" y1="130" x2="314" y2="130"/>
+              <text class="axis-text" x="27" y="13" text-anchor="end">100</text>
+              <text class="axis-text" x="27" y="53" text-anchor="end">50</text>
+              <text class="axis-text" x="27" y="93" text-anchor="end">0</text>
+
+              <!-- Mon -->
+              <rect x="44" y="58" width="10" height="72" rx="2" fill="#1E40AF"/>
+              <rect x="56" y="74" width="10" height="56" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="55" y="150" text-anchor="middle">Mon</text>
+              <!-- Tue -->
+              <rect x="81" y="46" width="10" height="84" rx="2" fill="#1E40AF"/>
+              <rect x="93" y="62" width="10" height="68" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="92" y="150" text-anchor="middle">Tue</text>
+              <!-- Wed -->
+              <rect x="118" y="34" width="10" height="96" rx="2" fill="#1E40AF"/>
+              <rect x="130" y="50" width="10" height="80" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="129" y="150" text-anchor="middle">Wed</text>
+              <!-- Thu -->
+              <rect x="155" y="52" width="10" height="78" rx="2" fill="#1E40AF"/>
+              <rect x="167" y="56" width="10" height="74" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="166" y="150" text-anchor="middle">Thu</text>
+              <!-- Fri -->
+              <rect x="192" y="64" width="10" height="66" rx="2" fill="#1E40AF"/>
+              <rect x="204" y="72" width="10" height="58" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="203" y="150" text-anchor="middle">Fri</text>
+              <!-- Sat -->
+              <rect x="229" y="44" width="10" height="86" rx="2" fill="#1E40AF"/>
+              <rect x="241" y="60" width="10" height="70" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="240" y="150" text-anchor="middle">Sat</text>
+              <!-- Sun -->
+              <rect x="266" y="50" width="10" height="80" rx="2" fill="#1E40AF"/>
+              <rect x="278" y="66" width="10" height="64" rx="2" fill="#15803D"/>
+              <text class="axis-text" x="277" y="150" text-anchor="middle">Sun</text>
+            </svg>
+          </div>
+        </article>
+      </section>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

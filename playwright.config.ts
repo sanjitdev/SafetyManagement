@@ -60,7 +60,7 @@ loadEnvLocal();
  * Purpose:
  *   1. Visual regression on the design mockups (file:// loads of static HTML
  *      under design-artifacts/D-Design-System/01-Visual-Design/mockups/).
- *      25 committed baselines; see tests-mockups/README.md.
+ *      8 committed baselines; see tests-mockups/README.md.
  *   2. Future: per-WO route tests (`tests/02-*.spec.ts`) that hit the live
  *      Next.js dev server and diff the built page against the same mockup
  *      baseline via `compareMockupVsBuild({ buildUrl, ... })` in
@@ -180,8 +180,8 @@ export default defineConfig({
   // Direct all snapshots to tests-mockups/baselines/ so they're committed
   // alongside the design artifacts. Each spec file's snapshots live in a
   // folder named after that spec file:
-  //   tests-mockups/baselines/01-mockups.spec.ts/01-welcome.png
-  //   tests-mockups/baselines/01-mockups.spec.ts/05-daily-queue-dashboard.png
+  //   tests-mockups/baselines/01-mockups.spec.ts/01-citizen-dashboard-1440x900.png
+  //   tests-mockups/baselines/01-mockups.spec.ts/04-admin-dashboard-1440x900.png
   //
   // Mechanics: the helper passes names WITH `.png` (so Playwright knows the
   // mime type). Playwright then strips the extension to compute `{arg}` and

@@ -114,6 +114,22 @@ export function Timeline({ items, ariaLabel, lang, 'data-testid': testId }: Time
                 {item.icon}
               </span>
 
+              {/* The body column. The `aside` (when present) belongs
+                  INSIDE this column, not beside it — the mockup's
+                  `.trail-note` is a block inside `.trail-body`.
+
+                  It used to be rendered as a sibling of this div, with
+                  `flex: '1 0 100%'` to force it onto its own line. But
+                  the row is `flex-wrap: nowrap`, so a 100% basis
+                  sibling starved this div: it collapsed to width 0 and
+                  the timestamp wrapped one word per line. The trail
+                  measured 968px tall for four steps.
+
+                  The aside is now a block child of the body column, so
+                  it lays out under the detail line on its own row at
+                  the body's full width — which is what the mockup
+                  does and what the note was always meant to look
+                  like. */}
               <div style={{ flex: '1 1 auto', minWidth: 0, paddingTop: 'var(--space-1)' }}>
                 <p
                   lang={lang}
@@ -140,9 +156,10 @@ export function Timeline({ items, ariaLabel, lang, 'data-testid': testId }: Time
                     {item.detail}
                   </p>
                 ) : null}
+                {item.aside ? (
+                  <div style={{ marginTop: 'var(--space-1)' }}>{item.aside}</div>
+                ) : null}
               </div>
-
-              {item.aside}
             </li>
           );
         })}

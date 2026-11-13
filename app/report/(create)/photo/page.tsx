@@ -10,6 +10,11 @@
  * INTENT 009 / BOLT 009-004 (Story 010) — re-composed to
  * `design-artifacts/D-Design-System/01-Visual-Design/mockups/14-report-shell.html`:
  *
+ * NOTE (2026-11-13): the page-per-page mockups were replaced by the four
+ * role dashboards, so `14-report-shell.html` no longer exists. The
+ * composition described below is retained here as the record of the
+ * contract this page was built against.
+ *
  *   - the photo cap indicator is a pill that reads "1 / 3 ছবি"
  *     (ASCII digits — see `report.photo.counter` in the i18n
  *     registry and the note in `lib/i18n/keys.ts` about why the

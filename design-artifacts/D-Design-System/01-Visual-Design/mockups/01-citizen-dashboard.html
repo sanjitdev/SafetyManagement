@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Citizen Dashboard — CityFix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="dashboards.css">
+
+  <style>
+    /* The citizen dashboard is the only one of the four with a PHOTO HERO
+       behind the greeting — the Dhaka skyline in the reference image. A
+       photograph is out of scope for a mockup, so the hero is a drawn
+       approximation: sky gradient, tree line, the monument silhouette and
+       a building skyline. It reads as a band of city rather than as a
+       gradient rectangle, and it keeps the greeting legible because the
+       art is light behind the type. */
+
+    .hero-sky { fill: none; }
+    .hero-sky-top { fill: #cfe0f5; }
+    .hero-sky-low { fill: #e8f0fb; }
+    .hero-ground { fill: #d8e7d5; }
+    .hero-building { fill: #9fb3cc; }
+    .hero-building-far { fill: #b9c8dc; }
+    .hero-monument { fill: #eef2f7; }
+    .hero-monument-edge { fill: #cdd7e4; }
+    .hero-tree { fill: #6f9e6b; }
+    .hero-tree-dark { fill: #55834f; }
+
+    /* The three KPI cards on the citizen side carry a circular tinted
+       badge and a large figure; the report CTA sits beside them in the
+       references as a blue band of its own. */
+    .cit-cta-row {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.25fr) minmax(0, 2fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+      align-items: stretch;
+    }
+
+    .cit-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+
+    /* The report list and the map share a row. */
+    .cit-main { display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(320px, 1fr); gap: var(--space-4); margin-bottom: var(--space-4); }
+    .cit-list-card { min-height: 340px; }
+    .cit-map-card { min-height: 340px; }
+
+    /* The bottom row: statistics, help band, civic band. */
+    .cit-bottom { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 1fr) minmax(280px, 0.95fr); gap: var(--space-4); }
+
+    .cit-band-illus { flex: 0 0 auto; }
+  </style>
+</head>
+<body>
+<div class="dash">
+
+  <!-- ============================ THE RAIL ============================ -->
+  <aside class="dash-rail">
+    <a class="dash-brand" href="#">
+      <!-- The mark: a white map pin with a blue dot. -->
+      <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2C7.6 2 4 5.5 4 9.9c0 5.4 8 12.1 8 12.1s8-6.7 8-12.1C20 5.5 16.4 2 12 2z" fill="#F7F9FF"/>
+        <circle cx="12" cy="9.8" r="3.4" fill="#1E40AF"/>
+      </svg>
+      <span class="dash-brand-text">
+        <strong>CityFix</strong>
+        <small>A Cleaner, Safer City</small>
+      </span>
+    </a>
+
+    <nav class="dash-nav" aria-label="Primary">
+      <a class="dash-nav-link is-active" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10.6 12 3l9 7.6V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+        <span>My Reports</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span>New Report</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm7-6v-5a7 7 0 0 0-5-6.7V3a2 2 0 0 0-4 0v1.3A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+        <span>Notifications</span>
+        <span class="dash-nav-badge">2</span>
+      </a>
+      <a class="dash-nav-link" href="#">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"/></svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="dash-rail-foot">
+      <div class="dash-rail-tagline">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 5.6a5.5 5.5 0 0 0-8.8 0L12 5.6l-1.9-1.9a5.5 5.5 0 0 0-8.8 7.5L12 22l10.8-10.8a5.5 5.5 0 0 0-2-5.6z"/></svg>
+        <span>A Cleaner,<br />Safer City</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================ THE MAIN ============================ -->
+  <div class="dash-main">
+
+    <!-- Top bar -->
+    <header class="dash-topbar">
+      <div class="dash-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" placeholder="Search reports..." aria-label="Search reports" />
+      </div>
+      <div class="dash-topbar-right">
+        <button class="dash-bell" type="button" aria-label="Notifications, 2 unread">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dash-bell-badge">2</span>
+        </button>
+        <div class="dash-account">
+          <span class="dash-avatar">SM</span>
+          <span class="dash-account-name">Sanjit Majumdar</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </header>
+
+    <div class="dash-content">
+
+      <!-- The hero: greeting over the skyline band -->
+      <section class="dash-hero">
+        <svg class="dash-hero-art" viewBox="0 0 1440 190" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect class="hero-sky-top" x="0" y="0" width="1440" height="120"/>
+          <rect class="hero-sky-low" x="0" y="120" width="1440" height="70"/>
+          <!-- distant skyline -->
+          <g class="hero-building-far">
+            <rect x="40" y="62" width="26" height="58"/><rect x="76" y="78" width="20" height="42"/>
+            <rect x="104" y="54" width="30" height="66"/><rect x="146" y="72" width="22" height="48"/>
+            <rect x="182" y="60" width="28" height="60"/><rect x="222" y="80" width="24" height="40"/>
+            <rect x="258" y="66" width="26" height="54"/><rect x="296" y="76" width="30" height="44"/>
+            <rect x="340" y="58" width="24" height="62"/><rect x="376" y="74" width="28" height="46"/>
+            <rect x="416" y="64" width="26" height="56"/><rect x="454" y="80" width="22" height="40"/>
+            <rect x="488" y="56" width="30" height="64"/><rect x="530" y="70" width="24" height="50"/>
+            <rect x="566" y="62" width="28" height="58"/><rect x="606" y="78" width="22" height="42"/>
+            <rect x="640" y="54" width="26" height="66"/><rect x="678" y="72" width="30" height="48"/>
+            <rect x="720" y="60" width="24" height="60"/><rect x="756" y="78" width="26" height="42"/>
+            <rect x="794" y="56" width="28" height="64"/><rect x="834" y="70" width="24" height="50"/>
+            <rect x="870" y="64" width="30" height="56"/><rect x="912" y="76" width="22" height="44"/>
+          </g>
+          <!-- the monument -->
+          <g class="hero-monument">
+            <path d="M1150 26 L1176 128 L1124 128 Z"/>
+            <path d="M1146 44 L1162 128 L1138 128 Z" class="hero-monument-edge"/>
+            <rect x="1120" y="128" width="60" height="10"/>
+          </g>
+          <!-- tree line -->
+          <g class="hero-tree">
+            <circle cx="980" cy="120" r="20"/><circle cx="1030" cy="124" r="16"/><circle cx="1210" cy="122" r="18"/>
+            <circle cx="1258" cy="126" r="14"/><circle cx="1300" cy="120" r="19"/>
+          </g>
+          <g class="hero-tree-dark">
+            <circle cx="1006" cy="130" r="13"/><circle cx="1234" cy="132" r="12"/><circle cx="1322" cy="132" r="13"/>
+          </g>
+          <rect class="hero-ground" x="0" y="140" width="1440" height="50"/>
+        </svg>
+        <div class="dash-hero-inner">
+          <h1>Hello, Sanjit!</h1>
+          <p>Let's keep our city better together.</p>
+        </div>
+      </section>
+
+      <!-- The report CTA and the three metric cards -->
+      <section class="cit-cta-row">
+        <a class="dash-cta" href="#">
+          <span class="dash-cta-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h3l5 4V6L6 10zm13.5 2a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2z"/></svg>
+          </span>
+          <span class="dash-cta-body">
+            <strong>Report a Problem</strong>
+            <small>Tell us about an issue in your area</small>
+          </span>
+          <span class="dash-cta-arrow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <div class="cit-metrics">
+          <div class="dash-kpi">
+            <span class="dash-kpi-badge">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+            </span>
+            <span class="dash-kpi-body">
+              <span class="dash-kpi-value">3</span>
+              <span class="dash-kpi-label">Total Reports</span>
+            </span>
+          </div>
+          <div class="dash-kpi">
+            <span class="dash-kpi-badge is-success">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+            </span>
+            <span class="dash-kpi-body">
+              <span class="dash-kpi-value">1</span>
+              <span class="dash-kpi-label">Resolved</span>
+            </span>
+          </div>
+          <div class="dash-kpi">
+            <span class="dash-kpi-badge is-warning">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <span class="dash-kpi-body">
+              <span class="dash-kpi-value">2</span>
+              <span class="dash-kpi-label">In Progress</span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- My recent reports + the map -->
+      <section class="cit-main">
+        <article class="dash-card cit-list-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4z"/></svg>
+              My Recent Reports
+            </h2>
+            <a class="dash-link" href="#">View All
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6"/></svg>
+            </a>
+          </header>
+          <div class="dash-rows">
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-road"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Pothole on Main Road</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Gulshan-1
+                  <span aria-hidden="true">·</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  Submitted on Oct 28, 2025 · 10:45 AM
+                </span>
+              </span>
+              <span class="dash-pill is-progress">In Progress</span>
+              <svg class="dash-row-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-lamp"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Street Light Not Working</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Banani
+                  <span aria-hidden="true">·</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  Submitted on Oct 25, 2025 · 06:20 PM
+                </span>
+              </span>
+              <span class="dash-pill is-resolved">Resolved</span>
+              <svg class="dash-row-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+            <a class="dash-row" href="#">
+              <span class="dash-thumb is-bin"></span>
+              <span class="dash-row-body">
+                <span class="dash-row-title">Overflowing Dustbin</span>
+                <span class="dash-row-meta">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                  Mohakhali
+                  <span aria-hidden="true">·</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  Submitted on Oct 22, 2025 · 11:15 AM
+                </span>
+              </span>
+              <span class="dash-pill is-closed">Closed</span>
+              <svg class="dash-row-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="dash-card cit-map-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              Report Status Around You
+            </h2>
+            <a class="dash-link" href="#">View Map
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13m-5-6 6 6-6 6"/></svg>
+            </a>
+          </header>
+          <div class="dash-map" style="height: 288px;">
+            <!-- A drawn approximation of the OSM raster basemap. -->
+            <svg class="dash-map-canvas" viewBox="0 0 560 288" preserveAspectRatio="xMidYMid slice" aria-label="Map of reported issues around the city">
+              <rect width="560" height="288" fill="#E9EEF6"/>
+              <path d="M0 96h560M0 178h560" stroke="#FFFFFF" stroke-width="9"/>
+              <path d="M112 0v288M296 0v288M452 0v288" stroke="#FFFFFF" stroke-width="7"/>
+              <path d="M0 140 560 118M40 288 220 0M420 288 520 0" stroke="#FFFFFF" stroke-width="4"/>
+              <path d="M0 214c60-8 96 10 140 4s72-26 128-16 84 30 140 22 96-16 152-6v70H0z" fill="#CFE3F5"/>
+              <path d="M330 176c22-6 44 2 62 0s34-16 56-12 26 18 48 16" stroke="#CFE3F5" stroke-width="11" fill="none"/>
+              <rect x="196" y="204" width="58" height="46" rx="7" fill="#E0EFE3"/>
+              <rect x="404" y="30" width="46" height="38" rx="6" fill="#E0EFE3"/>
+              <!-- pins -->
+              <g transform="translate(150 82)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#15803D"/>
+                <path d="m-5-11 3.4 4.2L5.4-14" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <g transform="translate(268 120)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#1E40AF"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(392 190)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#1E40AF"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(480 108)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#B45309"/>
+                <path d="M0-13v11" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="0" cy="2.5" r="1.7" fill="#fff"/>
+              </g>
+              <g transform="translate(322 54)">
+                <path d="M0-22a13 13 0 0 1 13 13c0 9-13 21-13 21S-13 0-13-9A13 13 0 0 1 0-22z" fill="#15803D"/>
+                <path d="m-5-11 3.4 4.2L5.4-14" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <!-- the selected ticket -->
+              <g transform="translate(180 150)">
+                <rect width="188" height="56" rx="9" fill="#FFFFFF" stroke="#E2E8F0"/>
+                <rect x="9" y="9" width="38" height="38" rx="6" fill="#4B5563"/>
+                <text x="58" y="25" font-size="11" font-weight="600" fill="#020617" font-family="Noto Sans Bengali, sans-serif">Pothole on Main Road</text>
+                <text x="58" y="41" font-size="10" fill="#5C6C83" font-family="Noto Sans Bengali, sans-serif">In Progress</text>
+                <path d="m168 24 6 6-6 6" stroke="#5C6C83" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+            </svg>
+          </div>
+        </article>
+      </section>
+
+      <!-- Statistics + the two bands -->
+      <section class="cit-bottom">
+        <article class="dash-card">
+          <header class="dash-card-head">
+            <h2>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+              Report Statistics
+            </h2>
+            <span class="dash-select" style="margin-left:auto;">
+              Last 6 Months
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </header>
+          <div class="dash-chart-body">
+            <svg class="dash-line" viewBox="0 0 460 150" role="img" aria-label="Reports over the last six months">
+              <line class="grid" x1="26" y1="20" x2="450" y2="20"/>
+              <line class="grid" x1="26" y1="52" x2="450" y2="52"/>
+              <line class="grid" x1="26" y1="84" x2="450" y2="84"/>
+              <line class="grid" x1="26" y1="116" x2="450" y2="116"/>
+              <path class="series-total" d="M40 96 L116 82 L192 66 L268 76 L344 58 L420 44"/>
+              <circle class="dot-total" cx="40" cy="96" r="3.4"/><circle class="dot-total" cx="116" cy="82" r="3.4"/>
+              <circle class="dot-total" cx="192" cy="66" r="3.4"/><circle class="dot-total" cx="268" cy="76" r="3.4"/>
+              <circle class="dot-total" cx="344" cy="58" r="3.4"/><circle class="dot-total" cx="420" cy="44" r="3.4"/>
+              <text class="axis-text" x="40" y="138" text-anchor="middle">May</text>
+              <text class="axis-text" x="116" y="138" text-anchor="middle">Jun</text>
+              <text class="axis-text" x="192" y="138" text-anchor="middle">Jul</text>
+              <text class="axis-text" x="268" y="138" text-anchor="middle">Aug</text>
+              <text class="axis-text" x="344" y="138" text-anchor="middle">Sep</text>
+              <text class="axis-text" x="420" y="138" text-anchor="middle">Oct</text>
+            </svg>
+          </div>
+        </article>
+
+        <article class="dash-help">
+          <span class="cit-band-illus">
+            <svg width="52" height="52" viewBox="0 0 48 48" aria-hidden="true">
+              <circle cx="24" cy="17" r="7" fill="#1E40AF"/>
+              <path d="M9 42c0-8 7-13 15-13s15 5 15 13z" fill="#1E40AF"/>
+              <rect x="26" y="28" width="17" height="11" rx="2" fill="#94A3B8"/>
+              <path d="M28 31h13v6H28z" fill="#CBD5E1"/>
+            </svg>
+          </span>
+          <span class="dash-help-text">
+            <h2>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5.9 1.2.9 1.9v.7h5.2v-.7c0-.7.3-1.4.9-1.9A6 6 0 0 0 12 3z"/></svg>
+              Need Help?
+            </h2>
+            <p>Check our FAQ or contact support if you face any issues.</p>
+            <a class="dash-btn is-outline" href="#">Visit Help Center</a>
+          </span>
+        </article>
+
+        <article class="dash-civic">
+          <span class="cit-band-illus">
+            <svg width="52" height="52" viewBox="0 0 48 48" aria-hidden="true">
+              <rect x="4" y="26" width="8" height="18" fill="#15803D"/>
+              <rect x="15" y="18" width="9" height="26" fill="#166534"/>
+              <rect x="27" y="22" width="8" height="22" fill="#15803D"/>
+              <rect x="38" y="30" width="7" height="14" fill="#166534"/>
+              <circle cx="24" cy="12" r="7" fill="#86efac"/>
+            </svg>
+          </span>
+          <span class="dash-civic-text">
+            <h2>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 5.6a5.5 5.5 0 0 0-8.8 0L12 5.6l-1.9-1.9a5.5 5.5 0 0 0-8.8 7.5L12 22l10.8-10.8a5.5 5.5 0 0 0-2-5.6z"/></svg>
+              Together for a Better City
+            </h2>
+            <p>Report issues, help improve our city, and make it safer for everyone.</p>
+          </span>
+        </article>
+      </section>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

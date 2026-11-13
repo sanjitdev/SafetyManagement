@@ -182,8 +182,9 @@ FIA-scored profiles).
   OTP, session, guards, serializer boundary).
 - **Bilingual surface** (Bangla-first, English-secondary) via a
   typed key registry at `lib/i18n/keys.ts`.
-- **7 hero visual mockups** (HTML + Tailwind + `tokens.css`) under
-  `design-artifacts/D-Design-System/01-Visual-Design/mockups/`.
+- **4 role dashboards** (HTML + `tokens.css`) under
+  `design-artifacts/D-Design-System/01-Visual-Design/mockups/` — one per
+  role, rebuilt from the reference images in `ui-design/`.
 
 ## The four UX scenarios
 
@@ -241,60 +242,44 @@ Dashboard.
 
 The Playwright mockup baselines under
 `tests-mockups/baselines/01-mockups.spec.ts/` are the committed
-visual source-of-truth (gating in CI, tolerance 0.005). Six
-foundational mockups are embedded below for first-time readers.
+visual source-of-truth (gating in CI, tolerance 0.005). The four
+role dashboards are embedded below for first-time readers.
 
-### Welcome — first-run brand entry
+### Citizen dashboard — Rahim's home
 
-![Welcome — first-run brand entry](tests-mockups/baselines/01-mockups.spec.ts/01-welcome-1440x900.png)
+![Citizen dashboard — Rahim's home](tests-mockups/baselines/01-mockups.spec.ts/01-citizen-dashboard-1440x900.png)
 
-*Two-column web hero (brand + tagline + CTA left, abstract city map
-right). Collapses to single column at medium viewport. Bangla-first,
-English-secondary toggleable in the top-right.*
+*Deep-navy role rail with a filled active-nav pill, a hero band over a
+drawn city skyline carrying the greeting, the blue "Report a Problem"
+CTA beside three metric tiles, then the citizen's own recent reports
+next to a status-around-you map, and a six-month statistics chart.*
 
-### Home / City Activity — Rahim's hub
+### Dispatcher dashboard — Habib's cockpit
 
-![Home / City Activity — Rahim's hub](tests-mockups/baselines/01-mockups.spec.ts/02-home-city-activity-1440x900.png)
+![Dispatcher dashboard — Habib's cockpit](tests-mockups/baselines/01-mockups.spec.ts/02-dispatcher-dashboard-1440x900.png)
 
-*Persistent MapLibre + OpenStreetMap canvas centered on the citizen's
-city, rendering every in-scope ticket as a circle pin coloured by
-status. Side panel lists the activity feed; top-bar Report CTA opens
-the 6-step submission flow.*
+*Four split KPI cards with sparklines and trend percentages, the city
+map with a shape-and-colour legend and a floating selected-ticket
+popup, the recent-report list, a crew-availability donut, quick-action
+tiles and a grouped report-trend bar chart.*
 
-### Report Submitted — confirmation with status trail
+### Crew dashboard — Rashid's field surface
 
-![Report Submitted — confirmation with status trail](tests-mockups/baselines/01-mockups.spec.ts/03-report-submitted-1440x900.png)
+![Crew dashboard — Rashid's field surface](tests-mockups/baselines/01-mockups.spec.ts/03-crew-dashboard-1440x900.png)
 
-*Centered 640px card on neutral background. 4-step status trail
-(`Submitted → Routed → In progress → Resolved`), ticket ID, and a
-sticky pair of CTAs. This is the "I was heard" moment — the trust
-loop is closed with proof, not just a thank-you.*
+*The only dashboard with no top bar — the greeting, date chip and bell
+share the content column so the chrome stays out of the job list.
+Today's jobs with mono `#CF-` codes, a job map with the dashed route to
+the next stop, and a focused-job panel with the four-step status trail.*
 
-### My Reports Detail — before / after photos
+### Admin dashboard — Aamir's city-wide view
 
-![My Reports Detail — before / after photos](tests-mockups/baselines/01-mockups.spec.ts/04-my-reports-detail-1440x900.png)
+![Admin dashboard — Aamir's city-wide view](tests-mockups/baselines/01-mockups.spec.ts/04-admin-dashboard-1440x900.png)
 
-*Two-column gallery + metadata. Citizen photo(s) at the top, status
-trail on the left, metadata + feel-heard feedback prompt on the
-right. Stacks to single column at medium.*
-
-### Daily Queue Dashboard — Habib's three-region layout
-
-![Daily Queue Dashboard — Habib's three-region layout](tests-mockups/baselines/01-mockups.spec.ts/05-daily-queue-dashboard-1440x900.png)
-
-*Filter rail (left) / ticket list (centre) / ticket detail (right)
-at 1440 × 900. Collapsible filter rail on smaller laptops. The
-audit trail + transition controls live in the right pane.*
-
-### Status: In Progress — Rashid's outdoor high-contrast theme
-
-![Status: In Progress — Rashid's outdoor high-contrast theme](tests-mockups/baselines/01-mockups.spec.ts/07-status-in-progress-1440x900.png)
-
-*Full-bleed `.theme-outdoor` — near-white background, pure-black
-text, no greys. Designed for direct-sunlight readability on LCD
-and OLED. Auto-switches by ambient-light sensor if available.
-Top strip + hero block + step log + progress note composer + primary
-"Fixed — take photo" CTA.*
+*The role rail closes with a skyline illustration. Split KPI cards over
+the reports trend, the city map with glyph-carrying pins, the recent
+report list, a three-series trend line, the crew-activity donut and the
+four coloured quick-action tiles.*
 
 ---
 
@@ -530,9 +515,10 @@ classic` scopes (inherited from `.specsmd/aidlc/memory-bank/standards/rules/org.
 
 - **23 unit-test files** under `tests/unit/`
 - **249 unit tests passing** (`npm run test:unit`)
-- **15 visual mockup baselines** under
-  `tests-mockups/baselines/01-mockups.spec.ts/` (committed as PNG
-  pixel-exact references; visual regression is **gating**)
+- **8 visual mockup baselines** under
+  `tests-mockups/baselines/01-mockups.spec.ts/` (four role dashboards ×
+  two viewports; committed as PNG pixel-exact references; visual
+  regression is **gating**)
 - **19 route specs** under `tests/` (one per Work Order Bolt; some
   re-baselined mid-Bolt as the surfaces evolved)
 
@@ -584,7 +570,7 @@ Tolerance is **0.005** (per `team.md`).
 │   ├── A-Product-Brief/      # product-brief.md, content-language.md
 │   ├── B-Trigger-Map/        # 4 personas + feature-impact.md (FIA scoring)
 │   ├── C-UX-Scenarios/       # 4 scenarios × 33 spec'd screens (spec-as-contract)
-│   ├── D-Design-System/      # tokens.css, components.html, mockups/01-07
+│   ├── D-Design-System/      # tokens.css, components.html, mockups/01-04
 │   └── E-Development/        # 5 Work Orders + 000-tech-audit.md + 000-PRD.md
 ├── _progress/                # 00-design-log.md — the project's progress record
 ├── aidlc/                    # AI-DLC memory bank (intents, units, stories, bolts)

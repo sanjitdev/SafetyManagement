@@ -17,6 +17,11 @@
  * The page is re-composed to match the approved mockup
  * `design-artifacts/D-Design-System/01-Visual-Design/mockups/09-register.html`:
  *
+ * NOTE (2026-11-13): the page-per-page mockups were replaced by the four
+ * role dashboards, so `09-register.html` no longer exists. The composition
+ * described below is retained here as the record of the contract this
+ * page was built against.
+ *
  *   - a two-region shell (form on the left, civic story on the right),
  *     collapsing to one column below 1024px with the story column hidden;
  *   - a three-stage progress rail above the title;

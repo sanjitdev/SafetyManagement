@@ -375,15 +375,18 @@ export default function MyReportDetailPage() {
         state,
         icon,
         aside: transition?.note ? (
-          // The `Timeline` primitive renders `aside` as a sibling of
-          // the text block inside a FLEX row, so the note is given a
-          // full-width flex basis to wrap onto its own line under
-          // the step — the same place the hand-rolled trail put it.
+          // The `Timeline` primitive renders `aside` INSIDE the step's
+          // body column, as a block under the timestamp — matching the
+          // mockup's `.trail-note` inside `.trail-body`.
+          //
+          // It used to be a flex sibling with `flex: '1 0 100%'` to
+          // push it onto its own line. The row does not wrap, so that
+          // basis collapsed the body column to width 0 and the
+          // timestamp wrapped one word per line.
           <span
             lang={LANG}
             style={{
-              flex: '1 0 100%',
-              marginTop: 'var(--space-1)',
+              display: 'block',
               fontSize: 'var(--text-caption)',
               color: 'var(--color-ink-secondary)',
               fontStyle: 'italic',

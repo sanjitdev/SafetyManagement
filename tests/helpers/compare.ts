@@ -3,7 +3,7 @@ import { test, expect, Page } from '@playwright/test';
 /**
  * Reusable helper for visual regression: mockup vs. build.
  *
- * Today: captures the 12 design mockups as committed PNG baselines.
+ * Today: captures the 4 design mockups as committed PNG baselines.
  * Tomorrow: once the build phase exists, also captures the built route
  * and pixel-diffs the two. The build phase just fills in `buildUrl`.
  *
@@ -16,7 +16,7 @@ import { test, expect, Page } from '@playwright/test';
 export type Viewport = { width: number; height: number };
 
 export type CompareArgs = {
-  /** Stable identifier for the screenshot set. e.g. "01-welcome" */
+  /** Stable identifier for the screenshot set. e.g. "01-citizen-dashboard" */
   name: string;
   /** Absolute path to a mockup .html file under design-artifacts/. */
   mockupPath?: string;

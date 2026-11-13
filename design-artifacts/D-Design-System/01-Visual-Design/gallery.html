@@ -102,15 +102,14 @@
 <div style="padding: var(--space-8) var(--space-5) var(--space-6); text-align: center;">
   <h1 style="font-size: var(--text-display-xl); margin: 0 0 var(--space-3);">CityFix — Mockups</h1>
   <p style="font-size: var(--text-body-lg); color: var(--color-ink-secondary); max-width: 680px; margin: 0 auto; line-height: 1.55;">
-    Apple-like calm confidence. Bangla-first. Civic trust. 21 mockups re-skinned for the web: large (1440 × 900) and medium (1024 × 768) breakpoints. Rashid's pages additionally responsive for phone use (390 × 844).
+    Apple-like calm confidence. Bangla-first. Civic trust. Four role dashboards rebuilt from the reference images in <code>ui-design/</code>: one per role — citizen, dispatcher, crew, admin.
   </p>
   <p style="font-size: var(--text-body-sm); color: var(--color-ink-tertiary); max-width: 680px; margin: var(--space-2) auto 0; line-height: 1.55;">
-    Visual design · 2026-10-04 (web re-skin) · Wave 2 auth + public · Wave 3 citizen surfaces · Wave 4 dispatcher console
+    Visual design · 2026-11-13 (dashboard rebuild from reference PNGs) · light theme · token-driven
   </p>
   <div style="margin-top: var(--space-4);">
     <span class="viewport-tag">1440 × 900 · large</span>
     <span class="viewport-tag">1024 × 768 · medium</span>
-    <span class="viewport-tag">≤ 480 · Rashid responsive</span>
   </div>
 </div>
 
@@ -133,323 +132,67 @@
 
 <!-- Mockups grid — each mockup shown at large viewport -->
 <section style="max-width: 1100px; margin: 0 auto; padding: 0 var(--space-5) var(--space-8);">
-  <div class="section-note" style="margin-bottom: var(--space-5);">21 mockups, Wave 1 foundations + Wave 2 auth &amp; public + Wave 3 citizen surfaces + Wave 4 dispatcher console</div>
+  <div class="section-note" style="margin-bottom: var(--space-5);">4 role dashboards, rebuilt from the reference images in <code>ui-design/</code></div>
 
   <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-5);">
 
-    <!-- 01 Welcome -->
+    <!-- 01 Citizen Dashboard -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/01-welcome.html" class="iframe-large" scrolling="auto" title="Mockup 01 — Welcome"></iframe>
+        <iframe src="mockups/01-citizen-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 01 — Citizen Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">01 · Welcome</div>
-        <div class="mockup-desc">First impression. Two-column hero: brand mark + tagline + CTA on the left, abstract city map on the right. At medium the illustration collapses. Defines brand voice for new citizens.</div>
+        <div class="mockup-title">01 · Citizen Dashboard</div>
+        <div class="mockup-desc">The citizen's home. A hero band over a drawn city skyline carries the greeting; below it a blue "Report a Problem" CTA and three metric tiles, then the citizen's own recent reports beside a status-around-you map, and a six-month statistics line chart with the two civic bands. Every status carries a glyph, a word and a colour.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
         <br/>
-        <a href="mockups/01-welcome.html" class="mockup-link">Open full →</a>
+        <a href="mockups/01-citizen-dashboard.html" class="mockup-link">Open full →</a>
       </div>
     </div>
 
-    <!-- 02 Home / City Activity -->
+    <!-- 02 Dispatcher Dashboard -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/02-home-city-activity.html" class="iframe-large" scrolling="auto" title="Mockup 02 — Home / City Activity"></iframe>
+        <iframe src="mockups/02-dispatcher-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 02 — Dispatcher Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">02 · Home / City Activity (Rahim · web) <span class="viewport-tag">retired — superseded by 13</span></div>
-        <div class="mockup-desc">Citizen hub. Persistent map + side-panel activity feed + top-bar Report CTA. At medium the side panel collapses below the map. The mobile FAB is replaced by a persistent top-bar action. Retired in Wave 3: mockup 13 is the current hub design — this card is kept for reference only, not as a competing design.</div>
+        <div class="mockup-title">02 · Dispatcher Dashboard</div>
+        <div class="mockup-desc">The dispatcher's cockpit. Four split KPI cards with sparklines and trend percentages, the city map with a shape-and-colour legend and a selected-ticket popup beside the recent-report list, then crew availability as a donut, quick-action tiles and a grouped report-trend bar chart.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
         <br/>
-        <a href="mockups/02-home-city-activity.html" class="mockup-link">Open full →</a>
+        <a href="mockups/02-dispatcher-dashboard.html" class="mockup-link">Open full →</a>
       </div>
     </div>
 
-    <!-- 03 Report Submitted -->
-    <div class="mockup-card">
-      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5);">
-        <iframe src="mockups/03-report-submitted.html" style="width: 700px; height: 800px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 03 — Report Submitted"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">03 · Report Submitted</div>
-        <div class="mockup-desc">First concrete answer. Centered card on neutral background: hero check, 4-step status trail, ticket ID, two CTAs. Defines status-trail pattern.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/03-report-submitted.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 04 My Reports Detail -->
+    <!-- 03 Crew Dashboard -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/04-my-reports-detail.html" class="iframe-large" scrolling="auto" title="Mockup 04 — My Reports Detail"></iframe>
+        <iframe src="mockups/03-crew-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 03 — Crew Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">04 · My Reports Detail</div>
-        <div class="mockup-desc">The trust moment. Two-column layout: before/after photos + status trail on the left, metadata + feedback prompt on the right. At medium the metadata stacks below the trail. Defines photo handling.</div>
+        <div class="mockup-title">03 · Crew Dashboard</div>
+        <div class="mockup-desc">The field surface, and the only one of the four with no top bar — the greeting, the date chip and the bell share the content column so the chrome stays out of the job list. Today's jobs, a job map with the dashed route to the next stop, and a focused-job panel carrying the four-step status trail plus the upload and mark-done actions.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
         <br/>
-        <a href="mockups/04-my-reports-detail.html" class="mockup-link">Open full →</a>
+        <a href="mockups/03-crew-dashboard.html" class="mockup-link">Open full →</a>
       </div>
     </div>
 
-    <!-- 05 Daily Queue Dashboard — desktop, full width -->
+    <!-- 04 Admin Dashboard -->
     <div class="mockup-card">
       <div class="mockup-preview">
-        <iframe src="mockups/05-daily-queue-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 05 — Daily Queue Dashboard"></iframe>
+        <iframe src="mockups/04-admin-dashboard.html" class="iframe-large" scrolling="auto" title="Mockup 04 — Admin Dashboard"></iframe>
       </div>
       <div class="mockup-meta">
-        <div class="mockup-title">05 · Daily Queue Dashboard (Habib · desktop) <span class="viewport-tag">retired — superseded by 17</span></div>
-        <div class="mockup-desc">Dispatcher's cockpit. 3-region layout: filter rail · ticket list · detail pane. The original desktop pattern. Retired in Wave 4: mockup 17 is the current triage-queue design — this card is kept for reference only, not as a competing design. Web-only at large viewport.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <br/>
-        <a href="mockups/05-daily-queue-dashboard.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 06 Field App Home — Rashid, web-first with phone fallback -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/06-field-app-home.html" class="iframe-large" scrolling="auto" title="Mockup 06 — Field App Home"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">06 · Field App Home (Rashid · web + phone)</div>
-        <div class="mockup-desc">Field crew's start of day. Top bar + 720px content column: greeting strip with one-shot location refresh, quick-stats panel, today's queue list, in-flow "Start next job" CTA. Reflows cleanly to 390px phone widths.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <span class="viewport-tag">390 × 844 · phone fallback</span>
-        <br/>
-        <a href="mockups/06-field-app-home.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 07 Status: In Progress — Rashid, full-bleed, .theme-outdoor -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/07-status-in-progress.html" class="iframe-large" scrolling="auto" title="Mockup 07 — Status: In Progress"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">07 · Status: In Progress (Rashid · hands-busy)</div>
-        <div class="mockup-desc">Hands-busy live work view. Full-bleed page (no chrome) in the .theme-outdoor high-contrast palette: near-white surfaces, pure-black ink, designed for direct-sunlight readability. Top strip with minimize + timer, hero block, step log, progress note composer, big "Fixed, take photo" CTA.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <span class="viewport-tag">390 × 844 · phone fallback</span>
-        <br/>
-        <a href="mockups/07-status-in-progress.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 08 Login — Wave 2 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/08-login.html" class="iframe-large" scrolling="auto" title="Mockup 08 — Log in"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">08 · Log in (Wave 2)</div>
-        <div class="mockup-desc">Two-region auth shell: the form on the left, the civic story on the right. A focusable error summary links to the offending field; the show/hide toggle and the recovery path are both present. At medium the story column collapses.</div>
+        <div class="mockup-title">04 · Admin Dashboard</div>
+        <div class="mockup-desc">The city-wide overview. Four split KPI cards over the reports trend, the city map with the glyph-carrying pins and a floating report popup beside the recent-report list, then a three-series trend line, the crew-activity donut and the four coloured quick-action tiles.</div>
         <span class="viewport-tag">1440 × 900</span>
         <span class="viewport-tag">1024 × 768</span>
         <br/>
-        <a href="mockups/08-login.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 09 Register — Wave 2 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/09-register.html" class="iframe-large" scrolling="auto" title="Mockup 09 — Create account"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">09 · Create account (Wave 2)</div>
-        <div class="mockup-desc">Three-stage signup rail (account → phone verification → start), live password requirements with a per-rule icon, and a consent checkbox that states what stays private.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/09-register.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 10 Verify OTP — Wave 2 -->
-    <div class="mockup-card">
-      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5); background: var(--color-surface-sunken);">
-        <iframe src="mockups/10-verify-otp.html" style="width: 560px; height: 860px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 10 — Verify your phone"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">10 · Verify your phone (Wave 2)</div>
-        <div class="mockup-desc">Six single-digit boxes with the wrong-code state, a named delivery channel (SMS), a live resend countdown, and a recovery card for when the code does not arrive. Anti-fraud footnote included.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/10-verify-otp.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 11 Public landing — Wave 2 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/11-public-landing.html" class="iframe-large" scrolling="auto" title="Mockup 11 — Public landing"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">11 · Public landing (Wave 2)</div>
-        <div class="mockup-desc">Anonymous entry. Hero + live stats strip + status-coloured map card + trust row + PII-stripped activity feed. Numbers use tabular figures so the stats column aligns.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/11-public-landing.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 12 Feed — Wave 2 -->
-    <div class="mockup-card">
-      <div class="mockup-preview" style="display: flex; justify-content: center; padding: var(--space-5);">
-        <iframe src="mockups/12-feed.html" style="width: 800px; height: 900px; border: none; background: var(--color-surface-page); display: block;" scrolling="auto" title="Mockup 12 — City activity feed"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">12 · City activity feed (Wave 2)</div>
-        <div class="mockup-desc">Signed-in citizen view. Global app header with the active nav item, sticky filter chips with live counts, and a "new item" state that carries a badge as well as a tint.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/12-feed.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 13 Home / City Activity — Wave 3 (current hub) -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/13-home-city-activity.html" class="iframe-large" scrolling="auto" title="Mockup 13 — Home / City Activity"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">13 · Home / City Activity (Wave 3)</div>
-        <div class="mockup-desc">The current citizen hub, superseding mockup 02. KPI strip of three metric tiles with tabular figures, a map card with a word-labelled legend, and an activity panel of the citizen's own recent reports. Every status carries an icon, a word and a colour.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/13-home-city-activity.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 14 Report flow shell — Wave 3 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/14-report-shell.html" class="iframe-large" scrolling="auto" title="Mockup 14 — Report flow shell"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">14 · Report flow shell (Wave 3)</div>
-        <div class="mockup-desc">The five-step report flow — location, photo, category, note, summary — as a numbered rail with a connector line, plus the photo step in full detail: the 1 / 3 photo cap indicator, the photo grid, and a sticky bottom action bar carrying the primary CTA.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/14-report-shell.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 15 My Reports — Wave 3 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/15-my-reports.html" class="iframe-large" scrolling="auto" title="Mockup 15 — My reports"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">15 · My reports (Wave 3)</div>
-        <div class="mockup-desc">The citizen's own report list. Sticky filter chips with live counts, then one row per report: title, note excerpt, status pill, ward pill, relative time and the public ticket-id pill. PII-stripped throughout.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/15-my-reports.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 16 Report detail / trail — Wave 3 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/16-report-detail-trail.html" class="iframe-large" scrolling="auto" title="Mockup 16 — Report detail and status trail"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">16 · Report detail &amp; status trail (Wave 3)</div>
-        <div class="mockup-desc">The trust moment, rebuilt. Labelled before/after photo groups — the before/after split is carried by a word and an icon, not by colour — plus the vertical status trail from Submitted to Resolved with a per-step icon and timestamp.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/16-report-detail-trail.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 17 Triage Queue — Wave 4 (current dispatcher cockpit) -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/17-triage-queue.html" class="iframe-large" scrolling="auto" title="Mockup 17 — Triage Queue"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">17 · Triage Queue (Wave 4)</div>
-        <div class="mockup-desc">The dispatcher's cockpit, superseding mockup 05. Three regions under one dark dispatcher top bar: a filter rail with status and ward groups plus keyboard shortcuts, a ticket list headed by a four-tile KPI strip, and the selected ticket's detail pane. Every ticket row carries an SLA countdown chip, a reporter count and the dispatcher's internal id.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/17-triage-queue.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 18 Dispatcher ticket detail — Wave 4 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/18-dispatcher-ticket-detail.html" class="iframe-large" scrolling="auto" title="Mockup 18 — Dispatcher ticket detail"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">18 · Dispatcher ticket detail (Wave 4)</div>
-        <div class="mockup-desc">The full ticket, opened. Breadcrumb header with the internal-id pill, a two-column body: labelled before/after photo groups on the left with the crew's empty resolution slots, the reporter's own words, dispatcher-only internal notes, and the status trail; on the right a searchable crew-picker combobox, the reporter's contact block and the audit trail. A sticky action bar pins the assign and route buttons plus the SLA chip to the bottom of the viewport.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/18-dispatcher-ticket-detail.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 19 Dispatcher map — Wave 4 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/19-dispatcher-map.html" class="iframe-large" scrolling="auto" title="Mockup 19 — Dispatcher map"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">19 · Dispatcher map (Wave 4)</div>
-        <div class="mockup-desc">The city as a full-bleed canvas with every control floating over it: a ward/category/status filter panel top-left, the zoom and locate stack top-right, a shape-keyed legend bottom-left that reuses the map's own pin geometry, a scale bar and last-updated stamp bottom-right, and a selected-ticket card bottom-centre with its own assign actions. Ticket pins encode status by shape, not colour alone.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/19-dispatcher-map.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 20 Dispatcher monitor — Wave 4 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/20-dispatcher-monitor.html" class="iframe-large" scrolling="auto" title="Mockup 20 — Dispatcher monitor board"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">20 · Dispatcher monitor board (Wave 4)</div>
-        <div class="mockup-desc">The operations board on a municipal office wall. It is a fixed grid, not a scroll: a connection state and clock in the header, a five-figure KPI row scaled up for three-metre reading, then three body columns — the unassigned queue ticker and the SLA-breach panel, the category breakdown and hourly arrivals, and the ward load, department load and crew coverage. Every figure is tabular and the tone is carried by a top edge rule as well as a colour.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/20-dispatcher-monitor.html" class="mockup-link">Open full →</a>
-      </div>
-    </div>
-
-    <!-- 21 Dispatcher performance — Wave 4 -->
-    <div class="mockup-card">
-      <div class="mockup-preview">
-        <iframe src="mockups/21-dispatcher-performance.html" class="iframe-large" scrolling="auto" title="Mockup 21 — Dispatcher performance"></iframe>
-      </div>
-      <div class="mockup-meta">
-        <div class="mockup-title">21 · Dispatcher performance (Wave 4)</div>
-        <div class="mockup-desc">The numbers page. A four-tile summary and a range picker, then three charts — a weekly trend line whose series carry their own dash patterns and end labels, a category bar chart with the count printed beside every bar, and an SLA bullet showing the average resolution time against the 48-hour target. Each chart ships a sortable data table, so no chart is read by colour alone.</div>
-        <span class="viewport-tag">1440 × 900</span>
-        <span class="viewport-tag">1024 × 768</span>
-        <br/>
-        <a href="mockups/21-dispatcher-performance.html" class="mockup-link">Open full →</a>
+        <a href="mockups/04-admin-dashboard.html" class="mockup-link">Open full →</a>
       </div>
     </div>
 
@@ -462,79 +205,49 @@
   <div style="background: var(--color-surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5);">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-5);">
       <div>
-        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Surface</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Surfaces</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
-          <li>Web entry (Welcome)</li>
-          <li>Web hub (Home)</li>
-          <li>Web confirmation (Submitted)</li>
-          <li>Web trust moment (Detail)</li>
-          <li>Desktop work surface (Dashboard)</li>
-          <li>Field app home (Rashid)</li>
-          <li>Hands-busy live work (Rashid)</li>
-          <li>Citizen hub, current (Home v2)</li>
-          <li>Citizen report flow (create)</li>
-          <li>Citizen report list (my reports)</li>
-          <li>Citizen report detail (detail trail)</li>
-          <li>Dispatcher triage queue (current)</li>
-          <li>Dispatcher ticket detail</li>
-          <li>Dispatcher map</li>
-          <li>Dispatcher monitor board</li>
-          <li>Dispatcher performance page</li>
+          <li>Citizen dashboard</li>
+          <li>Dispatcher dashboard</li>
+          <li>Crew dashboard</li>
+          <li>Admin dashboard</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Chrome</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
+          <li>Deep-navy role rail</li>
+          <li>Filled active-nav pill</li>
+          <li>Top bar (search, bell, range)</li>
+          <li>Role rail footer (user, status)</li>
+          <li>Rail skyline illustration</li>
         </ul>
       </div>
       <div>
         <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Components</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
-          <li>Buttons (3 styles × states)</li>
-          <li>Inputs (label, helper, error)</li>
-          <li>Cards &amp; hero cards</li>
+          <li>KPI card (badge + figure + label)</li>
+          <li>Split KPI card (+ sparkline, trend)</li>
           <li>Status pills (4 statuses)</li>
           <li>Status trail (4-step timeline)</li>
-          <li>KPI strip (3 metric tiles)</li>
-          <li>Ticket-id pill (public code)</li>
-          <li>SLA countdown chip</li>
-          <li>Searchable crew-picker combobox</li>
-          <li>Internal-id pill (dispatcher reference)</li>
-          <li>Filter rail</li>
+          <li>Line chart (1 and 3 series)</li>
+          <li>Grouped bar chart</li>
+          <li>Donut + stat list</li>
+          <li>Map card with glyph pins</li>
+          <li>Map popup card</li>
+          <li>Quick-action tiles</li>
+          <li>Ticket-code chip (mono)</li>
         </ul>
       </div>
       <div>
-        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Components cont.</div>
+        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Rules</div>
         <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
-          <li>Photo blocks (single, pair, multi)</li>
-          <li>Before/after photo groups</li>
-          <li>Banners (info, warning, error)</li>
-          <li>Filter pills</li>
-          <li>Modal</li>
-          <li>Map placeholder</li>
-          <li>Error summary + field error</li>
-          <li>OTP input boxes</li>
-          <li>Password requirement checklist</li>
-          <li>Live stats strip</li>
-          <li>Numbered step indicator</li>
-          <li>Photo cap indicator</li>
-          <li>Sticky action bar</li>
-        </ul>
-      </div>
-      <div>
-        <div style="font-size: var(--text-body-sm); color: var(--color-primary); font-weight: var(--weight-semibold); margin-bottom: var(--space-2);">Web patterns</div>
-        <ul style="margin: 0; padding-left: 20px; color: var(--color-ink-secondary); font-size: var(--text-body-sm); line-height: 1.8;">
-          <li>Two-column hero (welcome)</li>
-          <li>Map + side panel (home)</li>
-          <li>Centered confirmation card</li>
-          <li>Gallery + metadata (detail)</li>
-          <li>3-region desktop (triage queue)</li>
-          <li>Two-region auth shell (login, register)</li>
-          <li>Centered OTP card (verify)</li>
-          <li>Hero + stats + map card (landing)</li>
-          <li>Sticky filter chips + list (feed)</li>
-          <li>KPI strip + map + activity panel (home v2)</li>
-          <li>Stepped flow shell + sticky CTA (report)</li>
-          <li>Filterable list of my reports (my reports)</li>
-          <li>Vertical trail + photo groups (detail)</li>
-          <li>Map + floating controls (dispatcher map)</li>
-          <li>Dark ops board (monitor)</li>
-          <li>Labelled chart with data table (performance)</li>
+          <li>Light theme (the reference default)</li>
+          <li>Every colour is a token in <code>tokens.css</code></li>
+          <li>Status never by colour alone</li>
+          <li>Tabular figures on every metric</li>
+          <li>Hairline cards on an off-white page</li>
+          <li>Inline SVG only — no icon library</li>
         </ul>
       </div>
     </div>
@@ -543,7 +256,7 @@
 
 <!-- Footer -->
 <footer style="padding: var(--space-7) var(--space-5); text-align: center; color: var(--color-ink-tertiary); font-size: var(--text-caption); border-top: 1px solid var(--color-border);">
-  CityFix visual design · Tokens + 21 mockups (web-first) · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
+  CityFix visual design · Tokens + 4 role dashboards · <a href="README.md" style="color: var(--color-primary); text-decoration: none;">README</a>
 </footer>
 
 </body>

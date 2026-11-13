@@ -34,6 +34,12 @@ tests-mockups/diffs/
 # what makes that true.
 tests-mockups/audit/
 
+# Local visual-check renders from `node scripts/render-mockups.mjs`. These
+# are a developer's eyeball pass on Windows; the committed baselines under
+# tests-mockups/baselines/ are produced by CI on ubuntu-latest and are the
+# only regression gate.
+tests-mockups/scratch-render/
+
 # Next.js build output
 .next/
 out/
@@ -122,5 +128,14 @@ dist-ssr
 *.sln
 *.sw?
 
+
 .vercel
 .env*
+
+# Temporary backup of the pre-redesign mockups (2026-11-13).
+# Delete once the new PNG-derived mockups are approved.
+.mockup-backup/
+
+# Third-party desktop installers dropped into seed_data/ — not CityFix
+# artefacts, and far too large for the repo.
+seed_data/*.exe

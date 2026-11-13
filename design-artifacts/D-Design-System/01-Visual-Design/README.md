@@ -1,6 +1,6 @@
 # CityFix — Visual Design
 
-The visual layer for CityFix. Defines the design tokens, the component library, and 21 hero mockups that establish the visual language for every page.
+The visual layer for CityFix. Defines the design tokens, the component library, and four role dashboards that establish the visual language for every page.
 
 ## Brand personality
 
@@ -31,30 +31,12 @@ Two rules govern every component:
 |---|---|
 | `tokens.css` | The single source of truth for the visual language. CSS custom properties only — colors, type, spacing, radii, shadows, motion. |
 | `components.html` | A self-documenting library of every component pattern, applied to the tokens. Open in browser to scan. |
-| `gallery.html` | Entry point. Embedded previews of all 21 mockups + link to component library. |
-| `mockups/citizen-surfaces.css` | Shared chrome for the citizen surfaces (mockups 13–16): citizen-facing components layered on `tokens.css`. |
-| `mockups/dispatcher-surfaces.css` | Shared chrome for the dispatcher console (mockups 17–21): dispatcher-facing components layered on `tokens.css`. |
-| `mockups/01-welcome.html` | First-run welcome screen. Pure typography moment. |
-| `mockups/02-home-city-activity.html` | Map + activity bottom sheet + Report CTA. **Retired** — superseded by `13`. |
-| `mockups/03-report-submitted.html` | Confirmation + 4-step status trail + ticket ID. |
-| `mockups/04-my-reports-detail.html` | Before/after photos + metadata + feedback prompt. |
-| `mockups/05-daily-queue-dashboard.html` | Habib's cockpit. Desktop 3-region layout. **Retired** — superseded by `17`. |
-| `mockups/06-field-app-home.html` | Rashid's start-of-day. Web-first, phone fallback. |
-| `mockups/07-status-in-progress.html` | Rashid's hands-busy live work view (`.theme-outdoor`). |
-| `mockups/08-login.html` | Sign-in. Two-region auth shell: form + civic story column. |
-| `mockups/09-register.html` | Account creation. Three-stage funnel + live password rules. |
-| `mockups/10-verify-otp.html` | Phone verification. Six OTP boxes, resend countdown, recovery card. |
-| `mockups/11-public-landing.html` | Anonymous landing. Hero + live stats + map card + activity grid. |
-| `mockups/12-feed.html` | Signed-in city activity feed. Sticky filter chips + report rows. |
-| `mockups/13-home-city-activity.html` | Citizen hub (current). KPI strip + map card + activity panel. Supersedes `02`. |
-| `mockups/14-report-shell.html` | Five-step report flow shell + the photo step in full detail. |
-| `mockups/15-my-reports.html` | The citizen's own report list. Filter chips + ticket-id pills. |
-| `mockups/16-report-detail-trail.html` | Report detail. Vertical status trail + before/after photo groups. |
-| `mockups/17-triage-queue.html` | The dispatcher's triage queue. 3-region cockpit: filter rail · ticket list · detail pane. Supersedes `05`. |
-| `mockups/18-dispatcher-ticket-detail.html` | Full dispatcher ticket detail. Before/after photo groups, internal notes, searchable crew picker, sticky action bar. |
-| `mockups/19-dispatcher-map.html` | The full-bleed city map. Floating filter, zoom, legend and selected-ticket controls over the canvas. |
-| `mockups/20-dispatcher-monitor.html` | The dark ops board for a wall display. KPI row + queue ticker, SLA breaches, category and ward load. |
-| `mockups/21-dispatcher-performance.html` | Performance page. Weekly trend line, category bars, SLA bullet — each with its data table. |
+| `gallery.html` | Entry point. Embedded previews of all four dashboards + link to component library. |
+| `mockups/dashboards.css` | Shared chrome for the four role dashboards: rail, top bar, heading, KPI cards, cards, pills, map, charts, quick actions, crew pieces, activity feed. |
+| `mockups/01-citizen-dashboard.html` | The citizen's home. Hero band over a drawn skyline, report CTA + metric tiles, recent reports beside the status-around-you map, six-month statistics chart. |
+| `mockups/02-dispatcher-dashboard.html` | The dispatcher's cockpit. Four split KPI cards with sparklines, city map with a selected-ticket popup, recent reports, crew-availability donut, quick actions, grouped bar chart. |
+| `mockups/03-crew-dashboard.html` | The field surface. No top bar — the greeting, date chip and bell share the content column. Today's jobs, job map with the route to the next stop, focused job with the status trail. |
+| `mockups/04-admin-dashboard.html` | The city-wide overview. Split KPI cards, city map with glyph pins, recent reports, three-series reports-trend line, crew-activity donut, four coloured quick-action tiles. |
 
 ## How to view
 
@@ -67,29 +49,11 @@ design-artifacts/D-Design-System/01-Visual-Design/
   tokens.css                ← design tokens
   README.md                 ← this file
   mockups/
-    01-welcome.html
-    02-home-city-activity.html
-    03-report-submitted.html
-    04-my-reports-detail.html
-    05-daily-queue-dashboard.html
-    06-field-app-home.html
-    07-status-in-progress.html
-    08-login.html
-    09-register.html
-    10-verify-otp.html
-    11-public-landing.html
-    12-feed.html
-    13-home-city-activity.html
-    14-report-shell.html
-    15-my-reports.html
-    16-report-detail-trail.html
-    17-triage-queue.html
-    18-dispatcher-ticket-detail.html
-    19-dispatcher-map.html
-    20-dispatcher-monitor.html
-    21-dispatcher-performance.html
-    citizen-surfaces.css        ← shared chrome for mockups 13–16
-    dispatcher-surfaces.css     ← shared chrome for mockups 17–21
+    01-citizen-dashboard.html
+    02-dispatcher-dashboard.html
+    03-crew-dashboard.html
+    04-admin-dashboard.html
+    dashboards.css              ← shared chrome for all four dashboards
 ```
 
 ## Token highlights
@@ -138,37 +102,20 @@ Category accents give each report category one colour for its iconography: stree
 
 ### Themes
 
-- **Default** — dark mode with midnight navy surfaces and civic-blue focus states; light mode remains user-selectable.
+- **Default** — light mode. The four role dashboards are rendered in the light theme, matching the reference images in `ui-design/`. Dark mode remains a user-selectable alternative.
 - **Outdoor** (`.theme-outdoor`) — for Rashid's in-progress view: pure white + pure black for sunlight readability. This is deliberately NOT softened by the redesign.
 - **Dark** (`.theme-dark`) — optional, available for Habib's monitor.
 
 ## Coverage rationale
 
-These 21 mockups cover the structural patterns used across the app:
+These four dashboards cover the structural patterns used across the app:
 
-| Mockup | Patterns defined |
+| Dashboard | Patterns defined |
 |---|---|
-| Welcome | Hero typography, primary CTA, trust copy, language register |
-| Home / City Activity | Map, bottom sheet, floating action button, activity feed, sticky header with notifications |
-| Report Submitted | Hero confirmation, status trail, ticket ID, sticky CTA, secondary link |
-| My Reports Detail | Photo pair + multi-photo overflow, metadata block, feedback prompt, compact trail |
-| Daily Queue Dashboard | Desktop 3-region layout, stats strip, filter rail, ticket list, detail pane, keyboard hints. **Retired** — superseded by the Triage Queue. |
-| Field App Home | Top bar, quick-stats, today's queue, in-flow CTA |
-| Status: In Progress | Hands-busy full-bleed work view in the high-contrast outdoor palette |
-| Log in | Two-region auth shell, error summary linked to the field, show/hide password, recovery path |
-| Create account | Three-stage signup rail, live password-requirement rows, consent checkbox |
-| Verify your phone | Single-digit OTP boxes, named delivery channel, resend countdown, recovery card |
-| Public landing | Anonymous hero, live stats strip, status-coloured map card, trust row, PII-free feed |
-| City activity feed | Signed-in app header, sticky filter chips with counts, "new" badge state |
-| Home / City Activity (v2) | KPI strip of three metric tiles with tabular figures, map card with a word-labelled legend, activity panel of the citizen's own reports |
-| Report flow shell | Numbered five-step rail with connector line, photo cap indicator, photo grid with remove affordance, sticky bottom action bar |
-| My reports | Filter chips with live counts, report row with status + ward + public ticket-id pill + relative time |
-| Report detail & trail | Vertical status trail with per-step icon and timestamp, labelled before/after photo groups, note-edit affordance |
-| Triage Queue | Dispatcher 3-region cockpit (filter rail / ticket list / detail pane), SLA countdown chip on every row, internal-id pill, dispatcher-only working note, keyboard shortcuts |
-| Dispatcher ticket detail | Before/after photo groups with empty resolution slots, dispatcher-only internal notes, searchable crew-picker combobox, reporter contact block, audit trail, sticky action bar |
-| Dispatcher map | Full-bleed map canvas with floating filter panel, zoom stack, shape-keyed legend, scale bar, selected-ticket card |
-| Dispatcher monitor | Dark wall-display ops board: scaled KPI row, unassigned queue ticker, SLA-breach panel, category and hourly-arrival breakdowns, ward load, department load, crew coverage |
-| Dispatcher performance | Trend line with per-series dash patterns and end labels, category bars with printed counts, SLA bullet against the 48-hour target, a sortable data table per chart |
+| Citizen | Hero band over an illustration, primary report CTA, metric-tile strip, the citizen's own report list, status-around-you map with a legend, statistics line chart, civic trust bands |
+| Dispatcher | Deep-navy role rail with a filled active-nav pill, top bar with search / bell / date chip, four SPLIT KPI cards with sparklines and trend percentages, city map with a selected-ticket popup, report list with status pills, crew-availability donut, quick-action tiles, grouped bar chart |
+| Crew | Chrome-free field surface (no top bar), hard-hat greeting block, four KPI cards with chevrons, today's job list with mono `#CF-` ticket codes, job map with a dashed route, focused-job panel with the four-step status trail, upload and mark-done actions, recent activity feed, help band |
+| Admin | Role rail with a skyline illustration, KPI cards with sparklines and up/down trends, city map with glyph-carrying pins, report list with photo thumbnails, three-series trend line, crew-activity donut with a stat list, four coloured quick-action tiles |
 
 The remaining pages are spec'd well enough that engineering can build them from the spec + tokens without separate mockups. Component patterns are defined in `components.html`.
 
@@ -190,9 +137,9 @@ The remaining pages are spec'd well enough that engineering can build them from 
 
 Each primitive carries its own accessibility contract, and each contract has a unit test in `tests/unit/components/`.
 
-### The shared surface stylesheets
+### The shared dashboard stylesheet
 
-`tokens.css` is the single token source for every surface; the two shared stylesheets add the chrome that only one audience sees. `mockups/citizen-surfaces.css` backs mockups 13–16 and `mockups/dispatcher-surfaces.css` backs mockups 17–21, and they are deliberately kept apart: the citizen `.ticket-id` pill is the PUBLIC `#TIX-` code a citizen quotes to the call centre, while the dispatcher's `.internal-id` pill is the internal reference — the two must never be confused.
+`tokens.css` is the single token source for every surface; `mockups/dashboards.css` adds the chrome all four dashboards share — the role rail, the top bar, the KPI card family, the status pills, the map card and the chart kit. The ticket codes stay deliberately separated by role: the citizen-facing code is the PUBLIC `#TIX-` reference a citizen quotes to the call centre, the crew job id is the internal `#CF-` reference the dispatcher hands out, and the two must never be confused.
 
 ## How engineering should use these
 
@@ -200,7 +147,7 @@ Each primitive carries its own accessibility contract, and each contract has a u
 2. **Build components, not screens.** A page that hand-rolls a `<button>` has already gone wrong.
 3. **Match Bangla typography.** Use Noto Sans Bengali (or its equivalent) for any Bangla text. Do not assume system fonts will render Bangla correctly on all platforms.
 4. **Test the outdoor theme.** Rashid's Status: In Progress uses `.theme-outdoor`. Validate it on actual sunlight-readable displays before shipping.
-5. **Use the triage-queue mockup (17) as the desktop reference.** Three-region layout (filter rail / list / detail) is the dispatcher pattern. Other desktop pages follow the same structure with variations. Mockup 05 is retired and kept for reference only.
+5. **Use the dashboard mockups as the desktop reference.** The rail + top bar + card grid in `mockups/dashboards.css` is the shell every desktop surface follows. The dispatcher and admin dashboards (02, 04) are the two staff-side references; the crew dashboard (03) is the field reference and deliberately omits the top bar.
 
 ## What the tests enforce
 

@@ -12,8 +12,8 @@
  *
  * Serves `design-artifacts/D-Design-System/01-Visual-Design/` at the root,
  * so:
- *   /gallery.html            -> the mockup gallery
- *   /mockups/08-login.html   -> a single mockup
+ *   /gallery.html                          -> the mockup gallery
+ *   /mockups/01-citizen-dashboard.html     -> a single mockup
  */
 
 import { createServer } from 'node:http';

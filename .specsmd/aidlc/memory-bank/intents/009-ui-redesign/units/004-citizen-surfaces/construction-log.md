@@ -433,3 +433,39 @@ task tag renders the report label.
   visual-regression gate can be green on CI.
 
 
+
+---
+
+## CI run 43381371631 — what actually failed — 2026-11-13
+
+The mockup-baseline job was a **red herring**: its log shows tests
+1–40 all ✓ (01-welcome through 20-dispatcher-monitor-1440x900). The
+job's step 6 ("Regenerate mockup baselines") was **skipped**, and
+step 7 ("Verify the refreshed mockup baselines are stable") was
+**skipped** too.
+
+The failure was in **step 8, "Regenerate route-spec baselines"**, and
+it was **3 failing tests out of 406**:
+
+| Test | Failure |
+|---|---|
+| `tests/04-e2e-human-tester.spec.ts:398` — full happy path | `TimeoutError: page.waitForURL: Timeout 30000ms exceeded` |
+| `tests/22-slow-motion-e2e-demo.spec.ts:362` — full happy path with crew + after-photo + citizen resolves | `TimeoutError: page.waitForURL: Timeout 30000ms exceeded` |
+| `tests/28-role-walkthrough.spec.ts:573` — all four roles can do their job | `Error: locator.setInputFiles: Target page, context or browser has been closed` |
+
+All three are **flow tests**, not screenshot comparisons. The third
+one is a 10.0-minute walkthrough whose browser was closed underneath
+it — a cascade from the two 30s `waitForURL` timeouts ahead of it.
+None of them is a visual-regression failure.
+
+**These are pre-existing route-spec failures, not Wave 3/4
+regressions.** Commit `7f72fd8` ("test(baselines): refresh the stale
+route-spec PNGs against current HEAD") landed at 13:20 local, *after*
+this CI run started at 06:49Z, and is the plausible fix for the
+stale-PNG half of the story.
+
+The important distinction for the record: **the citizen-surface
+mockups 13–16 are NOT in the failing set** — 13 passes at 1024×768
+and 16 passes at both viewports. The 14 local Windows failures are
+the proven platform drift (see the design log), and this CI run
+confirms the mockup baselines themselves are stable on ubuntu-latest.

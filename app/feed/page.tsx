@@ -37,6 +37,12 @@
  * --------------------------------------------
  * This page was re-composed to match the approved visual mockup
  * `design-artifacts/D-Design-System/01-Visual-Design/mockups/12-feed.html`.
+ *
+ * NOTE (2026-11-13): the page-per-page mockups were replaced by the four
+ * role dashboards, so `12-feed.html` no longer exists. The composition
+ * described below is retained here as the record of the contract this
+ * page was built against.
+ *
  * It is a PRESENTATION-LAYER change only. Every data-flow decision is
  * unchanged:
  *   - the same single fetch to /api/v1/activity/public (limit=50)

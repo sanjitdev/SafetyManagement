@@ -6,50 +6,27 @@ This folder holds the **committed PNG baselines** for CityFix's design mockups. 
 
 | Subfolder | Committed? | Purpose |
 |---|---|---|
-| `baselines/` | **Yes** | PNG baselines in two families: the 21 static design mockups (43 viewport combinations) under `01-mockups.spec.ts/`, and the per-WO route-spec PNGs that assert the **real app** under the other spec-file folders. |
+| `baselines/` | **Yes** | PNG baselines in two families: the 4 static role dashboards (8 viewport combinations) under `01-mockups.spec.ts/`, and the per-WO route-spec PNGs that assert the **real app** under the other spec-file folders. |
 | `artifacts/` | No (.gitignored) | Playwright diff artifacts, HTML report, temp files. |
 
-## The 43 static-mockup baselines
+## The 8 static-mockup baselines
 
 Captured at the web-first design canvases. Names map to the mockup HTML files in `design-artifacts/D-Design-System/01-Visual-Design/mockups/`.
 
-| Baseline | Source mockup | Viewport | Persona / role |
+| Baseline | Source mockup | Viewport | Role |
 |---|---|---|---|
-| `01-mockups.spec.ts/01-welcome-1440x900.png` | `mockups/01-welcome.html` | 1440 × 900 | Rahim (citizen) — entry |
-| `01-mockups.spec.ts/01-welcome-1024x768.png` | `mockups/01-welcome.html` | 1024 × 768 | Rahim — entry (medium) |
-| `01-mockups.spec.ts/02-home-city-activity-1440x900.png` | `mockups/02-home-city-activity.html` | 1440 × 900 | Rahim — hub |
-| `01-mockups.spec.ts/02-home-city-activity-1024x768.png` | `mockups/02-home-city-activity.html` | 1024 × 768 | Rahim — hub (medium) |
-| `01-mockups.spec.ts/03-report-submitted-1440x900.png` | `mockups/03-report-submitted.html` | 1440 × 900 | Rahim — confirmation |
-| `01-mockups.spec.ts/03-report-submitted-1024x768.png` | `mockups/03-report-submitted.html` | 1024 × 768 | Rahim — confirmation (medium) |
-| `01-mockups.spec.ts/04-my-reports-detail-1440x900.png` | `mockups/04-my-reports-detail.html` | 1440 × 900 | Rahim — trust moment |
-| `01-mockups.spec.ts/04-my-reports-detail-1024x768.png` | `mockups/04-my-reports-detail.html` | 1024 × 768 | Rahim — trust moment (medium) |
-| `01-mockups.spec.ts/05-daily-queue-dashboard-1440x900.png` | `mockups/05-daily-queue-dashboard.html` | 1440 × 900 | Habib (dispatcher) — desktop work surface |
-| `01-mockups.spec.ts/06-field-app-home-{1440x900,1024x768,390x844}.png` | `mockups/06-field-app-home.html` | 1440 / 1024 / 390 | Rashid (crew) — field app home |
-| `01-mockups.spec.ts/07-status-in-progress-{1440x900,1024x768,390x844}.png` | `mockups/07-status-in-progress.html` | 1440 / 1024 / 390 | Rashid — status screen, hands-busy theme |
-| `01-mockups.spec.ts/08-login-{1440x900,1024x768}.png` | `mockups/08-login.html` | 1440 / 1024 | Wave 2 — auth entry |
-| `01-mockups.spec.ts/09-register-{1440x900,1024x768}.png` | `mockups/09-register.html` | 1440 / 1024 | Wave 2 — registration |
-| `01-mockups.spec.ts/10-verify-otp-{1440x900,1024x768}.png` | `mockups/10-verify-otp.html` | 1440 / 1024 | Wave 2 — OTP verification |
-| `01-mockups.spec.ts/11-public-landing-{1440x900,1024x768}.png` | `mockups/11-public-landing.html` | 1440 / 1024 | Wave 2 — public entry |
-| `01-mockups.spec.ts/12-feed-{1440x900,1024x768}.png` | `mockups/12-feed.html` | 1440 / 1024 | Wave 2 — activity feed |
-| `01-mockups.spec.ts/13-home-city-activity-{1440x900,1024x768}.png` | `mockups/13-home-city-activity.html` | 1440 / 1024 | Wave 3 — citizen hub (current) |
-| `01-mockups.spec.ts/14-report-shell-{1440x900,1024x768}.png` | `mockups/14-report-shell.html` | 1440 / 1024 | Wave 3 — report flow shell |
-| `01-mockups.spec.ts/15-my-reports-{1440x900,1024x768}.png` | `mockups/15-my-reports.html` | 1440 / 1024 | Wave 3 — citizen report list |
-| `01-mockups.spec.ts/16-report-detail-trail-{1440x900,1024x768}.png` | `mockups/16-report-detail-trail.html` | 1440 / 1024 | Wave 3 — report detail + status trail |
-| `01-mockups.spec.ts/17-triage-queue-{1440x900,1024x768}.png` | `mockups/17-triage-queue.html` | 1440 / 1024 | Wave 4 — dispatcher triage queue (current) |
-| `01-mockups.spec.ts/18-dispatcher-ticket-detail-{1440x900,1024x768}.png` | `mockups/18-dispatcher-ticket-detail.html` | 1440 / 1024 | Wave 4 — dispatcher ticket detail |
-| `01-mockups.spec.ts/19-dispatcher-map-{1440x900,1024x768}.png` | `mockups/19-dispatcher-map.html` | 1440 / 1024 | Wave 4 — dispatcher map |
-| `01-mockups.spec.ts/20-dispatcher-monitor-{1440x900,1024x768}.png` | `mockups/20-dispatcher-monitor.html` | 1440 / 1024 | Wave 4 — dispatcher monitor board |
-| `01-mockups.spec.ts/21-dispatcher-performance-{1440x900,1024x768}.png` | `mockups/21-dispatcher-performance.html` | 1440 / 1024 | Wave 4 — dispatcher performance |
+| `01-mockups.spec.ts/01-citizen-dashboard-{1440x900,1024x768}.png` | `mockups/01-citizen-dashboard.html` | 1440 / 1024 | Citizen — home dashboard |
+| `01-mockups.spec.ts/02-dispatcher-dashboard-{1440x900,1024x768}.png` | `mockups/02-dispatcher-dashboard.html` | 1440 / 1024 | Dispatcher — operations dashboard |
+| `01-mockups.spec.ts/03-crew-dashboard-{1440x900,1024x768}.png` | `mockups/03-crew-dashboard.html` | 1440 / 1024 | Crew — field dashboard |
+| `01-mockups.spec.ts/04-admin-dashboard-{1440x900,1024x768}.png` | `mockups/04-admin-dashboard.html` | 1440 / 1024 | Admin — city-wide dashboard |
 
 (The `01-mockups.spec.ts/` subfolder is the spec-file folder. Future spec files (`02-*.spec.ts`, `03-*.spec.ts`) will produce sibling subfolders named after themselves.)
 
-Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4). Mockups 08–16 are captured at large + medium. Mockups 17–21 (Wave 4, dispatcher console) are captured at large + medium.
+All four dashboards are captured at **both** web viewports (large 1440 × 900 + medium 1024 × 768) — 8 viewport combinations in total.
 
-### The Wave 3 + Wave 4 baselines are captured and committed
+### The dashboard baselines are captured and committed
 
-The eighteen PNGs for mockups `13`–`16` (Wave 3, citizen) and `17`–`21` (Wave 4, dispatcher) were captured on `ubuntu-latest` by CI run `43287756140` — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. The workflow regenerated the full set, re-ran the suite as a stability check (the second pass was pixel-clean, so no mockup renders a live clock or an animation), and uploaded the result as the `refreshed-baselines` artifact.
-
-The committed set is now **43 viewport combinations** — 21 mockups at large, 20 at medium, and 2 at the 390 × 844 phone fallback. All 43 were produced by the platform that asserts on them.
+The four dashboards replace the 21 page-per-page mockups that preceded them (login, register, OTP, report flow, ticket detail, dispatcher console). They were rebuilt from the reference images in `ui-design/` on 2026-11-13 and their baselines were captured on `ubuntu-latest` by CI — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. The workflow regenerated the full set, re-ran the suite as a stability check, and uploaded the result as the `refreshed-baselines` artifact.
 
 ### The route-spec baselines are a second family, and they were refreshed too
 

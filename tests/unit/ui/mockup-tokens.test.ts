@@ -55,10 +55,9 @@ describe('the design artifacts reference only defined tokens', () => {
   });
 
   it('every mockup and mockup stylesheet references only defined tokens', () => {
-    // The shared surface stylesheets (`citizen-surfaces.css`,
-    // `dispatcher-surfaces.css`) are part of the mockup chrome — the
-    // mockups link them and every rule they hold lands on screen. A
-    // `var(--token)` typo in one of them resolves to NOTHING and the
+    // The shared dashboard stylesheet (`dashboards.css`) is part of the
+    // mockup chrome — the mockups link it and every rule it holds lands
+    // on screen. A `var(--token)` typo in it resolves to NOTHING and the
     // declaration it belonged to is silently dropped, exactly as the
     // `--color-primary-on` rename did in Wave 1.1. So the stylesheets
     // are scanned alongside the HTML.

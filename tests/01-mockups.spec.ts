@@ -5,13 +5,14 @@ import { compareMockupVsBuild } from './helpers/compare';
 /**
  * Mockup baseline capture for CityFix.
  *
- * Loads the 21 hero mockups in design-artifacts/D-Design-System/01-Visual-Design/mockups/
+ * Loads the four role dashboards in design-artifacts/D-Design-System/01-Visual-Design/mockups/
  * at the design-canvas viewports and asserts full-page screenshots against committed
  * baselines under tests-mockups/baselines/.
  *
- * Web re-skin (2026-10-04): mockups are web-first (large + medium viewports).
- * Mobile-only baselines were retired; Rashid's pages (Phase B) will be tested via
- * responsive helper paths.
+ * Dashboard rebuild (2026-11-13): the 21 page-per-page mockups (login, register, OTP,
+ * report flow, ticket detail, dispatcher console) were replaced by four role dashboards
+ * rebuilt from the reference images in ui-design/. All four are captured at large +
+ * medium viewports.
  *
  * First run: creates the PNG baselines (Playwright treats missing snapshots
  * as "create and pass"). Subsequent runs: pixel-diff against the baseline.
@@ -43,41 +44,14 @@ const WEB_MEDIUM: { width: number; height: number } = { width: 1024, height: 768
 const PHONE_WIDTH: { width: number; height: number } = { width: 390, height: 844 };
 
 test.describe('CityFix mockup baselines', () => {
-  // Mockups 01–04 are captured at BOTH large and medium viewports.
+  // The four role dashboards are captured at BOTH large and medium viewports.
   // The id includes the viewport suffix so the baseline filenames stay unique
-  // (e.g., 01-welcome-1440x900.png, 01-welcome-1024x768.png).
-  //
-  // Mockups 06–07 (Rashid, added 2026-10-04 Phase B) are web-first with a phone-width
-  // fallback (Feature #4). Captured at large + medium + a phone-width baseline (390 × 844)
-  // to verify the responsive collapse.
+  // (e.g., 01-citizen-dashboard-1440x900.png, 01-citizen-dashboard-1024x768.png).
   for (const { id, file, viewports } of [
-    { id: '01-welcome', file: '01-welcome.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '02-home-city-activity', file: '02-home-city-activity.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '03-report-submitted', file: '03-report-submitted.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '04-my-reports-detail', file: '04-my-reports-detail.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    // Mockup 05 is desktop-only at large viewport (Habib's 3-region dashboard).
-    { id: '05-daily-queue-dashboard', file: '05-daily-queue-dashboard.html', viewports: ['LARGE'] as const },
-    // Mockup 06 — Rashid's field app home. Web-first at large + medium; phone-width baseline included.
-    { id: '06-field-app-home', file: '06-field-app-home.html', viewports: ['LARGE', 'MEDIUM', 'PHONE'] as const },
-    // Mockup 07 — Rashid's status: in-progress (hands-busy, .theme-outdoor). Full-bleed at all viewports.
-    { id: '07-status-in-progress', file: '07-status-in-progress.html', viewports: ['LARGE', 'MEDIUM', 'PHONE'] as const },
-    // Mockups 08–12 — Wave 2 (auth + public surfaces). Captured at large + medium.
-    { id: '08-login', file: '08-login.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '09-register', file: '09-register.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '10-verify-otp', file: '10-verify-otp.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '11-public-landing', file: '11-public-landing.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '12-feed', file: '12-feed.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    // Mockups 13–16 — Wave 3 (citizen surfaces). Captured at large + medium.
-    { id: '13-home-city-activity', file: '13-home-city-activity.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '14-report-shell', file: '14-report-shell.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '15-my-reports', file: '15-my-reports.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '16-report-detail-trail', file: '16-report-detail-trail.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    // Mockups 17–21 — Wave 4 (dispatcher console). Captured at large + medium.
-    { id: '17-triage-queue', file: '17-triage-queue.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '18-dispatcher-ticket-detail', file: '18-dispatcher-ticket-detail.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '19-dispatcher-map', file: '19-dispatcher-map.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '20-dispatcher-monitor', file: '20-dispatcher-monitor.html', viewports: ['LARGE', 'MEDIUM'] as const },
-    { id: '21-dispatcher-performance', file: '21-dispatcher-performance.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '01-citizen-dashboard', file: '01-citizen-dashboard.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '02-dispatcher-dashboard', file: '02-dispatcher-dashboard.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '03-crew-dashboard', file: '03-crew-dashboard.html', viewports: ['LARGE', 'MEDIUM'] as const },
+    { id: '04-admin-dashboard', file: '04-admin-dashboard.html', viewports: ['LARGE', 'MEDIUM'] as const },
   ]) {
     for (const vp of viewports) {
       const viewport = vp === 'LARGE' ? WEB_LARGE : vp === 'MEDIUM' ? WEB_MEDIUM : PHONE_WIDTH;
