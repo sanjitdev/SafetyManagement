@@ -6195,3 +6195,12 @@ ward is now the only truncating item, and it carries the ellipsis.
   workflow — the same run that captures the 8 still-missing baselines for
   mockups `13`–`16`. A Windows capture would fail on CI by 2–3% of
   pixels, above the `0.005` tolerance.
+
+**The baselines have since landed.** CI run `43287756140` regenerated the
+full mockup set on `ubuntu-latest`, re-ran the suite as a stability check
+(the second pass was pixel-clean — no mockup renders a live clock or an
+animation), and uploaded the result as the `refreshed-baselines` artifact.
+All 18 PNGs for mockups `13`–`16` and `17`–`21` are now committed. The
+committed set is **43 viewport combinations** — 21 mockups at large, 20
+at medium, 2 at the 390 × 844 phone fallback — every one of them
+produced by the platform that asserts on them.

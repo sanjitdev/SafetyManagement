@@ -45,9 +45,11 @@ Captured at the web-first design canvases. Names map to the mockup HTML files in
 
 Mockups 01–04 are captured at **both** web viewports (large 1440 + medium 1024). Mockup 05 is desktop-only and captured at large only. Rashid's mockups 06–07 are captured at large, medium, and the 390 × 844 phone fallback (Feature #4). Mockups 08–16 are captured at large + medium. Mockups 17–21 (Wave 4, dispatcher console) are captured at large + medium.
 
-### Wave 4 baselines are not committed yet
+### The Wave 3 + Wave 4 baselines are captured and committed
 
-The ten Wave 4 PNGs (`17-triage-queue` … `21-dispatcher-performance`, large + medium each) do not exist in `baselines/` yet. They will be captured on `ubuntu-latest` by the `regenerate-baselines.yml` workflow — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. Until that refresh lands, `npm run test:mockups` treats the missing files as "create and pass" locally, but CI needs the refreshed set committed alongside this wiring change.
+The eighteen PNGs for mockups `13`–`16` (Wave 3, citizen) and `17`–`21` (Wave 4, dispatcher) were captured on `ubuntu-latest` by CI run `43287756140` — **not** by hand on Windows, because Windows rasterises Noto Sans Bengali differently and would commit a platform-specific baseline that fails on CI. The workflow regenerated the full set, re-ran the suite as a stability check (the second pass was pixel-clean, so no mockup renders a live clock or an animation), and uploaded the result as the `refreshed-baselines` artifact.
+
+The committed set is now **43 viewport combinations** — 21 mockups at large, 20 at medium, and 2 at the 390 × 844 phone fallback. All 43 were produced by the platform that asserts on them.
 
 ## ⚠️ The baselines are platform-specific — refresh them in CI, not on your machine
 
