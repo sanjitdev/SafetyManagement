@@ -39,7 +39,7 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { useLanguage } from '@/components/useLanguage';
-import { MetricStrip } from '@/components/ui/MetricStrip';
+import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
   type CityActivityPin,
@@ -771,6 +771,60 @@ export default function CrewPage() {
     return { assigned, inProgress, pending, completedToday, avg };
   }, [tickets, history]);
 
+  /*
+   * The KPI CARDS.
+   *
+   * The four cards the crew's design reference draws, in its order:
+   * assigned, completed today, pending, average work time. Each
+   * badge carries the colour of the FACT it counts, and the caption
+   * is always spelled out beside the number — the colour is never
+   * the only signal.
+   *
+   * The colours are the product's own tokens rather than new ones:
+   * the primary blue for the crew's own work, the success green for
+   * what it finished, the warning amber for what is waiting. Those
+   * are the same three the crew's map legend already uses for
+   * "Assigned / Pending / Completed", so the row and the map read
+   * as one set.
+   */
+  const crewKpiCards: KpiCard[] = useMemo(
+    () => [
+      {
+        key: 'assigned',
+        label: t('crew.dashboard.metric.assigned', null, lang),
+        value: String(kpis.assigned),
+        icon: ICONS.crewAssigned,
+        color: 'var(--color-primary)',
+        colorSoft: 'var(--color-primary-soft)',
+      },
+      {
+        key: 'completed',
+        label: t('crew.dashboard.metric.in_progress', null, lang),
+        value: String(kpis.completedToday),
+        icon: ICONS.crewCompleted,
+        color: 'var(--color-success)',
+        colorSoft: 'var(--color-success-soft)',
+      },
+      {
+        key: 'pending',
+        label: t('crew.dashboard.metric.pending', null, lang),
+        value: String(kpis.pending),
+        icon: ICONS.crewPending,
+        color: 'var(--color-warning)',
+        colorSoft: 'var(--color-warning-soft)',
+      },
+      {
+        key: 'work-time',
+        label: t('crew.dashboard.metric.avg_resolution', null, lang),
+        value: kpis.avg.text,
+        icon: ICONS.crewWorkTime,
+        color: 'var(--color-primary)',
+        colorSoft: 'var(--color-primary-soft)',
+      },
+    ],
+    [kpis, lang],
+  );
+
   /**
    * The map pins — one per open job, at the job's coordinates.
    *
@@ -988,49 +1042,42 @@ export default function CrewPage() {
         </div>
       )}
 
-      {/* KPI row. The assigned-job count is what the crew opens the
-          page to see, so it is the headline; the other three figures
-          are the context around it and share one surface. */}
+      {/*
+        KPI row. Four SEPARATE cards, matching the design reference
+        (`ui-design/Crew Portal Dashboard.png`): the crew's assigned
+        jobs, the ones it finished today, the ones still waiting and
+        its average time per job.
+
+        These were a MetricStrip — one headline beside three figures
+        sharing a surface. The crew's four numbers are the SAME kind
+        of thing (four counts about one day's work), and the design
+        draws them as four cards with their own icon badges, so a
+        strip was the wrong shape for them too.
+
+        The crew variant puts the NUMBER above its caption and adds
+        a chevron; the dispatcher's variant puts the label above the
+        number. The difference is in the design references, and the
+        surface treatment (1px border, no shadow) is the same.
+      */}
       <div className="crew-kpi-grid" data-testid="crew-kpi-grid">
-        <MetricStrip
-          lang={lang}
-          className="crew-metric-strip"
-          ariaLabel={t('crew.dashboard.metric.assigned', null, lang)}
-          headline={{
-            key: 'assigned',
-            label: t('crew.dashboard.metric.assigned', null, lang),
-            value: String(kpis.assigned),
-            hint: t(
-              'crew.dashboard.metric.assigned_hint',
-              { count: kpis.assigned },
-              lang,
-            ),
-          }}
-          figures={[
-            {
-              key: 'completed-today',
-              label: t('crew.dashboard.metric.in_progress', null, lang),
-              value: String(kpis.completedToday),
-              hint: t('crew.dashboard.metric.in_progress_hint', null, lang),
-            },
-            {
-              key: 'pending',
-              label: t('crew.dashboard.metric.pending', null, lang),
-              value: String(kpis.pending),
-              hint: t('crew.dashboard.metric.pending_hint', null, lang),
-            },
-            {
-              key: 'avg-resolution',
-              label: t('crew.dashboard.metric.avg_resolution', null, lang),
-              value: kpis.avg.text,
-              hint: kpis.avg.hasData
-                ? t('crew.dashboard.metric.avg_resolution_hint', null, lang)
-                : t('crew.dashboard.metric.no_resolution_data', null, lang),
-            },
-          ]}
-          data-testid="crew-metric-strip"
-          data-testid-headline="crew-kpi-assigned"
-        />
+        {loading ? (
+          <KpiCardsSkeleton
+            lang={lang}
+            count={4}
+            variant="crew"
+            ariaLabel={t('crew.dashboard.metric.assigned', null, lang)}
+            data-testid="crew-kpi-skeleton"
+          />
+        ) : (
+          <KpiCards
+            lang={lang}
+            variant="crew"
+            ariaLabel={t('crew.dashboard.metric.assigned', null, lang)}
+            cards={crewKpiCards}
+            data-testid="crew-kpi-cards"
+            data-testid-prefix="crew-kpi"
+          />
+        )}
       </div>
 
       {/* Main grid: jobs | map | focused detail. */}

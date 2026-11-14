@@ -8,7 +8,7 @@ import { UserMenu } from '@/components/UserMenu';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { CityFixMark } from '@/components/CityFixMark';
 import { Button } from '@/components/ui/Button';
-import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
+import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { SessionProvider, useSession } from '@/components/SessionProvider';
@@ -113,32 +113,48 @@ async function fetchTicketWindow(cityId: string, from: Date, to: Date) {
 }
 
 /**
- * Turn a metric definition into a MetricStrip figure.
+ * Turn a metric definition into a KPI card.
  *
  * The delta against the previous period rides with the value, not
- * below it in its own block: it is a qualifier on the number, and
- * the strip's supporting cells are already busy with the label and
- * the value. The sign is carried by an ARROW beside the percentage
- * and never by the colour alone, because a rising ticket count is
- * not a good thing.
+ * below it in its own block: it is a qualifier on the number. The
+ * sign is carried by an ARROW beside the percentage and never by the
+ * colour alone, because a rising ticket count is not a good thing.
+ *
+ * The card also carries the DAILY COUNTS it was counted from, which
+ * the admin card draws as a sparkline. The series was already being
+ * computed for the trend chart; the card is what finally shows it.
  */
-function metricFigure(metric: MetricDefinition, lang: Language) {
+function metricCard(metric: MetricDefinition, lang: Language): KpiCard {
   const titleKey = `admin.dashboard.metric.${metric.key}` as const;
   const delta = metric.previous === 0
     ? null
     : Math.round(((metric.current - metric.previous) / metric.previous) * 100);
-  const trend: MetricTrend = delta !== null && delta < 0 ? 'down' : 'up';
+  /*
+   * A ZERO delta is FLAT, not "up". An up-arrow beside "0%" says the
+   * count is rising when nothing actually changed, and it coloured
+   * the number amber as if the dashboard were raising an alarm it
+   * did not need to raise. Flat gets its own arrow and a neutral
+   * tone.
+   */
+  const trend: KpiCard['trend'] = delta === null || delta === 0
+    ? 'flat'
+    : delta < 0 ? 'down' : 'up';
   // A rising count is only good for "resolved"; everywhere else more
   // tickets means more outstanding work.
-  const trendTone: MetricTone = metric.key === 'resolved'
-    ? (delta !== null && delta < 0 ? 'danger' : 'success')
-    : (delta !== null && delta < 0 ? 'success' : 'warning');
+  const trendTone: KpiCard['trendTone'] = delta === null || delta === 0
+    ? 'neutral'
+    : metric.key === 'resolved'
+      ? (delta < 0 ? 'danger' : 'success')
+      : (delta < 0 ? 'success' : 'warning');
   return {
     key: metric.key,
     label: t(titleKey, null, lang),
     value: metric.current.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+    icon: ICONS[metric.icon],
+    color: metric.color,
+    colorSoft: metric.soft,
+    spark: metric.spark,
     ...(delta === null ? {} : { trend, trendValue: `${Math.abs(delta)}%`, trendTone }),
-    hint: t('admin.dashboard.metric.compare', null, lang),
   };
 }
 
@@ -463,43 +479,34 @@ function AdminHomePageInner() {
             </div>
           ) : null}
 
-          {/* The total report count is the headline the admin opens the
-              dashboard for; the three status counts are its breakdown.
-              A MetricStrip says so. Four equal cards said "these four
-              numbers matter equally" and hid the breakdown inside a
-              wall of identical boxes. */}
+          {/*
+            The four headline counts are FOUR PEERS here, not one
+            dominant number with three footnotes. The admin's own
+            design reference (`ui-design/admin-dashboard.png`) draws
+            them as four separate cards, each with its own disc badge,
+            its number over its caption, a trend percentage and a
+            sparkline — so the row is drawn that way.
+          */}
           <section className="admin-kpi-grid" aria-label={t('admin.home.title', null, lang)}>
             {loading && !dashboard ? (
-              <SkeletonStatus lang={lang} className="admin-dashboard-kpi-skeleton">
-                {/* The skeleton mirrors the strip's shape: a wide
-                    headline block and a row of figure blocks, not four
-                    identical cards. A skeleton that does not match the
-                    loaded layout makes the page jump on arrival. */}
-                <div className="metric-strip">
-                  <div className="admin-kpi-skeleton admin-kpi-skeleton-headline">
-                    <SkeletonBlock style={{ width: '52%', height: 13 }} />
-                    <SkeletonBlock style={{ width: '58%', height: 28 }} />
-                    <SkeletonBlock style={{ width: '72%', height: 12 }} />
-                  </div>
-                  <div className="metric-strip-figures admin-kpi-skeleton">
-                    {metrics.slice(1).map((metric) => (
-                      <div key={metric.key} className="metric-strip-figure">
-                        <SkeletonBlock style={{ width: '62%', height: 12 }} />
-                        <SkeletonBlock style={{ width: '44%', height: 22 }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </SkeletonStatus>
-            ) : (
-              <MetricStrip
+              /* The skeleton mirrors the loaded cards' geometry, so
+                 the page does not jump when the data lands. */
+              <KpiCardsSkeleton
                 lang={lang}
+                count={metrics.length}
+                variant="admin"
+                ariaLabel={t('admin.home.title', null, lang)}
+                data-testid="admin-kpi-skeleton"
+              />
+            ) : (
+              <KpiCards
+                lang={lang}
+                variant="admin"
                 className="admin-metric-strip"
                 ariaLabel={t('admin.home.title', null, lang)}
-                headline={metricFigure(metrics[0], lang)}
-                figures={metrics.slice(1).map((metric) => metricFigure(metric, lang))}
+                cards={metrics.map((metric) => metricCard(metric, lang))}
                 data-testid="admin-metric-strip"
-                data-testid-headline="admin-dashboard-kpi-total"
+                data-testid-prefix="admin-kpi"
               />
             )}
           </section>

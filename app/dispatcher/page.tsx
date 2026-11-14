@@ -47,7 +47,7 @@ import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { SlaCountdown } from '@/components/ui/SlaCountdown';
 import { useLanguage } from '@/components/useLanguage';
-import { MetricStrip } from '@/components/ui/MetricStrip';
+import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
 import {
@@ -474,6 +474,53 @@ export default function DispatcherPage() {
   };
   const dashboardPins: CityActivityPin[] = activityTickets.slice(0, 500).map((ticket) => ({ id: ticket.id, lat: ticket.locationLat, lng: ticket.locationLng, status: ticket.status as CityActivityStatus }));
 
+  /**
+   * The four KPI cards.
+   *
+   * Each card's badge carries the STATUS colour of the state it
+   * counts — the same colour the status pill and the map legend use
+   * for that state — so the row reads as one set of status colours
+   * rather than as four arbitrary icons.
+   *
+   * The `resolved` card counts `resolved` AND `closed`: a closed
+   * ticket is a finished ticket, and splitting them would leave the
+   * card disagreeing with the monitor board.
+   */
+  const kpiCards: KpiCard[] = [
+    {
+      key: 'new',
+      label: t('dispatcher.dashboard.new', null, lang),
+      value: statusCount(['submitted']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+      icon: ICONS.statusSubmitted,
+      color: 'var(--color-status-submitted)',
+      colorSoft: 'var(--color-status-submitted-soft)',
+    },
+    {
+      key: 'review',
+      label: t('dispatcher.dashboard.review', null, lang),
+      value: statusCount(['routed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+      icon: ICONS.statusRouted,
+      color: 'var(--color-status-routed)',
+      colorSoft: 'var(--color-status-routed-soft)',
+    },
+    {
+      key: 'progress',
+      label: t('dispatcher.dashboard.progress', null, lang),
+      value: statusCount(['in_progress']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+      icon: ICONS.statusInProgress,
+      color: 'var(--color-status-in-progress)',
+      colorSoft: 'var(--color-status-in-progress-soft)',
+    },
+    {
+      key: 'resolved',
+      label: t('dispatcher.dashboard.resolved', null, lang),
+      value: statusCount(['resolved', 'closed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
+      icon: ICONS.statusResolved,
+      color: 'var(--color-status-resolved)',
+      colorSoft: 'var(--color-status-resolved-soft)',
+    },
+  ];
+
   return (
     <div className="dispatcher-portal" data-testid="dispatcher-queue-page">
       <header className="dispatcher-dashboard-heading">
@@ -481,60 +528,33 @@ export default function DispatcherPage() {
         <span className="dispatcher-scope-badge">{scopeLabel(lang, scope)}</span>
       </header>
 
-      {/* The queue depth is the dispatcher's headline number — it is
-          what they open the page to see. The other three statuses are
-          the context around it, so they share one surface instead of
-          each getting an equal card. */}
-      <section className="dispatcher-kpi-grid" aria-label={t('dispatcher.dashboard.title', null, lang)}>
-        {/* The skeleton mirrors the strip's shape: a wide headline
-            block beside a row of figure blocks. A skeleton that does
-            not match the loaded layout makes the page jump. */}
+      {/* The four queue states are PEERS — the dispatcher reads them
+          left to right as one set of counts, not as one dominant
+          number with three footnotes. So they are four separate
+          cards (see `components/ui/KpiCards.tsx`) rather than a
+          MetricStrip, whose whole premise is that the supporting
+          figures share a single surface.
+
+          The icon badge on each card carries that state's colour,
+          the same colour the status pill and the map legend use, so
+          the row reads as one set of status colours. The colour is
+          never the only signal — the label is spelled out beside
+          it. */}
+      <section className="dispatcher-kpi-grid">
         {loading ? (
-          <SkeletonStatus lang={lang} className="dispatcher-kpi-skeleton">
-            <div className="metric-strip">
-              <div className="metric-strip-headline">
-                <SkeletonBlock style={{ width: '52%', height: 13 }} />
-                <SkeletonBlock style={{ width: '44%', height: 30 }} />
-              </div>
-              <div className="metric-strip-figures">
-                {[0, 1, 2].map((item) => (
-                  <div key={item} className="metric-strip-figure">
-                    <SkeletonBlock style={{ width: '64%', height: 12 }} />
-                    <SkeletonBlock style={{ width: '42%', height: 22 }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SkeletonStatus>
-        ) : (
-          <MetricStrip
+          <KpiCardsSkeleton
             lang={lang}
-            className="dispatcher-metric-strip"
+            count={4}
             ariaLabel={t('dispatcher.dashboard.title', null, lang)}
-            headline={{
-              key: 'new',
-              label: t('dispatcher.dashboard.new', null, lang),
-              value: statusCount(['submitted']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-            }}
-            figures={[
-              {
-                key: 'review',
-                label: t('dispatcher.dashboard.review', null, lang),
-                value: statusCount(['routed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-              },
-              {
-                key: 'progress',
-                label: t('dispatcher.dashboard.progress', null, lang),
-                value: statusCount(['in_progress']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-              },
-              {
-                key: 'resolved',
-                label: t('dispatcher.dashboard.resolved', null, lang),
-                value: statusCount(['resolved', 'closed']).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-              },
-            ]}
-            data-testid="dispatcher-metric-strip"
-            data-testid-headline="dispatcher-metric-new"
+            data-testid="dispatcher-kpi-skeleton"
+          />
+        ) : (
+          <KpiCards
+            lang={lang}
+            ariaLabel={t('dispatcher.dashboard.title', null, lang)}
+            cards={kpiCards}
+            data-testid="dispatcher-kpi-cards"
+            data-testid-prefix="dispatcher-kpi"
           />
         )}
       </section>
@@ -546,7 +566,7 @@ export default function DispatcherPage() {
             <div className="dispatcher-map-legend"><span><i className="is-new" />{t('dispatcher.dashboard.new', null, lang)}</span><span><i className="is-assigned" />{t('dispatcher.dashboard.review', null, lang)}</span><span><i className="is-progress" />{t('dispatcher.dashboard.progress', null, lang)}</span><span><i className="is-resolved" />{t('dispatcher.dashboard.resolved', null, lang)}</span></div>
             <Link href="/dispatcher/map">{t('dispatcher.dashboard.full_map', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
           </header>
-          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: 300 }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} />}</div>
+          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: '100%' }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} />}</div>
         </article>
 
         <article className="dispatcher-panel dispatcher-recent-panel">
@@ -723,6 +743,34 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           </span>
           <StatusPill status={ticket.status} lang={lang} />
         </div>
+        {/*
+         * The row's second line: the age and the SLA chip.
+         *
+         * MINIMAL BY DESIGN. The panel this row lives in is a
+         * summary, not a table — the dispatcher scans it for "what
+         * needs me now?" and then opens the ticket for the rest. So
+         * the row carries the four things that answer that question
+         * and nothing else:
+         *
+         *   - WHERE and WHAT (the title line above)
+         *   - WHICH STATE (the status pill)
+         *   - HOW OLD (the age)
+         *   - HOW LONG LEFT (the SLA chip)
+         *
+         * The reporter's name was dropped: it is the longest string
+         * on the row, it never changes what the dispatcher does, and
+         * it is what pushed the age line to wrap onto a third line
+         * and collide with the next row.
+         *
+         * The "View details →" link was dropped too: the WHOLE ROW
+         * is the link, so the arrow restated the row's own
+         * affordance while eating the width the title needed.
+         *
+         * The two facts sit on ONE line with `flexWrap: 'nowrap'`
+         * so the row's height is fixed by its content and a chip can
+         * never wrap onto a second line and spill over the row
+         * below it.
+         */}
         <div
           lang={lang}
           style={{
@@ -730,14 +778,13 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
             color: 'var(--color-ink-tertiary)',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 'var(--space-2)',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
+            minWidth: 0,
           }}
         >
-          {formatAge(ticket.createdAt, lang)} · {t('dispatcher.queue.row.reporter', null, lang)}{' '}
-          <span style={{ fontWeight: 'var(--weight-semibold)' }}>
-            {ticket.reporterName ?? ticket.reporterId}
-          </span>
+          <span style={{ whiteSpace: 'nowrap' }}>{formatAge(ticket.createdAt, lang)}</span>
           {/*
            * The SLA chip. It answers the question the row's AGE
            * cannot: how long is left against the category's
@@ -755,17 +802,6 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           ) : null}
         </div>
       </div>
-      <span
-        lang={lang}
-        style={{
-          fontSize: 'var(--text-body-sm)',
-          color: 'var(--color-primary)',
-          fontWeight: 'var(--weight-semibold)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {t('dispatcher.queue.row.view', null, lang)} →
-      </span>
     </Link>
   );
 }

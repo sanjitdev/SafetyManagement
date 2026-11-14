@@ -33,6 +33,7 @@ import {
   ArrowUp,
   Buildings,
   Bell,
+  Briefcase,
   Camera,
   CaretDown,
   CaretRight,
@@ -214,6 +215,29 @@ export const ICONS = {
   crew: entry(HardHat),
   serviceArea: entry(MapPinArea),
   sla: entry(Timer),
+  /*
+   * The crew dashboard's KPI badges.
+   *
+   * Each badge names the FACT the card counts, so the icon and the
+   * number agree: a briefcase for the jobs assigned to the crew, a
+   * check for the ones it finished, a clock for the ones still
+   * waiting and for the time it takes to finish them.
+   */
+  crewAssigned: entry(Briefcase),
+  crewCompleted: entry(CheckCircle),
+  crewPending: entry(Clock),
+  crewWorkTime: entry(Clock),
+  /*
+   * The citizen dashboard's KPI badges.
+   *
+   * The citizen's design reference (`ui-design/citien-dashboard.png`)
+   * draws these three with the icon naming the FACT the card counts:
+   * a document for the reports the citizen filed, a check for the
+   * ones that were fixed, a clock for the ones still being worked on.
+   */
+  citizenReports: entry(ClipboardText),
+  citizenResolved: entry(CheckCircle),
+  citizenInProgress: entry(Clock),
 } as const;
 
 /** A key of the {@link ICONS} registry. */

@@ -71,16 +71,11 @@
 .admin-table-skeleton-row { min-width: 720px; min-height: 42px; display: grid; grid-template-columns: repeat(7, minmax(50px, 1fr)); align-items: center; gap: var(--space-4); padding: 0 var(--space-3); border-bottom: 1px solid var(--color-border); }
 .admin-table-skeleton-row:nth-child(odd) { background: var(--color-surface-card); }
 .admin-ward-skeleton-row { min-height: 20px; }
-.admin-dashboard-kpi-skeleton { display: contents; }
-/* The admin KPI skeleton mirrors the MetricStrip's shape: a wide
-   headline block beside a row of figure blocks. */
-.admin-kpi-skeleton { display: grid; align-content: start; gap: 14px; }
-.admin-kpi-skeleton.admin-kpi-skeleton-headline {
-  gap: 14px; padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--admin-line); border-radius: var(--radius-card);
-  background: var(--admin-surface);
-}
-.admin-kpi-skeleton.metric-strip-figures { gap: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The admin's KPI row is four SEPARATE cards, not a MetricStrip.
+   The row's own grid comes from `.dispatcher-kpi-cards`, which reads
+   the card count from `--kpi-card-count`; this rule only pins the
+   row's spacing in the admin's page rhythm. */
+.admin-kpi-grid { display: grid; gap: 15px; margin-bottom: 18px; }
 .admin-map-data-skeleton { display: block; width: 100%; height: 100%; }
 .admin-reports-skeleton { display: grid; gap: 14px; padding: 12px 0; }
 .admin-reports-skeleton > div { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--admin-line); }
@@ -88,11 +83,6 @@
 .admin-chart-skeleton { display: block; padding: 20px; }
 .admin-crew-skeleton { display: grid; gap: 16px; padding: 20px; }
 .admin-crew-skeleton > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.dispatcher-kpi-skeleton { display: contents; }
-/* The dispatcher KPI skeleton mirrors the MetricStrip's shape: a wide
-   headline block beside a row of figure blocks. */
-.dispatcher-kpi-skeleton .metric-strip-headline { min-height: 124px; align-content: start; gap: 14px; }
-.dispatcher-kpi-skeleton .metric-strip-figures { min-height: 124px; align-content: center; }
 .dispatcher-dashboard-map-skeleton { display: block; width: 100%; height: 100%; }
 .dispatcher-crew-skeleton, .dispatcher-trend-skeleton { display: grid; gap: 14px; padding: var(--space-4); }
 .dispatcher-crew-skeleton > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 48px; }
@@ -211,10 +201,9 @@
 .admin-dashboard-heading p { margin: 6px 0 0; color: var(--admin-muted); font-size: 12px; }
 .admin-refresh-indicator { color: var(--color-ink-tertiary); font-size: var(--text-micro); }
 .admin-dashboard-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 18px; padding: 12px 15px; border: 1px solid var(--color-danger); border-radius: 9px; color: var(--color-danger); background: var(--color-danger-soft); font-size: 13px; }
-/* The admin KPI row is a MetricStrip: the total report count is the
-   headline, the three status counts are its breakdown on one shared
-   surface. Four equal cards buried that relationship. */
-.admin-kpi-grid { display: grid; gap: 15px; margin-bottom: 18px; }
+/* The admin KPI row is four SEPARATE cards, each with its own disc
+   badge, its number over its caption, a trend percentage and a
+   sparkline — the shape the admin's design reference draws. */
 .admin-dashboard-middle { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(350px, 1fr); gap: 16px; margin-bottom: 16px; }
 .admin-dashboard-bottom { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(270px, .9fr) minmax(300px, 1fr); gap: 16px; }
 .admin-dashboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--admin-line); border-radius: 11px; background: var(--admin-surface); }
@@ -589,6 +578,9 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .admin-dashboard-middle { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .admin-dashboard-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-actions-panel { grid-column: 1 / -1; }
+  /* Four cards side by side stop fitting comfortably before the
+     panels do, so the KPI row wraps to a 2×2 first. */
+  .admin-kpi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .admin-dashboard { grid-template-columns: minmax(0, 1fr); }
@@ -717,10 +709,17 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
  */
 .home-report-action small { color: color-mix(in srgb, var(--color-on-primary) 82%, transparent); font-size: var(--text-micro); }
 .home-report-action-arrow { width: 34px; height: 34px; padding: 8px; border-radius: 50%; color: var(--color-on-primary); background: color-mix(in srgb, var(--color-on-primary) 20%, transparent); }
-/* The figures beside the CTA are a MetricStrip, not three cards. The
-   strip's own CSS owns the grid; this rule only makes it fill the
-   column it shares with the CTA. */
-.home-overview-metrics { min-width: 0; }
+/* The figures beside the CTA are three separate cards, not a
+   MetricStrip. The citizen's design reference
+   (`ui-design/citien-dashboard.png`) draws a blue CTA block followed
+   by three cards, each with its own badge, number and caption — the
+   three facts are peers, so each gets its own surface.
+
+   The row's own grid comes from `.dispatcher-kpi-cards`, which reads
+   the card count from `--kpi-card-count` — the component sets it, so
+   the same rule serves the citizen's three cards and the
+   dispatcher's and crew's four without a second copy. */
+.home-overview-kpis { min-width: 0; }
 .home-grid { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); grid-template-rows: minmax(370px, 480px); grid-template-areas: 'recent map'; grid-auto-flow: initial; gap: 14px; flex: 0 0 auto; }
 .home-map-panel { grid-area: map; min-height: 370px !important; overflow: hidden; border: 1px solid var(--color-border); border-radius: 12px; }
 .home-recent-panel { grid-area: recent; min-height: 370px !important; overflow: hidden; border: 1px solid var(--color-border); border-left: 1px solid var(--color-border) !important; border-radius: 12px; }
@@ -772,6 +771,9 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .home-page { height: auto !important; padding: 20px 18px 24px; }
   .home-overview-grid { grid-template-columns: minmax(0, 1fr); }
   .home-report-action { grid-column: 1 / -1; }
+  /* Three cards will not fit across a tablet once the CTA has taken
+     a full row of its own, so they drop to one column. */
+  .citizen-kpi-cards { grid-template-columns: minmax(0, 1fr); }
   .home-dashboard-bottom { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .home-dashboard-chart { grid-column: 1 / -1; }
   .home-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: 380px 420px; grid-template-areas: 'map' 'recent'; flex: 0 0 auto; }
@@ -787,6 +789,7 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .home-dashboard-heading p { font-size: 12px; }
   .home-dashboard-ward { display: none; }
   .home-overview-grid { gap: 8px; }
+  .citizen-kpi-cards { gap: 8px; }
   .home-report-action { min-height: 82px; padding: 12px; gap: 8px; }
   .home-report-action strong { font-size: 14px; }
   .home-report-action small { font-size: var(--text-micro); }
@@ -1283,12 +1286,35 @@ h1, h2, h3, h4 {
 .dispatcher-dashboard-heading h1 { margin: 0; color: var(--color-ink); font-size: clamp(22px,2vw,30px); font-weight: 720; letter-spacing: -.035em; line-height: 1.2; }
 .dispatcher-dashboard-heading p { margin: 5px 0 0; color: var(--color-ink-secondary); font-size: 13px; }
 .dispatcher-scope-badge { max-width: 38%; overflow: hidden; padding: 7px 11px; border: 1px solid var(--color-border); border-radius: 99px; color: var(--color-ink-secondary); background: var(--color-surface-card); font-size: var(--text-micro); text-overflow: ellipsis; white-space: nowrap; }
-/* The dispatcher KPI row is a MetricStrip: the queue depth gets the
-   headline treatment and the three other statuses share one surface.
-   The grid here only holds the strip; the strip owns its own layout. */
+/* The dispatcher KPI row is four SEPARATE cards (see
+   `components/ui/KpiCards.tsx`), not one MetricStrip: the four queue
+   states are peers, and the design mockup draws them as four cards
+   with their own icon badges.
+
+   The separation comes from the GAP between the cards plus each
+   card's own 1px border — NOT from a shadow. The design system is
+   explicit that cards carry no shadow ("a 1px border lifts them");
+   shadows are reserved for overlays. */
 .dispatcher-kpi-grid { display: grid; gap: 13px; }
+/* The KPI row itself. The card COUNT comes in as a custom property
+   so the grid can size itself from the data instead of a hard-coded
+   four — but it lives in CSS, not in an inline style, because an
+   inline style cannot be overridden by a media query, and the row
+   has to be able to collapse on a narrow viewport. */
+.dispatcher-kpi-cards { display: grid; grid-template-columns: repeat(var(--kpi-card-count, 4), minmax(0, 1fr)); gap: var(--space-3); min-width: 0; }
 .dispatcher-overview-grid { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(350px,1fr); gap: 14px; }
 .dispatcher-panel { min-width: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 11px; background: var(--color-surface-card); }
+/* The map panel is a COLUMN: a heading on top and the map filling
+   whatever height is left. The panel stretches to the height of the
+   recent-reports panel beside it (a grid row is as tall as its
+   tallest cell), so a FIXED-height map left a large empty band
+   below the map inside the panel — the map looked truncated.
+
+   Letting the map take the remaining space means the panel's own
+   height decides the map's height, so the two panels line up and
+   the map fills its card. */
+.dispatcher-map-panel { display: flex; flex-direction: column; }
+.dispatcher-map-panel > .dispatcher-dashboard-map { flex: 1 1 auto; min-height: 300px; }
 .dispatcher-panel-heading { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--color-border); }
 .dispatcher-panel-heading h2 { min-width: 0; display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); font-size: 13px; font-weight: 650; white-space: nowrap; }
 .dispatcher-panel-heading h2 svg { flex: 0 0 auto; color: var(--color-ink-secondary); }
@@ -1297,7 +1323,12 @@ h1, h2, h3, h4 {
 .dispatcher-map-legend { display: flex; align-items: center; gap: 10px; color: var(--color-ink-secondary); font-size: var(--text-micro); white-space: nowrap; }
 .dispatcher-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .dispatcher-map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-status-submitted); }.dispatcher-map-legend i.is-assigned { background: var(--color-status-routed); }.dispatcher-map-legend i.is-progress { background: var(--color-status-in-progress); }.dispatcher-map-legend i.is-resolved { background: var(--color-status-resolved); }
-.dispatcher-dashboard-map { height: 300px; position: relative; overflow: hidden; background: var(--color-map-bg); }.dispatcher-dashboard-map > div { width: 100%; height: 100%; }.dispatcher-map-loading { height: 100%; min-height: 300px; background: var(--color-surface-raised); }
+/* The map fills its panel. The height is a MINIMUM, not a fixed
+   value: the map panel is a flex column, so the map grows into
+   whatever space the heading leaves behind. A fixed height left an
+   empty band below the map whenever the panel grew to match the
+   recent-reports panel beside it. */
+.dispatcher-dashboard-map { flex: 1 1 auto; min-height: 300px; position: relative; overflow: hidden; background: var(--color-map-bg); }.dispatcher-dashboard-map > div { width: 100%; height: 100%; }.dispatcher-map-loading { height: 100%; min-height: 300px; background: var(--color-surface-raised); }
 /* The triage filter rail (Wave 4 / bolt 009-005).
    Two narrowing axes — status and ward — plus a free-text search.
    The rail wraps onto a second row rather than scrolling: a rail
@@ -1327,11 +1358,17 @@ h1, h2, h3, h4 {
  * separated by the list's gap plus a hairline, so the panel reads
  * as one list rather than as a stack of little boxes. The hover
  * border comes back, which is what makes the row feel clickable.
+ *
+ * The row's HEIGHT comes from its content, not from a fixed
+ * `min-height`. The row used to carry `min-height: 62px` while its
+ * content ran to 79px, so the content overflowed the row box and
+ * the next row's title was painted over the bottom of this one.
+ * A grid row sizes to its content by default; the `min-height` was
+ * only ever a floor, and the floor was lower than the content.
  */
-.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) auto !important; min-height: 62px; gap: 10px !important; padding: 8px 9px !important; border-color: transparent !important; border-radius: 8px !important; background: transparent !important; }
+.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; align-items: start; gap: 10px !important; padding: 9px !important; border-color: transparent !important; border-radius: 8px !important; background: transparent !important; }
 .dispatcher-recent-list > a:hover { border-color: var(--color-border) !important; background: var(--color-surface-raised) !important; }
 .dispatcher-recent-list > a img, .dispatcher-recent-list > a > span:first-child { width: 43px !important; height: 43px !important; }
-.dispatcher-recent-list > a > span:last-child { font-size: var(--text-micro) !important; }
 .dispatcher-dashboard-error { padding: 22px; color: var(--color-danger); text-align: center; }
 .dispatcher-lower-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1.15fr); gap: 14px; }
 .dispatcher-crew-list { min-height: 175px; padding: 8px 15px; }
@@ -1350,8 +1387,8 @@ h1, h2, h3, h4 {
 .dispatcher-trend-content { padding: 10px 13px 3px; }.dispatcher-trend-legend { display: flex; gap: 12px; color: var(--color-ink-secondary); font-size: var(--text-micro); }.dispatcher-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }.dispatcher-trend-legend span::before { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: var(--color-primary); content: ''; }.dispatcher-trend-legend span.is-done::before { background: var(--color-success); }
 .dispatcher-trend-content svg { width: 100%; height: 145px; }.dispatcher-trend-content line { stroke: var(--color-border); stroke-width: 1; }.dispatcher-trend-content text { fill: var(--color-ink-tertiary); font-size: var(--text-micro); }.dispatcher-trend-content .trend-created, .dispatcher-trend-content .trend-resolved { fill: none; stroke: var(--color-primary); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }.dispatcher-trend-content .trend-resolved { stroke: var(--color-success); }
 @media (max-width: 1100px) { .dispatcher-overview-grid { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }.dispatcher-lower-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.dispatcher-trend-panel { grid-column: 1 / -1; } }
-@media (max-width: 760px) { .dispatcher-portal { padding: 20px 18px 26px; }.dispatcher-overview-grid, .dispatcher-lower-grid { grid-template-columns: minmax(0,1fr); }.dispatcher-trend-panel { grid-column: auto; }.dispatcher-map-legend { display: none; }.dispatcher-dashboard-map { height: 270px; } }
-@media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: var(--text-micro); }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: var(--text-micro); }.dispatcher-filter-rail { overflow-x: auto; }.dispatcher-filter-rail-trailing { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; }.dispatcher-recent-list > a > span:last-child { display: none !important; } }
+@media (max-width: 760px) { .dispatcher-portal { padding: 20px 18px 26px; }.dispatcher-overview-grid, .dispatcher-lower-grid { grid-template-columns: minmax(0,1fr); }.dispatcher-trend-panel { grid-column: auto; }.dispatcher-map-legend { display: none; }.dispatcher-dashboard-map { min-height: 270px; }.dispatcher-kpi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: var(--text-micro); }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: var(--text-micro); }.dispatcher-filter-rail { overflow-x: auto; }.dispatcher-filter-rail-trailing { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; } }
 
 /*
  * Crew portal: the field dashboard's KPI strip, the three-column
@@ -1368,20 +1405,26 @@ h1, h2, h3, h4 {
 .crew-dashboard-heading h1 { margin: 0; color: var(--color-ink); font-size: clamp(20px,1.9vw,27px); font-weight: 720; letter-spacing: -.03em; line-height: 1.2; }
 .crew-dashboard-heading p { margin: 4px 0 0; color: var(--color-ink-secondary); font-size: 12px; }
 
-/* KPI row — a MetricStrip, not four equal cards.
+/* KPI row — four SEPARATE cards (see `components/ui/KpiCards.tsx`).
  *
- * The assigned-job count is the headline: it gets its own surface
- * and the large type. The other three figures are the context around
- * it, so they share one surface and are separated by hairlines. Four
- * equal cards said "these four matter equally", which is not true of
- * a day's workload and its supporting counts.
+ * The crew's design reference (`ui-design/Crew Portal Dashboard.png`)
+ * draws the crew's four numbers as four cards, each with its own
+ * icon badge: assigned, completed today, pending, average work time.
  *
- * The alignment rule survives the change: the headline's number and
- * each supporting figure's number both start at the same x within
- * their own surface, whatever the number's width, so the row reads
- * as one aligned readout.
+ * They were a MetricStrip — one headline beside three figures sharing
+ * a surface. The crew's four numbers are the SAME kind of thing (four
+ * counts about one day's work), and a strip is the wrong shape for
+ * peers, exactly as it was for the dispatcher's row.
+ *
+ * The separation comes from the GAP between the cards plus each
+ * card's own 1px border — NOT from a shadow. The design system is
+ * explicit that cards carry no shadow ("a 1px border lifts them");
+ * shadows are reserved for overlays.
+ *
+ * The grid itself holds ONE child — the card row — so it has no gap
+ * of its own to add. The cards' gap lives on `.dispatcher-kpi-cards`.
  */
-.crew-kpi-grid { display: grid; gap: 13px; align-items: stretch; }
+.crew-kpi-grid { display: grid; align-items: stretch; }
 
 /* Main three-column grid: jobs | map | focused detail.
  *
@@ -1638,10 +1681,14 @@ h1, h2, h3, h4 {
   .crew-map-canvas { min-height: 320px; }
   .crew-map-loading { min-height: 320px; }
   .crew-map-panel { min-height: 320px; }
+  /* The KPI row collapses to two columns. The rule lives in CSS
+     because the grid is a CLASS — an inline `gridTemplateColumns`
+     would win over the media query and the row could never wrap. */
+  .crew-kpi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
   .crew-page { gap: 9px; padding: 14px 11px 20px; }
-  .crew-kpi-grid { gap: 8px; }
+  .crew-kpi-cards { gap: 8px; }
   .crew-job-row { grid-template-columns: 38px minmax(0,1fr) auto; gap: 8px; }
   .crew-job-thumb { width: 38px; height: 38px; }
   /*

@@ -37,7 +37,7 @@ import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/phot
 import { formatDayLabel } from '@/lib/format/datetime';
 import { calendarDayInProductZone, nowMs, todayInProductZone } from '@/lib/format/clock';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
-import { MetricStrip } from '@/components/ui/MetricStrip';
+import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button, FilterChipGroup } from '@/components/ui';
 import { useSession } from '@/components/SessionProvider';
@@ -300,6 +300,52 @@ export default function HomePage() {
     [tickets, filter],
   );
 
+  /*
+   * The citizen's three KPI cards.
+   *
+   * These count the CITIZEN'S OWN reports — the ones they filed — not
+   * the city's. The activity feed below lists every ticket in the
+   * city; the numbers up here are the citizen's own slice of it, which
+   * is what "My reports" means on the dashboard.
+   *
+   * The card order follows the design reference
+   * (`ui-design/citien-dashboard.png`): total reports, resolved, in
+   * progress. The badge colour matches the status the card counts, so
+   * the row reads as the same set of status colours the citizen sees
+   * on the feed's status pills.
+   */
+  const citizenKpiCards: KpiCard[] = useMemo(() => {
+    const own = tickets.filter((ticket) => ticket.isOwnReport);
+    const count = (predicate: (ticket: ActivityItem) => boolean) =>
+      own.filter(predicate).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US');
+    return [
+      {
+        key: 'reports',
+        label: t('home.dashboard.metric.reports', null, lang),
+        value: count(() => true),
+        icon: ICONS.citizenReports,
+        color: 'var(--color-primary)',
+        colorSoft: 'var(--color-primary-soft)',
+      },
+      {
+        key: 'resolved',
+        label: t('home.dashboard.metric.resolved', null, lang),
+        value: count((ticket) => ticket.status === 'resolved' || ticket.status === 'closed'),
+        icon: ICONS.citizenResolved,
+        color: 'var(--color-success)',
+        colorSoft: 'var(--color-success-soft)',
+      },
+      {
+        key: 'progress',
+        label: t('home.dashboard.metric.progress', null, lang),
+        value: count((ticket) => ticket.status === 'routed' || ticket.status === 'in_progress'),
+        icon: ICONS.citizenInProgress,
+        color: 'var(--color-warning)',
+        colorSoft: 'var(--color-warning-soft)',
+      },
+    ];
+  }, [tickets, lang]);
+
   function acceptNotifications() {
     setShowNotifPrompt(false);
     try {
@@ -412,40 +458,38 @@ export default function HomePage() {
 
       {/* The overview row. The report CTA is the primary action and
           keeps its own brand-filled surface; the three figures beside
-          it are a read-only readout, so they share one surface and are
-          divided by hairlines rather than each getting its own card.
-          Four equal boxes would say "these four matter equally", which
-          is not true of a CTA and a set of counts. */}
+          it are a read-only readout of the citizen's OWN reports, so
+          they are three separate cards — one per fact — rather than a
+          shared strip. The design reference
+          (`ui-design/citien-dashboard.png`) draws exactly that: a blue
+          CTA block, then three cards, each with its own badge, its
+          number and its caption. */}
       <section className="home-overview-grid" aria-label={t('home.dashboard.title', null, lang)}>
         <Link href="/report/location" className="home-report-action">
           <span className="home-report-action-icon"><ICONS.newReport.icon size={27} weight="bold" aria-hidden /></span>
           <span><strong>{t('home.dashboard.report', null, lang)}</strong><small>{t('home.dashboard.report_hint', null, lang)}</small></span>
           <ICONS.forward.icon className="home-report-action-arrow" size={21} aria-hidden />
         </Link>
-        <MetricStrip
-          lang={lang}
-          className="home-overview-metrics"
-          ariaLabel={t('home.dashboard.metric.reports', null, lang)}
-          headline={{
-            key: 'reports',
-            label: t('home.dashboard.metric.reports', null, lang),
-            value: tickets.filter((ticket) => ticket.isOwnReport).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-          }}
-          figures={[
-            {
-              key: 'resolved',
-              label: t('home.dashboard.metric.resolved', null, lang),
-              value: tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'resolved' || ticket.status === 'closed')).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-            },
-            {
-              key: 'progress',
-              label: t('home.dashboard.metric.progress', null, lang),
-              value: tickets.filter((ticket) => ticket.isOwnReport && (ticket.status === 'routed' || ticket.status === 'in_progress')).length.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'),
-            },
-          ]}
-          data-testid="home-metric-strip"
-          data-testid-headline="home-metric-reports"
-        />
+        {loading ? (
+          <KpiCardsSkeleton
+            lang={lang}
+            count={3}
+            variant="citizen"
+            className="home-overview-kpis"
+            ariaLabel={t('home.dashboard.metric.reports', null, lang)}
+            data-testid="home-kpi-skeleton"
+          />
+        ) : (
+          <KpiCards
+            lang={lang}
+            variant="citizen"
+            className="home-overview-kpis"
+            ariaLabel={t('home.dashboard.metric.reports', null, lang)}
+            cards={citizenKpiCards}
+            data-testid="home-kpi-cards"
+            data-testid-prefix="home-kpi"
+          />
+        )}
       </section>
 
       {/* Recent reports and live city map */}
