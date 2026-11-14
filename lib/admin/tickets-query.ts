@@ -29,6 +29,7 @@
 
 import { db, getTicketWithTrail } from '@/lib/db-switch';
 import { nowIso, nowMs } from '@/lib/format/clock';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
 import {
@@ -176,11 +177,22 @@ export async function listTicketsForAdmin(
           'bn',
         );
       }
+      /*
+       * Resolve the actor roles per row so the admin trail says who
+       * acted in which role (Rahim the citizen, Habib the
+       * dispatcher, Rashid the crew). The list already fans out one
+       * `getTicketWithTrail` per row, so the extra role lookup does
+       * not change the query shape.
+       */
+      const actorRoles = await buildActorRoleMap(
+        withTrail.trail.map((e) => e.actorId),
+      );
       return serializeTicketForRole(
         withTrail,
         withTrail.trail,
         'admin',
         'bn',
+        actorRoles,
       );
     }),
   );
@@ -198,5 +210,20 @@ export async function getTicketForAdmin(
 ): Promise<SerializedTicket | null> {
   const withTrail = await getTicketWithTrail(id);
   if (!withTrail) return null;
-  return serializeTicketForRole(withTrail, withTrail.trail, 'admin', 'bn');
+  /*
+   * Resolve the actor roles so the admin trail shows who acted in
+   * which role (Rahim the citizen, Habib the dispatcher, Rashid the
+   * crew). Without the map the trail still renders the joined
+   * `actorName`, but every entry would carry a null role.
+   */
+  const actorRoles = await buildActorRoleMap(
+    withTrail.trail.map((e) => e.actorId),
+  );
+  return serializeTicketForRole(
+    withTrail,
+    withTrail.trail,
+    'admin',
+    'bn',
+    actorRoles,
+  );
 }

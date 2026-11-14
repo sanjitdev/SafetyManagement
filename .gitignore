@@ -40,6 +40,36 @@ tests-mockups/audit/
 # only regression gate.
 tests-mockups/scratch-render/
 
+# Ad-hoc screenshot captures written by the throwaway Playwright probes
+# used while debugging a surface (e.g. tests/tmp/pg-shots/**). These are
+# a record of ONE debugging pass, not regression gates.
+#
+# Deliberately a PATH rule, not a `*.png` rule. Two image trees ARE
+# tracked and must stay that way:
+#   - tests-mockups/baselines/**  — the Playwright `toHaveScreenshot`
+#     regression gates, regenerated on CI (ubuntu-latest).
+#   - tests/fixtures/after-photo.png — a real fixture the crew
+#     after-photo upload spec reads off disk.
+# A blanket extension ignore would silently untrack both and quietly
+# break the upload spec and the visual gates.
+tests/tmp/
+
+# Loose screenshot drops anywhere in the tree (the probes above wrote
+# into the repo root during development). Catches a stray capture that
+# lands outside tests/tmp/, without touching the tracked trees above.
+# An already-tracked PNG is unaffected by this rule — git only ignores
+# untracked files — and the negations keep NEW baseline/fixture PNGs
+# addable.
+#
+# Note: no rule for .mockup-backup/ — it is already excluded as a
+# directory, and git never descends into an excluded directory, so a
+# negation for it would be dead weight.
+*.png
+!tests-mockups/baselines/**/*.png
+!tests/fixtures/*.png
+!design-artifacts/**/*.png
+!public/**/*.png
+
 # Next.js build output
 .next/
 out/
@@ -67,6 +97,22 @@ next-env.d.ts
 # Per AGENTS.md, the WDS standalone install lives outside the repo. These
 # trees are local CLI/framework state and would be reinstalled per-developer
 # via their respective installers.
+#
+# .claude/ holds the specsmd installer-generated slash commands and agent
+# definitions (`.claude/commands/specsmd-*.md`, `.claude/agents/specsmd-*.md`).
+# `npx specsmd@latest install` writes them into relative `.claude/commands`
+# and `.claude/agents` paths, so the registration lands here and nowhere
+# else. It is per-developer state like the rest of this block: the durable
+# record is the committed memory bank under
+# .specsmd/aidlc/memory-bank/, and the registration is recreated by
+# re-running the installer. Ignoring it keeps a `git add .` or `git clean`
+# from sweeping away the developer's command registration.
+#
+# This rule was added 2026-11-14 after the AIDLC-lane removal (7e9b073)
+# took the old runner's tree with it and left specsmd's own `.claude/`
+# registration absent — the commands were simply not registered for
+# anyone, with nothing in version control to restore them from.
+.claude/
 #
 # Note on .specsmd/: the canonical specsmd memory bank
 # (.specsmd/aidlc/memory-bank/**) IS

@@ -316,8 +316,25 @@ describe('buildCategoryBreakdown', () => {
       ticket({ id: 'c', categoryId: 'cat_drainage' }),
     ]);
     expect(rows).toEqual([
-      { categoryId: 'cat_pothole', count: 2 },
-      { categoryId: 'cat_drainage', count: 1 },
+      { categoryId: 'cat_pothole', count: 2, categorySlug: null },
+      { categoryId: 'cat_drainage', count: 1, categorySlug: null },
+    ]);
+  });
+
+  it('carries the category slug when the caller supplies the map', () => {
+    // The slug is the backend-agnostic machine key the client
+    // resolves into a localized label. Without it the UI would have
+    // to render the raw category id.
+    const rows = buildCategoryBreakdown(
+      [ticket({ id: 'a', categoryId: 'cmvtghhi700082f9o2jww09ry' })],
+      { cmvtghhi700082f9o2jww09ry: 'pothole' },
+    );
+    expect(rows).toEqual([
+      {
+        categoryId: 'cmvtghhi700082f9o2jww09ry',
+        count: 1,
+        categorySlug: 'pothole',
+      },
     ]);
   });
 

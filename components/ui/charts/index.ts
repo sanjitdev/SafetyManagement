@@ -1,10 +1,11 @@
 /**
  * The chart kit.
  *
- * Four components, four jobs:
+ * Five components, five jobs:
  *
  *   TrendLine   — a metric over time (tickets/day, adoption over weeks)
  *   CategoryBar — a ranked comparison (reports by category)
+ *   StatusDonut — the mix of a whole (where the tickets are)
  *   SlaBullet   — one value against one target (resolution time vs SLA)
  *   StatCard    — one headline figure (live counters)
  *
@@ -34,6 +35,12 @@ export {
   type CategoryBarProps,
   type CategoryBarEntry,
 } from './CategoryBar';
+export {
+  StatusDonut,
+  sortByStatusOrder,
+  type StatusDonutProps,
+  type StatusDonutEntry,
+} from './StatusDonut';
 export {
   SlaBullet,
   clampToScale,

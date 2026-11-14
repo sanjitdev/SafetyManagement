@@ -41,7 +41,22 @@
 .admin-page-skeleton-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
 .admin-page-skeleton-card, .admin-page-skeleton-panel { display: grid; align-content: start; gap: var(--space-3); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-card); }
 .admin-page-skeleton-panel > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border); }
-.report-flow-skeleton { display: grid; grid-template-columns: minmax(0, 1fr) var(--report-side-panel); gap: var(--space-6); max-width: 1280px; min-height: 420px; margin: 0 auto; padding: var(--space-7) var(--space-5); }
+/*
+ * The report flow's LOADING placeholder.
+ *
+ * It is a skeleton, not content: it stands in for a step that has not
+ * resolved yet, and it must never make the page scroll. So it is
+ * sized against the CONTENT REGION, exactly like a real step page
+ * (see the report-content-height rules further down), rather than
+ * against the viewport.
+ *
+ * The `min-height: 420px` this used to carry was a floor for the
+ * two-column layout; on a narrow viewport the options collapse to
+ * one column and the blocks stack, so the placeholder grew to 801px
+ * in a 728px region and raised a scrollbar while the page was still
+ * loading.
+ */
+.report-flow-skeleton { display: grid; grid-template-columns: minmax(0, 1fr) var(--report-side-panel); gap: var(--space-6); max-width: 1280px; min-height: 0; height: 100%; margin: 0 auto; padding: var(--space-7) var(--space-5); overflow: hidden; }
 .report-flow-skeleton-main { display: grid; align-content: start; gap: var(--space-4); }
 .report-flow-skeleton-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .report-flow-skeleton-options > div { min-height: 84px; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-card); }
@@ -104,6 +119,24 @@
   .report-flow-skeleton { grid-template-columns: minmax(0, 1fr); }
   .report-flow-skeleton-aside { display: none; }
   .report-flow-skeleton-options { grid-template-columns: minmax(0, 1fr); }
+}
+/*
+ * On a PHONE the skeleton's option blocks stack one per row, and at
+ * their 84px floor three of them plus the heading, the footer and the
+ * container's 32px of padding overflowed the region — so the page
+ * scrolled WHILE IT WAS STILL LOADING, which reads as a broken page
+ * rather than a pending one.
+ *
+ * The placeholder is trimmed to fit: shorter blocks and a tighter
+ * container. The shimmer still reads as "loading" because the shape
+ * is what matters, not its exact height.
+ */
+@media (max-width: 480px) {
+  .report-flow-skeleton { padding: var(--space-4) var(--space-5); gap: var(--space-4); }
+  .report-flow-skeleton-main { gap: var(--space-3); }
+  .report-flow-skeleton-options { gap: var(--space-2); }
+  .report-flow-skeleton-options > div { min-height: 56px; padding: var(--space-3); }
+  .report-flow-skeleton-footer { margin-top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -230,8 +263,12 @@
 .admin-crew-stats i.is-active { background: var(--color-status-resolved); }.admin-crew-stats i.is-invited { background: var(--color-status-routed); }.admin-crew-stats i.is-unavailable { background: var(--color-status-submitted); }
 .admin-crew-stats strong { color: var(--color-ink); font-size: var(--text-micro); font-variant-numeric: tabular-nums; }
 .admin-quick-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; padding: 13px; }
-.admin-quick-action { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-ink-secondary); text-decoration: none; background: var(--color-surface-card); transition: border-color 140ms ease, transform 140ms ease, background 140ms ease; }
-.admin-quick-action:hover { transform: translateY(-1px); border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+/* The quick-action tiles sit INSIDE a bordered panel. A border on
+   each tile boxed them inside the box — four frames inside a frame —
+   so the tile is separated by the panel's fill and the hover state
+   instead. */
+.admin-quick-action { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid transparent; border-radius: 8px; color: var(--color-ink-secondary); text-decoration: none; background: var(--color-surface-page); transition: border-color 140ms ease, transform 140ms ease, background 140ms ease; }
+.admin-quick-action:hover { transform: translateY(-1px); border-color: var(--color-border); background: var(--color-surface-raised); }
 .admin-quick-action > svg { flex: 0 0 auto; }
 .admin-quick-action span { min-width: 0; display: grid; gap: 4px; }
 .admin-quick-action strong { overflow: hidden; color: var(--color-ink); font-size: var(--text-micro); text-overflow: ellipsis; white-space: nowrap; }
@@ -244,8 +281,175 @@
 .role-app-shell { height: 100dvh; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; color: var(--color-ink); background: var(--color-surface-page); }
 /* The focused flow shell (mockup 14) carries NO sidebar, so the grid
  * collapses to a single column. Without this the content column would
- * start 220px in, leaving a blank gutter on the left. */
+ * start 220px in, leaving a blank gutter on the left.
+ *
+ * The report flow opts the sidebar back IN (`data-shell-sidebar="true"`),
+ * so the two-column grid is restored for that surface. */
 .role-app-shell[data-shell-variant="flow"] { grid-template-columns: minmax(0, 1fr); }
+.role-app-shell[data-shell-variant="flow"][data-shell-sidebar="true"] { grid-template-columns: 220px minmax(0, 1fr); }
+/* The report steps size their side panel from `--report-side-panel`
+ * (480px). With the 220px sidebar beside them the content column is
+ * narrower, so the panel steps down to the 360px token. The steps
+ * read the token through `var()`, so redefining the token here is
+ * enough — no per-page inline style has to change. */
+@media (max-width: 1400px) {
+  .role-app-shell[data-shell-variant="flow"][data-shell-sidebar="true"] { --report-side-panel: var(--report-side-panel-medium); }
+}
+
+/* On a SHORT viewport the step-indicator strip is a large slice of
+ * the space the step's content needs. The rail (28px circle + label)
+ * plus the progress sentence is 124px of chrome, and on a 800px-tall
+ * laptop that left the content only 612px — the category step's five
+ * cards did not fit and the column scrolled.
+ *
+ * A HEIGHT query (not a width one): the constraint is vertical room,
+ * and a 1280×800 laptop and a 1920×1080 desktop have the same width
+ * problem but different height problems.
+ *
+ * The compaction keeps every cue — the circles, the step labels and
+ * the progress sentence all stay — and only tightens the spacing
+ * between them. */
+@media (max-height: 860px) {
+  .report-layout-step-labels { padding: var(--space-2) var(--space-5) !important; }
+  .report-step-indicator { padding: 0 !important; }
+  .report-step-indicator > div[data-step] { gap: 0 !important; }
+  .report-step-indicator > div[data-step] > div {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: var(--text-micro) !important;
+  }
+  .report-step-indicator > div[data-step] > span {
+    font-size: var(--text-micro) !important;
+    line-height: var(--leading-snug);
+  }
+}
+
+/*
+ * On a SHORT desktop the step's content column is squeezed between
+ * the step strip above and the fixed action bar below. The bar's
+ * reservation is 153px: the 64px bar, its own 24px of padding, a 1px
+ * border and a 64px mockup clearance under it.
+ *
+ * The clearance is generous breathing room on a tall screen, but on
+ * a 768px-tall laptop it is 64px of the column's scroll distance —
+ * enough to push the photo grid and the category list into a nested
+ * scrollbar. Trimming it to the bar's own footprint keeps the last
+ * element clear of the bar (which is what the clearance was for)
+ * without the dead space.
+ */
+@media (min-width: 1181px) and (max-height: 860px) {
+  .role-app-content > [data-report-step-page] {
+    padding-bottom: calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-4)) !important;
+  }
+}
+
+/* The report step pages size themselves against the CONTENT REGION,
+ * not against the viewport.
+ *
+ * `calc(100vh - var(--header-height-desktop))` was wrong: the report
+ * flow renders TWO pieces of chrome above the content — the 64px
+ * global header AND the ~124px step-indicator strip — but the formula
+ * only subtracted the header. Every step therefore declared a height
+ * 124px taller than the space it actually had, and `.role-app-content`
+ * scrolled by exactly that much. That was the scrollbar on the
+ * citizen's report steps.
+ *
+ * The fix is to size against the region's own box instead of the
+ * viewport: `.role-app-content` is already the scroll container
+ * (`overflow: auto`), so a step page that fills it exactly produces
+ * no overflow at all — and if the step's content genuinely does not
+ * fit (a long note, a tall photo grid), the REGION scrolls, which is
+ * the behaviour the AppShell contract describes.
+ */
+.role-app-content {
+  /* The height a report step page may occupy. `100%` of the region
+   * box: the region is already `flex: 1 1 auto; min-height: 0` inside
+   * a `100dvh` shell, so this is the true remaining space. */
+  --report-content-height: 100%;
+}
+/* A step page fills the region exactly, so the region never has to
+ * scroll for the chrome alone. */
+.role-app-content > [data-report-step-page] {
+  height: var(--report-content-height);
+  min-height: 0;
+}
+/*
+ * NARROW VIEWPORTS: one scrollbar at the page level, not a nested one.
+ *
+ * Below 1180px (location) / 1024px (the rest) the two-region grid
+ * collapses to a single column. The page kept the region's height,
+ * so the single column was squeezed into it and became its OWN scroll
+ * container (`overflow-y: auto`) — a scroll trap: the user scrolls the
+ * column and the rest of the page does not move, while a second
+ * scrollbar appears on the region itself.
+ *
+ * On a phone the content genuinely cannot fit (a square photo grid,
+ * five category cards). The correct behaviour is the standard mobile
+ * one: the page grows to its content's natural height and the REGION
+ * scrolls as a single document. So the page stops declaring a height,
+ * and the inner columns stop being scroll containers — leaving exactly
+ * one scrollbar, on the region, which is what the user asked for.
+ *
+ * The fixed action bar stays fixed (it is `position: fixed`, outside
+ * the flow), so the page's bottom padding still reserves its
+ * footprint and the last element is never hidden behind it.
+ */
+@media (max-width: 1180px) {
+  .role-app-content > [data-report-step-page] {
+    height: auto;
+    min-height: var(--report-content-height);
+    /*
+     * The desktop reservation is 153px: the 64px fixed action bar
+     * plus its own 24px of padding, a 1px border and a 64px
+     * mockup clearance below it. On a narrow viewport the page
+     * scrolls, so the bar is always pinned to the viewport's bottom
+     * edge — the clearance under it is dead space at the end of the
+     * scroll, and it is 64px of the page's scroll distance. Keep the
+     * bar's own footprint, drop the clearance.
+     */
+    padding-bottom: calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px) !important;
+  }
+  /* The step's content column: no nested scrollbar.
+   *
+   * `!important` is required because the columns declare
+   * `overflow-y: auto` as an INLINE style, which would otherwise beat
+   * this rule. The intent is deliberate: on a narrow viewport the
+   * scroll container is the REGION, and there must be exactly one. */
+  .role-app-content > [data-report-step-page] > *,
+  .role-app-content > [data-report-step-page] > * > * {
+    overflow-y: visible !important;
+  }
+  /* A grid child stretches to its track by default, so the aside
+   * would be as tall as the map row beside it and carry a column of
+   * empty space. It hugs its own content instead. */
+  .role-app-content > [data-report-step-page] > aside {
+    align-self: start;
+  }
+}
+/*
+ * A VERY SHORT viewport (≤ 700px tall — an old small phone in
+ * portrait) cannot fit the step's chrome AND its content.
+ *
+ * The step-indicator strip is the cheapest thing to give back: on a
+ * phone it shows the current step's number and label and nothing
+ * else, so it can collapse to a single thin row. The side card's
+ * 32px of vertical padding is the next cheapest. Neither carries
+ * information the citizen needs, so both are safe to trim.
+ *
+ * This query sits AFTER the narrow-viewport block so it wins on the
+ * devices that match both.
+ */
+@media (max-width: 1180px) and (max-height: 700px) {
+  .report-layout-step-labels { padding: var(--space-1) var(--space-4) !important; }
+  .role-app-content > [data-report-step-page] > aside {
+    padding-top: var(--space-4) !important;
+    padding-bottom: var(--space-4) !important;
+    gap: var(--space-3) !important;
+  }
+  .role-app-content > [data-report-step-page] > aside h1 {
+    font-size: var(--text-display-sm) !important;
+  }
+}
 .role-sidebar { position: relative; z-index: 30; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 22px 13px 14px; color: var(--color-rail-ink); background: var(--color-rail); }
 .role-sidebar-brand { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 8px; color: inherit; text-decoration: none; }
 .role-sidebar-brand strong { display: block; color: var(--color-rail-ink); font-size: var(--text-body-lg); font-weight: 720; letter-spacing: -.035em; line-height: 1.1; }
@@ -256,6 +460,12 @@
 .role-sidebar-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .role-sidebar-link:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
 .role-sidebar-link.is-active { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; }
+/* The current step of the report flow renders as a NON-interactive
+ * marker: it reads as the active item (same fill + accent bar) but it
+ * is not a link, so it cannot throw the citizen back to step 1
+ * mid-flow. `cursor: default` makes that difference visible. */
+.role-sidebar-link--current { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; cursor: default; }
+.role-sidebar-link--current:hover { color: var(--color-rail-ink); background: var(--color-rail-active); }
 .role-sidebar-cityline { z-index: 0; }
 .role-sidebar-cityline { position: absolute; right: 0; bottom: 64px; left: 0; height: 80px; opacity: .12; pointer-events: none; background: linear-gradient(to top, var(--color-rail-accent) 0 12px, transparent 12px), linear-gradient(to top, transparent 0 14px, var(--color-rail-accent) 14px 48px, transparent 48px), linear-gradient(to top, transparent 0 9px, var(--color-rail-accent) 9px 64px, transparent 64px); background-size: 100% 100%, 25% 100%, 19% 100%; background-position: 0 0, 18% 0, 72% 0; background-repeat: no-repeat; }
 .role-sidebar-cityline--front { height: 48px; bottom: 62px; opacity: .09; background-size: 100% 100%, 31% 100%, 25% 100%; background-position: 0 0, 38% 0, 79% 0; }
@@ -283,8 +493,24 @@
  * from the same `role` prop that already gates the CTA in the
  * component (`role !== 'staff'`), so the two stay in step.
  */
-.appheader-root[data-compact="true"][data-role="staff"] > div:first-of-type, .appheader-root[data-compact="true"][data-role="staff"] > .appheader-cta { display: none !important; }
-.appheader-root[data-compact="true"][data-role="staff"] .appheader-burger { display: none !important; }
+.appheader-root[data-compact="true"][data-role="staff"] > div:first-of-type { display: none !important; }
+/* The inline-nav burger (`.appheader-burger` + the `.appheader-menu`
+ * dropdown it opened) was REMOVED from the component on 2026-11-14.
+ *
+ * The compact header carried TWO nav affordances on a phone:
+ * `.appheader-open-nav` (left, opens the role sidebar) and
+ * `.appheader-burger` (right, a dropdown of the inline nav). The
+ * duplication was masked by the search input, which sat between them
+ * and pushed the two icons to opposite ends of the bar. Removing the
+ * search box and the Report CTA left the two identical hamburger
+ * buttons side by side on a 390px phone.
+ *
+ * The burger was the redundant one. The citizen role sidebar carries
+ * Home, My Reports, New Report, Feed and Profile — a strict superset
+ * of the burger dropdown's Home / Feed / My Reports — so the dropdown
+ * could not reach anything the sidebar does not. Staff surfaces had
+ * already suppressed it for the same reason.
+ */
 /* The staff header keeps the user menu in the top-right corner, like
  * the citizen header. It used to be hidden here and duplicated into the
  * role sidebar's footer, which put the account control at the bottom
@@ -298,14 +524,14 @@
  * CTA, which the citizen contract requires in the top bar.
  */
 .appheader-root[data-compact="true"][data-role="citizen"] > div:first-of-type { display: none !important; }
+/* The report flow's header carries the flow task tag in the SAME row
+ * as the brand, so the blanket rule above cannot be used — it would
+ * hide the tag along with the brand. Instead the brand LINK alone is
+ * hidden, because the role sidebar beside it already carries the
+ * brand lockup (mark + wordmark + tagline). */
+.appheader-root[data-sidebar="true"] .appheader-brand { display: none !important; }
 .appheader-compact-tools { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; }
 .appheader-open-nav { display: none; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 9px; color: var(--color-ink); background: var(--color-surface-raised); cursor: pointer; }
-.appheader-search { width: min(440px, 100%); height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-ink-secondary); background: var(--color-surface-raised); }
-.appheader-search:focus-within { border-color: var(--color-border-focus); box-shadow: var(--shadow-focus); }
-.appheader-search input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--color-ink); background: transparent; font: inherit; font-size: 12px; }
-.appheader-search input::placeholder { color: var(--color-ink-tertiary); }
-.appheader-search button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 6px; color: var(--color-ink-secondary); background: transparent; cursor: pointer; }
-.appheader-search button:hover { color: var(--color-primary); background: var(--color-surface-card); }
 .appheader-notifications { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; color: var(--color-ink-secondary); text-decoration: none; }
 .appheader-notifications:hover { color: var(--color-ink); background: var(--color-surface-raised); }
 .role-app-shell :focus-visible { outline-offset: 3px; }
@@ -531,12 +757,15 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
 
 @media (max-width: 760px) {
   .role-app-shell { grid-template-columns: minmax(0, 1fr); }
+  /* The report flow's sidebar collapses into the off-canvas drawer
+   * below, so the content column must go back to a single track —
+   * the desktop 220px gutter would otherwise eat the phone screen. */
+  .role-app-shell[data-shell-variant="flow"][data-shell-sidebar="true"] { grid-template-columns: minmax(0, 1fr); }
   .role-sidebar { position: fixed; inset: 0 auto 0 0; width: min(280px, calc(100vw - 48px)); transform: translateX(-105%); transition: transform 180ms ease; box-shadow: none; }
   .role-app-shell--nav-open .role-sidebar { transform: translateX(0); box-shadow: 16px 0 40px #0006; }
   .role-app-shell--nav-open .role-shell-scrim { position: fixed; inset: 0; z-index: 25; display: block; border: 0; background: #02081799; }
   .appheader-root[data-compact="true"] { gap: 10px !important; padding-inline: 14px !important; }
   .appheader-open-nav { display: grid; width: 44px; height: 44px; }
-  .appheader-search { width: 100%; }
   .appheader-actions { gap: 5px !important; }
   .appheader-actions > button[aria-label] { min-width: 44px !important; height: 44px !important; padding-inline: 7px !important; }
   .appheader-actions .usermenu-label { display: none; }
@@ -551,9 +780,6 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .role-app-content:
   .appheader-root[data-compact="true"] { height: 62px !important; min-height: 62px; padding-inline: 10px !important; }
   .appheader-compact-tools { gap: 7px; }
   .appheader-open-nav { width: 44px; height: 44px; }
-  .appheader-search { height: 38px; gap: 7px; padding-inline: 8px; }
-  .appheader-search input { font-size: var(--text-micro); }
-  .appheader-search button { display: none; }
   .appheader-notifications { width: 44px; height: 44px; }
   .appheader-actions > button[aria-label] { min-width: 44px !important; height: 44px !important; padding-inline: 7px !important; font-size: var(--text-micro) !important; }
   .home-page { padding: 16px 12px 20px; }
@@ -665,10 +891,22 @@ h1, h2, h3, h4 {
  * what the old four-card grid did, and what made the row read as four
  * competing boxes rather than one readout.
  */
+/*
+ * The strip is ONE card. The border belongs to the OUTER edge of the
+ * whole readout, so the headline and the supporting figures read as
+ * two halves of one surface rather than as two bordered boxes that
+ * happen to touch.
+ */
 .metric-strip {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* The one bordered surface: headline + figures side by side. */
+.metric-strip-surface {
+  display: grid;
   grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr);
-  gap: var(--space-3);
   align-items: stretch;
 }
 
@@ -683,7 +921,7 @@ h1, h2, h3, h4 {
   /* Below this the headline and the figures cannot share a row
      without the labels truncating. The headline goes on top, the
      figures wrap under it as their own strip. */
-  .metric-strip { grid-template-columns: minmax(0, 1fr); }
+  .metric-strip-surface { grid-template-columns: minmax(0, 1fr); }
   .metric-strip-figures { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 }
 
@@ -845,6 +1083,7 @@ h1, h2, h3, h4 {
 
 /* Queue rows are the primary work surface for dispatchers. */
 .dispatcher-queue-row {
+  border: 1px solid var(--color-border);
   transition: background-color var(--duration-fast) ease,
     border-color var(--duration-fast) ease;
 }
@@ -1059,11 +1298,36 @@ h1, h2, h3, h4 {
 .dispatcher-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .dispatcher-map-legend i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-status-submitted); }.dispatcher-map-legend i.is-assigned { background: var(--color-status-routed); }.dispatcher-map-legend i.is-progress { background: var(--color-status-in-progress); }.dispatcher-map-legend i.is-resolved { background: var(--color-status-resolved); }
 .dispatcher-dashboard-map { height: 300px; position: relative; overflow: hidden; background: var(--color-map-bg); }.dispatcher-dashboard-map > div { width: 100%; height: 100%; }.dispatcher-map-loading { height: 100%; min-height: 300px; background: var(--color-surface-raised); }
-.dispatcher-filter-row { min-height: 43px; display: flex; align-items: center; gap: 5px; padding: 3px 12px; border-bottom: 1px solid var(--color-border); }
-.dispatcher-filter-row button { min-height: 30px; padding: 4px 9px !important; border: 1px solid transparent !important; border-radius: 6px !important; color: var(--color-ink-secondary) !important; font-size: var(--text-micro) !important; white-space: nowrap; }
-.dispatcher-filter-row button:hover { border-color: var(--color-border) !important; color: var(--color-primary) !important; background: var(--color-primary-soft) !important; }
-.dispatcher-filter-row small { overflow: hidden; margin-inline-start: auto; color: var(--color-ink-tertiary); font-size: var(--text-micro); text-overflow: ellipsis; white-space: nowrap; }
+/* The triage filter rail (Wave 4 / bolt 009-005).
+   Two narrowing axes — status and ward — plus a free-text search.
+   The rail wraps onto a second row rather than scrolling: a rail
+   whose options are cut off reads as a control that cannot
+   reach them. */
+.dispatcher-filter-rail { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
+.dispatcher-filter-rail-axis { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.dispatcher-filter-rail-label { color: var(--color-ink-tertiary); font-size: var(--text-micro); font-weight: 600; white-space: nowrap; }
+/* The label is the accessible name of the search field. It is
+   visually hidden rather than dropped, because a placeholder is
+   not a name — a screen reader announces an unnamed search box
+   as just "edit". */
+.dispatcher-filter-rail-search .dispatcher-filter-rail-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.dispatcher-filter-rail-input { min-width: 190px; max-width: 280px; min-height: 32px; padding: 0 var(--space-3); color: var(--color-ink); background: var(--color-surface-raised); border: 1px solid var(--color-border-input); border-radius: var(--radius-input); font-family: inherit; font-size: var(--text-body-sm); }
+.dispatcher-filter-rail-input:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.dispatcher-filter-rail-chips button { min-height: 30px !important; font-size: var(--text-micro) !important; }
+/* A ward-bound dispatcher has one reachable ward. The rail states
+   the boundary as words rather than rendering a one-option
+   control that looks broken. */
+.dispatcher-filter-rail-static { color: var(--color-ink-secondary); font-size: var(--text-micro); font-weight: 600; white-space: nowrap; }
+.dispatcher-filter-rail-ward { min-width: 170px !important; min-height: 32px !important; font-size: var(--text-body-sm) !important; }
+.dispatcher-filter-rail-trailing { margin-inline-start: auto; color: var(--color-ink-tertiary); font-size: var(--text-micro); white-space: nowrap; }
 .dispatcher-recent-list { max-height: 365px; min-height: 230px; display: flex; flex-direction: column; gap: 7px; overflow: auto; padding: 9px 12px 12px; }
+/*
+ * Inside the "Recent Reports" PANEL the rows are not cards — the
+ * panel is already the card. Each row drops its own border and is
+ * separated by the list's gap plus a hairline, so the panel reads
+ * as one list rather than as a stack of little boxes. The hover
+ * border comes back, which is what makes the row feel clickable.
+ */
 .dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) auto !important; min-height: 62px; gap: 10px !important; padding: 8px 9px !important; border-color: transparent !important; border-radius: 8px !important; background: transparent !important; }
 .dispatcher-recent-list > a:hover { border-color: var(--color-border) !important; background: var(--color-surface-raised) !important; }
 .dispatcher-recent-list > a img, .dispatcher-recent-list > a > span:first-child { width: 43px !important; height: 43px !important; }
@@ -1077,14 +1341,17 @@ h1, h2, h3, h4 {
 .dispatcher-crew-row > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }.dispatcher-crew-row strong { overflow: hidden; color: var(--color-ink); font-size: var(--text-micro); text-overflow: ellipsis; white-space: nowrap; }.dispatcher-crew-row small { overflow: hidden; color: var(--color-ink-tertiary); font-size: var(--text-micro); text-overflow: ellipsis; white-space: nowrap; }.dispatcher-crew-row > b { color: var(--color-success); font-size: var(--text-body-sm); text-align: right; }.dispatcher-crew-row > b small { display: block; font-weight: 400; }
 .dispatcher-panel-empty { padding: 28px 8px; color: var(--color-ink-tertiary); text-align: center; font-size: var(--text-body-sm); }
 .dispatcher-quick-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 12px; }
-.dispatcher-quick-actions a { min-height: 62px; display: flex; align-items: center; gap: 9px; padding: 9px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-ink-secondary); background: var(--color-surface-raised); text-decoration: none; transition: border-color 140ms ease, background 140ms ease; }
+/* Same reasoning as the admin quick actions: these tiles live inside
+   a bordered panel, so a border on each one framed a frame. The
+   tile carries its own fill instead. */
+.dispatcher-quick-actions a { min-height: 62px; display: flex; align-items: center; gap: 9px; padding: 9px; border: 1px solid transparent; border-radius: 8px; color: var(--color-ink-secondary); background: var(--color-surface-page); text-decoration: none; transition: border-color 140ms ease, background 140ms ease; }
 .dispatcher-quick-actions a:hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-soft); }.dispatcher-quick-actions a > svg { flex: 0 0 auto; color: var(--color-primary); }.dispatcher-quick-actions a > span { display: inline-flex; align-items: center; gap: 5px; color: var(--color-ink); font-size: var(--text-micro); font-weight: 600; }.dispatcher-quick-actions b { min-width: 19px; height: 19px; display: inline-grid; place-items: center; border-radius: 99px; color: var(--color-ink-inverse); background: var(--color-danger); font-size: var(--text-micro); }
 .dispatcher-panel-heading > span { color: var(--color-ink-tertiary); font-size: var(--text-micro); }
 .dispatcher-trend-content { padding: 10px 13px 3px; }.dispatcher-trend-legend { display: flex; gap: 12px; color: var(--color-ink-secondary); font-size: var(--text-micro); }.dispatcher-trend-legend span { display: inline-flex; align-items: center; gap: 5px; }.dispatcher-trend-legend span::before { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: var(--color-primary); content: ''; }.dispatcher-trend-legend span.is-done::before { background: var(--color-success); }
 .dispatcher-trend-content svg { width: 100%; height: 145px; }.dispatcher-trend-content line { stroke: var(--color-border); stroke-width: 1; }.dispatcher-trend-content text { fill: var(--color-ink-tertiary); font-size: var(--text-micro); }.dispatcher-trend-content .trend-created, .dispatcher-trend-content .trend-resolved { fill: none; stroke: var(--color-primary); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }.dispatcher-trend-content .trend-resolved { stroke: var(--color-success); }
 @media (max-width: 1100px) { .dispatcher-overview-grid { grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); }.dispatcher-lower-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.dispatcher-trend-panel { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .dispatcher-portal { padding: 20px 18px 26px; }.dispatcher-overview-grid, .dispatcher-lower-grid { grid-template-columns: minmax(0,1fr); }.dispatcher-trend-panel { grid-column: auto; }.dispatcher-map-legend { display: none; }.dispatcher-dashboard-map { height: 270px; } }
-@media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: var(--text-micro); }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: var(--text-micro); }.dispatcher-filter-row { overflow-x: auto; }.dispatcher-filter-row small { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; }.dispatcher-recent-list > a > span:last-child { display: none !important; } }
+@media (max-width: 480px) { .dispatcher-portal { gap: 11px; padding: 16px 12px 22px; }.dispatcher-dashboard-heading { align-items: flex-start; }.dispatcher-dashboard-heading p { font-size: var(--text-micro); }.dispatcher-scope-badge { display: none; }.dispatcher-kpi-grid { gap: 8px; }.dispatcher-panel-heading { padding-inline: 11px; }.dispatcher-panel-heading h2 { font-size: var(--text-micro); }.dispatcher-filter-rail { overflow-x: auto; }.dispatcher-filter-rail-trailing { display: none; }.dispatcher-recent-list { padding-inline: 7px; }.dispatcher-recent-list > a { grid-template-columns: auto minmax(0,1fr) !important; }.dispatcher-recent-list > a > span:last-child { display: none !important; } }
 
 /*
  * Crew portal: the field dashboard's KPI strip, the three-column
@@ -1328,6 +1595,30 @@ h1, h2, h3, h4 {
 .crew-field-tips a { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: var(--text-body-sm); font-weight: 650; text-decoration: none; }
 .crew-field-tips a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .crew-field-tips-art { width: 78px; height: 78px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 12px; color: var(--color-primary); background: var(--color-primary-soft); }
+
+/*
+ * The safety guide (/crew/safety-guide).
+ *
+ * A READABLE DOCUMENT, not a dashboard. The guide is read on a
+ * phone in the field, so the body text is a full step larger than
+ * the crew console's micro copy, the measure is capped so the line
+ * length stays comfortable, and the sections stack in one column.
+ */
+.crew-guide-page { max-width: 860px; margin: 0 auto; }
+.crew-guide-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.crew-guide-title { margin: 0; color: var(--color-ink); font-size: 20px; font-weight: 700; letter-spacing: var(--tracking-tight); }
+.crew-guide-subtitle { margin: 6px 0 0; color: var(--color-ink-secondary); font-size: var(--text-body); line-height: 1.55; }
+.crew-guide-back { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-primary); background: var(--color-surface-card); font-size: var(--text-body-sm); font-weight: 650; text-decoration: none; }
+.crew-guide-back:hover { border-color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
+.crew-guide-section { margin-top: 13px; }
+.crew-guide-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.crew-guide-item { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 12px; align-items: start; padding: 14px 16px; border-bottom: 1px solid var(--color-border); }
+.crew-guide-item:last-child { border-bottom: 0; }
+.crew-guide-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--color-primary); background: var(--color-primary-soft); }
+.crew-guide-item-body h3 { margin: 0 0 4px; color: var(--color-ink); font-size: var(--text-body-lg); font-weight: 650; }
+.crew-guide-item-body p { margin: 0; color: var(--color-ink-secondary); font-size: var(--text-body); line-height: 1.6; }
+.crew-guide-footer { margin-top: 13px; padding: 13px 16px; border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-ink-secondary); background: var(--color-surface-card); }
+.crew-guide-footer p { margin: 0; font-size: var(--text-body-sm); line-height: 1.6; }
 
 @media (max-width: 1200px) {
   .crew-main-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-areas: 'jobs map' 'detail detail'; }

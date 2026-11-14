@@ -38,6 +38,7 @@ import { ApiError, requireRole } from '@/lib/auth/guards';
 import { assignCrew } from '@/lib/dispatcher/assign-crew';
 import { ConcurrentWriteError } from '@/lib/platform/concurrency';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const AssignInput = z.object({
   // `null` to clear. Empty string rejected so a typo doesn't
@@ -76,12 +77,16 @@ export async function POST(
 
   try {
     const result = await assignCrew(id, parsed.data, session!);
+    const actorRoles = await buildActorRoleMap(
+      result.ticket.trail.map((e) => e.actorId),
+    );
     return NextResponse.json({
       ticket: serializeTicketForRole(
         result.ticket,
         result.ticket.trail,
         session!.role,
         'bn',
+        actorRoles,
       ),
       changed: result.changed,
     });

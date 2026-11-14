@@ -65,6 +65,20 @@ interface AppShellProps {
    * a signed-in citizen has no other way to log out.
    */
   variant?: 'default' | 'flow';
+  /**
+   * Render the role sidebar even in the `flow` variant.
+   *
+   * The citizen's report flow normally runs without the sidebar
+   * (mockup 14's focused task bar). The demo asked for the sidebar
+   * on `/report/location` so the citizen sees the same navigation
+   * they find on every other surface.
+   *
+   * The sidebar's "New report" item points at `/report/location` —
+   * the FIRST step of the very flow the citizen is in the middle of
+   * — so it is neutralised as a link inside the flow (it renders as
+   * the active step marker instead). See `RoleSidebar`.
+   */
+  sidebar?: boolean;
 }
 
 export function AppShell({
@@ -75,6 +89,7 @@ export function AppShell({
   surface,
   subHeader,
   variant = 'default',
+  sidebar = false,
 }: AppShellProps) {
   return (
     /*
@@ -98,6 +113,7 @@ export function AppShell({
         surface={surface}
         subHeader={subHeader}
         variant={variant}
+        sidebar={sidebar}
       >
         {children}
       </AppShellInner>
@@ -113,24 +129,48 @@ function AppShellInner({
   surface,
   subHeader,
   variant = 'default',
+  sidebar = false,
 }: AppShellProps) {
   const [navOpen, setNavOpen] = useState(false);
   const isFlow = variant === 'flow';
+  // The focused flow shell normally carries NO sidebar — the
+  // sidebar's third item is "/report/location", which would restart
+  // the flow the citizen is in the middle of. `sidebar` opts the
+  // flow back IN; `RoleSidebar` neutralises that self-link as an
+  // active-step marker instead of a restart.
+  const showSidebar = !isFlow || sidebar;
 
   if (role !== 'public') {
     return (
-      <div className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`} data-app-shell data-shell-role={role} data-shell-variant={isFlow ? 'flow' : undefined}>
-        {/* The focused flow shell carries NO sidebar — the sidebar's
-            third item is "/report/location", which would restart the
-            flow the citizen is in the middle of. */}
-        {!isFlow && (
+      <div
+        className={`role-app-shell${navOpen ? ' role-app-shell--nav-open' : ''}`}
+        data-app-shell
+        data-shell-role={role}
+        data-shell-variant={isFlow ? 'flow' : undefined}
+        data-shell-sidebar={showSidebar ? 'true' : undefined}
+      >
+        {showSidebar && (
           <>
-            <RoleSidebar role={role} surface={surface} onNavigate={() => setNavOpen(false)} />
+            <RoleSidebar
+              role={role}
+              surface={surface}
+              onNavigate={() => setNavOpen(false)}
+              inReportFlow={isFlow}
+            />
             <button className="role-shell-scrim" type="button" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
           </>
         )}
         <div className="role-app-main">
-          <AppHeader lang={lang} role={role} signedIn={signedIn} compact={!isFlow} variant={variant} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
+          <AppHeader
+            lang={lang}
+            role={role}
+            signedIn={signedIn}
+            compact={!isFlow}
+            variant={variant}
+            navOpen={navOpen}
+            onOpenNav={() => setNavOpen(true)}
+            sidebar={showSidebar}
+          />
           {subHeader}
           <main className="role-app-content">{children}</main>
         </div>

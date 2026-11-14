@@ -79,6 +79,9 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     status: 'routed',
     reporterId: 'user_citizen_rahim',
     reporterName: null,
+    // Same contract for the assigned-crew display name: the
+    // serializer ships explicit `null` when the join is absent.
+    assignedCrewName: null,
     // Bolt 007-001: the new photo split.
     photoUrls: [],
     beforePhotoUrls: [],
@@ -89,6 +92,16 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     duplicateOfId: null,
     internalNote: null,
     assignedCrewId: USER_ID,
+    // Wave 4 / bolt 009-005 — the per-category resolution SLA.
+    // Staff-only fields; the serializer ships explicit `null` when
+    // the read path has not resolved a target.
+    slaTargetHours: null,
+    slaRemainingHours: null,
+    slaStartedAt: null,
+    slaDueAt: null,
+    // Wave 4 / bolt 009-005 — the resolved SLA tone. Staff-only;
+    // `null` means "no target", which is NOT the same as "on track".
+    slaTone: null,
     trail: [],
     ...overrides,
   };

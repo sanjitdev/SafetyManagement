@@ -321,8 +321,8 @@ test.describe('Theme toggle from an authenticated surface', () => {
     // earlier 3-option segmented pill was replaced — see the
     // ThemeToggle header comment). Its aria-label is the localized
     // *target* state ("হালকা" / "গাঢ়"), which no other header button
-    // uses — the Report CTA also carries an SVG, so match on the
-    // label, not on the icon.
+    // uses — the notification bell also carries an SVG, so match on
+    // the label, not on the icon.
     const toggle = page.locator(
       'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]',
     );

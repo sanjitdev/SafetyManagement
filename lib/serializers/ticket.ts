@@ -27,6 +27,7 @@
 
 import type { Role, TicketStatus } from '@prisma/client';
 import { applyCitizenTrailFilter, bucketPhotosByRole } from './trail';
+import type { SlaTone } from '@/lib/dispatcher/sla';
 
 const ANONYMIZED_ACTOR_LABEL = {
   bn: 'সিটি কর্পোরেশন',
@@ -36,6 +37,15 @@ const ANONYMIZED_ACTOR_LABEL = {
 export interface TrailEntryLike {
   toStatus: TicketStatus;
   actorId: string;
+  /**
+   * The actor's display name, when the backend joined it.
+   *
+   * Optional on purpose: several callers construct trail rows by
+   * hand (audit rehydration, unit fixtures) without an actor
+   * lookup. When it is absent the serializer falls back to the
+   * actor id, which is what those callers already showed.
+   */
+  actorName?: string | null;
   note: string | null;
   timestamp: Date | string;
 }
@@ -110,6 +120,12 @@ export interface TicketLike {
   cityNameBn?: string | null;
   reporterName?: string | null;
   /**
+   * The assigned crew member's display name, populated by the same
+   * `getTicketWithTrail` join. `null` when no crew is assigned or
+   * the join is unavailable — the UI then falls back to the crew id.
+   */
+  assignedCrewName?: string | null;
+  /**
    * Denormalised category display names + slug, populated by the
    * same `getTicketWithTrail` join. `categorySlug` is the stable
    * machine key the UI uses to pick a glyph (the slug is what
@@ -121,6 +137,31 @@ export interface TicketLike {
   categorySlug?: string | null;
   categoryName?: string | null;
   categoryNameBn?: string | null;
+  /**
+   * The per-category resolution SLA (Wave 4 / bolt 009-005).
+   *
+   * The caller resolves the `SlaPolicy` row for the ticket's
+   * category and passes the target + the computed remaining hours
+   * in. The serializer does NOT look the policy up itself — it has
+   * no database access, and a serializer that queries would be one
+   * N+1 per ticket on a list endpoint.
+   *
+   * All four fields are optional. A call site that has not adopted
+   * the SLA read path yet omits them, and the serializer emits
+   * `null` — the same "no target" state a category without a policy
+   * produces. A missing value therefore degrades to "no SLA", never
+   * to "on time".
+   */
+  slaTargetHours?: number | null;
+  slaRemainingHours?: number | null;
+  slaStartedAt?: string | null;
+  slaDueAt?: string | null;
+  /**
+   * The resolved tone. Optional for the same reason as the fields
+   * above — a call site that has not adopted the SLA read path
+   * omits it, and the serializer emits `null`.
+   */
+  slaTone?: SlaTone | null;
 }
 
 export interface SerializedTicketTrailEntry {
@@ -135,6 +176,17 @@ export interface SerializedTicketTrailEntry {
    * `lib/identity/display-name.ts`.
    */
   actorId: string | null;
+  /**
+   * The actor's display name, joined server-side.
+   *
+   * `actorId` cannot be turned into a name on the client: it is
+   * backend-specific (the dev store's demo personas are
+   * `user_crew_rashid`; a real database's rows are `seed_cit_01`),
+   * so an id→name map only fits one backend and printed raw ids on
+   * the other. `null` for citizens (anonymised) and when the join
+   * is missing.
+   */
+  actorName: string | null;
   actorRole: 'citizen' | 'dispatcher' | 'crew' | 'admin' | null;
   note: string | null;
   timestamp: string;
@@ -209,6 +261,59 @@ export interface SerializedTicket {
    * join is unavailable.
    */
   reporterName: string | null;
+  /**
+   * The assigned crew member's display name. Staff-only — mirrors
+   * `reporterName`: the crew id is backend-specific, so the name
+   * has to be resolved by the backend for the surfaces to show
+   * "Rashid" on every backend. `null` when no crew is assigned or
+   * the join is unavailable.
+   */
+  assignedCrewName: string | null;
+  /**
+   * The per-category resolution SLA (Wave 4 / bolt 009-005).
+   *
+   * Staff-only. A citizen has no work to schedule against a
+   * target, so exposing the remaining-time clock to the citizen
+   * surface would be noise — and would invite a citizen to read
+   * the city's internal service level.
+   *
+   * `targetHours` is `null` when the ticket's category has no
+   * policy, which is a real state (the "Other" category in some
+   * cities) and NOT the same as "on time".
+   *
+   * `remainingHours` is the time LEFT against the target — the
+   * number the dispatcher acts on. It is `null` when there is no
+   * target, or when the clock has not started (the ticket has not
+   * been routed yet).
+   */
+  slaTargetHours: number | null;
+  slaRemainingHours: number | null;
+  /**
+   * The ISO instant the SLA clock started (when the ticket was
+   * routed), and the instant the target expires. `null` when the
+   * clock has not started or there is no target.
+   */
+  slaStartedAt: string | null;
+  slaDueAt: string | null;
+  /**
+   * The resolved SLA TONE.
+   *
+   * The tone is the server's answer, not the client's: it depends
+   * on the warning band (a fraction of the target, so a 168-hour
+   * policy warns at a different absolute time than a 48-hour one)
+   * and on whether the ticket was resolved against its target.
+   *
+   * It travels with the row rather than being re-derived in the
+   * browser for two reasons. First, a client that re-derives the
+   * tone duplicates the warning-band rule, and the two copies
+   * drift. Second, the client does not know the target's absolute
+   * deadline at the moment of render in the way the server did —
+   * a clock read on the client is a different clock read.
+   *
+   * `null` when there is no target at all. A missing tone means
+   * "nothing was promised", which is NOT the same as "on track".
+   */
+  slaTone: SlaTone | null;
   trail: SerializedTicketTrailEntry[];
 }
 
@@ -253,10 +358,13 @@ export function serializeTicketForRole(
 
   const serializedTrail: SerializedTicketTrailEntry[] = filteredTrail.map((entry) => ({
     toStatus: entry.toStatus,
+    // The staff branch shows the actor's NAME when the backend
+    // joined it, and falls back to the raw id when it did not.
     actorLabel: isCitizen
       ? ANONYMIZED_ACTOR_LABEL[language]
-      : entry.actorId, // dispatcher/crew/admin see the real actor id
+      : entry.actorName ?? entry.actorId, // dispatcher/crew/admin see the actor
     actorId: isCitizen ? null : entry.actorId,
+    actorName: isCitizen ? null : entry.actorName ?? null,
     actorRole: isCitizen
       ? null
       : actorRoles?.[entry.actorId] ?? null,
@@ -306,6 +414,14 @@ export function serializeTicketForRole(
       duplicateOfId: null,
       reporterId: ticket.reporterId, // citizens see their own id (it's them)
       reporterName: null,
+      assignedCrewName: null,
+      // The SLA clock is staff-only — a citizen has no work to
+      // schedule against the city's internal service level.
+      slaTargetHours: null,
+      slaRemainingHours: null,
+      slaStartedAt: null,
+      slaDueAt: null,
+      slaTone: null,
       trail: serializedTrail,
     };
   }
@@ -349,6 +465,12 @@ export function serializeTicketForRole(
     duplicateOfId: ticket.duplicateOfId ?? null,
     reporterId: ticket.reporterId,
     reporterName: ticket.reporterName ?? null,
+    assignedCrewName: ticket.assignedCrewName ?? null,
+    slaTargetHours: ticket.slaTargetHours ?? null,
+    slaRemainingHours: ticket.slaRemainingHours ?? null,
+    slaStartedAt: ticket.slaStartedAt ?? null,
+    slaDueAt: ticket.slaDueAt ?? null,
+    slaTone: ticket.slaTone ?? null,
     trail: serializedTrail,
   };
 }

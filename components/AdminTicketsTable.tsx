@@ -133,7 +133,9 @@ export function AdminTicketsTable({
                 {row.reporterName ?? row.reporterId}
               </td>
               <td style={tdStyle}>
-                {row.assignedCrewId ? (
+                {row.assignedCrewName ? (
+                  <span>{row.assignedCrewName}</span>
+                ) : row.assignedCrewId ? (
                   <span>{displayNameFor('crew', row.assignedCrewId)}</span>
                 ) : (
                   <span style={{ color: 'var(--color-ink-secondary)' }}>—</span>

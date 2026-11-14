@@ -568,11 +568,11 @@ test.describe('Scenario A — the report flow keeps its progress indicator', () 
     await expect(connectors).toHaveCount(4);
 
     // --- the PROGRESS SENTENCE ---------------------------------------
-    // The position is never a colour-only cue — the sentence under the
-    // rail spells it out.
+    // The progress sentence under the rail was removed: it duplicated
+    // the side card's own step pill and the rail's numbered circles.
+    // The position is still carried by the circles' data-state.
     const progress = page.locator('[data-testid="report-step-progress"]');
-    await expect(progress).toHaveCount(1);
-    await expect(progress).toContainText(/2\s*\/\s*5/);
+    await expect(progress).toHaveCount(0);
 
     // --- the PHOTO CAP INDICATOR --------------------------------------
     // The contract pins this EXACTLY: "1 / 3 ছবি" with ASCII digits.

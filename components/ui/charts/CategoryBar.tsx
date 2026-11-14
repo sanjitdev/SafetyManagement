@@ -52,6 +52,13 @@ export interface CategoryBarProps {
   actions?: React.ReactNode;
   /** Test hook. */
   'data-testid'?: string;
+  /**
+   * Test hook for the data table.
+   *
+   * The table is a SEPARATE element from the chart, so a spec that
+   * wants to assert on the table needs its own hook.
+   */
+  'data-testid-table'?: string;
 }
 
 /**
@@ -72,6 +79,7 @@ export function CategoryBar({
   height = 260,
   actions,
   'data-testid': testId,
+  'data-testid-table': tableTestId,
 }: CategoryBarProps) {
   const sorted = sortByValueDescending(entries);
 
@@ -107,6 +115,7 @@ export function CategoryBar({
           caption={title}
           lang={lang}
           initialSort={{ key: 'value', direction: 'desc' }}
+          data-testid={tableTestId}
         />
       }
     />

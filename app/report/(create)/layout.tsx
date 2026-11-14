@@ -67,19 +67,6 @@ const STEP_LABEL_KEYS = [
   'report.step.5',
 ] as const;
 
-/**
- * The i18n key for each step's progress sentence. The sentence
- * under the rail reads "ধাপ ২ / ৫ — ছবি যোগ করুন" (mockup 14), so
- * the position is never a colour-only cue.
- */
-const STEP_SUBTITLE_KEYS = [
-  'report.step.subtitle.location',
-  'report.step.subtitle.photo',
-  'report.step.subtitle.category',
-  'report.step.subtitle.note',
-  'report.step.subtitle.summary',
-] as const;
-
 function resolveCurrentStep(pathname: string | null): number {
   if (!pathname) return 1;
   const clean = pathname.split('?')[0]?.replace(/\/$/, '') ?? '';
@@ -93,12 +80,12 @@ export default function ReportLayout({ children }: { children: ReactNode }) {
   const { lang } = useLanguage();
   const currentStep = resolveCurrentStep(pathname);
   const stepLabels = STEP_LABEL_KEYS.map((key) => t(key, null, lang));
-  const stepSubtitle = t(STEP_SUBTITLE_KEYS[currentStep - 1], null, lang);
 
   return (
     <AppShell
       role="citizen"
       variant="flow"
+      sidebar
       subHeader={
         <div
           className="report-layout-step-labels"
@@ -117,29 +104,6 @@ export default function ReportLayout({ children }: { children: ReactNode }) {
             className="report-step-indicator"
             data-testid="report-step-indicator"
           />
-          {/* The progress sentence under the rail. The mockup puts
-              it there so the position is never a colour-only cue —
-              the digits and the words carry it. */}
-          <p
-            lang={lang}
-            data-testid="report-step-progress"
-            style={{
-              margin: 'var(--space-2) 0 0',
-              textAlign: 'center',
-              fontSize: 'var(--text-body-sm)',
-              color: 'var(--color-ink-secondary)',
-            }}
-          >
-            {t(
-              'report.step.progress',
-              {
-                current: currentStep,
-                total: 5,
-                label: stepSubtitle,
-              },
-              lang,
-            )}
-          </p>
         </div>
       }
     >

@@ -382,9 +382,11 @@ export default function AdminTicketDetailPage() {
                 {t('admin.tickets.col.assigned', null, lang)}
               </dt>
               <dd>
-                {ticket.assignedCrewId
-                  ? displayNameFor('crew', ticket.assignedCrewId)
-                  : '—'}
+                {ticket.assignedCrewName
+                  ? ticket.assignedCrewName
+                  : ticket.assignedCrewId
+                    ? displayNameFor('crew', ticket.assignedCrewId)
+                    : '—'}
               </dd>
               <dt style={{ color: 'var(--color-ink-secondary)' }}>
                 {t('admin.tickets.col.created', null, lang)}
@@ -687,13 +689,16 @@ export default function AdminTicketDetailPage() {
  * The trail actor's display name.
  *
  * The staff branch of the serializer hands the client the raw actor
- * id (plus the role) so the UI can resolve a name. The admin
- * surface is a staff surface, so it resolves the same way.
+ * id (plus the role and the server-joined name) so the UI can
+ * resolve a name. Prefer the joined name: the id-prefix fallback
+ * below only fits the dev store's `user_*` ids, and on Postgres the
+ * ids are opaque strings.
  */
 function trailActorLabel(
   entry: SerializedTicket['trail'][number],
   lang: Language,
 ): string {
+  if (entry.actorName) return entry.actorName;
   const actorId = entry.actorId ?? entry.actorLabel;
   if (!actorId) return '—';
   if (entry.actorRole) {

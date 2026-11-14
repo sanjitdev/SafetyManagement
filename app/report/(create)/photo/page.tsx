@@ -312,15 +312,36 @@ export default function PhotoPage() {
       style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
-        minHeight: 'calc(100vh - var(--header-height-desktop))',
+        /*
+         * Size against the CONTENT REGION, not the viewport.
+         *
+         * `calc(100vh - var(--header-height-desktop))` subtracted only
+         * the global header and ignored the step-indicator strip, so
+         * the page was 124px taller than the space it had and
+         * `.role-app-content` scrolled — the scrollbar the citizen saw
+         * on every report step.
+         */
+        height: 'var(--report-content-height)',
+        minHeight: 0,
         // Reserve the FIXED action bar's footprint so the last
         // element in the column is never hidden behind it.
         paddingBottom:
           'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
+      data-report-step-page
     >
-      <style>{`
+      {/*
+        The CSS is injected raw. React escapes quote characters in a
+        `<style>` child's text content, so the server emitted
+        `&quot;` / `&#x27;` where the client rendered `"` / `'`
+        — a hydration mismatch that forced a full client re-render.
+        `dangerouslySetInnerHTML` keeps the CSS byte-identical on
+        both sides. The content is a static literal, not user input.
+      */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @media (max-width: 1024px) {
           .report-two-region { grid-template-columns: 1fr !important; }
         }
@@ -330,15 +351,90 @@ export default function PhotoPage() {
         @media (max-width: 768px) {
           .report-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         }
-      `}</style>
+        /*
+         * On a SHORT viewport the step carries two cards and the
+         * photo grid is square (so its height is driven by its
+         * width). Tightening the card padding gives the column back
+         * the room it needs so the step fits without a scrollbar.
+         */
+        @media (max-height: 860px) {
+          .report-photo-card,
+          .report-photo-location-reminder { padding-top: var(--space-4) !important; padding-bottom: var(--space-4) !important; }
+          .report-photo-grid { max-width: 400px !important; }
+        }
+        /*
+         * PHONE: the last word on the photo step's sizing.
+         *
+         * A phone is short AND narrow, so both of the queries above
+         * match it and the later one wins — the short-viewport rule
+         * was undoing the narrow-viewport rule. This block sits last
+         * on purpose and re-asserts the phone's tighter budget.
+         *
+         * Three savings, all of them in the step's least essential
+         * parts: the grid is capped so its square tiles shrink, the
+         * card padding tightens, and the location reminder — which
+         * only repeats a location the citizen already confirmed — drops
+         * to a single line with the button beside it.
+         */
+        @media (max-width: 480px) {
+          .report-photo-grid {
+            max-width: 240px !important;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .report-photo-card {
+            padding-top: var(--space-3) !important;
+            padding-bottom: var(--space-3) !important;
+          }
+          .report-photo-card > p { margin-bottom: var(--space-2) !important; }
+          .report-photo-location-reminder {
+            padding-top: var(--space-2) !important;
+            padding-bottom: var(--space-2) !important;
+            gap: var(--space-2) !important;
+          }
+          /* One line on a phone: the title is redundant next to the
+             address itself, and the button carries the label. */
+          .report-photo-location-reminder h2 { display: none; }
+        }
+        /*
+         * A VERY SHORT phone (≤ 700px tall). The photo grid's tiles
+         * are square, so the grid's height is driven by its width —
+         * and on a 360px-wide screen a 240px grid is still 240px
+         * tall, which is a third of the 543px region.
+         *
+         * The grid is capped by the HEIGHT it may occupy rather than
+         * by its width, so the tiles stay square but smaller, and the
+         * step fits without a scrollbar.
+         */
+        @media (max-width: 480px) and (max-height: 700px) {
+          .report-photo-grid { max-width: 170px !important; }
+          .report-photo-column { padding-top: var(--space-2) !important; padding-bottom: var(--space-2) !important; gap: var(--space-2) !important; }
+          .report-photo-card { padding-top: var(--space-2) !important; padding-bottom: var(--space-2) !important; }
+          .report-photo-card > p { margin-bottom: var(--space-1) !important; font-size: var(--text-body-sm) !important; }
+        }
+      `,
+        }}
+      />
 
       <div
         style={{
-          padding: 'var(--space-6) var(--space-5)',
+          // `--space-4` vertical (16px) rather than `--space-6`
+          // (32px): the step carries TWO cards, and at 32px the
+          // column's own padding alone pushed it past the region,
+          // which raised a scrollbar.
+          padding: 'var(--space-4) var(--space-5)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 'var(--space-5)',
+          gap: 'var(--space-4)',
+          // The page fills the region exactly, so this column must be
+          // able to scroll ITSELF when the photo grid is tall. Without
+          // this the column grows past the region and the whole page
+          // scrolls instead.
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
+        className="report-photo-column"
       >
         {/* ---------- STEP CARD ---------- */}
         <section
@@ -346,8 +442,13 @@ export default function PhotoPage() {
             background: 'var(--color-surface-card)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-6)',
+            // `--space-5` (24px) rather than `--space-6` (32px): the
+            // photo step carries TWO cards (the photo card and the
+            // location reminder), and at 32px each their padding
+            // alone pushed the column past the region.
+            padding: 'var(--space-5)',
           }}
+          className="report-photo-card"
           data-testid="report-photo-card"
         >
           <h1
@@ -366,7 +467,10 @@ export default function PhotoPage() {
             lang={LANG}
             style={{
               color: 'var(--color-ink-secondary)',
-              margin: '0 0 var(--space-5)',
+              // `--space-4` (16px) rather than `--space-5` (24px): the
+              // step carries two cards and the extra 8px here pushed
+              // the column past the region.
+              margin: '0 0 var(--space-4)',
               fontSize: 'var(--text-body)',
               lineHeight: 'var(--leading-normal)',
             }}
@@ -486,6 +590,19 @@ export default function PhotoPage() {
               gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
               gap: 'var(--space-3)',
               marginTop: 'var(--space-4)',
+              /*
+               * The tiles are SQUARE (`aspectRatio: 1 / 1`), so the
+               * grid's height is driven by its WIDTH. Uncapped, a
+               * wide content column made each tile ~200px and the
+               * grid ~200px tall, which pushed the step past the
+               * region and raised a scrollbar on the photo step.
+               *
+               * Capping the grid's width keeps the tiles at a
+               * comfortable size (and the grid ~150px tall) on any
+               * column width. The grid stays LEFT-aligned, so it
+               * does not drift away from the card's text.
+               */
+              maxWidth: 460,
             }}
             data-testid="report-photo-grid"
           >
@@ -587,7 +704,7 @@ export default function PhotoPage() {
               display: 'flex',
               gap: 'var(--space-2)',
               alignItems: 'flex-start',
-              marginTop: 'var(--space-4)',
+              marginTop: 'var(--space-3)',
               padding: 'var(--space-3) var(--space-4)',
               background: 'var(--color-accent-soft)',
               border: '1px solid var(--color-accent)',
@@ -619,33 +736,63 @@ export default function PhotoPage() {
               background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-6)',
+              padding: 'var(--space-4) var(--space-5)',
+              /*
+               * A COMPACT STRIP, not a stacked card.
+               *
+               * The photo step already carries the photo card, and
+               * the reminder is secondary — the citizen pinned the
+               * location in step 1. Stacked (title, label, button on
+               * their own lines) the reminder was ~180px tall and
+               * pushed the column past the region, so the step
+               * scrolled. Laying the text out beside the button
+               * keeps all the information in one ~64px row.
+               */
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-4)',
             }}
+            className="report-photo-location-reminder"
             data-testid="report-photo-location-reminder"
           >
-            <h2
-              lang={LANG}
+            <div
               style={{
-                margin: '0 0 var(--space-2)',
-                fontSize: 'var(--text-h2)',
-                color: 'var(--color-ink)',
-                lineHeight: 'var(--leading-tight)',
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
               }}
             >
-              {t('report.photo.location_title', null, LANG)}
-            </h2>
-            <p
-              lang={LANG}
-              style={{
-                margin: '0 0 var(--space-3)',
-                fontSize: 'var(--text-body)',
-                color: 'var(--color-ink-secondary)',
-              }}
-            >
-              {locationLabel}
-            </p>
+              <h2
+                lang={LANG}
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-body)',
+                  fontWeight: 'var(--weight-semibold)',
+                  color: 'var(--color-ink)',
+                  lineHeight: 'var(--leading-tight)',
+                }}
+              >
+                {t('report.photo.location_title', null, LANG)}
+              </h2>
+              <p
+                lang={LANG}
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-ink-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {locationLabel}
+              </p>
+            </div>
             <Button
               variant="secondary"
+              size="sm"
               icon={<ICONS.mapPin.icon size={15} weight={ICONS.mapPin.weight} />}
               data-testid="report-photo-change-location"
               onClick={() => router.push('/report/location')}

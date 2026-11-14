@@ -73,7 +73,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { t, TRANSLATIONS, type Language } from '@/lib/i18n/keys';
-import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button } from '@/components/ui/Button';
@@ -670,11 +670,13 @@ function FeedRow({
    * middle shape — so the citizen's own submitted photo rendered as
    * a blank gradient square in the feed.
    *
-   * `firstRenderablePhotoUrl` picks the first URL we can actually
-   * render; the dashed placeholder is the genuine "no photo attached"
-   * state.
+   * `firstDisplayablePhotoUrl` picks the first URL we can actually
+   * render AND that is worth showing — it also rejects the degenerate
+   * 1×1 / 2×2 PNG swatches, which would otherwise paint an empty grey
+   * square where a citizen expects to see evidence. The dashed
+   * placeholder is the genuine "no photo attached" state.
    */
-  const photoUrl = firstRenderablePhotoUrl(item.photoUrls);
+  const photoUrl = firstDisplayablePhotoUrl(item.photoUrls);
   const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link

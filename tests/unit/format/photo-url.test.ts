@@ -23,15 +23,34 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  firstDisplayablePhotoUrl,
   firstRenderablePhotoUrl,
   isAcceptablePhotoUrl,
   isRenderablePhotoUrl,
+  lastDisplayablePhotoUrl,
   lastRenderablePhotoUrl,
   thumbnailBackground,
 } from '@/lib/format/photo-url';
 
 const DATA_URL =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJ';
+
+/**
+ * A 1×1 transparent PNG — the "a photo exists but we have no bytes"
+ * swatch the seeded and test-generated rows carry. It is a valid
+ * `data:image/png` URL, so `isRenderablePhotoUrl` accepts it, but it
+ * has no pixels worth showing.
+ */
+const SWATCH_1X1 =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+/**
+ * A 2×2 PNG — the other degenerate shape. It carries four pixels, no
+ * more evidence than the 1×1, and is the shape the magenta fixture
+ * ships as.
+ */
+const SWATCH_2X2 =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGElEQVQI12P8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 describe('isRenderablePhotoUrl', () => {
   it('accepts an inline data URL (the default upload path)', () => {
@@ -146,6 +165,59 @@ describe('lastRenderablePhotoUrl', () => {
 
   it('trims surrounding whitespace', () => {
     expect(lastRenderablePhotoUrl(['  ' + DATA_URL + '  '])).toBe(DATA_URL);
+  });
+});
+
+describe('firstDisplayablePhotoUrl', () => {
+  it('returns the first URL that is both renderable AND worth showing', () => {
+    expect(firstDisplayablePhotoUrl([DATA_URL])).toBe(DATA_URL);
+  });
+
+  it('skips a degenerate 1x1 swatch and takes the next real photo', () => {
+    // Regression: the citizen feed rendered a 1×1 PNG as an empty
+    // grey square, because it used the looser `firstRenderablePhotoUrl`.
+    // A swatch carries no pixels — it must fall through to the real
+    // photo, or to the "no photo" placeholder when there is none.
+    expect(firstDisplayablePhotoUrl([SWATCH_1X1, DATA_URL])).toBe(DATA_URL);
+  });
+
+  it('returns null when the only photo is a degenerate swatch', () => {
+    expect(firstDisplayablePhotoUrl([SWATCH_1X1])).toBeNull();
+    expect(firstDisplayablePhotoUrl([SWATCH_2X2])).toBeNull();
+  });
+
+  it('still skips an unrenderable entry', () => {
+    expect(firstDisplayablePhotoUrl(['javascript:alert(1)', DATA_URL])).toBe(DATA_URL);
+  });
+
+  it('returns null for an empty, null, or undefined list', () => {
+    expect(firstDisplayablePhotoUrl([])).toBeNull();
+    expect(firstDisplayablePhotoUrl(null)).toBeNull();
+    expect(firstDisplayablePhotoUrl(undefined)).toBeNull();
+  });
+});
+
+describe('lastDisplayablePhotoUrl', () => {
+  it('returns the last worth-showing URL (the freshest evidence)', () => {
+    expect(
+      lastDisplayablePhotoUrl([DATA_URL, 'https://cdn.example.com/a.jpg']),
+    ).toBe('https://cdn.example.com/a.jpg');
+  });
+
+  it('skips a degenerate swatch parked at the end of the list', () => {
+    // The dispatcher monitor prefers the crew's after-photo. If that
+    // after-photo is a 1×1 swatch, the thumbnail must fall back to
+    // the citizen's real before-photo rather than painting an empty
+    // grey square.
+    expect(lastDisplayablePhotoUrl([DATA_URL, SWATCH_1X1])).toBe(DATA_URL);
+  });
+
+  it('returns null when every entry is a swatch or unrenderable', () => {
+    expect(lastDisplayablePhotoUrl([SWATCH_1X1, SWATCH_2X2])).toBeNull();
+    expect(lastDisplayablePhotoUrl(['javascript:alert(1)'])).toBeNull();
+    expect(lastDisplayablePhotoUrl([])).toBeNull();
+    expect(lastDisplayablePhotoUrl(null)).toBeNull();
+    expect(lastDisplayablePhotoUrl(undefined)).toBeNull();
   });
 });
 

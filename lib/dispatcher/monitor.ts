@@ -37,7 +37,7 @@ import { ApiError } from '@/lib/auth/guards';
 import { writeAudit } from '@/lib/platform/audit';
 import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
-import { lastRenderablePhotoUrl } from '@/lib/format/photo-url';
+import { lastDisplayablePhotoUrl } from '@/lib/format/photo-url';
 import type { SessionContext } from '@/lib/auth/session';
 
 /** The statuses a dispatcher "watches" on the monitor surface. */
@@ -67,6 +67,9 @@ export interface MonitorRow {
   id: string;
   status: string;
   categoryId: string;
+  /** The category's localized display name — see `WatchedTicket`. */
+  categoryName: string | null;
+  categoryNameBn: string | null;
   wardId: string;
   wardName: string | null;
   assignedCrewId: string | null;
@@ -76,6 +79,16 @@ export interface MonitorRow {
   latestActivity: {
     /** The actor id of the most recent activity (or null when unknown). */
     actorId: string | null;
+    /**
+     * The actor's display name, joined server-side.
+     *
+     * The actor id is backend-specific (`user_crew_rashid` in the dev
+     * store, a Postgres id), so the name has to come from the
+     * backend for the snippet to read "Rashid" on every backend.
+     */
+    actorName: string | null;
+    /** The actor's role — the server knows it; the id does not say. */
+    actorRole: string | null;
     /** The status the actor moved the ticket to (or null when unknown). */
     toStatus: string | null;
     /** The ISO timestamp of the activity. */
@@ -87,6 +100,7 @@ export interface MonitorRow {
   trail: Array<{
     toStatus: string;
     actorId: string | null;
+    actorName: string | null;
     actorRole: string | null;
     note: string | null;
     timestamp: string;
@@ -103,6 +117,20 @@ export interface WatchedTicket {
   cityId: string;
   wardId: string;
   categoryId: string;
+  /**
+   * The category's localized display names, joined server-side.
+   *
+   * WHY THE JOIN
+   * ------------
+   * `categoryId` is backend-specific — `cat_streetlight` in the dev
+   * store, a CUID on Postgres — so the client cannot turn it into a
+   * readable label on its own. The serializer already joins the
+   * category's `name` / `nameBn`; carrying them through here means
+   * the monitor's live list shows "রাস্তার আলো নেই" instead of a raw
+   * database id.
+   */
+  categoryName?: string | null;
+  categoryNameBn?: string | null;
   status: string;
   assignedCrewId: string | null;
   createdAt: string;
@@ -112,6 +140,8 @@ export interface WatchedTicket {
   trail: Array<{
     toStatus: string;
     actorId: string | null;
+    /** The actor's display name, joined server-side. */
+    actorName?: string | null;
     actorRole?: string | null;
     note: string | null;
     timestamp: string;
@@ -226,12 +256,16 @@ export function buildMonitorRows(
         id: t.id,
         status: t.status,
         categoryId: t.categoryId,
+        categoryName: t.categoryName ?? null,
+        categoryNameBn: t.categoryNameBn ?? null,
         wardId: t.wardId,
         wardName: t.wardName ?? null,
         assignedCrewId: t.assignedCrewId,
         updatedAt,
         latestActivity: {
           actorId: latest?.actorId ?? null,
+          actorName: latest?.actorName ?? null,
+          actorRole: latest?.actorRole ?? null,
           toStatus: latest?.toStatus ?? null,
           timestamp: updatedAt,
           unread,
@@ -241,22 +275,25 @@ export function buildMonitorRows(
           .map((e) => ({
             toStatus: e.toStatus,
             actorId: e.actorId ?? null,
+            actorName: e.actorName ?? null,
             actorRole: e.actorRole ?? null,
             note: e.note,
             timestamp: e.timestamp,
           })),
         /*
          * The thumbnail is the LAST photo (the freshest evidence —
-         * e.g. the crew's after-photo). `firstRenderablePhotoUrl` is
-         * used to scan the list BACKWARDS for the first URL the
-         * renderer can display: the stored URL can be an inline
-         * `data:image/…` URL (the default), an absolute `https://`
-         * URL, or a root-relative `/api/blob/…` path, and picking
-         * the last element blindly could land on an unrenderable
-         * value and blank the thumbnail even though an older photo
-         * would have rendered fine.
+         * e.g. the crew's after-photo). `lastDisplayablePhotoUrl`
+         * scans the list BACKWARDS for the first URL the renderer can
+         * display AND that is worth showing: the stored URL can be an
+         * inline `data:image/…` URL (the default), an absolute
+         * `https://` URL, or a root-relative `/api/blob/…` path, and
+         * picking the last element blindly could land on an
+         * unrenderable value and blank the thumbnail even though an
+         * older photo would have rendered fine. The stricter helper
+         * also skips the degenerate 1×1 / 2×2 PNG swatches, which
+         * would paint an empty grey square.
          */
-        thumbnailUrl: lastRenderablePhotoUrl(t.photoUrls),
+        thumbnailUrl: lastDisplayablePhotoUrl(t.photoUrls),
         photoCount: t.photoUrls.length,
       };
     })
@@ -438,6 +475,8 @@ export async function listMonitorTickets(
           cityId: t.cityId,
           wardId: t.wardId,
           categoryId: t.categoryId,
+          categoryName: null,
+          categoryNameBn: null,
           status: t.status,
           assignedCrewId: t.assignedCrewId,
           createdAt: toIso(t.createdAt),
@@ -462,6 +501,8 @@ export async function listMonitorTickets(
         cityId: serialized.cityId,
         wardId: serialized.wardId,
         categoryId: serialized.categoryId,
+        categoryName: serialized.categoryName ?? null,
+        categoryNameBn: serialized.categoryNameBn ?? null,
         status: serialized.status,
         assignedCrewId: serialized.assignedCrewId,
         createdAt: serialized.createdAt,
@@ -471,6 +512,7 @@ export async function listMonitorTickets(
         trail: serialized.trail.map((e) => ({
           toStatus: e.toStatus,
           actorId: e.actorId,
+          actorName: e.actorName,
           actorRole: e.actorRole,
           note: e.note,
           timestamp: e.timestamp,

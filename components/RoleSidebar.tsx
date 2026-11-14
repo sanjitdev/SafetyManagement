@@ -7,15 +7,27 @@ import { CityFixMark } from '@/components/CityFixMark';
 import { useSession } from '@/components/SessionProvider';
 import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
-import { t, type Language } from '@/lib/i18n/keys';
+import { t } from '@/lib/i18n/keys';
 
 type ShellRole = 'citizen' | 'staff';
-type Item = { href: string; label: string; icon: keyof typeof ICONS; exact?: boolean; roleFilter?: string };
+type Item = {
+  href: string;
+  label: string;
+  icon: keyof typeof ICONS;
+  exact?: boolean;
+  roleFilter?: string;
+  /**
+   * The item is the CURRENT step of the report flow — render it as an
+   * inert active marker instead of a link (see `inReportFlow`).
+   */
+  inert?: boolean;
+};
 
 export function RoleSidebar({
   role = 'citizen',
   surface: surfaceProp,
   onNavigate,
+  inReportFlow = false,
 }: {
   role?: ShellRole;
   /**
@@ -25,6 +37,19 @@ export function RoleSidebar({
    */
   surface?: 'crew' | 'dispatcher' | 'admin';
   onNavigate: () => void;
+  /**
+   * True when the sidebar is rendered inside the report flow
+   * (`/report/*`).
+   *
+   * The citizen nav's third item is "New report" → `/report/location`,
+   * which is the FIRST step of the very flow the citizen is in the
+   * middle of. Rendered as a link it offers a control that silently
+   * throws the citizen back to step 1 mid-report. Inside the flow the
+   * item therefore renders as an inert ACTIVE marker: the reader can
+   * still see that "New report" is where they are, and it cannot
+   * restart the flow.
+   */
+  inReportFlow?: boolean;
 }) {
   const pathname = usePathname() ?? '/';
   // The shared hook owns the language — it reads the stored preference
@@ -111,17 +136,26 @@ export function RoleSidebar({
       { href: '/crew', label: t('shell.nav.my_jobs', null, lang), icon: 'home', exact: true },
       { href: '/crew/map', label: t('shell.nav.map', null, lang), icon: 'map' },
       { href: '/crew/activity', label: t('shell.nav.activity_log', null, lang), icon: 'queue' },
+      { href: '/crew/safety-guide', label: t('shell.nav.safety_guide', null, lang), icon: 'security' },
       { href: '/profile', label: t('shell.nav.profile', null, lang), icon: 'users' },
       { href: '/profile?tab=settings', label: t('shell.nav.settings', null, lang), icon: 'city' },
     ];
     return [
       { href: '/home', label: t('shell.nav.dashboard', null, lang), icon: 'home', exact: true },
       { href: '/reports', label: t('shell.nav.reports', null, lang), icon: 'reports' },
-      { href: '/report/location', label: t('shell.nav.new_report', null, lang), icon: 'newReport' },
+      {
+        href: '/report/location',
+        label: t('shell.nav.new_report', null, lang),
+        icon: 'newReport',
+        // Inside the report flow this item is the CURRENT step — a
+        // link would restart the flow and throw the citizen back to
+        // step 1. It renders as an inert active marker instead.
+        inert: inReportFlow,
+      },
       { href: '/feed', label: t('shell.nav.notifications', null, lang), icon: 'notifications' },
       { href: '/profile', label: t('shell.nav.profile', null, lang), icon: 'users' },
     ];
-  }, [cityId, lang, surface]);
+  }, [cityId, inReportFlow, lang, surface]);
 
   // The `tab` query claimed by a sibling nav item, if any. `/profile`
   // and `/profile?tab=settings` are two destinations on the same path,
@@ -167,8 +201,24 @@ export function RoleSidebar({
               ? pathname === itemPath
               : (pathname === itemPath || pathname.startsWith(`${itemPath}/`)) && queryMatches;
           const Icon = ICONS[item.icon].icon;
+          const key = `${item.href}:${item.label}`;
+          // An inert item is the CURRENT step of the report flow. It
+          // renders as a non-interactive active marker: the reader sees
+          // where they are, and clicking it cannot restart the flow.
+          if (item.inert) {
+            return (
+              <span
+                key={key}
+                className="role-sidebar-link role-sidebar-link--current"
+                aria-current="page"
+              >
+                <Icon size={20} weight="bold" aria-hidden />
+                <span>{item.label}</span>
+              </span>
+            );
+          }
           return (
-            <Link key={`${item.href}:${item.label}`} href={item.href} onClick={() => {
+            <Link key={key} href={item.href} onClick={() => {
               if (item.roleFilter) setUserListFilter(item.roleFilter);
               onNavigate();
             }} className={`role-sidebar-link${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined}>

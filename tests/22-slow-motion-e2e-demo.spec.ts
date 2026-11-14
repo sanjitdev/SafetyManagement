@@ -262,10 +262,16 @@ async function citizenSubmitReport(
   await page.waitForTimeout(800);
   await capture(page, '01-citizen-home');
 
-  // Click the top-bar Report CTA. The button text is the i18n key
-  // `home.empty.cta` → Bangla "রিপোর্ট করুন" / English "Report".
+  // Click the home page's own Report CTA.
+  //
+  // The header's top-bar Report button was REMOVED on 2026-11-14
+  // (demo simplification — it duplicated the home page's own CTA and
+  // the role sidebar's "New report" item). The home page's CTA is a
+  // LINK to /report/location (`.home-report-action`), labelled by the
+  // i18n key `home.dashboard.report` → Bangla "সমস্যা রিপোর্ট করুন" /
+  // English "Report an issue".
   const reportCta = page
-    .getByRole('button', { name: /রিপোর্ট করুন|Report|New report|নতুন রিপোর্ট/i })
+    .locator('a.home-report-action')
     .first();
   await reportCta.waitFor({ state: 'visible', timeout: 15_000 });
   await reportCta.click();

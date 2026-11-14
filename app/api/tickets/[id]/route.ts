@@ -12,6 +12,7 @@ import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { requireSameCity, requireScope } from '@/lib/auth/guards';
 import { rateLimit } from '@/lib/platform/rate-limit';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 import { readFeedbackRating } from '@/lib/citizen/feedback';
 
 export async function GET(
@@ -79,8 +80,21 @@ export async function GET(
     return NextResponse.json({ error: 'not_owner' }, { status: 403 });
   }
 
+  // Resolve the actor roles so the staff branch of the trail says
+  // who acted in which role. The citizen branch anonymises the
+  // actors anyway, so the map costs the citizen nothing.
+  const actorRoles = await buildActorRoleMap(
+    withTrail.trail.map((e) => e.actorId),
+  );
+
   return NextResponse.json({
-    ticket: serializeTicketForRole(withTrail, withTrail.trail, session.role, 'bn'),
+    ticket: serializeTicketForRole(
+      withTrail,
+      withTrail.trail,
+      session.role,
+      'bn',
+      actorRoles,
+    ),
     last_poll_cursor: withTrail.updatedAt,
     // WO-002 — the citizen's own feedback rating, surfaced at the
     // TOP LEVEL (not on the shared `ticket` object) so the

@@ -31,6 +31,8 @@ import { t, type Language } from '@/lib/i18n/keys';
 import type { MapPin, MapStatus } from '@/components/DispatcherMap';
 import { useLanguage } from '@/components/useLanguage';
 import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { FilterChipGroup } from '@/components/ui/FilterChipGroup';
 import { useSession } from '@/components/SessionProvider';
 
 // MapLibre is browser-only; load the page's map component on
@@ -63,7 +65,7 @@ export default function DispatcherMapPage() {
   const { lang, setLang } = useLanguage();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // The shared session — one request for the whole page.
-  const { authenticated } = useSession();
+  const { authenticated, session } = useSession();
   const [pins, setPins] = useState<MapPin[]>([]);
   const [filter, setFilter] = useState<MapFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,32 @@ export default function DispatcherMapPage() {
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [dedupPendingCount, setDedupPendingCount] = useState<number>(0);
   const previousIdsRef = useRef<Set<string>>(new Set());
+
+  /**
+   * The dispatcher's scope, in words.
+   *
+   * A dispatcher bound to a single ward sees that ward's name; a
+   * city-wide dispatcher sees no ward at all, and saying so is
+   * better than implying a scope they do not have. The department
+   * is the second boundary — a streetlight dispatcher must not be
+   * shown tickets that belong to another department.
+   *
+   * Each part is optional. A session with no ward and no department
+   * is a city-wide dispatcher, and the label says exactly that
+   * rather than rendering a lone separator.
+   */
+  const scopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    const ward = lang === 'bn' ? session?.wardNameBn : session?.wardName;
+    const department =
+      lang === 'bn' ? session?.departmentNameBn : session?.departmentName;
+    if (ward) parts.push(ward);
+    if (department) parts.push(department);
+    if (parts.length === 0) {
+      return t('dispatcher.map.scope.city_wide', null, lang);
+    }
+    return parts.join(' · ');
+  }, [session?.wardName, session?.wardNameBn, session?.departmentName, session?.departmentNameBn, lang]);
 
   useEffect(() => {
     function syncLang() {
@@ -241,9 +269,22 @@ export default function DispatcherMapPage() {
           gap: 'var(--space-3)',
         }}
       >
+        {/*
+          The dispatcher's SCOPE, read from the session.
+
+          This used to be the literal string "· Dispatcher · ward_14 ·
+          dept_streetlight" — a hard-coded ward id and department id
+          baked into the markup. It was wrong for every dispatcher
+          except one: it named a ward the reader might not hold, and
+          it named raw database ids rather than the ward and
+          department NAMES the reader knows. The scope is the
+          dispatcher's authorisation boundary, so it must be the
+          session's, not a constant.
+        */}
         <span
           className="dispatcher-brand-scope"
           lang={lang}
+          data-testid="dispatcher-map-scope"
           style={{
             fontSize: 'var(--text-body-sm)',
             color: 'var(--color-ink-secondary)',
@@ -252,7 +293,7 @@ export default function DispatcherMapPage() {
             textOverflow: 'ellipsis',
           }}
         >
-          · Dispatcher · ward_14 · dept_streetlight
+          {scopeLabel}
         </span>
 
         <div
@@ -359,26 +400,39 @@ export default function DispatcherMapPage() {
             >
               {t('dispatcher.queue.filter.heading', null, lang)}
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-              {(
+            {/*
+              The shared `FilterChipGroup`, laid out as a vertical
+              stack because this is a LEFT RAIL. The hand-rolled
+              `FilterRow` buttons were four separate tab stops with
+              no arrow-key navigation; the chip group is one tab
+              stop with roving focus, which is the keyboard model
+              a filter list should have.
+            */}
+            <FilterChipGroup
+              options={(
                 [
                   ['all', 'dispatcher.queue.filter.all'],
                   ['submitted', 'dispatcher.queue.filter.submitted'],
                   ['routed', 'dispatcher.queue.filter.routed'],
                   ['in_progress', 'status.in_progress'],
                 ] as Array<[MapFilter, string]>
-              ).map(([f, key]) => (
-                <FilterRow
-                  key={f}
-                  active={filter === f}
-                  onClick={() => setFilter(f)}
-                  lang={lang}
-                  testId={`dispatcher-map-filter-${f}`}
-                >
-                  {t(key, null, lang)}
-                </FilterRow>
-              ))}
-            </div>
+              ).map(([f, key]) => ({
+                value: f,
+                label: t(key, null, lang),
+                testId: `dispatcher-map-filter-${f}`,
+              }))}
+              value={filter}
+              onChange={setFilter}
+              ariaLabel={t('dispatcher.queue.filter.heading', null, lang)}
+              lang={lang}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 'var(--space-1)',
+                width: '100%',
+              }}
+            />
           </div>
 
           <div>
@@ -507,42 +561,6 @@ export default function DispatcherMapPage() {
         </main>
       </div>
     </div>
-  );
-}
-
-function FilterRow({
-  active,
-  onClick,
-  lang,
-  children,
-  testId,
-}: {
-  active: boolean;
-  onClick: () => void;
-  lang: Language;
-  children: React.ReactNode;
-  testId: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      lang={lang}
-      data-testid={testId}
-      style={{
-        padding: 'var(--space-2) var(--space-3)',
-        background: active ? 'var(--color-primary)' : 'transparent',
-        color: active ? 'var(--color-on-primary)' : 'var(--color-ink)',
-        border: 'none',
-        borderRadius: 'var(--radius-sm)',
-        fontSize: 'var(--text-body-sm)',
-        fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-regular)',
-        cursor: 'pointer',
-        textAlign: 'left',
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -697,6 +715,13 @@ function SidePanel({
             margin: 0,
           }}
         >
+          {/*
+            The shared `StatusPill`, not a local copy. The local copy
+            had the right colours but no ICON, so the status was
+            carried by colour and a word alone — and it was a fifth
+            private status map, free to drift from the three that
+            already existed.
+          */}
           <StatusPill status={pin.status} lang={lang} />
         </dd>
 
@@ -753,48 +778,6 @@ function SidePanel({
         {t('dispatcher.map.side.view', null, lang)} →
       </Link>
     </aside>
-  );
-}
-
-function StatusPill({ status, lang }: { status: MapStatus; lang: Language }) {
-  // `*-soft` background + saturated `*-status` foreground — see the
-  // dispatcher queue's StatusPill for why the saturated token must
-  // not be used as the background.
-  const map: Record<MapStatus, { bg: string; fg: string; label: string }> = {
-    submitted: {
-      bg: 'var(--color-status-submitted-soft)',
-      fg: 'var(--color-status-submitted)',
-      label: 'status.submitted',
-    },
-    routed: {
-      bg: 'var(--color-status-routed-soft)',
-      fg: 'var(--color-status-routed)',
-      label: 'status.routed',
-    },
-    in_progress: {
-      bg: 'var(--color-status-in-progress-soft)',
-      fg: 'var(--color-status-in-progress)',
-      label: 'status.in_progress',
-    },
-  };
-  const c = map[status];
-  return (
-    <span
-      lang={lang}
-      style={{
-        padding: '2px var(--space-2)',
-        background: c.bg,
-        color: c.fg,
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 10,
-        fontWeight: 'var(--weight-bold)',
-        textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-        display: 'inline-block',
-      }}
-    >
-      {t(c.label, null, lang)}
-    </span>
   );
 }
 

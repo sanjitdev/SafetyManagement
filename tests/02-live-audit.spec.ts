@@ -185,9 +185,9 @@ test.describe('Theme toggle', () => {
    *
    * The aria-label is the localized *target* state, not the current
    * one: "গাঢ়" (Dark) while light is active, "হালকা" (Light) while
-   * dark is active. Match on that label — the Report CTA in the same
-   * header also carries an SVG, so an icon-based selector would hit
-   * the wrong button.
+   * dark is active. Match on that label — the notification bell in
+   * the same header also carries an SVG, so an icon-based selector
+   * would hit the wrong button.
    */
   const THEME_TOGGLE = 'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]';
 

@@ -158,8 +158,18 @@ function Headline({
         flexDirection: 'column',
         gap: 'var(--space-2)',
         padding: 'var(--space-4) var(--space-5)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-card)',
+        /*
+         * The headline sits BESIDE the supporting-figures strip, and
+         * both are card surfaces. When each carried its own border the
+         * two adjacent 1px lines read as a seam down the middle of one
+         * strip — the row looked like two half-strips that happened to
+         * touch rather than one readout.
+         *
+         * So the outer edge belongs to the STRIP (see the section
+         * below) and the headline only draws the hairline that
+         * separates it from the figures beside it.
+         */
+        borderRight: '1px solid var(--color-border)',
         background: 'var(--color-surface-card)',
       }}
     >
@@ -241,8 +251,13 @@ function Supporting({
         display: 'grid',
         gridTemplateColumns: `repeat(${figures.length}, minmax(0, 1fr))`,
         margin: 0,
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-card)',
+        /*
+         * No border of its own — the strip draws the outer edge. Only
+         * the hairline BETWEEN figures remains, so the row reads as
+         * one surface divided into cells rather than as a stack of
+         * separate boxes.
+         */
+        border: 'none',
         background: 'var(--color-surface-card)',
         overflow: 'hidden',
       }}
@@ -324,16 +339,37 @@ export function MetricStrip({
       className={className}
       style={{
         display: 'grid',
-        // The headline takes roughly a third of the row; the supporting
-        // figures split the rest evenly. On a narrow screen the strip
-        // stacks (see `.metric-strip` in globals.css).
-        gridTemplateColumns: 'minmax(200px, 1fr) minmax(0, 2fr)',
-        gap: 'var(--space-3)',
+        // A single column: the bordered surface below is the only
+        // child. The headline/figures split lives on the surface
+        // (`.metric-strip-surface` in globals.css) so the responsive
+        // rules can reach it.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         alignItems: 'stretch',
       }}
     >
-      <Headline figure={headline} icon={icon} lang={lang} testId={headlineTestId} />
-      <Supporting figures={figures} lang={lang} />
+      {/*
+       * ONE bordered surface wraps both halves. The border belongs
+       * here — at the edge of the whole strip — so the row reads as a
+       * single readout rather than as two bordered boxes that happen
+       * to sit next to each other. The hairline between the headline
+       * and the figures is the only internal rule.
+       *
+       * The gap lives INSIDE this wrapper, so the two halves are
+       * adjacent cells of one card, separated by their own hairline.
+       */}
+      <div
+        className="metric-strip-surface"
+        style={{
+          minWidth: 0,
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-card)',
+          background: 'var(--color-surface-card)',
+          overflow: 'hidden',
+        }}
+      >
+        <Headline figure={headline} icon={icon} lang={lang} testId={headlineTestId} />
+        <Supporting figures={figures} lang={lang} />
+      </div>
     </section>
   );
 }

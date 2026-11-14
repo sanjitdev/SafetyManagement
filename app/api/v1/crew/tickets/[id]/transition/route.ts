@@ -42,6 +42,7 @@ import {
 } from '@/lib/platform/transitions';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const ALLOWED_CREW_TRANSITIONS = ['in_progress', 'resolved'] as const;
 
@@ -201,12 +202,16 @@ export async function POST(
       { status: 500 },
     );
   }
+  const actorRoles = await buildActorRoleMap(
+    refreshed.trail.map((e) => e.actorId),
+  );
   return NextResponse.json({
     ticket: serializeTicketForRole(
       refreshed,
       refreshed.trail,
       session!.role,
       'bn',
+      actorRoles,
     ),
   });
 }

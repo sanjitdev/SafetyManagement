@@ -211,7 +211,17 @@ export default function SummaryPage() {
       style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
-        minHeight: 'calc(100vh - var(--header-height-desktop))',
+        /*
+         * Size against the CONTENT REGION, not the viewport.
+         *
+         * `calc(100vh - var(--header-height-desktop))` subtracted only
+         * the global header and ignored the step-indicator strip, so
+         * the page was 124px taller than the space it had and
+         * `.role-app-content` scrolled — the scrollbar the citizen saw
+         * on every report step.
+         */
+        height: 'var(--report-content-height)',
+        minHeight: 0,
         // Reserve the FIXED action bar's footprint so the last
         // element in the column is never hidden behind it. Same
         // formula as the other four step pages and mockup 14's
@@ -222,6 +232,7 @@ export default function SummaryPage() {
           'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
+      data-report-step-page
     >
       <div
         style={{
@@ -229,6 +240,13 @@ export default function SummaryPage() {
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--space-5)',
+          // The page fills the region exactly, so this column scrolls
+          // ITSELF if the summary list grows. Without this the column
+          // pushes the page past the region and the whole page
+          // scrolls.
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
       >
         <p

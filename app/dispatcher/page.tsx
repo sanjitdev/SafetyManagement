@@ -6,18 +6,27 @@
  * to the dispatcher's session (cityId, wardId, departmentId),
  * sorted oldest-first. Polls every 30 s.
  *
- * Layout (3-region desktop work surface, per WO-002 mockup
- * 05 daily-queue-dashboard):
- *   - Top bar: brand + dispatcher's ward · department badge,
- *     language toggle, theme toggle, logout.
- *   - Filter rail: status filter (All / Submitted / Routed),
- *     poll-state indicator, "Possible duplicates" link to
- *     /dispatcher/dedup (N=0 placeholder in v1; Unit 004
- *     wires the count).
- *   - Queue list: rows sorted oldest-first. Each row has
- *     category icon, ward, age, status pill, reporter id
- *     (real, not anonymised — the dispatcher needs it),
- *     "View ticket" link.
+ * Wave 4 / bolt 009-005 changes
+ * ------------------------------
+ *
+ * The page keeps its dashboard shape but its TRIAGE half now
+ * carries the two filters the mockup promised and the API could
+ * not previously serve:
+ *
+ *   - the **status filter** covers all four ticket states, not
+ *     just the two the endpoint used to accept;
+ *   - the **ward filter** reads its options from the queue
+ *     response's `wards` block, and is replaced by an explicit
+ *     "limited to your ward" statement when the dispatcher's
+ *     session is bound to a single ward;
+ *   - every row carries the **SLA countdown chip**, so the
+ *     dispatcher can see whether a ticket needs a crew TODAY
+ *     rather than only how old it is.
+ *
+ * The ward filter is narrowing-only, and the server intersects
+ * the requested ward with the session's ward — the session
+ * always wins. The rail therefore never offers a scope the
+ * dispatcher cannot reach.
  *
  * Auth gate: the page redirects to /login if no session is
  * resolved. The API also enforces the same gate.
@@ -32,16 +41,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { formatWeekday } from '@/lib/format/datetime';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { SlaCountdown } from '@/components/ui/SlaCountdown';
 import { useLanguage } from '@/components/useLanguage';
 import { MetricStrip } from '@/components/ui/MetricStrip';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import {
+  FilterRail,
+  type QueueStatusFilter,
+  type WardOption,
+} from '@/components/dispatcher/FilterRail';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { ICONS } from '@/lib/ui/icon-map';
 import type { PerfSnapshot } from '@/lib/dispatcher/performance';
+import type { SlaState, SlaTone } from '@/lib/dispatcher/sla';
 
 const POLL_INTERVAL_MS = 30_000;
 const DHAKA_CENTER = { lat: 23.789, lng: 90.4075 };
@@ -67,9 +84,20 @@ interface QueueTicket {
   reporterName?: string | null;
   photoUrls: string[];
   createdAt: string;
+  resolvedAt?: string | null;
+  /**
+   * The SLA read path (Wave 4).
+   *
+   * The endpoint resolves the target, the remaining time AND the
+   * tone per ticket, so the client never has to know the category
+   * policy or re-derive the warning band.
+   */
+  slaTargetHours?: number | null;
+  slaRemainingHours?: number | null;
+  slaStartedAt?: string | null;
+  slaDueAt?: string | null;
+  slaTone?: SlaTone | null;
 }
-
-type QueueFilter = 'all' | 'submitted' | 'routed';
 
 function formatAge(iso: string, lang: Language): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -162,7 +190,26 @@ export default function DispatcherPage() {
   const [activityTickets, setActivityTickets] = useState<QueueTicket[]>([]);
   const [performance, setPerformance] = useState<PerfSnapshot | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<QueueFilter>('all');
+  const [filter, setFilter] = useState<QueueStatusFilter>('all');
+  /**
+   * The selected ward, or `null` for "all wards".
+   *
+   * `null` means "no ward narrowing", which is only reachable by
+   * a city-wide dispatcher — the server intersects the requested
+   * ward with the session's, so a ward-bound dispatcher asking
+   * for another ward gets their own ward's rows back, never
+   * someone else's.
+   */
+  const [ward, setWard] = useState<string | null>(null);
+  /**
+   * The wards the dispatcher may filter by.
+   *
+   * Read from the queue response, NEVER from a constant — the dev
+   * store seeds 2 wards and real Postgres seeds 50, so a
+   * hard-coded list would show a rail the API cannot serve.
+   */
+  const [wards, setWards] = useState<WardOption[]>([]);
+  const [wardScoped, setWardScoped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // The shared session — one request for the whole page.
@@ -199,6 +246,12 @@ export default function DispatcherPage() {
         filter === 'all' ? undefined : filter;
       const qs = new URLSearchParams();
       if (status) qs.set('status', status);
+      // The ward narrowing is sent to the server, not applied in the
+      // browser. A client-side ward filter would show the dispatcher
+      // rows the API refused to return — "I can see it but I can't
+      // open it" — which is the exact class of bug the ward
+      // boundary exists to prevent.
+      if (ward) qs.set('ward', ward);
       qs.set('limit', '50');
       const url =
         '/api/v1/dispatcher/queue' + (qs.toString() ? `?${qs.toString()}` : '');
@@ -231,6 +284,12 @@ export default function DispatcherPage() {
           reporterId: string;
           reporterName?: string | null;
           createdAt: string;
+          resolvedAt?: string | null;
+          slaTargetHours?: number | null;
+          slaRemainingHours?: number | null;
+          slaStartedAt?: string | null;
+          slaDueAt?: string | null;
+          slaTone?: SlaTone | null;
           internalNote: string | null;
           assignedCrewId: string | null;
           trail: Array<{
@@ -240,6 +299,8 @@ export default function DispatcherPage() {
             timestamp: string;
           }>;
         }>;
+        wards?: WardOption[];
+        wardScoped?: boolean;
       };
       const items: QueueTicket[] = data.tickets.map((t) => ({
         id: t.id,
@@ -259,8 +320,19 @@ export default function DispatcherPage() {
         reporterName: t.reporterName ?? null,
         photoUrls: t.photoUrls,
         createdAt: t.createdAt,
+        resolvedAt: t.resolvedAt ?? null,
+        slaTargetHours: t.slaTargetHours ?? null,
+        slaRemainingHours: t.slaRemainingHours ?? null,
+        slaStartedAt: t.slaStartedAt ?? null,
+        slaDueAt: t.slaDueAt ?? null,
+        slaTone: t.slaTone ?? null,
       }));
       setTickets(items);
+      // The ward rail reads its options from the response. A
+      // response from an older build carries neither key, so the
+      // rail falls back to empty rather than to a guess.
+      setWards(data.wards ?? []);
+      setWardScoped(Boolean(data.wardScoped));
       if (activityRes.ok) {
         const activityData = await activityRes.json() as { tickets: Array<{
           id: string; status: TicketStatus; cityId: string; wardId: string; wardName?: string | null; wardNameBn?: string | null;
@@ -279,7 +351,7 @@ export default function DispatcherPage() {
       setError('dispatcher.queue.error');
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, ward]);
 
   // Auth check — reads the shared session instead of issuing its own
   // `/api/auth/status` request.
@@ -482,12 +554,26 @@ export default function DispatcherPage() {
             <h2><ICONS.queue.icon size={20} aria-hidden />{t('dispatcher.dashboard.recent', null, lang)}</h2>
             <Link href="/dispatcher/monitor">{t('dispatcher.dashboard.view_all', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
           </header>
-          <div className="dispatcher-filter-row">
-            {([['all', 'dispatcher.queue.filter.all'], ['submitted', 'dispatcher.queue.filter.submitted'], ['routed', 'dispatcher.queue.filter.routed']] as Array<[QueueFilter, string]>).map(([value, key]) => (
-              <FilterRow key={value} active={filter === value} onClick={() => setFilter(value)} lang={lang} testId={`dispatcher-filter-${value}`}>{t(key, null, lang)}</FilterRow>
-            ))}
-            {lastPollAt ? <small>{t('dispatcher.dashboard.updated', null, lang)} {formatAge(lastPollAt, lang)}</small> : null}
-          </div>
+          <FilterRail
+            status={filter}
+            onStatusChange={setFilter}
+            ward={ward}
+            onWardChange={setWard}
+            wards={wards}
+            wardScoped={wardScoped}
+            lang={lang}
+            search={searchQuery}
+            onSearchChange={setSearchQuery}
+            trailing={
+              lastPollAt ? (
+                <small>
+                  {t('dispatcher.dashboard.updated', null, lang)}{' '}
+                  {formatAge(lastPollAt, lang)}
+                </small>
+              ) : null
+            }
+            data-testid="dispatcher-filter-rail"
+          />
           <div className="dispatcher-recent-list">
             {loading ? <QueueSkeleton /> : error ? <p className="dispatcher-dashboard-error" role="alert">{t('dispatcher.queue.error', null, lang)}</p> : filteredTickets.length ? filteredTickets.slice(0, 5).map((ticket) => <QueueRow key={ticket.id} ticket={ticket} lang={lang} />) : <EmptyState lang={lang} />}
           </div>
@@ -527,55 +613,52 @@ function DispatcherTrend({ points, lang }: { points: PerfSnapshot['submittedVsRe
   return <div className="dispatcher-trend-content"><div className="dispatcher-trend-legend"><span className="is-created">{t('dispatcher.dashboard.new', null, lang)}</span><span className="is-done">{t('dispatcher.dashboard.resolved', null, lang)}</span></div><svg viewBox="0 0 540 174" role="img" aria-label={t('dispatcher.dashboard.trends', null, lang)}>{[26,53,80,107,136].map((y) => <line key={y} x1="24" x2="526" y1={y} y2={y} />)}<path d={submitted} className="trend-created" /><path d={resolved} className="trend-resolved" />{points.map((point, index) => <text key={point.date} x={points.length <= 1 ? 270 : 26 + index * (490 / (points.length - 1))} y="164" textAnchor="middle">{formatWeekday(point.date, lang)}</text>)}</svg></div>;
 }
 
-function FilterRow({
-  active,
-  onClick,
-  lang,
-  children,
-  testId,
-}: {
-  active: boolean;
-  onClick: () => void;
-  lang: Language;
-  children: React.ReactNode;
-  testId: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      lang={lang}
-      data-testid={testId}
-      aria-pressed={active}
-      style={{
-        padding: 'var(--space-2) var(--space-3)',
-        background: active ? 'var(--color-primary-soft)' : 'transparent',
-        color: active ? 'var(--color-primary)' : 'var(--color-ink)',
-        border: `1px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
-        borderRadius: 'var(--radius-sm)',
-        fontSize: 'var(--text-body-sm)',
-        fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-regular)',
-        cursor: 'pointer',
-        textAlign: 'left',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
   /*
    * The triage thumbnail. The dispatcher needs to recognise the
    * issue at a glance — the photo is the strongest signal. The
    * stored URL can be an inline `data:image/…` URL (the default),
    * an absolute `https://` URL, or a root-relative `/api/blob/…`
-   * path, so `firstRenderablePhotoUrl` picks the first one we can
-   * actually render. Without a photo, the row falls back to the
-   * category glyph.
+   * path, so `firstDisplayablePhotoUrl` picks the first one we can
+   * actually render AND that is worth showing — it also rejects the
+   * degenerate 1×1 / 2×2 PNG swatches, which would paint an empty
+   * grey square instead of the category glyph.
    */
-  const photoUrl = firstRenderablePhotoUrl(ticket.photoUrls);
+  const photoUrl = firstDisplayablePhotoUrl(ticket.photoUrls);
   const thumbBackground = thumbnailBackground(photoUrl);
+  /*
+   * The SLA state for the chip.
+   *
+   * The TONE comes from the server. It depends on the warning
+   * band — a fraction of the target, so a 168-hour policy warns
+   * at a different absolute time than a 48-hour one — and the
+   * client has no business re-deriving that rule: two copies of
+   * the band drift, and the copy that drifts is the one nobody
+   * tests.
+   *
+   * The FIGURE is the server's remaining hours rather than a
+   * client-side clock read, for the same reason.
+   *
+   * A ticket with no target carries no tone, and the chip is
+   * simply absent: there is no promise to count down against, and
+   * "no target" must never be drawn as "on time".
+   */
+  const slaState: SlaState | null = useMemo(() => {
+    if (!ticket.slaTone) return null;
+    return {
+      tone: ticket.slaTone,
+      remainingHours: ticket.slaRemainingHours ?? 0,
+      targetHours: ticket.slaTargetHours ?? null,
+      startedAt: ticket.slaStartedAt ?? null,
+      dueAt: ticket.slaDueAt ?? null,
+    };
+  }, [
+    ticket.slaTone,
+    ticket.slaRemainingHours,
+    ticket.slaTargetHours,
+    ticket.slaStartedAt,
+    ticket.slaDueAt,
+  ]);
   return (
     <Link
       href={`/dispatcher/tickets/${ticket.id}`}
@@ -588,7 +671,6 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
         alignItems: 'center',
         padding: 'var(--space-4) var(--space-5)',
         background: 'var(--color-surface-card)',
-        border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-card)',
         textDecoration: 'none',
         color: 'var(--color-ink)',
@@ -646,12 +728,31 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
           style={{
             fontSize: 'var(--text-caption)',
             color: 'var(--color-ink-tertiary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-2)',
+            flexWrap: 'wrap',
           }}
         >
           {formatAge(ticket.createdAt, lang)} · {t('dispatcher.queue.row.reporter', null, lang)}{' '}
           <span style={{ fontWeight: 'var(--weight-semibold)' }}>
             {ticket.reporterName ?? ticket.reporterId}
           </span>
+          {/*
+           * The SLA chip. It answers the question the row's AGE
+           * cannot: how long is left against the category's
+           * target. A ticket that is three hours old but has a
+           * 48-hour target is not urgent, and a ticket that is
+           * two days old against a 48-hour target is.
+           *
+           * The chip is a separate signal rather than part of
+           * the age line because the two answer different
+           * questions — age is how long ago, SLA is how long
+           * left.
+           */}
+          {slaState ? (
+            <SlaCountdown state={slaState} lang={lang} size="sm" />
+          ) : null}
         </div>
       </div>
       <span
@@ -668,66 +769,6 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
     </Link>
   );
 }
-
-function StatusPill({ status, lang }: { status: TicketStatus; lang: Language }) {
-  // The design tokens define a `*-soft` background + a saturated
-  // `*-status` foreground for every status. The pill previously used
-  // the SATURATED token as the background, which for `routed` is
-  // `--color-status-routed: #2C5282` — byte-identical to
-  // `--color-primary`, the foreground colour. The pill rendered as
-  // a solid blue blob with invisible text.
-  const map: Record<TicketStatus, { bg: string; fg: string; label: string }> = {
-    submitted: {
-      bg: 'var(--color-status-submitted-soft)',
-      fg: 'var(--color-status-submitted)',
-      label: 'status.submitted',
-    },
-    routed: {
-      bg: 'var(--color-status-routed-soft)',
-      fg: 'var(--color-status-routed)',
-      label: 'status.routed',
-    },
-    in_progress: {
-      bg: 'var(--color-status-in-progress-soft)',
-      fg: 'var(--color-status-in-progress)',
-      label: 'status.in_progress',
-    },
-    resolved: {
-      bg: 'var(--color-status-resolved-soft)',
-      fg: 'var(--color-status-resolved)',
-      label: 'status.resolved',
-    },
-    closed: {
-      bg: 'var(--color-surface-raised)',
-      fg: 'var(--color-ink-tertiary)',
-      label: 'status.closed',
-    },
-    cancelled: {
-      bg: 'var(--color-surface-raised)',
-      fg: 'var(--color-ink-tertiary)',
-      label: 'status.cancelled',
-    },
-  };
-  const c = map[status];
-  return (
-    <span
-      lang={lang}
-      style={{
-        padding: '2px var(--space-2)',
-        background: c.bg,
-        color: c.fg,
-        borderRadius: 'var(--radius-pill)',
-        fontSize: 10,
-        fontWeight: 'var(--weight-bold)',
-        textTransform: 'uppercase',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {t(c.label, null, lang)}
-    </span>
-  );
-}
-
 function EmptyState({ lang }: { lang: Language }) {
   return (
     <div

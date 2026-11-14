@@ -45,4 +45,20 @@ describe('CategoryIcon', () => {
     const { container } = render(<CategoryIcon slug={null} />);
     expect(container.querySelector('svg')).not.toBeNull();
   });
+
+  it('uses the category colour token by default', () => {
+    const { container } = render(<CategoryIcon slug="pothole" />);
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.color).toBe('var(--color-cat-pothole)');
+  });
+
+  it('honours an explicit colour override', () => {
+    // A solid brand-coloured tile needs the glyph in the tile's
+    // foreground — the slate category colour is illegible on civic blue.
+    const { container } = render(
+      <CategoryIcon slug="pothole" color="var(--color-on-primary)" />,
+    );
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.color).toBe('var(--color-on-primary)');
+  });
 });

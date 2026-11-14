@@ -119,6 +119,22 @@ export interface PerfSubmittedVsResolvedPoint {
 export interface PerfCategoryRow {
   categoryId: string;
   count: number;
+  /**
+   * The category's stable machine key ("streetlight", "pothole", …).
+   *
+   * WHY THIS IS CARRIED
+   * -------------------
+   * `categoryId` is backend-specific: the dev store uses
+   * `cat_streetlight`, Postgres a CUID. A client that only has the
+   * id cannot label the chart — on the real database the bar chart
+   * rendered raw CUIDs (`cmvtghhi700082f9o2jww09ry`) as the
+   * category names. The slug is the one key BOTH backends agree on,
+   * so the client localizes from it.
+   *
+   * `null` when the category could not be resolved (an unknown id);
+   * the client then falls back to showing the raw id.
+   */
+  categorySlug: string | null;
 }
 
 /** One segment of the status donut. */
@@ -147,6 +163,8 @@ export interface PerfCrewRow {
 export interface PerfLongTailRow {
   id: string;
   categoryId: string;
+  /** The category's stable machine key — see `PerfCategoryRow`. */
+  categorySlug: string | null;
   createdAt: string;
   ageMs: number;
   assignedCrewId: string | null;
@@ -318,14 +336,26 @@ export function buildSubmittedVsResolved(
 /**
  * Build the category breakdown: one row per category, sorted by
  * count descending (ties broken by categoryId for stability).
+ *
+ * `categorySlugs` maps a category id to its stable machine key. It
+ * is optional so the pure function stays usable without a database
+ * round-trip; rows without an entry keep `categorySlug: null` and
+ * the client falls back to the raw id.
  */
-export function buildCategoryBreakdown(tickets: PerfTicket[]): PerfCategoryRow[] {
+export function buildCategoryBreakdown(
+  tickets: PerfTicket[],
+  categorySlugs?: Record<string, string>,
+): PerfCategoryRow[] {
   const counts = new Map<string, number>();
   for (const t of tickets) {
     counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
   }
   return [...counts.entries()]
-    .map(([categoryId, count]) => ({ categoryId, count }))
+    .map(([categoryId, count]) => ({
+      categoryId,
+      count,
+      categorySlug: categorySlugs?.[categoryId] ?? null,
+    }))
     .sort((a, b) =>
       a.count === b.count
         ? a.categoryId.localeCompare(b.categoryId)
@@ -420,6 +450,7 @@ export function buildLongTail(
   tickets: PerfTicket[],
   crewNames?: Record<string, string>,
   limit: number = PERFORMANCE_LONG_TAIL_LIMIT,
+  categorySlugs?: Record<string, string>,
 ): PerfLongTailRow[] {
   const now = Date.now();
   return tickets
@@ -429,6 +460,7 @@ export function buildLongTail(
     .map((t) => ({
       id: t.id,
       categoryId: t.categoryId,
+      categorySlug: categorySlugs?.[t.categoryId] ?? null,
       createdAt: t.createdAt,
       ageMs: Math.max(0, now - Date.parse(t.createdAt)),
       assignedCrewId: t.assignedCrewId,
@@ -448,6 +480,7 @@ export function buildPerformanceSnapshot(options: {
   range: PerfRange;
   crew: PerfCrew[];
   crewNames?: Record<string, string>;
+  categorySlugs?: Record<string, string>;
   feedback?: { crewId: string; positive: number; negative: number }[];
   ward?: {
     wardId: string | null;
@@ -460,10 +493,18 @@ export function buildPerformanceSnapshot(options: {
   return {
     hero: buildHeroStats(options.current, options.previous),
     submittedVsResolved: buildSubmittedVsResolved(options.current, options.range),
-    categoryBreakdown: buildCategoryBreakdown(options.current),
+    categoryBreakdown: buildCategoryBreakdown(
+      options.current,
+      options.categorySlugs,
+    ),
     statusBreakdown: buildStatusBreakdown(options.current),
     crewTable: buildCrewTable(options.current, options.crew, options.feedback),
-    longTail: buildLongTail(options.current, options.crewNames, PERFORMANCE_LONG_TAIL_LIMIT),
+    longTail: buildLongTail(
+      options.current,
+      options.crewNames,
+      PERFORMANCE_LONG_TAIL_LIMIT,
+      options.categorySlugs,
+    ),
     range: options.range,
     ward: options.ward ?? {
       wardId: null,
@@ -599,12 +640,40 @@ export async function getPerformanceSnapshot(
     }
   }
 
+  // The category slug map, so the client can LOCALIZE the category
+  // chart instead of printing raw ids.
+  //
+  // WHY A DATABASE LOOKUP
+  // ---------------------
+  // The category id is backend-specific: the dev store keys it
+  // `cat_streetlight`, Postgres a CUID. The `slug` column is the one
+  // key both backends agree on, and it lives in the database — so we
+  // read it rather than hardcoding a map that only fits one backend.
+  //
+  // We only fetch the categories this snapshot actually references,
+  // and only the two columns we need.
+  const referencedCategoryIds = [
+    ...new Set(current.map((t) => t.categoryId)),
+  ];
+  const categorySlugs: Record<string, string> = {};
+  for (const categoryId of referencedCategoryIds) {
+    // `findUnique` rather than `findMany({ where: { id: { in: … } } })`:
+    // the dev store's `category.findMany` only understands
+    // `where: { cityId }`, so an `in` filter would silently match
+    // nothing on that backend.
+    const categoryRow = await db.category.findUnique({
+      where: { id: categoryId },
+    });
+    if (categoryRow?.slug) categorySlugs[categoryId] = categoryRow.slug;
+  }
+
   return buildPerformanceSnapshot({
     current,
     previous,
     range,
     crew,
     crewNames,
+    categorySlugs,
     // WO-002 — the citizen feedback aggregate. Derived from the
     // tickets in the CURRENT range only: the crew table is a
     // snapshot of this period, and mixing in the previous period's

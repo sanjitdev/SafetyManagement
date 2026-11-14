@@ -251,11 +251,14 @@ async function submitReport(
     .catch(() => undefined);
   // Belt-and-braces: still give React an extra tick.
   await page.waitForTimeout(800);
-  // The Report CTA now lives in the shared AppHeader, labelled
-  // "রিপোর্ট করুন" (bn) / "Report" (en). The old "নতুন রিপোর্ট"
-  // top-bar button was removed when the header was unified.
+  // The home page's own Report CTA. The header's top-bar Report
+  // button was REMOVED on 2026-11-14 (demo simplification — it
+  // duplicated this CTA and the role sidebar's "New report" item).
+  // This is a LINK to /report/location (`.home-report-action`),
+  // labelled by `home.dashboard.report` → Bangla "সমস্যা রিপোর্ট করুন"
+  // / English "Report an issue".
   const reportCta = page
-    .getByRole('button', { name: /রিপোর্ট করুন|New report|Report/i })
+    .locator('a.home-report-action')
     .first();
   await reportCta.waitFor({ state: 'visible', timeout: 15_000 });
   await capture(page, '01-citizen-home');

@@ -302,6 +302,11 @@ const TRAIL_ENTRY_SCHEMA: JsonSchema = {
       description:
         'Populated on routes that build an actor-role map (the dispatcher queue, the per-ticket GETs, the crew list). Null on routes that do not.',
     },
+    actorName: {
+      type: ['string', 'null'],
+      description:
+        'The actor\'s display name, joined server-side. Null for citizens — trail actors are anonymised on the citizen serializer.',
+    },
     note: { type: ['string', 'null'] },
     timestamp: { type: 'string', format: 'date-time' },
   },
@@ -361,6 +366,11 @@ const SERIALIZED_TICKET_SCHEMA: JsonSchema = {
     reporterName: {
       type: ['string', 'null'],
       description: 'Always null on the citizen serializer.',
+    },
+    assignedCrewName: {
+      type: ['string', 'null'],
+      description:
+        'The assigned crew member\'s display name, joined server-side. Always null on the citizen serializer.',
     },
     trail: { type: 'array', items: TRAIL_ENTRY_SCHEMA },
   },
@@ -1744,6 +1754,8 @@ export const openapiPaths: Record<string, PathItem> = {
                   id: { type: 'string' },
                   status: { type: 'string' },
                   categoryId: { type: 'string' },
+                  categoryName: { type: ['string', 'null'] },
+                  categoryNameBn: { type: ['string', 'null'] },
                   wardId: { type: 'string' },
                   wardName: { type: ['string', 'null'] },
                   assignedCrewId: { type: ['string', 'null'] },
@@ -1752,6 +1764,8 @@ export const openapiPaths: Record<string, PathItem> = {
                     type: 'object',
                     properties: {
                       actorId: { type: ['string', 'null'] },
+                      actorName: { type: ['string', 'null'] },
+                      actorRole: { type: ['string', 'null'] },
                       toStatus: { type: ['string', 'null'] },
                       timestamp: { type: 'string', format: 'date-time' },
                       unread: { type: 'boolean' },
@@ -1765,6 +1779,7 @@ export const openapiPaths: Record<string, PathItem> = {
                       properties: {
                         toStatus: { type: 'string' },
                         actorId: { type: ['string', 'null'] },
+                        actorName: { type: ['string', 'null'] },
                         actorRole: { type: ['string', 'null'] },
                         note: { type: ['string', 'null'] },
                         timestamp: { type: 'string', format: 'date-time' },
@@ -1956,7 +1971,15 @@ export const openapiPaths: Record<string, PathItem> = {
               type: 'array',
               items: {
                 type: 'object',
-                properties: { categoryId: { type: 'string' }, count: { type: 'integer' } },
+                properties: {
+                  categoryId: { type: 'string' },
+                  count: { type: 'integer' },
+                  categorySlug: {
+                    type: ['string', 'null'],
+                    description:
+                      'The category\'s stable machine key ("streetlight", "pothole", …) — the backend-agnostic key the client resolves into a localized label.',
+                  },
+                },
               },
             },
             statusBreakdown: {
@@ -1990,6 +2013,11 @@ export const openapiPaths: Record<string, PathItem> = {
                 properties: {
                   id: { type: 'string' },
                   categoryId: { type: 'string' },
+                  categorySlug: {
+                    type: ['string', 'null'],
+                    description:
+                      'The category\'s stable machine key ("streetlight", "pothole", …) — the backend-agnostic key the client resolves into a localized label.',
+                  },
                   createdAt: { type: 'string', format: 'date-time' },
                   ageMs: { type: 'number' },
                   assignedCrewId: { type: ['string', 'null'] },
@@ -2105,6 +2133,54 @@ export const openapiPaths: Record<string, PathItem> = {
         '403': { $ref: '#/components/responses/Forbidden' },
         '404': jsonResponse('The flag does not exist, is not pending, or is outside the dispatcher’s scope.', errorBody('not_found')),
         '500': jsonResponse('The dismissal could not be completed.', errorBody('post_dismiss_fetch_failed')),
+      },
+    },
+  },
+  '/api/v1/dispatcher/reassign-options': {
+    get: {
+      tags: ['Dispatcher'],
+      summary: 'The wards and categories a report can be reassigned to',
+      description:
+        'Returns the reference data the reassign panel needs, read from the store rather than hard-coded. The ward list is narrowed to the dispatcher’s city, and — for a ward-bound dispatcher — to the single ward they hold. The category list is narrowed to the dispatcher’s city but is NOT ward- or department-filtered: a category belongs to a city, and a dispatcher may reclassify a report they already hold into any category in that city, because the department scope decides what they can see in the queue, not what they may reclassify.',
+      operationId: 'dispatcherReassignOptions',
+      responses: {
+        '200': jsonResponse('The reassign options.', {
+          type: 'object',
+          required: ['wards', 'categories', 'wardScoped'],
+          properties: {
+            wards: {
+              type: 'array',
+              description: 'The wards the dispatcher may move a report into, ordered by ward number.',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  number: { type: 'integer' },
+                  name: { type: 'string' },
+                  nameBn: { type: ['string', 'null'] },
+                },
+              },
+            },
+            categories: {
+              type: 'array',
+              description: 'The categories the dispatcher may reclassify a report into, ordered by name.',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  name: { type: 'string' },
+                  nameBn: { type: ['string', 'null'] },
+                },
+              },
+            },
+            wardScoped: {
+              type: 'boolean',
+              description: 'True when the dispatcher is bound to a single ward, so the ward list holds exactly one row.',
+            },
+          },
+        }),
+        '401': { $ref: '#/components/responses/Unauthorized' },
+        '403': { $ref: '#/components/responses/Forbidden' },
       },
     },
   },

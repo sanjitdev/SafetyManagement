@@ -1134,36 +1134,6 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'report.step.4': { bn: 'নোট', en: 'Note' },
   'report.step.5': { bn: 'সারসংক্ষেপ', en: 'Summary' },
 
-  // The progress sentence under the rail. The mockup renders
-  // "ধাপ ২ / ৫ — ছবি যোগ করুন"; the digits are ASCII so the
-  // string matches the production counter format exactly.
-  'report.step.progress': {
-    bn: 'ধাপ {current} / {total} — {label}',
-    en: 'Step {current} of {total} — {label}',
-  },
-
-  // The per-step subtitle sentence that follows the step label.
-  'report.step.subtitle.location': {
-    bn: 'সমস্যার জায়গা নির্বাচন করুন',
-    en: 'Choose where the problem is',
-  },
-  'report.step.subtitle.photo': {
-    bn: 'ছবি যোগ করুন',
-    en: 'Add photos',
-  },
-  'report.step.subtitle.category': {
-    bn: 'সমস্যার ধরন বাছাই করুন',
-    en: 'Pick the problem type',
-  },
-  'report.step.subtitle.note': {
-    bn: 'একটি নোট লিখুন',
-    en: 'Write a short note',
-  },
-  'report.step.subtitle.summary': {
-    bn: 'রিপোর্টটি পর্যালোচনা করুন',
-    en: 'Review the report',
-  },
-
   // The step pill in the sticky aside rail. Previously hard-coded
   // Bangla inside `components/ui/ReportStepAside.tsx`.
   'report.step.pill': {
@@ -1893,7 +1863,6 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'header.nav.reports': { bn: 'আমার রিপোর্ট', en: 'My reports' },
   'header.nav.report': { bn: 'রিপোর্ট করুন', en: 'Report' },
   'header.nav.menu_label': { bn: 'প্রধান নেভিগেশন', en: 'Main navigation' },
-  'header.nav.toggle_menu': { bn: 'মেনু খুলুন', en: 'Toggle menu' },
   'header.user.signin': { bn: 'সাইন ইন', en: 'Sign in' },
   'header.user.register': { bn: 'নিবন্ধন', en: 'Register' },
 
@@ -1947,6 +1916,116 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: '{age} আগে',
     en: '{age} ago',
   },
+
+  // ── Wave 4 / bolt 009-005 — the SLA countdown chip ─────────────
+  //
+  // The chip carries a WORD alongside its icon and colour, so a
+  // colour-blind reader and a greyscale printout can still tell the
+  // states apart. The words are therefore states, not numbers — the
+  // number is rendered from the remaining hours, not translated.
+  'dispatcher.sla.on_track': { bn: 'সময়মতো', en: 'On track' },
+  'dispatcher.sla.at_risk': { bn: 'ঝুঁকিতে', en: 'At risk' },
+  'dispatcher.sla.breached': { bn: 'সময় পেরিয়েছে', en: 'Overdue' },
+  'dispatcher.sla.met': { bn: 'সময়মতো সম্পন্ন', en: 'Met' },
+  /**
+   * "Not started" covers BOTH the category-with-no-policy case and
+   * the not-yet-routed case. Neither is a breach, and neither is a
+   * comfort — nothing has been promised yet, so nothing can be
+   * missed. Conflating either with "on track" would tell the
+   * dispatcher a ticket is fine when no clock is even running.
+   */
+  'dispatcher.sla.not_started': { bn: 'শুরু হয়নি', en: 'Not started' },
+  'dispatcher.sla.unit.minutes': { bn: 'মিনিট', en: 'minutes' },
+  'dispatcher.sla.unit.hours': { bn: 'ঘণ্টা', en: 'hours' },
+  'dispatcher.sla.unit.days': { bn: 'দিন', en: 'days' },
+  /**
+   * The chip's accessible name — the state plus the figure, so a
+   * screen reader announces "2 days left" rather than a bare
+   * number that means nothing without its context.
+   */
+  'dispatcher.sla.label': { bn: '{state}: {figure}', en: '{state}: {figure}' },
+  /**
+   * The target itself — "48h target". The chip shows the remaining
+   * time; this states the promise it is counting down against, so
+   * the number is never floating free of its denominator.
+   */
+  'dispatcher.sla.target': { bn: '{hours} ঘণ্টার লক্ষ্য', en: '{hours}h target' },
+  /**
+   * The copy shown when the category has no SLA policy. Distinct
+   * from "not started" on purpose: there is no promise to count
+   * down against at all.
+   */
+  'dispatcher.sla.no_policy': {
+    bn: 'কোনো সময়সীমা নেই',
+    en: 'No SLA set',
+  },
+
+  // ── Wave 4 — the triage filter rail ───────────────────────────
+  //
+  // The status filter now covers all four ticket states the model
+  // has, not just the two the queue endpoint used to accept.
+  'dispatcher.queue.filter.in_progress': {
+    bn: 'শুধু চলমান',
+    en: 'In progress only',
+  },
+  'dispatcher.queue.filter.resolved': {
+    bn: 'শুধু সম্পন্ন',
+    en: 'Resolved only',
+  },
+  'dispatcher.queue.filter.ward_heading': { bn: 'ওয়ার্ড', en: 'Ward' },
+  'dispatcher.queue.filter.all_wards': {
+    bn: 'সব ওয়ার্ড',
+    en: 'All wards',
+  },
+  /**
+   * Shown next to the ward rail when the dispatcher's session is
+   * bound to a single ward. The rail then lists one entry, and
+   * without this note a one-row filter rail reads as a broken
+   * control rather than an honest statement of the boundary.
+   */
+  'dispatcher.queue.filter.ward_scoped': {
+    bn: 'আপনার ওয়ার্ডে সীমাবদ্ধ',
+    en: 'Limited to your ward',
+  },
+  'dispatcher.queue.filter.search_placeholder': {
+    bn: 'রিপোর্ট খুঁজুন…',
+    en: 'Search reports…',
+  },
+  'dispatcher.queue.detail.empty': {
+    bn: 'বিস্তারিত দেখতে একটি রিপোর্ট নির্বাচন করুন',
+    en: 'Select a report to see its details',
+  },
+  'dispatcher.queue.detail.title': { bn: 'রিপোর্টের বিস্তারিত', en: 'Report details' },
+  'dispatcher.queue.detail.open_full': {
+    bn: 'পূর্ণ পৃষ্ঠা খুলুন',
+    en: 'Open full page',
+  },
+  'dispatcher.queue.detail.assign_crew': {
+    bn: 'ক্রু নিয়োগ করুন',
+    en: 'Assign crew',
+  },
+  'dispatcher.queue.detail.internal_note': {
+    bn: 'অভ্যন্তরীণ নোট',
+    en: 'Internal note',
+  },
+
+  // ── Wave 4 — the searchable crew-picker combobox ───────────────
+  'dispatcher.combobox.label': { bn: 'ক্রু খুঁজুন', en: 'Search crew' },
+  'dispatcher.combobox.placeholder': {
+    bn: 'ক্রুর নাম লিখুন…',
+    en: 'Type a crew name…',
+  },
+  'dispatcher.combobox.no_results': {
+    bn: 'কোনো ক্রু পাওয়া যায়নি',
+    en: 'No crew found',
+  },
+  'dispatcher.combobox.selected_none': {
+    bn: 'ক্রু নির্বাচিত হয়নি',
+    en: 'No crew selected',
+  },
+  'dispatcher.combobox.results': { bn: 'ফলাফল', en: 'results' },
+  'dispatcher.combobox.open_list': { bn: 'তালিকা খুলুন', en: 'Open the list' },
+
   'dispatcher.queue.row.view': { bn: 'বিস্তারিত', en: 'View ticket' },
   'dispatcher.dedup.link': {
     bn: 'সম্ভাব্য ডুপ্লিকেট ({n})',
@@ -2166,6 +2245,18 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'অনুরোধ ব্যর্থ — আবার চেষ্টা করুন',
     en: 'Action failed — try again',
   },
+  // The two panels in a dedup row: the citizen's NEW ticket and the
+  // EXISTING ticket it was near. These were the hard-coded English
+  // words "New" and "Original", which a Bangla reader could not read
+  // and which did not say WHICH was which.
+  'dispatcher.dedup.row.panel.new': {
+    bn: 'নতুন রিপোর্ট',
+    en: 'New report',
+  },
+  'dispatcher.dedup.row.panel.original': {
+    bn: 'আগের রিপোর্ট',
+    en: 'Existing report',
+  },
   'dispatcher.dedup.signin_required': {
     bn: 'ডুপ্লিকেট রিভিউ দেখতে লগইন করুন',
     en: 'Sign in to review duplicates',
@@ -2228,6 +2319,13 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'dispatcher.map.error': {
     bn: 'মানচিত্র লোড করা যায়নি',
     en: 'Could not load the map',
+  },
+  // The dispatcher's scope, stated in words. A dispatcher with no
+  // ward and no department covers the whole city, and the label says
+  // so rather than rendering an empty list of separators.
+  'dispatcher.map.scope.city_wide': {
+    bn: 'সমগ্র শহর',
+    en: 'City-wide',
   },
 
   // WO-002 (Intent 003) — Dispatcher monitor surface (UX spec 2.5)
@@ -2548,12 +2646,16 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'প্রতিবেদন তৈরি হচ্ছে…',
     en: 'Preparing the snapshot…',
   },
-  'dispatcher.performance.duration.days': { bn: '{n} দিন', en: '{n} d' },
-  'dispatcher.performance.duration.hours': {
+  // A duration, formatted compactly ("2 d 3 h"). Shared by every
+  // dispatcher surface that shows a span of time — the monitor page
+  // used to reach into `dispatcher.performance.*` for these, which
+  // made the performance page the owner of a key the monitor needed.
+  'ui.duration.days': { bn: '{n} দিন', en: '{n} d' },
+  'ui.duration.hours': {
     bn: '{n} ঘণ্টা',
     en: '{n} h',
   },
-  'dispatcher.performance.duration.minutes': {
+  'ui.duration.minutes': {
     bn: '{n} মিনিট',
     en: '{n} m',
   },
@@ -3200,8 +3302,7 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'shell.nav.settings': { bn: 'সেটিংস', en: 'Settings' },
   'shell.nav.my_jobs': { bn: 'আমার কাজ', en: 'My Jobs' },
   'shell.nav.activity_log': { bn: 'কার্যক্রম লগ', en: 'Activity Log' },
-  'shell.search': { bn: 'রিপোর্ট বা অবস্থান খুঁজুন…', en: 'Search reports, locations…' },
-  'shell.search.submit': { bn: 'খুঁজুন', en: 'Search' },
+  'shell.nav.safety_guide': { bn: 'নিরাপত্তা নির্দেশিকা', en: 'Safety Guide' },
   'shell.nav.open': { bn: 'নেভিগেশন খুলুন', en: 'Open navigation' },
   'shell.status.online': { bn: 'অনলাইন', en: 'Online' },
   'dispatcher.dashboard.title': { bn: 'ডিসপ্যাচার ড্যাশবোর্ড', en: 'Dispatcher Dashboard' },
@@ -3504,6 +3605,134 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'crew.dashboard.tips_action': {
     bn: 'নিরাপত্তা নির্দেশিকা দেখুন',
     en: 'View safety guide',
+  },
+
+  // ── The safety guide (/crew/safety-guide) ────────────────────────
+  // The "Field tips" card on the crew dashboard has always linked
+  // here; this is the content that link promised.
+  'crew.safety.title': {
+    bn: 'নিরাপত্তা নির্দেশিকা',
+    en: 'Safety guide',
+  },
+  'crew.safety.subtitle': {
+    bn: 'কাজ শুরু করার আগে এবং মাঠপর্যায়ে সবসময় মেনে চলবেন এই নিয়মগুলো।',
+    en: 'The rules to follow before you start a job, and while you are out in the field.',
+  },
+  'crew.safety.back': {
+    bn: 'আমার কাজে ফিরে যান',
+    en: 'Back to My Jobs',
+  },
+  'crew.safety.footer': {
+    bn: 'কোনো অনিশ্চয়তা থাকলে আগে ডিসপ্যাচারকে জানান। জরুরি প্রয়োজনে সরাসরি নগর কর্পোরেশনের জরুরি লাইনে কল করুন।',
+    en: 'If anything is unclear, tell the dispatcher first. For an emergency, call the city corporation hotline directly.',
+  },
+
+  'crew.safety.before.title': {
+    bn: 'কাজে যাওয়ার আগে',
+    en: 'Before you leave',
+  },
+  'crew.safety.before.ppe.title': {
+    bn: 'সুরক্ষা পোশাক পরুন',
+    en: 'Wear your protective gear',
+  },
+  'crew.safety.before.ppe.body': {
+    bn: 'হেলমেট, হাই-ভিজিবিলিটি ভেস্ট, নিরাপদের গ্লাভস এবং ইস্পাত-টোপ বুট সবসময় পরুন। জুতা ছাড়া রাস্তায় নামবেন না।',
+    en: 'Always wear a helmet, a high-visibility vest, safety gloves and steel-toe boots. Never step onto the road without them.',
+  },
+  'crew.safety.before.checklist.title': {
+    bn: 'কাজের তালিকা যাচাই করুন',
+    en: 'Check the job list',
+  },
+  'crew.safety.before.checklist.body': {
+    bn: 'আজকের কাজগুলো দেখে নিন, প্রয়োজনীয় সরঞ্জাম ও যন্ত্রাংশ নিশ্চিত করুন, এবং দিনের আলো ছাড়া কাজ না করার বিষয়ে ডিসপ্যাচারের সাথে আলোচনা করুন।',
+    en: 'Review today\'s assignments, confirm you have the tools and parts, and agree with the dispatcher if a job needs to run after dark.',
+  },
+  'crew.safety.before.weather.title': {
+    bn: 'আবহাওয়া দেখে নিন',
+    en: 'Check the weather',
+  },
+  'crew.safety.before.weather.body': {
+    bn: 'ঝড় বা ভারী বৃষ্টির দিনে উঁচু জায়গায় এবং বিদ্যুৎ সরবরাহের কাজ থেকে বিরত থাকুন। নিরাপত্তা অফিসারের পরামর্শ নিন।',
+    en: 'Pause work at height and on anything electrical during storms or heavy rain. Follow the safety officer\'s advice.',
+  },
+
+  'crew.safety.onsite.title': {
+    bn: 'কর্মস্থলে পৌঁছে গিয়ে',
+    en: 'When you arrive on site',
+  },
+  'crew.safety.onsite.traffic.title': {
+    bn: 'রাস্তা নিরাপদ করুন',
+    en: 'Make the area safe first',
+  },
+  'crew.safety.onsite.traffic.body': {
+    bn: 'কাজ শুরুর আগে যানজট নিয়ন্ত্রণ বা সতর্কতা সংকেত বসান। রাতের বেলা প্রতিটি জায়গায় আলো ও প্রতিফলক চিহ্ন ব্যবহার করুন।',
+    en: 'Set up traffic control or a warning sign before you start. At night, use lights and reflective markers at every position.',
+  },
+  'crew.safety.onsite.citizen.title': {
+    bn: 'নাগরিকের সাথে সতর্ক থাকুন',
+    en: 'Stay mindful around citizens',
+  },
+  'crew.safety.onsite.citizen.body': {
+    bn: 'কাজের এলাকা থেকে পথচারীদের সরিয়ে নিন। প্রয়োজন হলে একজন সহকর্মীকে পথ পরিষ্কার রাখতে বলুন।',
+    en: 'Keep passers-by clear of the work area. If needed, ask a colleague to stand and direct pedestrians.',
+  },
+  'crew.safety.onsite.electrical.title': {
+    bn: 'বিদ্যুৎ নিরাপদ করুন',
+    en: 'Make it electrically safe',
+  },
+  'crew.safety.onsite.electrical.body': {
+    bn: 'কাজ শুরুর আগে সার্কিট বন্ধ করে লক ও ট্যাগ লাগান। সংযোগ খোলার আগে মার্কিং টেস্ট করুন।',
+    en: 'Switch off, lock out and tag the circuit before you start. Test for dead before opening any connection.',
+  },
+
+  'crew.safety.during.title': {
+    bn: 'কাজ চলাকালে',
+    en: 'While the job is underway',
+  },
+  'crew.safety.during.photos.title': {
+    bn: 'নিরাপদ অবস্থান থেকে ছবি তুলুন',
+    en: 'Photograph from a safe position',
+  },
+  'crew.safety.during.photos.body': {
+    bn: 'সিঁড়ি বা রাস্তার মাঝখানে দাঁড়িয়ে ছবি তুলবেন না। প্রয়োজনে হেলমেটের ক্যামেরা ব্যবহার করুন।',
+    en: 'Do not photograph while standing on a ladder or in the middle of the road. Use a helmet camera if you need one.',
+  },
+  'crew.safety.during.pair.title': {
+    bn: 'একা ঝুঁকিপূর্ণ কাজ করবেন না',
+    en: 'Do not do risky work alone',
+  },
+  'crew.safety.during.pair.body': {
+    bn: 'উঁচুতে কাজ, ভারী যন্ত্রাংশ তোলা বা বিদ্যুৎ সংক্রান্ত কাজে অন্তত দুইজন থাকতে হবে।',
+    en: 'Work at height, lifting heavy parts or working on live electricity always needs at least two people.',
+  },
+  'crew.safety.during.escalate.title': {
+    bn: 'সাহস না পেলে জানান',
+    en: 'Speak up if you are unsure',
+  },
+  'crew.safety.during.escalate.body': {
+    bn: 'কাজটি নিরাপদে করা সম্ভব না মনে হলে কাজটি বন্ধ করে ডিসপ্যাচারকে জানান। কাজ বন্ধ রাখা কোনো দোষ নয়।',
+    en: 'If a job does not look safe, stop and tell the dispatcher. Stopping work is never the wrong call.',
+  },
+
+  'crew.safety.after.title': {
+    bn: 'কাজ শেষে',
+    en: 'When the job is done',
+  },
+  'crew.safety.after.finish.title': {
+    bn: 'সব সরঞ্জাম ফিরিয়ে আনুন',
+    en: 'Bring every tool back',
+  },
+  'crew.safety.after.finish.body': {
+    bn: 'কাজ শেষে যন্ত্রাংশ, সিঁড়ি ও সতর্কতা সংকেত সব ফিরিয়ে আনুন। রাস্তায় কিছু রেখে গেলে ঝুঁকি তৈরি হয়।',
+    en: 'Return tools, ladders and warning signs when you finish. Anything left behind becomes a hazard.',
+  },
+  'crew.safety.after.report.title': {
+    bn: 'শেষের ছবি তুলুন',
+    en: 'Photograph the finished work',
+  },
+  'crew.safety.after.report.body': {
+    bn: 'কাজ শেষ হওয়ার পরে একটি ছবি তুলে কাজটি সম্পন্ন হিসেবে চিহ্নিত করুন। এতে নাগরিক সময়মতো খবর পান।',
+    en: 'Take one photo of the finished work and mark the job complete. The citizen sees this, so it keeps them informed.',
   },
 
   'crew.list.title': {

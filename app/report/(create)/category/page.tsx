@@ -148,13 +148,24 @@ export default function CategoryPage() {
       style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 1fr) var(--report-side-panel)',
-        minHeight: 'calc(100vh - var(--header-height-desktop))',
+        /*
+         * Size against the CONTENT REGION, not the viewport.
+         *
+         * `calc(100vh - var(--header-height-desktop))` subtracted only
+         * the global header and ignored the step-indicator strip, so
+         * the page was 124px taller than the space it had and
+         * `.role-app-content` scrolled — the scrollbar the citizen saw
+         * on every report step.
+         */
+        height: 'var(--report-content-height)',
+        minHeight: 0,
         // Reserve the FIXED action bar's footprint so the last
         // element in the column is never hidden behind it.
         paddingBottom:
           'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-two-region"
+      data-report-step-page
     >
       {/*
         The CSS is injected raw. React escapes quote characters in a
@@ -185,19 +196,42 @@ export default function CategoryPage() {
                       box-shadow var(--duration-fast) var(--ease-out),
                       transform var(--duration-fast) var(--ease-out);
         }
+        /*
+         * On a SHORT viewport the five category cards need to give
+         * back the vertical padding, or the list overflows the
+         * region and the column scrolls.
+         *
+         * The card's own tap target stays well over the 44px
+         * minimum — the padding shrinks, the row does not.
+         */
+        @media (max-height: 860px) {
+          .report-category-card { padding-top: var(--space-2) !important; padding-bottom: var(--space-2) !important; }
+          .report-category-card > span:first-child { width: 36px !important; height: 36px !important; }
+          .report-category-column { padding-top: var(--space-3) !important; padding-bottom: var(--space-3) !important; }
+          .report-category-list { gap: 6px !important; }
+        }
       `,
         }}
       />
 
       <div
         style={{
-          padding: 'var(--space-7) var(--space-6)',
+          /*
+           * `var(--space-4) var(--space-6)` — 16px vertical, 32px
+           * horizontal. The step's 48px top/bottom padding plus the
+           * 24px gaps consumed 168px of the region, which pushed the
+           * 5-category list past the bottom and made the column
+           * scroll. Tighter padding fits the whole list.
+           */
+          padding: 'var(--space-4) var(--space-6)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 'var(--space-5)',
+          gap: 'var(--space-3)',
           minHeight: 0,
           overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
+        className="report-category-column"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <h1
@@ -222,7 +256,11 @@ export default function CategoryPage() {
             style={{
               color: 'var(--color-ink-secondary)',
               margin: 0,
-              fontSize: 'var(--text-body-lg)',
+              // `--text-body` rather than `--text-body-lg`: the
+              // helper is a one-line cue, not the step's headline,
+              // and the tighter size keeps the whole category list
+              // inside the region without a scrollbar.
+              fontSize: 'var(--text-body)',
               lineHeight: 'var(--leading-normal)',
             }}
           >
@@ -261,14 +299,17 @@ export default function CategoryPage() {
             lang={LANG}
             style={{
               width: '100%',
-              padding: 'var(--space-4) var(--space-5) var(--space-4) calc(var(--space-4) + 20px + var(--space-3))',
+              padding: 'var(--space-3) var(--space-5) var(--space-3) calc(var(--space-4) + 20px + var(--space-3))',
               background: 'var(--color-surface-card)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-lg)',
               fontSize: 'var(--text-body-lg)',
               color: 'var(--color-ink)',
               fontFamily: 'var(--font-body)',
-              minHeight: 'var(--touch-large)',
+              // 48px — comfortably over the 44px touch minimum, and
+              // 8px shorter than `--touch-large`, which the tighter
+              // column rhythm does not have room for.
+              minHeight: 48,
               boxShadow: 'var(--shadow-xs)',
               outline: 'none',
               transition: 'border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)',
@@ -306,13 +347,17 @@ export default function CategoryPage() {
           <ul
             role="radiogroup"
             aria-label={t('report.category.h1', null, LANG)}
+            className="report-category-list"
             style={{
               listStyle: 'none',
               padding: 0,
               margin: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: 'var(--space-3)',
+              // `--space-2` (8px) rather than `--space-3` (12px):
+              // 5 cards × 4 gaps saved 16px, which is what let the
+              // whole list fit the region without a scrollbar.
+              gap: 'var(--space-2)',
             }}
           >
             {visibleCategories.map((c) => {
@@ -326,10 +371,28 @@ export default function CategoryPage() {
                     onClick={() => setSelected(c.id)}
                     className="report-category-card"
                     data-testid={`report-category-${c.slug}`}
+                    /*
+                     * The card is a LAYOUT — icon tile, label block and
+                     * a trailing chevron — so the children must be
+                     * direct flex items of the button. The `Button`
+                     * primitive's label wrapper would nest them one
+                     * level down, where they are no longer flex
+                     * children and the row collapses into a narrow
+                     * centred stack.
+                     */
+                    rawChildren
                     style={{
                       width: '100%',
                       textAlign: 'left',
-                      padding: 'var(--space-4) var(--space-5)',
+                      /*
+                       * `var(--space-3) var(--space-5)` — 12px vertical,
+                       * 20px horizontal. The card is a 44px icon tile
+                       * plus two lines of text, so 12px of padding
+                       * keeps it comfortable while letting all five
+                       * categories fit the region without the column
+                       * scrolling.
+                       */
+                      padding: 'var(--space-3) var(--space-5)',
                       minHeight: 'var(--touch-cta)',
                       background: isSelected
                         ? 'var(--color-primary-soft)'
@@ -344,6 +407,10 @@ export default function CategoryPage() {
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
+                      // The card's content starts at the left edge;
+                      // the primitive centres a label, which is
+                      // right for a CTA and wrong for a card row.
+                      justifyContent: 'flex-start',
                       gap: 'var(--space-4)',
                       boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)',
                       position: 'relative',
@@ -354,8 +421,17 @@ export default function CategoryPage() {
                       aria-hidden
                       style={{
                         flexShrink: 0,
-                        width: 'var(--touch-large)',
-                        height: 'var(--touch-large)',
+                        /*
+                         * The tile is DECORATIVE — the whole card is
+                         * the tap target (`minHeight: var(--touch-cta)`
+                         * = 64px, well over the 44px minimum). It does
+                         * not need the 56px `--touch-large` box, which
+                         * made each card 90px tall and pushed the
+                         * 5-category list past the region so the
+                         * column scrolled.
+                         */
+                        width: 40,
+                        height: 40,
                         borderRadius: 'var(--radius-md)',
                         background: isSelected
                           ? 'var(--color-primary)'
@@ -367,7 +443,18 @@ export default function CategoryPage() {
                         transition: 'background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)',
                       }}
                     >
-                      <CategoryIcon slug={c.slug} size={28} />
+                      <CategoryIcon
+                        slug={c.slug}
+                        size={24}
+                        /*
+                         * On the selected card the tile is SOLID
+                         * primary, so the category's own colour
+                         * (a slate pothole, a green bin) would be
+                         * illegible against it. The glyph takes the
+                         * tile's foreground instead.
+                         */
+                        color={isSelected ? 'var(--color-on-primary)' : undefined}
+                      />
                     </span>
                     <span
                       style={{
@@ -410,6 +497,8 @@ export default function CategoryPage() {
                         aria-hidden
                         style={{
                           flexShrink: 0,
+                          // Pushed to the right edge of the card.
+                          marginLeft: 'auto',
                           width: 'var(--space-8)',
                           height: 'var(--space-8)',
                           borderRadius: '50%',
@@ -427,6 +516,7 @@ export default function CategoryPage() {
                         aria-hidden
                         style={{
                           flexShrink: 0,
+                          marginLeft: 'auto',
                           color: 'var(--color-ink-tertiary)',
                           display: 'inline-flex',
                           alignItems: 'center',

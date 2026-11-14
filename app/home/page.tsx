@@ -33,7 +33,7 @@ import {
   filterToI18nKey,
   type StatusFilter,
 } from '@/lib/home-filter';
-import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { formatDayLabel } from '@/lib/format/datetime';
 import { calendarDayInProductZone, nowMs, todayInProductZone } from '@/lib/format/clock';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
@@ -780,8 +780,12 @@ function ActivityCard({
    * missed the inline `data:` URL (the DEFAULT upload path) and the
    * root-relative `/api/blob/…` path — the citizen's own photo
    * rendered as a blank gradient square.
+   *
+   * `firstDisplayablePhotoUrl` additionally rejects the degenerate
+   * 1×1 / 2×2 PNG swatches, so a swatch falls back to the shared
+   * "no photo" empty state instead of painting an empty grey square.
    */
-  const photoUrl = firstRenderablePhotoUrl(item.photoUrls);
+  const photoUrl = firstDisplayablePhotoUrl(item.photoUrls);
   const thumbBackground = thumbnailBackground(photoUrl);
   return (
     <Link

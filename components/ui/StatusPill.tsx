@@ -40,6 +40,7 @@
 
 import { ICONS, type IconEntry } from '@/lib/ui/icon-map';
 import { t, type Language } from '@/lib/i18n/keys';
+import { STATUS_COLOR, STATUS_COLOR_SOFT } from '@/lib/ui/status-tokens';
 
 export type StatusKey =
   | 'submitted'
@@ -63,58 +64,66 @@ interface StatusVisual {
   icon: IconEntry;
 }
 
+/**
+ * The visual for each status.
+ *
+ * The COLOURS come from `lib/ui/status-tokens.ts` — the single
+ * source, shared with the charts and legends. Only the icon and
+ * the label live here, because those are presentation decisions
+ * that belong to the pill.
+ */
 const STATUS_VISUAL: Record<StatusKey, StatusVisual> = {
   submitted: {
-    fg: 'var(--color-status-submitted)',
-    bg: 'var(--color-status-submitted-soft)',
+    fg: STATUS_COLOR.submitted,
+    bg: STATUS_COLOR_SOFT.submitted,
     i18nKey: 'status.submitted',
     icon: ICONS.statusSubmitted,
   },
   routed: {
-    fg: 'var(--color-status-routed)',
-    bg: 'var(--color-status-routed-soft)',
+    fg: STATUS_COLOR.routed,
+    bg: STATUS_COLOR_SOFT.routed,
     i18nKey: 'status.routed',
     icon: ICONS.statusRouted,
   },
   in_progress: {
-    fg: 'var(--color-status-in-progress)',
-    bg: 'var(--color-status-in-progress-soft)',
+    fg: STATUS_COLOR.in_progress,
+    bg: STATUS_COLOR_SOFT.in_progress,
     i18nKey: 'status.in_progress',
     icon: ICONS.statusInProgress,
   },
   resolved: {
-    fg: 'var(--color-status-resolved)',
-    bg: 'var(--color-status-resolved-soft)',
+    fg: STATUS_COLOR.resolved,
+    bg: STATUS_COLOR_SOFT.resolved,
     i18nKey: 'status.resolved',
     icon: ICONS.statusResolved,
   },
   closed: {
-    fg: 'var(--color-ink-tertiary)',
-    bg: 'var(--color-surface-raised)',
+    fg: STATUS_COLOR.closed,
+    bg: STATUS_COLOR_SOFT.closed,
     i18nKey: 'status.closed',
     icon: ICONS.statusResolved,
   },
   cancelled: {
-    fg: 'var(--color-ink-tertiary)',
-    bg: 'var(--color-surface-raised)',
+    fg: STATUS_COLOR.cancelled,
+    bg: STATUS_COLOR_SOFT.cancelled,
     i18nKey: 'status.cancelled',
     icon: ICONS.statusError,
   },
   paused: {
-    fg: 'var(--color-status-paused)',
-    bg: 'var(--color-status-in-progress-soft)',
+    fg: STATUS_COLOR.paused,
+    bg: STATUS_COLOR_SOFT.paused,
     i18nKey: 'status.paused',
     icon: ICONS.statusPaused,
   },
   error: {
-    fg: 'var(--color-status-error)',
-    bg: 'var(--color-status-error-soft)',
+    fg: STATUS_COLOR.error,
+    bg: STATUS_COLOR_SOFT.error,
     i18nKey: 'status.error',
     icon: ICONS.statusError,
   },
   warning: {
-    fg: 'var(--color-status-warning)',
-    bg: 'var(--color-status-warning-soft)',
+    fg: STATUS_COLOR.warning,
+    bg: STATUS_COLOR_SOFT.warning,
     i18nKey: 'status.warning',
     icon: ICONS.statusWarning,
   },

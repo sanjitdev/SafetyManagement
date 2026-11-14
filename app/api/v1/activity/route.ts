@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, getActiveSession, getTicketWithTrail } from '@/lib/db-switch';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const ActivityInput = z.object({
   status: z
@@ -72,11 +73,15 @@ export async function GET(req: NextRequest) {
           'bn',
         );
       }
+      const actorRoles = await buildActorRoleMap(
+        withTrail.trail.map((e) => e.actorId),
+      );
       return serializeTicketForRole(
         withTrail,
         withTrail.trail,
         session.role,
         'bn',
+        actorRoles,
       );
     }),
   );

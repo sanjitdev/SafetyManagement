@@ -196,14 +196,16 @@ export default function LocationPage() {
         gap: 0,
         // Use `height` (not minHeight) so the inner
         // map's 100% resolves to a real pixel
-        // measurement. The viewport-based height
-        // gives the map a full-screen section; the
-        // media query below collapses to single
-        // column at 1024px and the height is
-        // reduced to auto so the section sizes to
-        // its content.
-        height: 'calc(100vh - var(--header-height-desktop))',
-        minHeight: 'var(--space-9)',
+        // measurement.
+        //
+        // The height is the CONTENT REGION's height, not the
+        // viewport's. `calc(100vh - var(--header-height-desktop))`
+        // subtracted only the global header and ignored the
+        // step-indicator strip, so the page was 124px taller than
+        // the space it had and `.role-app-content` scrolled — the
+        // scrollbar the citizen saw on every report step.
+        height: 'var(--report-content-height)',
+        minHeight: 0,
         // Reserve the FIXED action bar's footprint so the last
         // element in the column is never hidden behind it. The bar
         // is `--sticky-cta-height` tall plus its own
@@ -214,14 +216,52 @@ export default function LocationPage() {
           'calc(var(--sticky-cta-height) + var(--space-3) * 2 + 1px + var(--space-8))',
       }}
       className="report-location-grid"
+      data-report-step-page
     >
       <style>{`
-        @media (max-width: 1024px) {
+        /*
+         * The report flow renders the role sidebar beside this page
+         * (220px), so the CONTENT column is 220px narrower than the
+         * viewport. The side panel itself steps down to the 360px
+         * token via a scoped --report-side-panel redefinition in
+         * globals.css; this query only handles the point where the
+         * two columns no longer fit side by side and the layout
+         * collapses to one.
+         *
+         * Collapsed, the map keeps a BOUNDED share of the viewport
+         * and the confirm card flows below it at its natural height.
+         * The old 60%/40% rows resolved their percentages against an
+         * auto height, which meant the card was clipped into a fixed
+         * track and scrolled on its own — a second scrollbar inside
+         * the page. Now the region is the only scroll container.
+         *
+         * The map's share is capped at 34vh (and at 280px on a phone).
+         * On this step the map is a REFERENCE — the citizen is reading
+         * the address and pressing Continue — so the card deserves the
+         * room, and a taller map only buys scroll distance.
+         */
+        @media (max-width: 1180px) {
           .report-location-grid {
             grid-template-columns: 1fr !important;
-            grid-template-rows: 60% 40% !important;
+            grid-template-rows: minmax(200px, 34vh) auto !important;
             height: auto !important;
-            min-height: calc(100vh - var(--header-height-mobile)) !important;
+            min-height: 0 !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .report-location-grid {
+            grid-template-rows: minmax(180px, 280px) auto !important;
+          }
+        }
+        /*
+         * A VERY SHORT phone (≤ 700px tall): the map gives up more
+         * height. At 280px the map and the confirm card together
+         * overflowed a 524px region, and the map is the element that
+         * can afford to shrink — it is a reference, not the action.
+         */
+        @media (max-width: 640px) and (max-height: 700px) {
+          .report-location-grid {
+            grid-template-rows: minmax(140px, 180px) auto !important;
           }
         }
       `}</style>
@@ -336,6 +376,7 @@ export default function LocationPage() {
                   <ICONS.forward.icon size={16} weight={ICONS.forward.weight} />
                 </span>
               }
+              data-testid="report-location-confirm"
             >
               {t('report.step.continue_next', { next: t('report.step.2', null, LANG) }, LANG)}
             </ReportStepPrimary>

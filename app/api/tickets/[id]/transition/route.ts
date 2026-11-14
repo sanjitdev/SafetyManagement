@@ -44,6 +44,7 @@ import {
 } from '@/lib/platform/transitions';
 import { sendTicketPush } from '@/lib/platform/push';
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
+import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
 
 const ALLOWED_BY_ROLE: Record<string, string[]> = {
   dispatcher: ['routed', 'cancelled'],
@@ -288,7 +289,16 @@ export async function POST(
   if (!refreshed) {
     return NextResponse.json({ error: 'post_transition_fetch_failed' }, { status: 500 });
   }
+  const actorRoles = await buildActorRoleMap(
+    refreshed.trail.map((e) => e.actorId),
+  );
   return NextResponse.json({
-    ticket: serializeTicketForRole(refreshed, refreshed.trail, session!.role, 'bn'),
+    ticket: serializeTicketForRole(
+      refreshed,
+      refreshed.trail,
+      session!.role,
+      'bn',
+      actorRoles,
+    ),
   });
 }

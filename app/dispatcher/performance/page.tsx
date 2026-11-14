@@ -23,9 +23,17 @@
  * refreshes when the date range changes or when the dispatcher
  * reloads.
  *
- * Accessibility: every chart renders an equivalent `<table>`
- * sibling from the same data array, with `<caption>` and
- * `<th scope="col">`.
+ * Accessibility: every chart comes from the shared chart kit, which
+ * ships a VISIBLE, SORTABLE data-table fallback from the same data
+ * array — with `<caption>` and `<th scope="col">`. The tables are
+ * hidden behind a real "Show table" toggle rather than being
+ * `aria-hidden`, so a keyboard user can reach them.
+ *
+ * The page holds NO chart or table implementation of its own: the
+ * three charts are `TrendLine` / `CategoryBar` / `StatusDonut`, the
+ * two tables are `DataTable`, and the controls are `Button` and
+ * `Select`. That is the point of the redesign — one implementation
+ * per job, not one per page.
  */
 
 'use client';
@@ -35,8 +43,14 @@ import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
-import { categoryLabel } from '@/lib/identity/display-name';
+import { formatDuration } from '@/lib/format/duration';
+import { categoryLabel, categoryLabelBySlug } from '@/lib/identity/display-name';
 import { MetricStrip, type MetricTone, type MetricTrend } from '@/components/ui/MetricStrip';
+import { TrendLine, CategoryBar, StatusDonut } from '@/components/ui/charts';
+import { DataTable, type DataTableColumn } from '@/components/ui/DataTable';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { STATUS_COLOR } from '@/lib/ui/status-tokens';
 import { useLanguage } from '@/components/useLanguage';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
@@ -57,6 +71,36 @@ interface HeroStat {
   delta: number;
 }
 
+/**
+ * One crew row in the performance table.
+ *
+ * Named separately from the snapshot so the column definitions can
+ * name their row type — a column's `render` and `sortValue` both
+ * need to know what a row is.
+ */
+interface CrewRow {
+  crewId: string;
+  crewName: string;
+  specialty: string | null;
+  jobsCompleted: number;
+  avgTimeToResolveMs: number | null;
+  positiveFeedback: number;
+  negativeFeedback: number;
+  feedbackRatio: number | null;
+}
+
+/** One row in the long-tail table — a ticket that is still open. */
+interface LongTailRow {
+  id: string;
+  categoryId: string;
+  /** The stable machine key — see `categoryBreakdown`. */
+  categorySlug?: string | null;
+  createdAt: string;
+  ageMs: number;
+  assignedCrewId: string | null;
+  assignedCrewName: string | null;
+}
+
 interface PerfSnapshot {
   hero: {
     totalReports: HeroStat;
@@ -68,54 +112,26 @@ interface PerfSnapshot {
     submitted: number;
     resolved: number;
   }>;
-  categoryBreakdown: Array<{ categoryId: string; count: number }>;
-  statusBreakdown: Array<{ status: string; count: number }>;
-  crewTable: Array<{
-    crewId: string;
-    crewName: string;
-    specialty: string | null;
-    jobsCompleted: number;
-    avgTimeToResolveMs: number | null;
-    positiveFeedback: number;
-    negativeFeedback: number;
-    feedbackRatio: number | null;
-  }>;
-  longTail: Array<{
-    id: string;
+  categoryBreakdown: Array<{
     categoryId: string;
-    createdAt: string;
-    ageMs: number;
-    assignedCrewId: string | null;
-    assignedCrewName: string | null;
+    count: number;
+    /**
+     * The stable machine key ("streetlight", "pothole", …). The
+     * server resolves it from the database, because `categoryId` is
+     * backend-specific (`cat_streetlight` in the dev store, a CUID in
+     * Postgres) and cannot be localized from the client.
+     */
+    categorySlug?: string | null;
   }>;
+  statusBreakdown: Array<{ status: string; count: number }>;
+  crewTable: CrewRow[];
+  longTail: LongTailRow[];
   range: { fromIso: string; toIso: string };
   ward: {
     wardId: string | null;
     wardLabel: string | null;
     wardLabelBn: string | null;
   };
-}
-
-type CrewSortKey =
-  | 'crewName'
-  | 'specialty'
-  | 'jobsCompleted'
-  | 'avgTimeToResolveMs'
-  | 'feedbackRatio';
-
-/** Format a duration in ms as a compact "2 d 3 h" style string. */
-function formatDuration(ms: number, lang: Language): string {
-  if (ms <= 0) return '—';
-  const minutes = Math.floor(ms / 60_000);
-  if (minutes < 60) {
-    return t('dispatcher.performance.duration.minutes', { n: minutes }, lang);
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return t('dispatcher.performance.duration.hours', { n: hours }, lang);
-  }
-  const days = Math.floor(hours / 24);
-  return t('dispatcher.performance.duration.days', { n: days }, lang);
 }
 
 export default function DispatcherPerformancePage() {
@@ -129,8 +145,6 @@ export default function DispatcherPerformancePage() {
   const [preset, setPreset] = useState<RangePreset>('last7');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
-  const [sortKey, setSortKey] = useState<CrewSortKey>('jobsCompleted');
-  const [sortAsc, setSortAsc] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -206,31 +220,180 @@ export default function DispatcherPerformancePage() {
     void fetchSnapshot();
   }, [signedIn, fetchSnapshot]);
 
-  const sortedCrew = useMemo(() => {
-    if (!snapshot) return [];
-    const rows = [...snapshot.crewTable];
-    rows.sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      // Nulls always sort last, regardless of direction.
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      if (av === bv) return 0;
-      const cmp = av < bv ? -1 : 1;
-      return sortAsc ? cmp : -cmp;
-    });
-    return rows;
-  }, [snapshot, sortKey, sortAsc]);
+  /**
+   * The crew table's columns.
+   *
+   * The sort lives in `DataTable`, so the page keeps no sort state of
+   * its own: two sort implementations is one too many, and the
+   * hand-rolled one left an unsorted column with no `aria-sort` and
+   * put the sort arrow in the button label rather than on the `th`.
+   *
+   * The sort accessors keep the "nulls last" rule the hand-rolled
+   * comparator had — a crew with no feedback data sorts to the bottom
+   * of the feedback column rather than to the top.
+   */
+  const crewColumns = useMemo<DataTableColumn<CrewRow>[]>(
+    () => [
+      {
+        key: 'crewName',
+        header: t('dispatcher.performance.crew.col.name', null, lang),
+        render: (row) => row.crewName,
+        sortValue: (row) => row.crewName,
+        sortTestId: 'dispatcher-performance-sort-crewName',
+      },
+      {
+        key: 'specialty',
+        header: t('dispatcher.performance.crew.col.specialty', null, lang),
+        render: (row) =>
+          row.specialty
+            ? row.specialty
+            : t('dispatcher.performance.crew.specialty_unknown', null, lang),
+        sortValue: (row) => row.specialty ?? '',
+        sortTestId: 'dispatcher-performance-sort-specialty',
+      },
+      {
+        key: 'jobsCompleted',
+        header: t('dispatcher.performance.crew.col.jobs', null, lang),
+        numeric: true,
+        render: (row) => row.jobsCompleted,
+        sortValue: (row) => row.jobsCompleted,
+        sortTestId: 'dispatcher-performance-sort-jobsCompleted',
+      },
+      {
+        key: 'avgTimeToResolveMs',
+        header: t('dispatcher.performance.crew.col.avg_time', null, lang),
+        numeric: true,
+        render: (row) =>
+          row.avgTimeToResolveMs === null
+            ? '—'
+            : formatDuration(row.avgTimeToResolveMs, lang),
+        // A crew with no resolved jobs has no average; it sorts last.
+        sortValue: (row) => row.avgTimeToResolveMs ?? Number.MAX_SAFE_INTEGER,
+        sortTestId: 'dispatcher-performance-sort-avgTimeToResolveMs',
+      },
+      {
+        key: 'feedbackRatio',
+        header: t('dispatcher.performance.crew.col.feedback', null, lang),
+        numeric: true,
+        render: (row) => {
+          if (row.feedbackRatio === null) {
+            return (
+              <span style={{ color: 'var(--color-ink-tertiary)' }}>
+                {t(
+                  'dispatcher.performance.crew.feedback.not_enough_data',
+                  null,
+                  lang,
+                )}
+              </span>
+            );
+          }
+          const lowFeedback = row.feedbackRatio < 50;
+          return (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+              }}
+            >
+              {t(
+                'dispatcher.performance.crew.feedback.ratio',
+                {
+                  positive: row.positiveFeedback,
+                  negative: row.negativeFeedback,
+                },
+                lang,
+              )}
+              {lowFeedback && (
+                <span
+                  data-testid="dispatcher-performance-low-feedback-badge"
+                  style={{
+                    padding: '2px var(--space-2)',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'var(--color-status-error-soft)',
+                    color: 'var(--color-status-error)',
+                    fontSize: 10,
+                    fontWeight: 'var(--weight-bold)',
+                  }}
+                >
+                  {t('dispatcher.performance.crew.low_feedback_badge', null, lang)}
+                </span>
+              )}
+            </span>
+          );
+        },
+        sortValue: (row) => row.feedbackRatio ?? Number.MAX_SAFE_INTEGER,
+        sortTestId: 'dispatcher-performance-sort-feedbackRatio',
+      },
+    ],
+    [lang],
+  );
 
-  const onSort = (key: CrewSortKey) => {
-    if (key === sortKey) {
-      setSortAsc((prev) => !prev);
-    } else {
-      setSortKey(key);
-      setSortAsc(false);
-    }
-  };
+  /**
+   * The long-tail table's columns.
+   *
+   * The ticket column is a link — the dispatcher follows it straight
+   * into the record. Every other column sorts by its underlying
+   * value, not by the formatted string, so "age" sorts by milliseconds
+   * rather than by the order the localised duration strings happen to
+   * read in.
+   */
+  const longTailColumns = useMemo<DataTableColumn<LongTailRow>[]>(
+    () => [
+      {
+        key: 'ticket',
+        header: t('dispatcher.performance.long_tail.col.ticket', null, lang),
+        render: (row) => (
+          <Link
+            href={`/dispatcher/tickets/${row.id}`}
+            style={{
+              color: 'var(--color-primary)',
+              fontWeight: 'var(--weight-semibold)',
+              textDecoration: 'none',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--text-caption)',
+            }}
+          >
+            {formatTicketId(row.id)}
+          </Link>
+        ),
+        sortValue: (row) => formatTicketId(row.id),
+        sortTestId: 'dispatcher-performance-long-tail-sort-ticket',
+      },
+      {
+        key: 'category',
+        header: t('dispatcher.performance.long_tail.col.category', null, lang),
+        render: (row) => categoryLabelBySlug(row.categorySlug, lang, row.categoryId),
+        sortValue: (row) => categoryLabelBySlug(row.categorySlug, lang, row.categoryId),
+        sortTestId: 'dispatcher-performance-long-tail-sort-category',
+      },
+      {
+        key: 'submitted',
+        header: t('dispatcher.performance.long_tail.col.submitted', null, lang),
+        render: (row) => formatTimestamp(row.createdAt, lang),
+        sortValue: (row) => new Date(row.createdAt).getTime(),
+        sortTestId: 'dispatcher-performance-long-tail-sort-submitted',
+      },
+      {
+        key: 'age',
+        header: t('dispatcher.performance.long_tail.col.age', null, lang),
+        numeric: true,
+        render: (row) => formatDuration(row.ageMs, lang),
+        sortValue: (row) => row.ageMs,
+        sortTestId: 'dispatcher-performance-long-tail-sort-age',
+      },
+      {
+        key: 'crew',
+        header: t('dispatcher.performance.long_tail.col.crew', null, lang),
+        render: (row) =>
+          row.assignedCrewName ??
+          t('dispatcher.performance.long_tail.unassigned', null, lang),
+        sortValue: (row) => row.assignedCrewName ?? '',
+        sortTestId: 'dispatcher-performance-long-tail-sort-crew',
+      },
+    ],
+    [lang],
+  );
 
   /** Download the snapshot as CSV. */
   const onExportCsv = useCallback(() => {
@@ -420,34 +583,21 @@ export default function DispatcherPerformancePage() {
           >
             {t('dispatcher.performance.range.label', null, lang)}
           </label>
-          <select
+          <Select
             id="dispatcher-performance-range-select"
             data-testid="dispatcher-performance-range-select"
+            size="sm"
             value={preset}
             onChange={(e) => setPreset(e.target.value as RangePreset)}
-            style={{
-              padding: '4px var(--space-2)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-surface-page)',
-              color: 'var(--color-ink)',
-              fontSize: 'var(--text-caption)',
-              fontFamily: 'inherit',
-            }}
-          >
-            <option value="today">
-              {t('dispatcher.performance.range.today', null, lang)}
-            </option>
-            <option value="last7">
-              {t('dispatcher.performance.range.last7', null, lang)}
-            </option>
-            <option value="last30">
-              {t('dispatcher.performance.range.last30', null, lang)}
-            </option>
-            <option value="custom">
-              {t('dispatcher.performance.range.custom', null, lang)}
-            </option>
-          </select>
+            lang={lang}
+            options={[
+              { value: 'today', label: t('dispatcher.performance.range.today', null, lang) },
+              { value: 'last7', label: t('dispatcher.performance.range.last7', null, lang) },
+              { value: 'last30', label: t('dispatcher.performance.range.last30', null, lang) },
+              { value: 'custom', label: t('dispatcher.performance.range.custom', null, lang) },
+            ]}
+            style={{ width: 'auto' }}
+          />
           {preset === 'custom' && (
             <>
               <input
@@ -562,7 +712,16 @@ export default function DispatcherPerformancePage() {
               />
             </section>
 
-            {/* Charts */}
+            {/* Charts.
+                Every chart is one of the SHARED kit components, so
+                the three of them behave identically: each has a
+                caption, a scoped-column data table the reader can
+                reach, and no series encoded by hue alone. The
+                hand-rolled SVG that used to live here had the table
+                as a visually-hidden sibling — a sighted keyboard
+                user could not reach the numbers the chart was
+                drawing.
+            */}
             <section
               data-testid="dispatcher-performance-charts"
               style={{
@@ -572,15 +731,99 @@ export default function DispatcherPerformancePage() {
                 marginBottom: 'var(--space-5)',
               }}
             >
-              <SubmittedVsResolvedChart
-                points={snapshot.submittedVsResolved}
+              <TrendLine
+                title={t(
+                  'dispatcher.performance.chart.submitted_vs_resolved.title',
+                  null,
+                  lang,
+                )}
+                description={t(
+                  'dispatcher.performance.chart.submitted_vs_resolved.caption',
+                  null,
+                  lang,
+                )}
+                data={snapshot.submittedVsResolved.map((point) => ({
+                  label: point.date,
+                  submitted: point.submitted,
+                  resolved: point.resolved,
+                }))}
+                series={[
+                  {
+                    key: 'submitted',
+                    label: t(
+                      'dispatcher.performance.chart.col.submitted',
+                      null,
+                      lang,
+                    ),
+                    color: STATUS_COLOR.submitted,
+                    // A dash pattern, so the two series stay
+                    // separable when the colour is dropped.
+                    dashArray: '6 3',
+                  },
+                  {
+                    key: 'resolved',
+                    label: t(
+                      'dispatcher.performance.chart.col.resolved',
+                      null,
+                      lang,
+                    ),
+                    color: STATUS_COLOR.resolved,
+                    dashArray: '2 3',
+                  },
+                ]}
                 lang={lang}
+                height={220}
+                data-testid="dispatcher-performance-chart-submitted"
+                data-testid-table="dispatcher-performance-chart-submitted-table"
               />
-              <CategoryBreakdownChart
-                rows={snapshot.categoryBreakdown}
+              <CategoryBar
+                title={t(
+                  'dispatcher.performance.chart.category.title',
+                  null,
+                  lang,
+                )}
+                description={t(
+                  'dispatcher.performance.chart.category.caption',
+                  null,
+                  lang,
+                )}
+                entries={snapshot.categoryBreakdown.map((row) => ({
+                  key: row.categoryId,
+                  label: categoryLabelBySlug(
+                    row.categorySlug,
+                    lang,
+                    row.categoryId,
+                  ),
+                  value: row.count,
+                  color: 'var(--color-primary)',
+                }))}
                 lang={lang}
+                height={Math.max(
+                  120,
+                  snapshot.categoryBreakdown.length * 34,
+                )}
+                data-testid="dispatcher-performance-chart-category"
+                data-testid-table="dispatcher-performance-chart-category-table"
               />
-              <StatusDonutChart rows={snapshot.statusBreakdown} lang={lang} />
+              <StatusDonut
+                title={t(
+                  'dispatcher.performance.chart.status.title',
+                  null,
+                  lang,
+                )}
+                description={t(
+                  'dispatcher.performance.chart.status.caption',
+                  null,
+                  lang,
+                )}
+                entries={snapshot.statusBreakdown.map((row) => ({
+                  status: row.status,
+                  count: row.count,
+                }))}
+                lang={lang}
+                data-testid="dispatcher-performance-chart-status"
+                data-testid-table="dispatcher-performance-chart-status-table"
+              />
             </section>
 
             {/* Crew performance table */}
@@ -596,140 +839,15 @@ export default function DispatcherPerformancePage() {
                   {t('dispatcher.performance.crew.empty', null, lang)}
                 </p>
               ) : (
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  {/* `minWidth` forces the wrapper to scroll sideways on
-                      a phone instead of letting the columns collapse. */}
-                  <table
-                    style={{
-                      width: '100%',
-                      minWidth: 620,
-                      borderCollapse: 'collapse',
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                        {(
-                          [
-                            ['crewName', 'dispatcher.performance.crew.col.name'],
-                            ['specialty', 'dispatcher.performance.crew.col.specialty'],
-                            ['jobsCompleted', 'dispatcher.performance.crew.col.jobs'],
-                            ['avgTimeToResolveMs', 'dispatcher.performance.crew.col.avg_time'],
-                            ['feedbackRatio', 'dispatcher.performance.crew.col.feedback'],
-                          ] as Array<[CrewSortKey, string]>
-                        ).map(([key, labelKey]) => (
-                          <th
-                            key={key}
-                            scope="col"
-                            aria-sort={
-                              sortKey === key
-                                ? sortAsc
-                                  ? 'ascending'
-                                  : 'descending'
-                                : 'none'
-                            }
-                            style={thStyle}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onSort(key)}
-                              data-testid={`dispatcher-performance-sort-${key}`}
-                              lang={lang}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                padding: 0,
-                                cursor: 'pointer',
-                                font: 'inherit',
-                                color: 'inherit',
-                                fontWeight: 'var(--weight-semibold)',
-                              }}
-                            >
-                              {t(labelKey, null, lang)}
-                              {sortKey === key ? (sortAsc ? ' ▲' : ' ▼') : ''}
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedCrew.map((row) => {
-                        const lowFeedback =
-                          row.feedbackRatio !== null && row.feedbackRatio < 50;
-                        return (
-                          <tr
-                            key={row.crewId}
-                            data-testid="dispatcher-performance-crew-row"
-                            style={{ borderBottom: '1px solid var(--color-border)' }}
-                          >
-                            <td style={tdStyle}>{row.crewName}</td>
-                            <td style={tdStyle}>
-                              {row.specialty
-                                ? row.specialty
-                                : t(
-                                    'dispatcher.performance.crew.specialty_unknown',
-                                    null,
-                                    lang,
-                                  )}
-                            </td>
-                            <td style={tdStyle}>{row.jobsCompleted}</td>
-                            <td style={tdStyle}>
-                              {row.avgTimeToResolveMs === null
-                                ? '—'
-                                : formatDuration(row.avgTimeToResolveMs, lang)}
-                            </td>
-                            <td style={tdStyle}>
-                              {row.feedbackRatio === null ? (
-                                <span style={{ color: 'var(--color-ink-tertiary)' }}>
-                                  {t(
-                                    'dispatcher.performance.crew.feedback.not_enough_data',
-                                    null,
-                                    lang,
-                                  )}
-                                </span>
-                              ) : (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 'var(--space-2)',
-                                  }}
-                                >
-                                  {t(
-                                    'dispatcher.performance.crew.feedback.ratio',
-                                    {
-                                      positive: row.positiveFeedback,
-                                      negative: row.negativeFeedback,
-                                    },
-                                    lang,
-                                  )}
-                                  {lowFeedback && (
-                                    <span
-                                      data-testid="dispatcher-performance-low-feedback-badge"
-                                      style={{
-                                        padding: '2px var(--space-2)',
-                                        borderRadius: 'var(--radius-pill)',
-                                        background: 'var(--color-status-error-soft)',
-                                        color: 'var(--color-status-error)',
-                                        fontSize: 10,
-                                        fontWeight: 'var(--weight-bold)',
-                                      }}
-                                    >
-                                      {t(
-                                        'dispatcher.performance.crew.low_feedback_badge',
-                                        null,
-                                        lang,
-                                      )}
-                                    </span>
-                                  )}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  columns={crewColumns}
+                  rows={snapshot.crewTable}
+                  rowKey={(row) => row.crewId}
+                  caption={t('dispatcher.performance.crew.title', null, lang)}
+                  lang={lang}
+                  initialSort={{ key: 'jobsCompleted', direction: 'desc' }}
+                  data-testid="dispatcher-performance-crew-table-body"
+                />
               )}
             </section>
 
@@ -746,74 +864,14 @@ export default function DispatcherPerformancePage() {
                   {t('dispatcher.performance.long_tail.empty', null, lang)}
                 </p>
               ) : (
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  {/* `minWidth` forces the wrapper to scroll sideways on
-                      a phone instead of letting the columns collapse. */}
-                  <table
-                    style={{
-                      width: '100%',
-                      minWidth: 620,
-                      borderCollapse: 'collapse',
-                    }}
-                  >
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                        <th scope="col" style={thStyle}>
-                          {t('dispatcher.performance.long_tail.col.ticket', null, lang)}
-                        </th>
-                        <th scope="col" style={thStyle}>
-                          {t('dispatcher.performance.long_tail.col.category', null, lang)}
-                        </th>
-                        <th scope="col" style={thStyle}>
-                          {t('dispatcher.performance.long_tail.col.submitted', null, lang)}
-                        </th>
-                        <th scope="col" style={thStyle}>
-                          {t('dispatcher.performance.long_tail.col.age', null, lang)}
-                        </th>
-                        <th scope="col" style={thStyle}>
-                          {t('dispatcher.performance.long_tail.col.crew', null, lang)}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {snapshot.longTail.map((row) => (
-                        <tr
-                          key={row.id}
-                          data-testid="dispatcher-performance-long-tail-row"
-                          style={{ borderBottom: '1px solid var(--color-border)' }}
-                        >
-                          <td style={tdStyle}>
-                            <Link
-                              href={`/dispatcher/tickets/${row.id}`}
-                              style={{
-                                color: 'var(--color-primary)',
-                                fontWeight: 'var(--weight-semibold)',
-                                textDecoration: 'none',
-                                fontFamily: 'var(--font-mono)',
-                                fontSize: 'var(--text-caption)',
-                              }}
-                            >
-                              {formatTicketId(row.id)}
-                            </Link>
-                          </td>
-                          <td style={tdStyle}>
-                            {categoryLabel(row.categoryId, lang)}
-                          </td>
-                          <td style={tdStyle}>
-                            {formatTimestamp(row.createdAt, lang)}
-                          </td>
-                          <td style={tdStyle}>
-                            {formatDuration(row.ageMs, lang)}
-                          </td>
-                          <td style={tdStyle}>
-                            {row.assignedCrewName ??
-                              t('dispatcher.performance.long_tail.unassigned', null, lang)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  columns={longTailColumns}
+                  rows={snapshot.longTail}
+                  rowKey={(row) => row.id}
+                  caption={t('dispatcher.performance.long_tail.title', null, lang)}
+                  lang={lang}
+                  data-testid="dispatcher-performance-long-tail-table"
+                />
               )}
             </section>
 
@@ -828,46 +886,25 @@ export default function DispatcherPerformancePage() {
                 marginTop: 'var(--space-5)',
               }}
             >
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={onExportPdf}
-                disabled={exporting}
+                loading={exporting}
                 data-testid="dispatcher-performance-export-pdf"
                 lang={lang}
-                style={{
-                  padding: 'var(--space-3) var(--space-5)',
-                  background: 'var(--color-primary)',
-                  color: 'var(--color-on-primary)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--text-body-sm)',
-                  fontWeight: 'var(--weight-semibold)',
-                  cursor: exporting ? 'wait' : 'pointer',
-                  opacity: exporting ? 0.7 : 1,
-                }}
               >
                 {exporting
                   ? t('dispatcher.performance.export.pdf_preparing', null, lang)
                   : t('dispatcher.performance.export.pdf', null, lang)}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={onExportCsv}
                 data-testid="dispatcher-performance-export-csv"
                 lang={lang}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--color-primary)',
-                  fontSize: 'var(--text-body-sm)',
-                  fontWeight: 'var(--weight-semibold)',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: 0,
-                }}
               >
                 {t('dispatcher.performance.export.csv', null, lang)}
-              </button>
+              </Button>
             </div>
           </>
         ) : null}
@@ -942,378 +979,6 @@ function heroFigure(
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* Charts — inline SVG, each with an accessible table sibling         */
-/* ------------------------------------------------------------------ */
-
-function SubmittedVsResolvedChart({
-  points,
-  lang,
-}: {
-  points: PerfSnapshot['submittedVsResolved'];
-  lang: Language;
-}) {
-  const width = 880;
-  const height = 180;
-  const padLeft = 34;
-  const padBottom = 22;
-  const plotW = width - padLeft - 8;
-  const plotH = height - padBottom - 8;
-  const max = Math.max(
-    1,
-    ...points.map((p) => Math.max(p.submitted, p.resolved)),
-  );
-  const step = points.length > 1 ? plotW / (points.length - 1) : plotW;
-  const y = (v: number) => plotH - (v / max) * plotH;
-  const submittedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${(padLeft + i * step).toFixed(2)},${y(p.submitted).toFixed(2)}`)
-    .join(' ');
-  const resolvedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${(padLeft + i * step).toFixed(2)},${y(p.resolved).toFixed(2)}`)
-    .join(' ');
-  const gridLines = [0, 0.25, 0.5, 0.75, 1];
-
-  return (
-    <section data-testid="dispatcher-performance-chart-submitted" style={sectionStyle}>
-      <h2 lang={lang} style={sectionTitleStyle}>
-        {t('dispatcher.performance.chart.submitted_vs_resolved.title', null, lang)}
-      </h2>
-      <svg
-        role="img"
-        aria-label={t('dispatcher.performance.chart.submitted_vs_resolved.caption', null, lang)}
-        width="100%"
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        {gridLines.map((g) => (
-          <line
-            key={g}
-            x1={padLeft}
-            x2={width - 8}
-            y1={8 + g * plotH}
-            y2={8 + g * plotH}
-            stroke="var(--color-border)"
-            strokeWidth={1}
-          />
-        ))}
-        <path
-          d={submittedPath}
-          fill="none"
-          stroke="var(--color-status-routed)"
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-        <path
-          d={resolvedPath}
-          fill="none"
-          stroke="var(--color-status-resolved)"
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-        {points.map((p, i) => (
-          <g key={p.date}>
-            <circle
-              cx={padLeft + i * step}
-              cy={8 + y(p.submitted)}
-              r={3}
-              fill="var(--color-status-routed)"
-            >
-              <title>{`${p.date}: ${p.submitted} submitted, ${p.resolved} resolved`}</title>
-            </circle>
-            <circle
-              cx={padLeft + i * step}
-              cy={8 + y(p.resolved)}
-              r={3}
-              fill="var(--color-status-resolved)"
-            />
-          </g>
-        ))}
-      </svg>
-      <ChartTable
-        caption={t('dispatcher.performance.chart.submitted_vs_resolved.caption', null, lang)}
-        headers={[
-          t('dispatcher.performance.chart.col.date', null, lang),
-          t('dispatcher.performance.chart.col.submitted', null, lang),
-          t('dispatcher.performance.chart.col.resolved', null, lang),
-        ]}
-        rows={points.map((p) => [p.date, String(p.submitted), String(p.resolved)])}
-        testId="dispatcher-performance-chart-submitted-table"
-      />
-    </section>
-  );
-}
-
-function CategoryBreakdownChart({
-  rows,
-  lang,
-}: {
-  rows: PerfSnapshot['categoryBreakdown'];
-  lang: Language;
-}) {
-  const width = 880;
-  const rowHeight = 26;
-  const height = Math.max(1, rows.length) * rowHeight + 8;
-  const labelWidth = 150;
-  const plotW = width - labelWidth - 40;
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  return (
-    <section data-testid="dispatcher-performance-chart-category" style={sectionStyle}>
-      <h2 lang={lang} style={sectionTitleStyle}>
-        {t('dispatcher.performance.chart.category.title', null, lang)}
-      </h2>
-      {rows.length === 0 ? (
-        <p lang={lang} style={emptyStyle}>
-          {t('dispatcher.performance.empty', null, lang)}
-        </p>
-      ) : (
-        <svg
-          role="img"
-          aria-label={t('dispatcher.performance.chart.category.caption', null, lang)}
-          width="100%"
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          {rows.map((r, i) => {
-            const y = i * rowHeight + 4;
-            const w = (r.count / max) * plotW;
-            return (
-              <g key={r.categoryId}>
-                <text
-                  x={0}
-                  y={y + rowHeight / 2}
-                  dominantBaseline="middle"
-                  fontSize={11}
-                  fill="var(--color-ink-secondary)"
-                >
-                  {categoryLabel(r.categoryId, lang)}
-                </text>
-                <rect
-                  x={labelWidth}
-                  y={y + 4}
-                  width={Math.max(2, w)}
-                  height={rowHeight - 10}
-                  rx={3}
-                  fill="var(--color-primary)"
-                >
-                  <title>{`${categoryLabel(r.categoryId, lang)}: ${r.count}`}</title>
-                </rect>
-                <text
-                  x={labelWidth + Math.max(2, w) + 6}
-                  y={y + rowHeight / 2}
-                  dominantBaseline="middle"
-                  fontSize={11}
-                  fill="var(--color-ink)"
-                >
-                  {r.count}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      )}
-      <ChartTable
-        caption={t('dispatcher.performance.chart.category.caption', null, lang)}
-        headers={[
-          t('dispatcher.performance.chart.col.category', null, lang),
-          t('dispatcher.performance.chart.col.count', null, lang),
-        ]}
-        rows={rows.map((r) => [categoryLabel(r.categoryId, lang), String(r.count)])}
-        testId="dispatcher-performance-chart-category-table"
-      />
-    </section>
-  );
-}
-
-const DONUT_COLORS: Record<string, string> = {
-  submitted: 'var(--color-status-submitted)',
-  routed: 'var(--color-status-routed)',
-  in_progress: 'var(--color-status-in-progress)',
-  resolved: 'var(--color-status-resolved)',
-  closed: 'var(--color-ink-tertiary)',
-  cancelled: 'var(--color-border-strong)',
-};
-
-function StatusDonutChart({
-  rows,
-  lang,
-}: {
-  rows: PerfSnapshot['statusBreakdown'];
-  lang: Language;
-}) {
-  const size = 180;
-  const radius = 70;
-  const stroke = 28;
-  const circumference = 2 * Math.PI * radius;
-  const total = rows.reduce((sum, r) => sum + r.count, 0);
-  let offset = 0;
-  return (
-    <section data-testid="dispatcher-performance-chart-status" style={sectionStyle}>
-      <h2 lang={lang} style={sectionTitleStyle}>
-        {t('dispatcher.performance.chart.status.title', null, lang)}
-      </h2>
-      {total === 0 ? (
-        <p lang={lang} style={emptyStyle}>
-          {t('dispatcher.performance.empty', null, lang)}
-        </p>
-      ) : (
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--space-5)',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
-          <svg
-            role="img"
-            aria-label={t('dispatcher.performance.chart.status.caption', null, lang)}
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
-          >
-            <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-              {rows.map((r) => {
-                if (r.count === 0) return null;
-                const frac = r.count / total;
-                const dash = frac * circumference;
-                const el = (
-                  <circle
-                    key={r.status}
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    fill="none"
-                    stroke={DONUT_COLORS[r.status] ?? 'var(--color-ink-tertiary)'}
-                    strokeWidth={stroke}
-                    strokeDasharray={`${dash} ${circumference - dash}`}
-                    strokeDashoffset={-offset}
-                  >
-                    <title>{`${r.status}: ${r.count}`}</title>
-                  </circle>
-                );
-                offset += dash;
-                return el;
-              })}
-            </g>
-            <text
-              x={size / 2}
-              y={size / 2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={22}
-              fontWeight="700"
-              fill="var(--color-ink)"
-            >
-              {total}
-            </text>
-          </svg>
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-1)',
-            }}
-          >
-            {rows.map((r) => (
-              <li
-                key={r.status}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  fontSize: 'var(--text-caption)',
-                  color: 'var(--color-ink-secondary)',
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background:
-                      DONUT_COLORS[r.status] ?? 'var(--color-ink-tertiary)',
-                    flexShrink: 0,
-                  }}
-                />
-                {t(`status.${r.status}`, null, lang)} · {r.count}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <ChartTable
-        caption={t('dispatcher.performance.chart.status.caption', null, lang)}
-        headers={[
-          t('dispatcher.performance.chart.col.status', null, lang),
-          t('dispatcher.performance.chart.col.count', null, lang),
-        ]}
-        rows={rows.map((r) => [
-          t(`status.${r.status}`, null, lang),
-          String(r.count),
-        ])}
-        testId="dispatcher-performance-chart-status-table"
-      />
-    </section>
-  );
-}
-
-/**
- * The accessible table sibling every chart renders alongside it.
- * Visually hidden (the chart is the visual; the table is for
- * screen readers and for copy/paste), but present in the DOM.
- */
-function ChartTable({
-  caption,
-  headers,
-  rows,
-  testId,
-}: {
-  caption: string;
-  headers: string[];
-  rows: string[][];
-  testId: string;
-}) {
-  return (
-    <table
-      data-testid={testId}
-      style={{
-        position: 'absolute',
-        width: 1,
-        height: 1,
-        padding: 0,
-        margin: -1,
-        overflow: 'hidden',
-        clip: 'rect(0, 0, 0, 0)',
-        whiteSpace: 'nowrap',
-        border: 0,
-      }}
-    >
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          {headers.map((h) => (
-            <th key={h} scope="col">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {row.map((cell, j) => (
-              <td key={j}>{cell}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
 
 /** Escape a CSV cell (quotes + commas). */
 function csvEscape(value: string): string {
@@ -1343,22 +1008,6 @@ const emptyStyle: React.CSSProperties = {
   fontSize: 'var(--text-body-sm)',
   color: 'var(--color-ink-tertiary)',
   margin: 0,
-};
-
-const thStyle: React.CSSProperties = {
-  padding: 'var(--space-2) var(--space-3)',
-  textAlign: 'left',
-  fontWeight: 'var(--weight-semibold)',
-  color: 'var(--color-ink-secondary)',
-  fontSize: 'var(--text-caption)',
-  whiteSpace: 'nowrap',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: 'var(--space-2) var(--space-3)',
-  verticalAlign: 'middle',
-  fontSize: 'var(--text-caption)',
-  color: 'var(--color-ink)',
 };
 
 const dateInputStyle: React.CSSProperties = {

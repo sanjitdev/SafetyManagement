@@ -42,7 +42,12 @@ const CREW_DETAIL_PAGE = read('app/crew/tickets/[id]/page.tsx');
 
 describe('My Reports list — the report card renders a thumbnail', () => {
   it('resolves the thumbnail from the ticket photo list', () => {
-    expect(REPORTS_PAGE).toContain('firstRenderablePhotoUrl');
+    // `firstDisplayablePhotoUrl` — not the looser `firstRenderablePhotoUrl`.
+    // The stricter helper also rejects the degenerate 1×1 / 2×2 PNG
+    // swatches, so a swatch falls back to the "no photo" placeholder
+    // instead of painting an empty grey square in the card.
+    expect(REPORTS_PAGE).toContain('firstDisplayablePhotoUrl');
+    expect(REPORTS_PAGE).not.toContain('firstRenderablePhotoUrl');
     expect(REPORTS_PAGE).toContain('tkt.photoUrls');
   });
 
@@ -60,7 +65,10 @@ describe('My Reports list — the report card renders a thumbnail', () => {
 
 describe('Dispatcher queue — the queue row renders a thumbnail', () => {
   it('resolves the thumbnail from the ticket photo list', () => {
-    expect(DISPATCHER_PAGE).toContain('firstRenderablePhotoUrl');
+    // The stricter helper, so a degenerate swatch falls back to the
+    // category glyph rather than an empty grey square.
+    expect(DISPATCHER_PAGE).toContain('firstDisplayablePhotoUrl');
+    expect(DISPATCHER_PAGE).not.toContain('firstRenderablePhotoUrl');
     expect(DISPATCHER_PAGE).toContain('ticket.photoUrls');
   });
 
@@ -79,7 +87,10 @@ describe('Dispatcher queue — the queue row renders a thumbnail', () => {
 
 describe('Crew assignments — the assignment row renders a thumbnail', () => {
   it('resolves the thumbnail from the ticket photo list', () => {
-    expect(CREW_PAGE).toContain('firstRenderablePhotoUrl');
+    // The stricter helper, so a degenerate swatch falls back to the
+    // category glyph rather than an empty grey square.
+    expect(CREW_PAGE).toContain('firstDisplayablePhotoUrl');
+    expect(CREW_PAGE).not.toContain('firstRenderablePhotoUrl');
     expect(CREW_PAGE).toContain('ticket.photoUrls');
   });
 

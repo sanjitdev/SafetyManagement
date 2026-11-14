@@ -28,6 +28,8 @@ import { t, type Language } from '@/lib/i18n/keys';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { Button } from '@/components/ui/Button';
 import { useLanguage } from '@/components/useLanguage';
 
 
@@ -224,16 +226,27 @@ export default function DispatcherDedupReviewPage() {
         >
           {t('dispatcher.dedup.signin_required', null, lang)}
         </p>
+        {/*
+          A LINK that looks like a button — not a `<button>` that
+          navigates. The `Button` primitive renders a real `<button>`,
+          and a button that navigates is a link: it has no action, it
+          has a destination, and it must be openable in a new tab.
+        */}
         <Link
           href="/login"
           style={{
-            display: 'inline-block',
-            padding: 'var(--space-3) var(--space-5)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: 40,
+            padding: 'var(--space-2) var(--space-4)',
             background: 'var(--color-primary)',
             color: 'var(--color-on-primary)',
-            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-primary)',
+            borderRadius: 'var(--radius-input)',
             textDecoration: 'none',
+            fontSize: 'var(--text-body)',
             fontWeight: 'var(--weight-semibold)',
+            lineHeight: 'var(--leading-snug)',
           }}
         >
           {t('auth.back_home', null, lang)}
@@ -434,13 +447,13 @@ export default function DispatcherDedupReviewPage() {
                       <>
                         <TicketPanel
                           lang={lang}
-                          label="New"
+                          label={t('dispatcher.dedup.row.panel.new', null, lang)}
                           ticket={f.ticket}
                           distanceLabel={distanceLabel(f.ticket, f.originalTicket, lang)}
                         />
                         <TicketPanel
                           lang={lang}
-                          label="Original"
+                          label={t('dispatcher.dedup.row.panel.original', null, lang)}
                           ticket={f.originalTicket}
                           distanceLabel={null}
                         />
@@ -497,46 +510,28 @@ export default function DispatcherDedupReviewPage() {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
                       onClick={() => onDismiss(f.id)}
                       disabled={inFlightFlagId !== null}
                       data-testid={`dispatcher-dedup-dismiss-${f.id}`}
-                      style={{
-                        padding: 'var(--space-2) var(--space-4)',
-                        background: 'transparent',
-                        color: 'var(--color-ink)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: 'var(--text-body-sm)',
-                        fontWeight: 'var(--weight-semibold)',
-                        cursor: inFlightFlagId !== null ? 'not-allowed' : 'pointer',
-                      }}
+                      lang={lang}
                     >
                       {inFlightFlagId === f.id
                         ? t('dispatcher.dedup.row.dismissing', null, lang)
                         : t('dispatcher.dedup.row.dismiss', null, lang)}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="primary"
                       onClick={() => onConfirm(f.id)}
                       disabled={inFlightFlagId !== null}
                       data-testid={`dispatcher-dedup-confirm-${f.id}`}
-                      style={{
-                        padding: 'var(--space-2) var(--space-4)',
-                        background: 'var(--color-primary)',
-                        color: 'var(--color-on-primary)',
-                        border: 'none',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: 'var(--text-body-sm)',
-                        fontWeight: 'var(--weight-semibold)',
-                        cursor: inFlightFlagId !== null ? 'not-allowed' : 'pointer',
-                      }}
+                      lang={lang}
                     >
                       {inFlightFlagId === f.id
                         ? t('dispatcher.dedup.row.confirming', null, lang)
                         : t('dispatcher.dedup.row.confirm', null, lang)}
-                    </button>
+                    </Button>
                   </div>
                 </li>
               );
@@ -589,22 +584,15 @@ function TicketPanel({
         >
           {label}
         </span>
-        <span
-          lang={lang}
-          style={{
-            padding: '2px var(--space-2)',
-            background: 'var(--color-status-routed-soft)',
-            color: 'var(--color-status-routed)',
-            borderRadius: 'var(--radius-pill)',
-            fontSize: 10,
-            fontWeight: 'var(--weight-bold)',
-            textTransform: 'uppercase',
-          }}
-        >
-          {`status.${ticket.status}` in ({} as Record<string, unknown>)
-            ? ''
-            : t(`status.${ticket.status}`, null, lang)}
-        </span>
+        {/*
+          The status badge used to be a hard-coded ROUTED colour on
+          every row, whatever the ticket's actual status — so a
+          submitted ticket and a resolved one both wore the "routed"
+          blue. `StatusPill` reads the real status, and it carries
+          the icon + the word as well as the colour, so the badge
+          still reads when the colour is dropped.
+        */}
+        <StatusPill status={ticket.status} lang={lang} />
       </div>
       <div
         style={{

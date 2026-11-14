@@ -148,6 +148,16 @@ export const ICONS = {
   statusRouted: entry(ArrowSquareOut),
   statusInProgress: entry(Clock),
   statusResolved: entry(CheckCircle),
+  /**
+   * "Met the target" — a seal, not a check mark.
+   *
+   * The SLA chip needs the resolved-on-time state to be a
+   * DIFFERENT shape from the still-on-track state: both are good
+   * news, but they are different facts, and a chip that draws
+   * them identically is ambiguous the moment the colour is
+   * dropped (a greyscale printout, a colour-blind reader).
+   */
+  statusMet: entry(SealCheck),
   statusPaused: entry(Clock),
   statusError: entry(XCircle),
   statusWarning: entry(WarningCircle),

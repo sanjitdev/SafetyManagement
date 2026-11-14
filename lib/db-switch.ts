@@ -262,6 +262,49 @@ export const db = {
         ? devDb.category.countByCity(args)
         : prismaClient.category.count({ where: args.where }),
   },
+  /**
+   * Wave 4 / bolt 009-005 — the per-category resolution SLA.
+   *
+   * The dispatcher SLA countdown chip needs the **target** hours for
+   * a ticket's category. The Prisma model has `categoryId` as its
+   * unique key, so the read path looks a policy up BY CATEGORY.
+   *
+   * The dev store mirrors the entity (see `DevSlaPolicy`) — without
+   * it, `db.slaPolicy.findUnique(...)` in dev mode is
+   * `undefined.findUnique`, a TypeError rather than an empty
+   * result, and the dev-mode route spec could never pass.
+   */
+  slaPolicy: {
+    findMany: async (args: {
+      where?: { cityId?: string; categoryId?: string | { in: string[] } };
+    }) =>
+      isDevStore()
+        ? devDb.slaPolicy.findMany(args)
+        : ((await prismaClient.slaPolicy.findMany({
+            where: args.where as never,
+          })) as unknown) as Awaited<
+            ReturnType<typeof devDb.slaPolicy.findMany>
+          >,
+    findUnique: async (args: { where: { id?: string; categoryId?: string } }) => {
+      if (isDevStore()) return devDb.slaPolicy.findUnique(args);
+      // Prisma's `findUnique` requires the field that carries the
+      // `@unique` attribute. `SlaPolicy.categoryId` is unique; the
+      // policy's own `id` is the primary key. Both are legal
+      // `findUnique` keys, so pick whichever the caller supplied.
+      if (args.where.id !== undefined) {
+        return ((await prismaClient.slaPolicy.findUnique({
+          where: { id: args.where.id },
+        })) as unknown) as Awaited<
+          ReturnType<typeof devDb.slaPolicy.findUnique>
+        >;
+      }
+      return ((await prismaClient.slaPolicy.findUnique({
+        where: { categoryId: args.where.categoryId! },
+      })) as unknown) as Awaited<
+        ReturnType<typeof devDb.slaPolicy.findUnique>
+      >;
+    },
+  },
   user: {
     findUnique: (args: { where: { id: string } }) =>
       isDevStore()
@@ -1026,7 +1069,17 @@ export async function getTicketWithTrail(
   const t = await prismaClient.ticket.findUnique({
     where: { id },
     include: {
-      trail: { orderBy: { timestamp: 'asc' } },
+      trail: {
+        orderBy: { timestamp: 'asc' },
+        // Bolt 008-002 — Story 002: the trail shows WHO moved the
+        // ticket ("Rashid marked 'In progress'"). The actor's NAME
+        // has to be joined here because the actor id is
+        // backend-specific — the dev store's demo personas are
+        // `user_crew_rashid`, Postgres's seeded citizens are
+        // `seed_cit_01`, so a client-side id→name map only fits
+        // ONE backend and printed raw ids on the other.
+        include: { actor: { select: { name: true } } },
+      },
       category: { select: { departmentId: true, slug: true, name: true, nameBn: true } },
       ward: { select: { name: true, nameBn: true } },
       // Bolt 008-002 — Story 002: city + reporter display names
@@ -1037,6 +1090,12 @@ export async function getTicketWithTrail(
       // whole point of the persona.
       city: { select: { name: true, nameBn: true } },
       reporter: { select: { name: true } },
+      // The assigned crew's display name. Same reasoning as the
+      // reporter join: the crew id is backend-specific
+      // (`user_crew_rashid` vs. a Postgres id), so the name has to
+      // be resolved server-side for the staff surfaces to show
+      // "Rashid" on every backend.
+      assignedCrew: { select: { name: true } },
       // Bolt 007-001: join the new TicketPhoto table ordered by
       // uploadedAt ASC (the canonical ordering the citizen detail
       // page renders). The dev store mirrors this shape via
@@ -1113,6 +1172,10 @@ export async function getTicketWithTrail(
       ticketId: e.ticketId,
       toStatus: e.toStatus,
       actorId: e.actorId,
+      // The actor's display name, joined server-side. `null` when
+      // the join is missing (e.g. an actor row was deleted) — the
+      // UI then falls back to the role label.
+      actorName: e.actor?.name ?? null,
       note: e.note,
       timestamp: e.timestamp.toISOString(),
     })),
@@ -1128,6 +1191,7 @@ export async function getTicketWithTrail(
     cityName: t.city?.name ?? null,
     cityNameBn: t.city?.nameBn ?? null,
     reporterName: t.reporter?.name ?? null,
+    assignedCrewName: t.assignedCrew?.name ?? null,
     // Denormalised category display fields. `slug` is the machine
     // key the UI switches on to pick a glyph; the names are the
     // human label. Without these the staff surfaces had to render

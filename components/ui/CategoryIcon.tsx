@@ -26,11 +26,26 @@ export interface CategoryIconProps {
   slug: string | null | undefined;
   /** Rendered size in px. Defaults to 20. */
   size?: number;
+  /**
+   * Override the glyph colour.
+   *
+   * The default is the category's own colour token, which is the point
+   * of the icon on a light surface. On a SOLID brand-coloured tile the
+   * category colour is illegible — a slate pothole glyph on a civic
+   * blue tile reads as a smudge — so the caller passes the tile's
+   * foreground instead.
+   */
+  color?: string;
   /** Test hook. */
   'data-testid'?: string;
 }
 
-export function CategoryIcon({ slug, size = 20, 'data-testid': testId }: CategoryIconProps) {
+export function CategoryIcon({
+  slug,
+  size = 20,
+  color,
+  'data-testid': testId,
+}: CategoryIconProps) {
   const entry = categoryIcon(slug);
   const IconComponent = entry.icon;
 
@@ -42,7 +57,7 @@ export function CategoryIcon({ slug, size = 20, 'data-testid': testId }: Categor
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: categoryIconColor(slug),
+        color: color ?? categoryIconColor(slug),
       }}
     >
       <IconComponent size={size} weight={entry.weight} aria-hidden focusable="false" />

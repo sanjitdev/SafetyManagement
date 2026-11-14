@@ -37,6 +37,18 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   size?: ButtonSize;
   /** Button label. */
   children: ReactNode;
+  /**
+   * Render `children` as-is instead of wrapping them in a label
+   * `<span>`.
+   *
+   * The wrapper exists so a plain text label is centred by the
+   * button's own `justify-content: center`. A button whose content
+   * is a LAYOUT — a card row with an icon tile, a label and a
+   * trailing chevron — needs its children to be direct flex items,
+   * so the wrapper has to go: nested one level down they are no
+   * longer flex children and the row collapses into a stack.
+   */
+  rawChildren?: boolean;
   /** Show a spinner and block interaction. */
   loading?: boolean;
   /** Icon rendered before the label. */
@@ -84,6 +96,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   children,
+  rawChildren = false,
   loading = false,
   icon,
   trailingIcon,
@@ -128,7 +141,7 @@ export function Button({
       }}
     >
       {loading ? <Spinner /> : icon ? <span aria-hidden>{icon}</span> : null}
-      <span>{children}</span>
+      {rawChildren ? children : <span>{children}</span>}
       {trailingIcon ? <span aria-hidden>{trailingIcon}</span> : null}
     </button>
   );

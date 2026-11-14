@@ -267,6 +267,30 @@ export function firstDisplayablePhotoUrl(
 }
 
 /**
+ * The LAST photo URL in a list that is worth rendering — i.e. one
+ * that is a usable image source AND is not a degenerate 1×1/2×2
+ * colour swatch.
+ *
+ * The BACKWARDS counterpart of `firstDisplayablePhotoUrl`, for
+ * surfaces that want the freshest evidence (the dispatcher monitor
+ * prefers the crew's after-photo over the citizen's before-photo).
+ * Scanning backwards means a swatch parked at the end of the list
+ * does not blank the thumbnail when an older real photo exists.
+ */
+export function lastDisplayablePhotoUrl(
+  urls: readonly string[] | null | undefined,
+): string | null {
+  if (!urls) return null;
+  for (let i = urls.length - 1; i >= 0; i -= 1) {
+    const url = urls[i];
+    if (!isRenderablePhotoUrl(url)) continue;
+    if (isDegenerateInlineImage(url)) continue;
+    return url.trim();
+  }
+  return null;
+}
+
+/**
  * True when `url` is an acceptable photo source at an API boundary
  * (i.e. a value we are willing to persist and later render).
  *

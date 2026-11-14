@@ -265,12 +265,15 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
     // Open the first row's details (the ▶ chevron in the first data row).
     //
     // Scope the click to the TABLE's expand buttons. A bare
-    // `button[aria-expanded]` matches the AppHeader's mobile
-    // hamburger first — the header renders above the table, and its
-    // burger carries `aria-expanded` too (components/AppHeader.tsx).
-    // The old selector clicked the burger, no row expanded, and the
-    // `pre` assertion failed for a reason that had nothing to do with
-    // the audit page.
+    // `button[aria-expanded]` matches the AppHeader's nav toggle
+    // first — the header renders above the table, and its
+    // `.appheader-open-nav` button carries `aria-expanded` too
+    // (components/AppHeader.tsx). The old selector clicked that
+    // button, no row expanded, and the `pre` assertion failed for a
+    // reason that had nothing to do with the audit page.
+    //
+    // (This used to name the header's inline-nav burger, which was
+    // removed on 2026-11-14; the open-nav button remains.)
     const rowToggle = page
       .locator('table tbody button[aria-expanded]')
       .first();

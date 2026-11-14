@@ -30,7 +30,7 @@
 
 'use client';
 
-import { useRef, useState, useCallback, KeyboardEvent, ReactNode } from 'react';
+import { useRef, useState, useCallback, KeyboardEvent, ReactNode, type CSSProperties } from 'react';
 import { type Language } from '@/lib/i18n/keys';
 
 export interface FilterChipOption<T extends string> {
@@ -40,6 +40,14 @@ export interface FilterChipOption<T extends string> {
   label: string;
   /** Optional disabled state. */
   disabled?: boolean;
+  /**
+   * Test hook for THIS chip.
+   *
+   * The group carries its own `data-testid`, but a spec that clicks
+   * one specific chip needs to name that chip — the group testid
+   * selects the whole group, not a member of it.
+   */
+  testId?: string;
 }
 
 export interface FilterChipGroupProps<T extends string> {
@@ -55,6 +63,15 @@ export interface FilterChipGroupProps<T extends string> {
   lang: Language;
   /** Optional className passthrough. */
   className?: string;
+  /**
+   * Optional inline style for the GROUP wrapper.
+   *
+   * The group is a horizontal row by default. A left rail wants a
+   * vertical stack, and the chips need to fill the rail's width —
+   * neither is expressible as a className without a stylesheet this
+   * primitive does not own.
+   */
+  style?: CSSProperties;
   /** Test hook. */
   'data-testid'?: string;
 }
@@ -66,6 +83,7 @@ export function FilterChipGroup<T extends string>({
   ariaLabel,
   lang,
   className,
+  style,
   'data-testid': testId,
 }: FilterChipGroupProps<T>) {
   const [focusedIndex, setFocusedIndex] = useState(() => {
@@ -122,6 +140,7 @@ export function FilterChipGroup<T extends string>({
         gap: 'var(--space-2)',
         flexWrap: 'wrap',
         alignItems: 'center',
+        ...style,
       }}
     >
       {options.map((opt, i) => {
@@ -135,6 +154,7 @@ export function FilterChipGroup<T extends string>({
             }}
             type="button"
             lang={lang}
+            data-testid={opt.testId}
             aria-pressed={isActive}
             aria-label={opt.label}
             tabIndex={isFocused ? 0 : -1}

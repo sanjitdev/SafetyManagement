@@ -98,6 +98,42 @@ export interface DevDepartment {
   nameBn: string | null;
 }
 
+/**
+ * The per-category resolution SLA — mirrors the Prisma `SlaPolicy`
+ * model (`prisma/schema.prisma`).
+ *
+ * ── Why this entity is in the dev store at all ──────────────────
+ *
+ * `SlaPolicy` is seeded for five categories in `prisma/seed.ts`
+ * (`DHAKA_SLA_POLICIES`) but until the Wave 4 dispatcher work no
+ * application code read it. The dispatcher's SLA countdown chip
+ * needs the **target**, and the only honest source for that target
+ * is the policy row — hard-coding the five hour counts in the
+ * component would duplicate the seed and drift the moment the seed
+ * changes.
+ *
+ * The mirror is not optional. `db.slaPolicy.findMany(...)` against
+ * a dev store with no `slaPolicy` delegate is `undefined.findMany`
+ * — a TypeError, not an empty result — so a read path written
+ * against the standard `db` accessor would crash the dev-mode run
+ * and the wave's own route spec could never pass. This is the
+ * standing team rule: **the dev store must mirror every fix.**
+ *
+ * The five values below are copied verbatim from
+ * `prisma/seed.ts` → `DHAKA_SLA_POLICIES`. The seeded city id and
+ * category ids are the same constants the categories above use, so
+ * the two backends resolve the same policy for the same category.
+ */
+export interface DevSlaPolicy {
+  id: string;
+  cityId: string;
+  categoryId: string;
+  /** Hours from `routed` to `resolved` before the SLA is breached. */
+  resolveHours: number;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
+
 export interface DevUser {
   id: string;
   cityId: string;
@@ -122,6 +158,17 @@ export interface DevTrailEntry {
   ticketId: string;
   toStatus: TicketStatus;
   actorId: string;
+  /**
+   * The actor's display name, joined server-side — mirrors the
+   * Prisma path, which joins `TicketTrailEntry.actor`.
+   *
+   * The trail shows WHO moved the ticket ("Rashid marked
+   * 'In progress'"). Resolving the name from the actor id in the
+   * client only works for one backend: the dev store's demo
+   * personas have readable ids (`user_crew_rashid`) but a real
+   * database's rows do not.
+   */
+  actorName?: string | null;
   note: string | null;
   timestamp: string; // ISO
 }
@@ -297,6 +344,12 @@ interface Store {
   wards: Map<string, DevWard>;
   categories: Map<string, DevCategory>;
   departments: Map<string, DevDepartment>;
+  /**
+   * Wave 4 / bolt 009-005 — the per-category resolution SLA. Keyed
+   * by policy id. See `DevSlaPolicy` for why the dev store carries
+   * this entity.
+   */
+  slaPolicies: Map<string, DevSlaPolicy>;
   users: Map<string, DevUser>;
   tickets: Map<string, DevTicket>;
   trail: DevTrailEntry[];
@@ -714,6 +767,37 @@ function seed(): Store {
    */
   const now = nowMs();
   const day = 24 * 60 * 60 * 1000;
+
+  // ── The per-category resolution SLA (Wave 4 / bolt 009-005) ─────
+  //
+  // The five `resolveHours` values are copied verbatim from
+  // `prisma/seed.ts` → `DHAKA_SLA_POLICIES`. Both backends must
+  // resolve the SAME target for the same category, or the SLA chip
+  // would show one number in dev and another in production.
+  //
+  // The policy id follows the Prisma cuid shape closely enough for
+  // a human to read it (`slp_<category>`), which matters because the
+  // policy id appears in the API response.
+  const SLA_POLICY_HOURS: Array<[string, number]> = [
+    [catIds.streetlight, 72],
+    [catIds.pothole, 168],
+    [catIds.drainage, 120],
+    [catIds.garbage, 48],
+    [catIds.other, 168],
+  ];
+  const slaPolicies = new Map<string, DevSlaPolicy>();
+  for (const [categoryId, resolveHours] of SLA_POLICY_HOURS) {
+    const id = `slp_${categoryId.replace(/^cat_/, '')}`;
+    slaPolicies.set(id, {
+      id,
+      cityId,
+      categoryId,
+      resolveHours,
+      createdAt: new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+    });
+  }
+
   /**
    * A wall-clock time TODAY at the given hour/minute.
    *
@@ -1220,6 +1304,7 @@ function seed(): Store {
     dedupFlags: new Map(),
     webAuthnChallenges: new Map(),
     ticketPhotos,
+    slaPolicies,
   };
 }
 
@@ -1517,6 +1602,55 @@ export const devDb = {
       return [...getStore().categories.values()].filter(
         (c) => c.cityId === args.where.cityId,
       ).length;
+    },
+  },
+  /**
+   * Wave 4 / bolt 009-005 — the per-category resolution SLA.
+   *
+   * The delegate mirrors the Prisma `SlaPolicy` surface the read
+   * path uses: `findMany` (scoped to a city, optionally to a set of
+   * categories) and `findUnique` (by category id — the Prisma model
+   * has `categoryId` as its `@unique`, so a category lookup is the
+   * natural key).
+   *
+   * `findUnique` accepts EITHER `{ id }` or `{ categoryId }` because
+   * the Prisma model's unique index is on `categoryId` while the
+   * policy's own id is a cuid. Both are unique, and the read path
+   * needs the category lookup far more often.
+   */
+  slaPolicy: {
+    findMany(args: {
+      where?: { cityId?: string; categoryId?: string | { in: string[] } };
+    }): DevSlaPolicy[] {
+      const all = [...getStore().slaPolicies.values()];
+      const filtered = all.filter((p) => {
+        const where = args.where ?? {};
+        if (where.cityId && p.cityId !== where.cityId) return false;
+        if (where.categoryId !== undefined) {
+          if (typeof where.categoryId === 'string') {
+            if (p.categoryId !== where.categoryId) return false;
+          } else if (!where.categoryId.in.includes(p.categoryId)) {
+            return false;
+          }
+        }
+        return true;
+      });
+      filtered.sort((a, b) => a.categoryId.localeCompare(b.categoryId));
+      return filtered;
+    },
+    findUnique(args: {
+      where: { id?: string; categoryId?: string };
+    }): DevSlaPolicy | null {
+      if (args.where.id !== undefined) {
+        return getStore().slaPolicies.get(args.where.id) ?? null;
+      }
+      if (args.where.categoryId !== undefined) {
+        const match = [...getStore().slaPolicies.values()].find(
+          (p) => p.categoryId === args.where.categoryId,
+        );
+        return match ?? null;
+      }
+      return null;
     },
   },
   user: {
@@ -2316,6 +2450,15 @@ export interface DevTicketWithTrail extends DevTicket {
   cityNameBn: string | null;
   reporterName: string | null;
   /**
+   * The assigned crew member's display name, joined server-side.
+   *
+   * Mirrors the Prisma path's `assignedCrew: { select: { name } }`
+   * join. The crew id is backend-specific (`user_crew_rashid` vs. a
+   * Postgres id), so the staff surfaces can only show "Rashid" if
+   * the name comes from the backend.
+   */
+  assignedCrewName: string | null;
+  /**
    * Denormalised category display fields, mirrored from the
    * `category` join so the dev-store and Prisma paths return the
    * same shape. `categorySlug` is the machine key the staff
@@ -2337,9 +2480,15 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
   const city = devDb.city.findUnique({ where: { id: t.cityId } });
   const reporter = devDb.user.findUnique({ where: { id: t.reporterId } });
   const photos = devDb.ticketPhoto.findManyForTicket({ ticketId: id });
+  // Join each trail entry's actor name, mirroring the Prisma path
+  // (`trail: { include: { actor: { select: { name: true } } } }`).
+  const trailWithActors = trail.map((e) => ({
+    ...e,
+    actorName: devDb.user.findUnique({ where: { id: e.actorId } })?.name ?? null,
+  }));
   return {
     ...t,
-    trail,
+    trail: trailWithActors,
     photos,
     departmentId: category?.departmentId ?? null,
     wardName: ward?.name ?? null,
@@ -2347,6 +2496,9 @@ export function getTicketWithTrail(id: string): DevTicketWithTrail | null {
     cityName: city?.name ?? null,
     cityNameBn: city?.nameBn ?? null,
     reporterName: reporter?.name ?? null,
+    assignedCrewName: t.assignedCrewId
+      ? (devDb.user.findUnique({ where: { id: t.assignedCrewId } })?.name ?? null)
+      : null,
     categorySlug: category?.slug ?? null,
     categoryName: category?.name ?? null,
     categoryNameBn: category?.nameBn ?? null,

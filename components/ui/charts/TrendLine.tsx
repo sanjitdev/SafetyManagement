@@ -68,6 +68,16 @@ export interface TrendLineProps {
   actions?: React.ReactNode;
   /** Test hook. */
   'data-testid'?: string;
+  /**
+   * Test hook for the data table.
+   *
+   * The table is a SEPARATE element from the chart, so a spec that
+   * wants to assert on the table needs its own hook. It is a
+   * separate prop rather than a derived name because the table's
+   * identity is part of the chart's public contract — the spec
+   * pins it.
+   */
+  'data-testid-table'?: string;
 }
 
 export function TrendLine({
@@ -79,6 +89,7 @@ export function TrendLine({
   height = 260,
   actions,
   'data-testid': testId,
+  'data-testid-table': tableTestId,
 }: TrendLineProps) {
   const columns: DataTableColumn<TrendLinePoint>[] = [
     {
@@ -123,6 +134,7 @@ export function TrendLine({
           rowKey={(row: TrendLinePoint) => row.label}
           caption={title}
           lang={lang}
+          data-testid={tableTestId}
         />
       }
     />

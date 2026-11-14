@@ -118,11 +118,11 @@ export function IconButton({
         alignItems: 'center',
         gap: 'var(--space-1)',
       }}
-      data-testid={testId}
     >
       <button
         {...rest}
         type={type}
+        data-testid={testId}
         aria-label={label}
         title={label}
         disabled={disabled}

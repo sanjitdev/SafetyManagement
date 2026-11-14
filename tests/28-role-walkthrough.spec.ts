@@ -637,8 +637,12 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
       });
 
       // --- Step C4: the report CTA is reachable ----------------------------
+      // The home page's own CTA — a LINK to /report/location
+      // (`.home-report-action`). The header's top-bar Report button
+      // was removed on 2026-11-14; it duplicated this CTA and the role
+      // sidebar's "New report" item.
       const reportCta = page
-        .getByRole('button', { name: /রিপোর্ট করুন|Report/i })
+        .locator('a.home-report-action')
         .first();
       const ctaVisible = await reportCta.isVisible().catch(() => false);
       observe({

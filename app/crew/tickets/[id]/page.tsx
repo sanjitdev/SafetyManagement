@@ -62,7 +62,7 @@ import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import {
   displayNameFor,
-  categoryLabel,
+  categoryLabelBySlug,
 } from '@/lib/identity/display-name';
 import {
   bytesToBase64,
@@ -106,6 +106,8 @@ interface TrailEntry {
   toStatus: TicketStatus;
   actorLabel: string;
   actorId?: string;
+  /** The actor's display name, joined server-side. */
+  actorName?: string | null;
   actorRole?: 'citizen' | 'dispatcher' | 'crew' | 'admin';
   note: string | null;
   timestamp: string;
@@ -142,6 +144,8 @@ interface TicketDetail {
   afterPhotoUrls: string[];
   photoUrls: string[];
   reporterId: string;
+  /** The reporter's display name, joined server-side. */
+  reporterName?: string | null;
   assignedCrewId: string | null;
   internalNote: string | null;
   createdAt: string;
@@ -869,7 +873,7 @@ export default function CrewTicketPage() {
                   category display name, not the raw
                   cat_* id. The id is still on the
                   next line as a monospaced badge. */}
-              {categoryLabel(ticket.categoryId, lang)}
+              {ticketCategoryLabel(ticket, lang)}
             </h1>
             <p
               lang={lang}
@@ -900,7 +904,7 @@ export default function CrewTicketPage() {
           />
           <RecordRow
             label={t('crew.detail.field.category', null, lang)}
-            value={categoryLabel(ticket.categoryId, lang)}
+            value={ticketCategoryLabel(ticket, lang)}
             lang={lang}
           />
           <RecordRow
@@ -922,7 +926,7 @@ export default function CrewTicketPage() {
           )}
           <RecordRow
             label={t('crew.detail.field.reporter', null, lang)}
-            value={displayNameFor('citizen', ticket.reporterId)}
+            value={ticket.reporterName ?? displayNameFor('citizen', ticket.reporterId)}
             lang={lang}
             mono
           />
@@ -1296,12 +1300,16 @@ export default function CrewTicketPage() {
                     {/* Bolt 008-002 — Story 002: render
                         the actor's display name (Rahim /
                         Habib / Rashid) instead of the raw
-                        user id. Unknown users fall back
-                        to the id itself. */}
-                    {displayNameFor(
-                      entry.actorRole ?? 'citizen',
-                      entry.actorId ?? entry.actorLabel,
-                    )}
+                        user id.
+                        The server-joined `actorName` wins —
+                        it works on every backend, whereas
+                        the id→name map covers only the dev
+                        store's three demo personas. */}
+                    {entry.actorName ??
+                      displayNameFor(
+                        entry.actorRole ?? 'citizen',
+                        entry.actorId ?? entry.actorLabel,
+                      )}
                   </span>
                 </div>
                 {entry.note && (
@@ -1481,6 +1489,31 @@ export default function CrewTicketPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * The ticket's category display name.
+ *
+ * Prefers the server-joined localized name (`categoryName` /
+ * `categoryNameBn`), falls back to the i18n registry via the slug,
+ * and finally to the raw id.
+ *
+ * `categoryId` alone cannot be labeled client-side: it is
+ * backend-specific (`cat_streetlight` in the dev store, a CUID on
+ * Postgres), so an id→label map only fits one backend.
+ */
+function ticketCategoryLabel(
+  ticket: {
+    categoryId: string;
+    categoryName?: string | null;
+    categoryNameBn?: string | null;
+    categorySlug?: string | null;
+  },
+  lang: Language,
+): string {
+  const joined = lang === 'bn' ? ticket.categoryNameBn : ticket.categoryName;
+  if (joined) return joined;
+  return categoryLabelBySlug(ticket.categorySlug ?? null, lang, ticket.categoryId);
 }
 
 function SectionCard({

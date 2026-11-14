@@ -56,7 +56,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
-import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { formatTicketId } from '@/lib/format/ticket-id';
 import { nowMs } from '@/lib/format/clock';
 import { PhotoPlaceholder } from '@/components/ui/PhotoPlaceholder';
@@ -728,11 +728,14 @@ export default function ReportsListPage() {
                    * picker inlines the file bytes), an absolute
                    * `https://` URL (R2/S3 with a public base URL), or a
                    * root-relative `/api/blob/…` path (the local blob
-                   * provider). `firstRenderablePhotoUrl` picks the first
-                   * URL we can actually render; the shared placeholder
-                   * is the genuine "no photo attached" state.
+                   * provider). `firstDisplayablePhotoUrl` picks the first
+                   * URL we can actually render AND that is worth showing
+                   * — it also rejects the degenerate 1×1 / 2×2 PNG
+                   * swatches, which would paint an empty grey square.
+                   * The shared placeholder is the genuine "no photo
+                   * attached" state.
                    */
-                  const photoUrl = firstRenderablePhotoUrl(tkt.photoUrls);
+                  const photoUrl = firstDisplayablePhotoUrl(tkt.photoUrls);
                   const thumbBackground = thumbnailBackground(photoUrl);
                   return (
                     <li key={tkt.id}>

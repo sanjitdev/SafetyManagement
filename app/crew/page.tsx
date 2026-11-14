@@ -53,7 +53,7 @@ import {
   type ReadResult,
 } from '@/lib/crew/cache';
 import type { SerializedTicket } from '@/lib/serializers/ticket';
-import { firstRenderablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
+import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { ticketReference } from '@/lib/crew/ticket-reference';
 import { useSession } from '@/components/SessionProvider';
 
@@ -1266,7 +1266,7 @@ export default function CrewPage() {
               </svg>
               {t('crew.dashboard.activity_title', null, lang)}
             </h2>
-            <a href="/crew/reports" lang={lang}>
+            <a href="/crew/activity" lang={lang}>
               {t('crew.dashboard.activity_view_all', null, lang)} →
             </a>
           </div>
@@ -1359,11 +1359,12 @@ function CrewJobRow({
    * site at a glance — the citizen's photo is the strongest signal.
    * The stored URL can be an inline `data:image/…` URL (the default),
    * an absolute `https://` URL, or a root-relative `/api/blob/…`
-   * path, so `firstRenderablePhotoUrl` picks the first one we can
-   * actually render. Without a photo, the row falls back to the
-   * category glyph.
+   * path, so `firstDisplayablePhotoUrl` picks the first one we can
+   * actually render AND that is worth showing — it also rejects the
+   * degenerate 1×1 / 2×2 PNG swatches, which would paint an empty
+   * grey square instead of the category glyph.
    */
-  const photoUrl = firstRenderablePhotoUrl(ticket.photoUrls);
+  const photoUrl = firstDisplayablePhotoUrl(ticket.photoUrls);
   const thumbBackground = thumbnailBackground(photoUrl);
   // The estimate reads "1h est" — the crew's own typical time for
   // this category of work. Null when the crew has no finished job

@@ -54,6 +54,23 @@ export interface DataTableColumn<T> {
   numeric?: boolean;
   /** Extra inline style for the cell (e.g. width). */
   width?: string;
+  /**
+   * Test hook for this column's SORT BUTTON.
+   *
+   * The table carries the `data-testid` (the whole table), but a spec
+   * that clicks a header needs to name the button specifically — the
+   * table testid plus a column key would not select it, because the
+   * button is a descendant rather than the table itself.
+   */
+  sortTestId?: string;
+  /**
+   * Test hook for this column's ROW.
+   *
+   * A spec that asserts "the low-feedback badge is on the crew named
+   * X" needs to point at one row. The row hook is applied to the
+   * `<tr>`, so a row-level query resolves to the row, not the cell.
+   */
+  rowTestId?: (row: T) => string | undefined;
 }
 
 export interface DataTableProps<T> {
@@ -193,6 +210,7 @@ export function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => toggleSort(column)}
+                      data-testid={column.sortTestId}
                       aria-label={`${column.header}, ${stateLabel}`}
                       style={{
                         display: 'inline-flex',
@@ -237,7 +255,11 @@ export function DataTable<T>({
             </tr>
           ) : (
             sortedRows.map((row) => (
-              <tr key={rowKey(row)} style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <tr
+                key={rowKey(row)}
+                data-testid={columns.find((c) => c.rowTestId)?.rowTestId?.(row)}
+                style={{ borderBottom: '1px solid var(--color-border)' }}
+              >
                 {columns.map((column) => (
                   <td
                     key={column.key}

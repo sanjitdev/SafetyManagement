@@ -27,6 +27,11 @@ import { ApiError, requireRole, requireSameCity, requireScope } from '@/lib/auth
 import { serializeTicketForRole } from '@/lib/serializers/ticket';
 import { writeAudit } from '@/lib/platform/audit';
 import { buildActorRoleMap } from '@/lib/identity/actor-role-map';
+import {
+  loadSlaPoliciesByCategory,
+  slaStateFor,
+  slaStateForResolved,
+} from '@/lib/dispatcher/sla-resolve';
 
 const PatchInput = z.object({
   wardId: z.string().min(1).optional(),
@@ -88,9 +93,29 @@ export async function GET(
   const actorRoles = await buildActorRoleMap(
     inScope.trail.map((e) => e.actorId),
   );
+  // ── The SLA (Wave 4 / bolt 009-005) ───────────────────────────
+  //
+  // The detail header carries the countdown chip, so this response
+  // resolves the SLA the same way the queue does: the city's
+  // policies are read once, and the ticket's own category picks
+  // its target out of the map.
+  const slaPolicies = await loadSlaPoliciesByCategory(inScope.cityId);
+  const sla = inScope.resolvedAt
+    ? slaStateForResolved(
+        inScope.categoryId,
+        inScope.trail,
+        slaPolicies,
+        inScope.resolvedAt,
+      )
+    : slaStateFor(
+        inScope.categoryId,
+        inScope.trail,
+        slaPolicies,
+        Date.now(),
+      );
   return NextResponse.json({
     ticket: serializeTicketForRole(
-      inScope,
+      { ...inScope, ...sla.resolved },
       inScope.trail,
       session!.role,
       'bn',
