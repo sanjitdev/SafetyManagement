@@ -6637,3 +6637,65 @@ identically on the clean tree, so it is pre-existing and unrelated.
 
 The route-spec baselines need another CI refresh for the same reason as
 the rail: the rule was one of the header's pixels.
+
+### 2026-11-15 — The user menu could not paint above the page
+
+The user menu's dropdown was an absolutely-positioned child of the app
+header. The header is `position: sticky` with a numeric `z-index`, and a
+`position: sticky` element with a numeric `z-index` is a **stacking
+context**. A stacking context traps every descendant's `z-index` inside
+it — the panel's `z-index: 80` only ranked it *within the header's own
+context*, and had no say over anything outside it.
+
+On `/dispatcher/performance` the page has its own sticky sub-header, also
+at `z-index: 10`. The app header was `z-index: var(--z-sticky)` = 10 and
+the performance sub-header was a literal 10. At equal `z-index` the
+LATER element in the DOM wins the paint, and the sub-header comes after
+the header. So the result was:
+
+| | Expected | Actual |
+|---|---|---|
+| Panel top edge | below the date-range row | cutting through it |
+| Range control (`<select>`) | behind the panel | painting OVER the panel |
+| Panel's avatar/name row | fully visible | clipped away |
+
+Measured on the live app before the fix: `elementFromPoint` at the range
+control's centre returned the `<select>`, not the panel — at 1440, 1024,
+900, 768, 640, 480, 439 and 390 px. `overlap` was `true` at every one.
+
+**The fix is a portal, not a bigger number.** Raising the header's
+z-index would have moved the goalposts for every other sticky row on
+every page, and the trap would return the next time a page used a
+higher value. Instead the panel is rendered into `document.body` with
+`createPortal`, positioned `fixed` against the trigger's measured
+viewport box. It therefore lives in the ROOT stacking context and
+outranks every in-page context, whatever their z-index.
+
+Details that the portal required:
+
+- The panel is `position: fixed` and placed from
+  `button.getBoundingClientRect()` in a `useLayoutEffect`, so it is
+  measured against the viewport, not the header's layout box.
+- It is repositioned on `resize` and on capture-phase `scroll` — the
+  trigger is inside a sticky header, so a scroll moves it.
+- On narrow viewports the panel is clamped to stay inside the viewport
+  (`min(304px, 100vw − 24px)`, left edge clamped to 12 px).
+- The outside-click handler must now test BOTH the trigger's container
+  and the portalled panel — the panel is no longer a descendant of the
+  container, so a click on it would otherwise read as "outside".
+- The theme class lives on `<html>`, and the panel is on `<body>`, so
+  the tokens still resolve: measured white-on-light-ink in light mode
+  and `rgb(17,24,39)` in dark mode.
+
+**Verification.** `tests/35-user-menu-overlay.spec.ts` (new) asserts the
+panel wins the paint over the range control on the page that reproduced
+it and at five widths, that the profile header row keeps its height
+instead of being squashed by a sticky row, that the panel's parent is
+`<body>`, that Escape closes it and returns focus to the trigger, that a
+click inside does not close it and a click outside does, and that the
+admin console's menu behaves the same. The spec fails on the pre-fix
+code (4 of its 7 tests) and passes after — it catches the bug rather
+than merely describing the fix.
+
+The change is confined to `components/UserMenu.tsx`. The app header's
+own `z-index` is unchanged, so no other page's stacking order moved.

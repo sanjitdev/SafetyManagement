@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSession, type SessionRole } from './SessionProvider';
 import { t, type Language } from '@/lib/i18n/keys';
@@ -49,7 +50,13 @@ export function UserMenu({ lang = 'bn' }: UserMenuProps) {
   const [signingOut, setSigningOut] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const menuId = useId();
+
+  // The panel is rendered in a PORTAL on <body>, so its position is
+  // measured from the trigger's viewport box rather than inherited from
+  // the header's own layout box.
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   // The session is owned by `SessionProvider`. This menu used to fetch
   // `/api/auth/status` on mount AND on every menu open — a third
@@ -72,14 +79,45 @@ export function UserMenu({ lang = 'bn' }: UserMenuProps) {
       }
     };
     const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
       const root = containerRef.current;
-      if (root && event.target instanceof Node && !root.contains(event.target)) setOpen(false);
+      const panel = panelRef.current;
+      const inside = (root && root.contains(event.target)) || (panel && panel.contains(event.target));
+      if (!inside) setOpen(false);
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointerDown);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [open]);
+
+  // Position the portalled panel against the trigger. The panel is
+  // `position: fixed` on <body>, so it sits in the root stacking context
+  // and can paint above every in-page stacking context — the app header's
+  // own sticky context included.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelPos(null);
+      return;
+    }
+    const place = () => {
+      const button = buttonRef.current;
+      if (!button) return;
+      const r = button.getBoundingClientRect();
+      const width = Math.min(304, window.innerWidth - 24);
+      let left = r.right - width;
+      // Keep the panel inside the viewport on narrow screens.
+      left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+      setPanelPos({ top: r.bottom + 8, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
     };
   }, [open]);
 
@@ -152,94 +190,98 @@ export function UserMenu({ lang = 'bn' }: UserMenuProps) {
         </svg>
       </button>
 
-      {open && (
-        <div
-          id={menuId}
-          role="group"
-          aria-label={t('user.menu.open_menu', null, lang)}
-          className="usermenu-panel"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + var(--space-2))',
-            right: 0,
-            width: 'min(304px, calc(100vw - 24px))',
-            boxSizing: 'border-box',
-            background: 'var(--color-surface-card)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-card)',
-            boxShadow: 'var(--shadow-popover)',
-            padding: 'var(--space-2)',
-            zIndex: 80,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-          }}
-        >
-          <div style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <span aria-hidden style={{ width: 42, height: 42, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: 'var(--text-body)', fontWeight: 'var(--weight-bold)' }}>
-              {initialsOf(name) ?? <ProfileIcon />}
-            </span>
-            <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <strong style={{ color: 'var(--color-ink)', fontSize: 'var(--text-body-sm)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{name ?? '—'}</strong>
-              {user?.role && <span style={{ color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)' }}>{t(ROLE_KEY[user.role], null, lang)}</span>}
-            </span>
-          </div>
-
-          <Link
-            href="/profile"
-            className="usermenu-profile-link"
-            onClick={() => setOpen(false)}
+      {open &&
+        panelPos &&
+        createPortal(
+          <div
+            id={menuId}
+            ref={panelRef}
+            role="group"
+            aria-label={t('user.menu.open_menu', null, lang)}
+            className="usermenu-panel"
             style={{
-              minHeight: 48,
-              padding: '0 var(--space-3)',
-              borderRadius: 'var(--radius-input)',
+              position: 'fixed',
+              top: panelPos.top,
+              left: panelPos.left,
+              width: panelPos.width,
+              boxSizing: 'border-box',
+              background: 'var(--color-surface-card)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-card)',
+              boxShadow: 'var(--shadow-popover)',
+              padding: 'var(--space-2)',
+              zIndex: 'var(--z-overlay, 50)',
               display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-3)',
-              color: 'var(--color-ink)',
-              textDecoration: 'none',
-              background: 'var(--color-surface-raised)',
+              flexDirection: 'column',
+              gap: 'var(--space-1)',
             }}
           >
-            <span style={{ color: 'var(--color-primary)', display: 'inline-flex' }}><ProfileIcon /></span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <strong style={{ fontSize: 'var(--text-body-sm)', fontWeight: 'var(--weight-semibold)' }}>{t('user.menu.profile', null, lang)}</strong>
-              <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-ink-secondary)' }}>{t('user.menu.profile_hint', null, lang)}</span>
-            </span>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: 'auto' }}>
-              <path d="m7 4 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
+            <div style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <span aria-hidden style={{ width: 42, height: 42, flexShrink: 0, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', fontSize: 'var(--text-body)', fontWeight: 'var(--weight-bold)' }}>
+                {initialsOf(name) ?? <ProfileIcon />}
+              </span>
+              <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <strong style={{ color: 'var(--color-ink)', fontSize: 'var(--text-body-sm)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{name ?? '—'}</strong>
+                {user?.role && <span style={{ color: 'var(--color-ink-secondary)', fontSize: 'var(--text-caption)' }}>{t(ROLE_KEY[user.role], null, lang)}</span>}
+              </span>
+            </div>
 
-          <div style={{ height: 1, background: 'var(--color-border)', margin: 'var(--space-1) var(--space-2)' }} />
+            <Link
+              href="/profile"
+              className="usermenu-profile-link"
+              onClick={() => setOpen(false)}
+              style={{
+                minHeight: 48,
+                padding: '0 var(--space-3)',
+                borderRadius: 'var(--radius-input)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                color: 'var(--color-ink)',
+                textDecoration: 'none',
+                background: 'var(--color-surface-raised)',
+              }}
+            >
+              <span style={{ color: 'var(--color-primary)', display: 'inline-flex' }}><ProfileIcon /></span>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <strong style={{ fontSize: 'var(--text-body-sm)', fontWeight: 'var(--weight-semibold)' }}>{t('user.menu.profile', null, lang)}</strong>
+                <span style={{ fontSize: 'var(--text-caption)', color: 'var(--color-ink-secondary)' }}>{t('user.menu.profile_hint', null, lang)}</span>
+              </span>
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden focusable="false" style={{ marginInlineStart: 'auto' }}>
+                <path d="m7 4 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
 
-          <button
-            type="button"
-            className="usermenu-logout"
-            onClick={onLogout}
-            disabled={signingOut}
-            style={{
-              minHeight: 44,
-              padding: '0 var(--space-3)',
-              background: 'transparent',
-              border: 0,
-              borderRadius: 'var(--radius-input)',
-              color: 'var(--color-danger)',
-              fontWeight: 'var(--weight-semibold)',
-              fontSize: 'var(--text-body-sm)',
-              textAlign: 'left',
-              cursor: signingOut ? 'wait' : 'pointer',
-              fontFamily: 'inherit',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--space-3)',
-            }}
-          >
-            <LogoutIcon />
-            {signingOut ? t('user.menu.signing_out', null, lang) : t('user.menu.logout', null, lang)}
-          </button>
-        </div>
-      )}
+            <div style={{ height: 1, background: 'var(--color-border)', margin: 'var(--space-1) var(--space-2)' }} />
+
+            <button
+              type="button"
+              className="usermenu-logout"
+              onClick={onLogout}
+              disabled={signingOut}
+              style={{
+                minHeight: 44,
+                padding: '0 var(--space-3)',
+                background: 'transparent',
+                border: 0,
+                borderRadius: 'var(--radius-input)',
+                color: 'var(--color-danger)',
+                fontWeight: 'var(--weight-semibold)',
+                fontSize: 'var(--text-body-sm)',
+                textAlign: 'left',
+                cursor: signingOut ? 'wait' : 'pointer',
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <LogoutIcon />
+              {signingOut ? t('user.menu.signing_out', null, lang) : t('user.menu.logout', null, lang)}
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
