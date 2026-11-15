@@ -1493,7 +1493,7 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Tickets'],
       summary: 'Read a single report',
       description:
-        'Citizens may read their own reports; dispatcher and crew sessions may read reports inside their scope. The response includes a `last_poll_cursor` for incremental polling, and — for citizens only — the rating they have already left.',
+        'This is the SHARED surface’s endpoint — `/reports/:id` is readable by every role, and it serves the same report list a staff member is shown on `/reports`. So its read scope matches that list: citizens may read their own reports; admin, dispatcher and crew sessions may read any report in their own city. The ward + department boundary is enforced on the surfaces that WORK a ticket — `/api/v1/dispatcher/tickets/{id}`, `/api/v1/crew/tickets/{id}` and `/api/v1/dispatcher/queue`. The response includes a `last_poll_cursor` for incremental polling, and — for citizens only — the rating they have already left.',
       operationId: 'getTicket',
       responses: {
         '200': jsonResponse('The report.', {
@@ -1510,8 +1510,8 @@ export const openapiPaths: Record<string, PathItem> = {
           },
         }),
         '401': { $ref: '#/components/responses/Unauthorized' },
-        '403': jsonResponse('The ticket belongs to another citizen, or is outside the session’s scope. A ticket whose category has no department is not department-scoped, so it is visible to every dispatcher or crew member in its ward; `cross_department_access_denied` is returned only when both the ticket and the session are department-scoped and the two departments differ.', {
-          oneOf: [errorBody('not_owner'), errorBody('cross_ward_access_denied'), errorBody('cross_department_access_denied'), errorBody('cross_city_access_denied')],
+        '403': jsonResponse('The ticket belongs to another citizen (`not_owner`), or belongs to another city (`cross_city_access_denied`). The ward + department scope codes are NOT returned here: a staff session may read any report in its own city on this shared surface.', {
+          oneOf: [errorBody('not_owner'), errorBody('cross_city_access_denied')],
         }),
         '404': { $ref: '#/components/responses/NotFound' },
         '429': rateLimitedResponse('retry_after_ms'),

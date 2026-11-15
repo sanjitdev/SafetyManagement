@@ -2,10 +2,10 @@
 story: 011-dispatcher-mockups
 unit: 005-dispatcher-console
 intent: 009-ui-redesign
-status: draft
+status: complete
 created: 2026-11-02T18:35:00Z
-updated: 2026-11-02T18:35:00Z
-implemented: false
+updated: 2026-11-14T23:18:00Z
+implemented: true
 ---
 
 # Story 011 — Dispatcher Mockups
@@ -22,7 +22,7 @@ that fits a portfolio.
 
 - **Given** the citizen mockups are approved
 - **When** I open `gallery.html`
-- **Then** I see 21 mockups
+- **Then** I see the role dashboards
 
 - **And** the 5 mockups exist:
   `17-triage-queue.html`, `18-dispatcher-ticket-detail.html`,
@@ -77,4 +77,32 @@ Then I see a trend chart with directly-labelled series
 
 ## Status
 
-Draft.
+Complete — 2026-11-14.
+
+**The mockup set was replaced before this story closed.** The five
+page-per-page dispatcher mockups and the dedicated
+`mockups/dispatcher-surfaces.css` were authored on 2026-11-13
+(`70bc91e`), then deleted the same day by `3b2b70a`, which replaced the
+whole 21-file page-mockup set with one dashboard per role sharing a
+single `mockups/dashboards.css`. The dispatcher mockup is now
+`02-dispatcher-dashboard.html`.
+
+The acceptance criteria above are therefore written against the
+original five and are **superseded**. What actually shipped:
+
+- The dispatcher mockup exists, wired into `gallery.html` and
+  `tests/01-mockups.spec.ts` (`3b2b70a`).
+- Token purity holds for the shared `dashboards.css` too — the
+  stylesheet glob was extended (`52f705b`).
+- 8 CI-captured baselines exist, not 10: 4 dashboards × 2 viewports
+  (`d24a226`). The 43 PNGs for the deleted page mockups were deleted
+  rather than replaced — they are captured on `ubuntu-latest` because a
+  Windows capture rasterises Bengali differently.
+- The dark ops board survived as a property of the shell rather than a
+  `.theme-dark` class on the mockup; `73cdb7c` fixed the story panels
+  staying dark in both themes.
+
+**The human approval gate was never recorded.** The design log's last
+Wave 4 entry (2026-11-12) says the mockups were "awaiting human mockup
+approval", and the 2026-11-13/14 work has no entry there. The gate is
+the one criterion that is genuinely unmet.

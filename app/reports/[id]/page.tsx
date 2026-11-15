@@ -62,6 +62,12 @@ import { thumbnailBackground } from '@/lib/format/photo-url';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import { useLanguage } from '@/components/useLanguage';
 import { useSession } from '@/components/SessionProvider';
+// Where a refused viewer should be sent back to. A citizen goes to
+// their feed; a dispatcher to the triage queue; an admin to the
+// console. Sending a staff member to `/` — the citizen landing — was
+// another symptom of the same "this surface is really the citizen's"
+// assumption.
+import { roleHome } from '@/lib/role-home';
 // Canonical citizen-facing payload (lib/serializers/ticket.ts). Using
 // the imported type instead of a local mirror keeps the page in sync
 // with backend changes (ward names, future fields) without manual
@@ -194,6 +200,16 @@ export default function MyReportDetailPage() {
   const [ticket, setTicket] = useState<SerializedTicket | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The API's error CODE for a refusal, so the page can say WHY.
+  //
+  // `'forbidden'` alone is not enough: a citizen is refused because
+  // the report is not theirs, and a staff member is refused because
+  // the report is outside their ward or department. Those are
+  // different rules and they deserve different sentences — the old
+  // code rendered the citizen's sentence ("You can only view reports
+  // you created.") for BOTH, which told a dispatcher they could only
+  // see reports they had created.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
   // WO-002 — the rating the citizen has already given, if any.
   // Read from `GET /api/tickets/:id`'s top-level `feedback_rating`
@@ -263,6 +279,7 @@ export default function MyReportDetailPage() {
   async function refresh() {
     setLoading(true);
     setError(null);
+    setErrorCode(null);
     try {
       const url = `/api/tickets/${id}`;
       const res = await fetch(url, { credentials: 'include' });
@@ -274,11 +291,20 @@ export default function MyReportDetailPage() {
         return;
       }
       if (res.status === 403) {
-        // A session, but this viewer may not see this ticket (a
-        // citizen opening someone else's report, or a dispatcher
-        // outside their ward / department).
+        // A session, but this viewer may not see this ticket.
+        //
+        // The BODY carries the reason — `not_owner` for a citizen
+        // opening someone else's report, `cross_ward_access_denied`
+        // / `cross_department_access_denied` for a staff member
+        // outside their scope, `cross_city_access_denied` for
+        // another city. Read it, so the message can name the right
+        // rule instead of always claiming it is about ownership.
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         setAuthed(true);
         setError('forbidden');
+        setErrorCode(body?.error ?? null);
         return;
       }
       if (res.status === 404) {
@@ -416,6 +442,23 @@ export default function MyReportDetailPage() {
     const isNotFound = error === 'not_found';
     const isForbidden = error === 'forbidden';
     const isRateLimited = error === 'rate_limited';
+    // WHY THE FORBIDDEN COPY IS ROLE-AWARE
+    // -------------------------------------
+    // Two different rules produce a 403 here:
+    //
+    //   - a CITIZEN opening a report that is not theirs. The rule is
+    //     ownership, and the sentence says so.
+    //   - a STAFF member opening a report outside their ward or
+    //     department. The rule is scope, and the ownership sentence
+    //     would be nonsense — a dispatcher does not "create" reports,
+    //     so telling them they can only view reports they created
+    //     describes a rule that does not apply to them.
+    //
+    // The API's error code names which rule fired, so read it rather
+    // than guessing from the role alone: `not_owner` is the citizen
+    // case, and the scope codes are the staff case.
+    const isOwnershipRefusal =
+      errorCode === 'not_owner' || (isForbidden && !isCitizen);
     return (
       <div style={{ padding: 'var(--space-7) var(--space-5)' }}>
         <h1 style={{ fontSize: 'var(--text-h3)', margin: '0 0 var(--space-2)' }}>
@@ -427,13 +470,15 @@ export default function MyReportDetailPage() {
         </h1>
         <p style={{ color: 'var(--color-ink-secondary)' }}>
           {isForbidden
-            ? t('detail.error.forbidden', null, LANG)
+            ? isOwnershipRefusal
+              ? t('detail.error.forbidden', null, LANG)
+              : t('detail.error.forbidden_scope', null, LANG)
             : isRateLimited
               ? t('detail.error.rate_limited.blurb', null, LANG)
               : t('detail.error.not_found_blurb', null, LANG)}
         </p>
         <a
-          href="/"
+          href={roleHome(role)}
           style={{
             display: 'inline-block',
             marginTop: 'var(--space-3)',

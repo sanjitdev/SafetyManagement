@@ -147,6 +147,7 @@ describe('i18n key registry', () => {
       'detail.error.not_found',
       'detail.error.not_found_blurb',
       'detail.error.forbidden',
+      'detail.error.forbidden_scope',
       'detail.error.rate_limited.title',
       'detail.error.rate_limited.blurb',
       'detail.error.generic',

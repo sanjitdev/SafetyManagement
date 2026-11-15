@@ -26,7 +26,7 @@ in its own folder and ships a `requirements.md`,
 | [006-citizen-home-and-report-redesign](006-citizen-home-and-report-redesign/requirements.md) | Citizen Home + Report Redesign (v1.1) | **complete** | 3 | 5 |
 | [007-citizen-resolution-visibility](007-citizen-resolution-visibility/requirements.md) | Citizen Resolution Visibility (Bolt 007) | **complete** | 3 | 5 |
 | [008-ux-polish-from-demo](008-ux-polish-from-demo/requirements.md) | UX Polish from Slow-motion Demo | **complete** | 3 | 5 |
-| [009-ui-redesign](009-ui-redesign/requirements.md) | UI Redesign (31 routes, Swiss/Minimal civic) | **in-progress** | 8 | 18 |
+| [009-ui-redesign](009-ui-redesign/requirements.md) | UI Redesign (31 routes, Swiss/Minimal civic) | **in-progress** | 8 | 18 (12 done, 6 draft) |
 
 Intent 002 closed on 2026-10-11: all 5 bolts
 (002-001 through 002-005) shipped to `done`;
@@ -73,10 +73,12 @@ Intent 003 and two to Intent 005:
 The same build landed the platform-layer gaps
 (blob storage, the crew offline write queue, and the `Crew` / `SlaPolicy`
 schema) and the CI + coverage tooling the team policy required. The
-Prisma migration `20261027140000_platform_gaps`
-is authored but **not applied** — the configured
-Neon instance was unreachable (`P1001`); apply
-with `npx prisma migrate deploy`.
+Prisma migration `20261027140000_platform_gaps` was authored but could
+not be applied to the then-configured Neon instance (`P1001`, the host
+was unreachable). It **is** applied on the current local Postgres —
+`npm run db:status` reports 5 migrations found and "Database schema is
+up to date!" — so the outstanding action is now a matter of whichever
+host is deployed, not of the local database.
 
 ## Intent 009 — UI Redesign
 
@@ -84,33 +86,42 @@ Intent 009 opened 2026-11-02 as a brown-field
 frontend feature: a full-surface redesign of all 31 routes in the
 locked Accessible + Swiss/Minimal civic direction. The 8-unit
 decomposition is one unit per wave — CI unblock, design foundation,
-auth + public, citizen, dispatcher, crew, admin, verification. Waves
-0 and 1 have shipped (commits `45062d1` and `b279228`); the Wave 2
-mockups (`08`–`12`) are authored and baselined, and the Wave 2 page
-implementation awaits human mockup approval.
+auth + public, citizen, dispatcher, crew, admin, verification.
 
-Unit status as of 2026-11-09: 001 and 002 shipped,
-003 mockups shipped with page implementation pending,
-004–008 not started.
+Unit status as of 2026-11-14 (reconciled against the working tree at
+`8050587`): 001–005 shipped, 006–008 open.
 
-- **Bolt 008-013** — dispatcher live monitor
-  (Intent 003 Unit 006, story DISP-008).
-- **Bolt 008-014** — dispatcher performance
-  reporting (Intent 003 Unit 007, story
-  DISP-009).
-- **Bolt 008-015** — admin user management
-  (Intent 005 Unit 005, story ADM-008).
-- **Bolt 008-016** — admin adoption dashboard
-  (Intent 005 Unit 006, story ADM-009).
+- **001 CI unblock** — shipped (`45062d1`).
+- **002 design foundation** — shipped (`b279228`).
+- **003 auth + public** — shipped: the mockups (`08`–`12`) plus the
+  six pages.
+- **004 citizen** — shipped: the four mockups (`13`–`16`) plus the
+  nine citizen routes, re-composed from the `components/ui/`
+  primitives.
+- **005 dispatcher** — shipped 2026-11-14 (`f6aa222`, `8050587`): the
+  SLA countdown chip, the filter rail, the searchable crew combobox,
+  the reassign-options endpoint and the chart wiring. Two acceptance
+  criteria are unmet — the 3-region layout shipped as two regions (no
+  detail pane), and `tests/34-ui-redesign-dispatcher.spec.ts` was never
+  written.
+- **006 crew, 007 admin** — not started as waves. Their surfaces were
+  rebuilt on the new primitives on 2026-11-04/06 and 2026-11-09 from
+  the `ui-design/` reference images, but not from these waves'
+  mockups and without the approval gate.
+- **008 verification and sign-off** — not started.
 
-The same build landed the platform-layer gaps
-(blob storage, the crew offline write queue, and
-the `Crew` / `SlaPolicy` schema) and the CI +
-coverage tooling the team policy required. The
-Prisma migration `20261027140000_platform_gaps`
-is authored but **not applied** — the configured
-Neon instance was unreachable (`P1001`); apply
-with `npx prisma migrate deploy`.
+**The mockup set changed shape.** The 21 page-per-page mockups
+authored through Wave 4 were replaced on 2026-11-13 by four role
+dashboards sharing one `dashboards.css` (`3b2b70a`). The baseline set
+is now 8 PNGs (4 dashboards × 2 viewports), not 43 — the 43 were
+deleted rather than replaced, because they are captured on
+`ubuntu-latest` (a Windows capture rasterises Bengali differently) and
+the next CI run refills them.
+
+**The human mockup-approval gate was never recorded.** The design
+log's last Wave 4 entry (2026-11-12) says the mockups were "awaiting
+human mockup approval", and the 2026-11-13/14 work has no entry
+there.
 
 ## Status legend
 

@@ -167,7 +167,13 @@ This yields **8 Units** and **8 Bolts** — one bolt per wave.
   bar, SLA countdown chip and searchable crew picker survive; the
   trend + category charts are labelled and tabular; route specs +
   baselines committed.
-- **Status**: not started
+- **Status**: shipped — 2026-11-14 (bolt `009-005`). The mockups, the
+  SLA chip, the filter rail, the combobox and the chart wiring are in.
+  Two criteria are not met: the 3-region layout shipped as two regions
+  (the detail pane is not there), and
+  `tests/34-ui-redesign-dispatcher.spec.ts` was never written. The
+  human mockup-approval gate was also never recorded in the design
+  log.
 - **File**: `units/005-dispatcher-console/unit-brief.md`
 
 ### Unit 006 — Crew Field App
@@ -181,7 +187,11 @@ This yields **8 Units** and **8 Bolts** — one bolt per wave.
 - **Acceptance**: Mockups approved; ≥48px touch targets; one-thumb
   capture; before/after photo labels preserved; `.theme-outdoor`
   preserved and AA-verified.
-- **Status**: not started
+- **Status**: not started. The crew surfaces were rebuilt on the new
+  primitives on 2026-11-04/06 (`bae0548`, `64ec228`, `6b2d66f`), but
+  from the `ui-design/` reference images, **not** from this wave's
+  mockups — that work predates the wave structure. Stories 013 and 014
+  are still `draft`, and the mockup-approval gate has not run.
 - **File**: `units/006-crew-field-app/unit-brief.md`
 
 ### Unit 007 — Admin Console
@@ -198,7 +208,12 @@ This yields **8 Units** and **8 Bolts** — one bolt per wave.
   headers with `aria-sort`; bulk selection; CSV-export affordance;
   audit actor + action chips; adoption KPI row + trend + category bar
   + SLA bullet; route specs + baselines committed.
-- **Status**: not started
+- **Status**: not started. The admin console was rebuilt on the new
+  primitives on 2026-11-04 (`bae0548`) and the WebAuthn step-up
+  affordance was added on 2026-11-09 (`7828bd0`), but from the
+  `ui-design/` reference images, **not** from this wave's mockups.
+  Stories 015 and 016 are still `draft`, and the mockup-approval gate
+  has not run.
 - **File**: `units/007-admin-console/unit-brief.md`
 
 ### Unit 008 — Verification & Sign-off

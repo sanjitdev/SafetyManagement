@@ -89,6 +89,15 @@ const REPORT_DETAIL_PAGE = read('app', 'reports', '[id]', 'page.tsx');
 const BOOTSTRAP_ROUTE = read('app', 'api', 'report', 'bootstrap', 'route.ts');
 const TICKET_BY_ID_ROUTE = read('app', 'api', 'tickets', '[id]', 'route.ts');
 const REPORT_LOCATION_PAGE = read('app', 'report', '(create)', 'location', 'page.tsx');
+// The staff surfaces that WORK a ticket. The shared route's ward +
+// department boundary moved here, so these two routes are what keep
+// the boundary alive.
+const DISPATCHER_TICKET_ROUTE = read(
+  'app', 'api', 'v1', 'dispatcher', 'tickets', '[id]', 'route.ts',
+);
+const CREW_TICKET_ROUTE = read(
+  'app', 'api', 'v1', 'crew', 'tickets', '[id]', 'route.ts',
+);
 
 /**
  * Strip comments so a prose mention of an endpoint is not mistaken for
@@ -182,7 +191,7 @@ describe('the shared report detail page does not gate on the citizen-only bootst
       /res\.status\s*===\s*401[\s\S]{0,160}setAuthed\(false\)/,
     );
     expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(
-      /res\.status\s*===\s*403[\s\S]{0,160}setError\('forbidden'\)/,
+      /res\.status\s*===\s*403[\s\S]{0,600}setError\('forbidden'\)/,
     );
   });
 
@@ -203,17 +212,106 @@ describe('the ticket endpoint keeps its per-role authorization', () => {
     expect(TICKET_BY_ID_ROUTE).toMatch(/not_authenticated[\s\S]{0,80}status:\s*401/);
   });
 
-  it('scopes dispatcher and crew reads by ward / department', () => {
-    expect(TICKET_BY_ID_ROUTE).toMatch(
-      /session\.role\s*===\s*'dispatcher'\s*\|\|\s*session\.role\s*===\s*'crew'/,
-    );
-    expect(TICKET_BY_ID_ROUTE).toMatch(/requireScope\(/);
-  });
-
   it('scopes citizen reads to their own reports', () => {
     expect(TICKET_BY_ID_ROUTE).toMatch(
       /session\.role\s*===\s*'citizen'\s*&&\s*ticket\.reporterId\s*!==\s*session\.userId/,
     );
+  });
+
+  it('scopes every read to the session city', () => {
+    // The city boundary is the one that survives on the shared
+    // surface. A report in another city is refused for every role.
+    expect(TICKET_BY_ID_ROUTE).toMatch(/requireSameCity\(/);
+  });
+
+  it('does NOT narrow dispatcher / crew reads by ward / department', () => {
+    // THE SCOPE-FILTER DIVERGENCE, FIXED.
+    //
+    // `/reports/:id` is a SHARED surface — every role may open it,
+    // and the shared `/reports` LIST it is opened from hands a staff
+    // member every report filed in the session's city.
+    //
+    // The detail route used to narrow dispatcher / crew reads to
+    // (ward + department) while the list stayed city-wide, so the
+    // list showed a ticket the detail route refused. The refusal
+    // also rendered the CITIZEN-ownership copy ("You can only view
+    // reports you created.") on a staff viewer — a rule that does
+    // not apply to a dispatcher at all.
+    //
+    // The ward + department boundary is not dropped; it moved to the
+    // surfaces that WORK a ticket:
+    //   GET /api/v1/dispatcher/tickets/:id
+    //   GET /api/v1/crew/tickets/:id
+    //   GET /api/v1/dispatcher/queue
+    // Those are pinned by tests/unit/dispatcher-scope.test.ts and
+    // tests/unit/crew-scope.test.ts, and by the route specs.
+    expect(TICKET_BY_ID_ROUTE).not.toMatch(/requireScope\(/);
+    expect(TICKET_BY_ID_ROUTE).not.toMatch(
+      /session\.role\s*===\s*'dispatcher'\s*\|\|\s*session\.role\s*===\s*'crew'/,
+    );
+  });
+
+  it('still refuses a ticket from another city, and does so BEFORE the read', () => {
+    // The city boundary is the one that survives on the shared
+    // surface, so it has to be the guard that runs first. `requireSameCity`
+    // is checked against the ticket's own cityId, and it runs before
+    // the ticket is serialised — so a cross-city id can never reach
+    // the response body.
+    const cityGuard = TICKET_BY_ID_ROUTE.indexOf('requireSameCity(');
+    const serialise = TICKET_BY_ID_ROUTE.indexOf('serializeTicketForRole(');
+    expect(cityGuard).toBeGreaterThan(-1);
+    expect(serialise).toBeGreaterThan(-1);
+    expect(cityGuard).toBeLessThan(serialise);
+
+    // And it refuses with the guard's own message — `requireSameCity`
+    // throws `ApiError(403, 'cross_city_access_denied')`, whose
+    // `message` defaults to the code, so the response body carries
+    // that code. (The literal is in lib/auth/guards.ts, not here.)
+    expect(TICKET_BY_ID_ROUTE).toMatch(
+      /requireSameCity\([\s\S]{0,200}\(e as Error\)\.message/,
+    );
+  });
+});
+
+describe('the scoped staff surfaces keep the ward / department boundary', () => {
+  it('the dispatcher ticket route still calls requireScope', () => {
+    expect(DISPATCHER_TICKET_ROUTE).toMatch(/requireScope\(/);
+  });
+
+  it('the dispatcher ticket route still returns 404 for an out-of-scope ticket', () => {
+    // Out-of-scope is deliberately 404 and not 403, so a dispatcher
+    // cannot probe the existence of a ticket outside their scope.
+    expect(DISPATCHER_TICKET_ROUTE).toMatch(/not_found[\s\S]{0,40}status:\s*404/);
+  });
+
+  it('the crew ticket route still calls requireScope', () => {
+    expect(CREW_TICKET_ROUTE).toMatch(/requireScope\(/);
+  });
+});
+
+describe('the shared report detail page says WHY the viewer was refused', () => {
+  it('/reports/:id reads the refusal code out of the response body', () => {
+    // The API's body names the rule that fired: `not_owner` for a
+    // citizen opening someone else's report, the cross_ward /
+    // cross_department codes for a staff scope refusal. The page
+    // has to read it — the status code alone (403) cannot tell the
+    // two apart.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/errorCode/);
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/body\?\.error/);
+  });
+
+  it('/reports/:id has a separate copy for a scope refusal', () => {
+    // The citizen sentence describes OWNERSHIP. A dispatcher does
+    // not create reports, so that sentence is nonsense on their
+    // screen; the scope sentence names the rule that actually fired.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/detail\.error\.forbidden_scope/);
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/detail\.error\.forbidden'/);
+  });
+
+  it('/reports/:id sends a refused viewer back to their OWN role home', () => {
+    // Sending a dispatcher to `/` — the citizen landing — was the
+    // same "this surface is really the citizen's" assumption.
+    expect(stripComments(REPORT_DETAIL_PAGE)).toMatch(/roleHome\(role\)/);
   });
 });
 

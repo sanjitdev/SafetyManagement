@@ -1,9 +1,9 @@
 ---
 unit: 005-dispatcher-console
 intent: 009-ui-redesign
-status: not-started
+status: complete
 created: 2026-11-02T18:35:00Z
-updated: 2026-11-02T18:35:00Z
+updated: 2026-11-14T23:18:00Z
 ---
 
 # Unit 005 — Dispatcher Console (unit-brief)
@@ -94,10 +94,46 @@ is the first `.theme-dark` surface in the redesign).
 
 ## Status
 
-Not started. The Wave 2 mockups (`08`–`12`) must be approved first.
+Complete — 2026-11-14 (bolt `009-005-dispatcher-console`).
+
+The mockups, the SLA countdown chip, the filter rail, the searchable
+crew combobox, the reassign-options endpoint and the chart wiring are
+in. Two acceptance criteria are **not** met and are recorded rather
+than glossed:
+
+- **The 3-region layout shipped as two regions.** The filter rail and
+  the ticket list are there; the detail pane is not. The page kept its
+  dashboard shape.
+- **`tests/34-ui-redesign-dispatcher.spec.ts` was never written.** The
+  dispatcher regression net is the pre-existing family — `09`, `10`,
+  `11`, `12`, `13`, `21`, `26`.
+
+**The human mockup-approval gate was never recorded.** The design
+log's last Wave 4 entry (2026-11-12) says the mockups were "awaiting
+human mockup approval", and the 2026-11-13/14 work has no entry there.
+
+The full record is in the unit's `construction-log.md` and the bolt's
+`bolt.md`.
 
 ## Notes
 
-`05-daily-queue-dashboard.html` is the existing desktop reference for
-the 3-region layout. `17-triage-queue` supersedes it; `05` is retired
-rather than kept in parallel.
+`05-daily-queue-dashboard.html` was the existing desktop reference for
+the 3-region layout and `17-triage-queue` superseded it. Both are now
+deleted by `3b2b70a`; the dispatcher dashboard
+(`02-dispatcher-dashboard.html`) is their replacement, and `05` is
+retired rather than kept in parallel.
+
+The five mockups and the dedicated `mockups/dispatcher-surfaces.css`
+were authored (`70bc91e`) and then deleted by `3b2b70a`, which
+replaced the whole 21-file page-mockup set with four role dashboards
+sharing one `mockups/dashboards.css`. The baseline set is now 8 PNGs
+(4 dashboards × 2 viewports), not 43.
+
+The wave was **not** presentation-layer only, in four places the plan's
+Stage 2 reconnaissance had to correct before implementation: the `ward`
+query parameter did not exist (and Zod strips unknown keys in silence);
+the `status` enum was two states (and an enum violation is a hard 400);
+the `SlaPolicy` target had no read path at all; and the in-memory dev
+store had no `slaPolicy` entity, so `db.slaPolicy.findMany(...)` was
+`undefined.findMany` — a TypeError, not an empty result. The dev store
+now mirrors the entity.

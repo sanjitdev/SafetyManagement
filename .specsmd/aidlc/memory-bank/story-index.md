@@ -275,10 +275,33 @@ copy fixup), `008-002` (visible chrome), and
 Inception opened 2026-11-02. The 8-unit decomposition is **one unit
 per wave** — CI unblock, design foundation, auth + public, citizen,
 dispatcher, crew, admin, verification — because a wave is the
-smallest unit that can be visually approved as a unit. Waves 0 and 1
-have shipped (`45062d1`, `b279228`); the Wave 2 mockups (`08`–`12`)
-are authored and baselined, and the Wave 2 page implementation waits
-on the human mockup-approval gate.
+smallest unit that can be visually approved as a unit.
+
+Status as of 2026-11-14 (reconciled against the working tree at
+`8050587`): Waves 0–4 are shipped — 001 CI unblock (`45062d1`), 002
+design foundation (`b279228`), 003 auth + public (mockups `08`–`12`
+plus the six pages), 004 citizen (the four mockups `13`–`16` plus the
+nine citizen routes), and 005 dispatcher (the SLA chip, filter rail,
+combobox, reassign endpoint and chart wiring). Waves 5–6 (crew, admin)
+and Wave 7 (verification) remain open.
+
+Two notes on the record. **The mockup set changed shape.** The 21
+page-per-page mockups authored through Wave 4 were replaced on
+2026-11-13 by four role dashboards sharing one `dashboards.css`
+(`3b2b70a`), so the mockups this section describes by number no longer
+exist; the mockup baseline set is now 8 PNGs (4 dashboards × 2
+viewports) rather than 43. **The human mockup-approval gate was never
+recorded** — the design log's last Wave 4 entry (2026-11-12) says the
+mockups were "awaiting human mockup approval", and the 2026-11-13/14
+work has no entry there.
+
+The `draft` rows below (013–018) are accurate: stories 013 and 014
+(crew) and 015 and 016 (admin) are `draft` in their own frontmatter.
+Their surfaces *were* rebuilt on the new primitives — `bae0548`,
+`64ec228`, `6b2d66f` on 2026-11-04/06 and `7828bd0` on 2026-11-09 —
+but from the `ui-design/` reference images, **not** from these waves'
+mockups, and without the approval gate. The code moved; the wave did
+not.
 
 | Slug | Unit | Status | Title | Path |
 |------|------|--------|-------|------|
@@ -290,10 +313,10 @@ on the human mockup-approval gate.
 | 006-cityfix-brand-assets | 002-design-foundation | done | CityFix brand assets | `intents/009-ui-redesign/units/002-design-foundation/stories/006-cityfix-brand-assets.md` |
 | 007-auth-and-public-mockups | 003-auth-and-public-surfaces | done | Auth + public mockups | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/007-auth-and-public-mockups.md` |
 | 008-auth-and-public-page-implementation | 003-auth-and-public-surfaces | done | Auth + public page implementation | `intents/009-ui-redesign/units/003-auth-and-public-surfaces/stories/008-auth-and-public-page-implementation.md` |
-| 009-citizen-mockups | 004-citizen-surfaces | draft | Citizen mockups | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/009-citizen-mockups.md` |
-| 010-citizen-page-implementation | 004-citizen-surfaces | draft | Citizen page implementation | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/010-citizen-page-implementation.md` |
-| 011-dispatcher-mockups | 005-dispatcher-console | draft | Dispatcher mockups | `intents/009-ui-redesign/units/005-dispatcher-console/stories/011-dispatcher-mockups.md` |
-| 012-dispatcher-page-implementation | 005-dispatcher-console | draft | Dispatcher page implementation | `intents/009-ui-redesign/units/005-dispatcher-console/stories/012-dispatcher-page-implementation.md` |
+| 009-citizen-mockups | 004-citizen-surfaces | done | Citizen mockups | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/009-citizen-mockups.md` |
+| 010-citizen-page-implementation | 004-citizen-surfaces | done | Citizen page implementation | `intents/009-ui-redesign/units/004-citizen-surfaces/stories/010-citizen-page-implementation.md` |
+| 011-dispatcher-mockups | 005-dispatcher-console | done | Dispatcher mockups | `intents/009-ui-redesign/units/005-dispatcher-console/stories/011-dispatcher-mockups.md` |
+| 012-dispatcher-page-implementation | 005-dispatcher-console | done | Dispatcher page implementation | `intents/009-ui-redesign/units/005-dispatcher-console/stories/012-dispatcher-page-implementation.md` |
 | 013-crew-mockups | 006-crew-field-app | draft | Crew mockups | `intents/009-ui-redesign/units/006-crew-field-app/stories/013-crew-mockups.md` |
 | 014-crew-page-implementation | 006-crew-field-app | draft | Crew page implementation | `intents/009-ui-redesign/units/006-crew-field-app/stories/014-crew-page-implementation.md` |
 | 015-admin-mockups | 007-admin-console | draft | Admin mockups | `intents/009-ui-redesign/units/007-admin-console/stories/015-admin-mockups.md` |

@@ -6352,3 +6352,178 @@ sees, and the surface shows the public code `#TIX-0WN7` instead. The
 rule governs what a surface *shows*, not what the transport carries.
 Checked rather than assumed, because the same grep would have found
 a genuine leak.
+
+### 2026-11-13 — The mockup set was replaced by four role dashboards
+
+The 21 page-per-page mockups authored across Waves 2–4 (plus the two
+role stylesheets, `citizen-surfaces.css` and `dispatcher-surfaces.css`)
+were **deleted** and replaced by one dashboard per role — citizen,
+dispatcher, crew, admin — sharing a single `dashboards.css`
+(`3b2b70a`).
+
+The replacement was not a re-skin. The new dashboards are rebuilt from
+the reference images in `ui-design/`, not from the old HTML, so every
+page comment that cited a deleted mockup now says so explicitly and
+keeps its composition notes as the record of the contract the page was
+built against.
+
+| Before | After |
+|---|---|
+| 21 page-per-page mockups | 4 role dashboards |
+| 2 role stylesheets | 1 shared `dashboards.css` |
+| 43 committed PNG baselines | 8 (4 dashboards × 2 viewports) |
+
+**The 43 PNGs were deleted rather than replaced.** They were captured
+by CI on `ubuntu-latest`, and a Windows capture rasterises Bengali
+differently; the next workflow run refills them. The baseline set is
+therefore currently **below** its expected count, and
+`npm run test:mockups` on a Windows dev box will write new PNGs on its
+first run — they must be deleted before committing, because the real
+baselines come from CI.
+
+`scripts/render-mockups.mjs` renders the dashboards locally for an
+eyeball pass. Its output under `tests-mockups/scratch-render/` is
+gitignored.
+
+### 2026-11-14 — UI redesign: Wave 4 closed out (dispatcher console)
+
+Story 012 of Intent 009 landed. The dispatcher's queue previously
+offered no way to judge urgency and no way to narrow the list, and the
+reassign panel's dropdowns listed two hard-coded wards that the
+reassign API would reject.
+
+- **SLA** — resolve the category policy server-side, clock it from
+  `routed` (the trail is the only record of the transition), and carry
+  the tone with the row so the client cannot re-derive the warning band
+  and drift. A category with no policy reports **"no target"**, not
+  "on time".
+- **Filters** — a `FilterRail` and a `Combobox` over the queue
+  endpoint, with the category filter resolving by slug so Postgres
+  CUIDs do not leak into the label.
+- **Reassign** — a new `/api/v1/dispatcher/reassign-options` endpoint
+  reads the wards and categories from the store, narrowed to the
+  dispatcher's city and to the ward they hold. The category list is
+  deliberately **not** ward-filtered: a ward is an authorisation
+  boundary, a category is not.
+- **Names** — join reporter, crew and trail actor names server-side;
+  the client-side id map is now only a fallback.
+
+The wave was **not** presentation-layer only, in four places the plan's
+Stage 2 reconnaissance had to correct before any implementation was
+written: the `ward` query parameter did not exist and Zod strips
+unknown keys in silence; the `status` enum was two states and an enum
+violation is a hard 400; the `SlaPolicy` target had no read path at
+all; and the in-memory dev store had **no `slaPolicy` entity**, so
+`db.slaPolicy.findMany(...)` was `undefined.findMany` — a TypeError,
+not an empty result. The dev store now mirrors the entity, which is the
+standing rule: *the dev store must mirror every fix.*
+
+A fifth gap surfaced with the ward decision: the ward list had **no
+dispatcher-readable source**, because the only ward-list endpoint is
+admin-gated. It is folded into the queue response's metadata block,
+the same precedent as `pendingDedupCount`.
+
+Verified at `f6aa222`: typecheck clean, 2320 unit tests passing, eslint
+0 errors, `next build` green, and the OpenAPI spec regenerating with no
+drift (55 paths / 70 operations) against the route-parity test.
+
+### 2026-11-14 — The four dashboards each got a row of KPI cards
+
+The dispatcher, crew, citizen and admin dashboards each drew their
+headline counts through `MetricStrip` — one bordered surface holding a
+headline cell and three figure cells. A strip's premise is that its
+supporting figures **share** a surface, so asking it to render four
+equal states produced neither a strip nor a set of cards: one wide box
+with four numbers in it.
+
+The four counts are **peers** in every role's case — four states of the
+same queue — and each dashboard's design reference draws them as
+separate cards. A new `KpiCards` component carries four variants that
+differ in **anatomy only**: the dispatcher leads with the label, the
+crew and citizen put the number above its caption, and the admin adds a
+solid disc badge, a trend percentage and a sparkline.
+
+The admin's sparkline is the one that was actually **missing**: the page
+computed a daily series for every metric and never drew it. It does
+now, normalised against its own range.
+
+### The Wave 4 approval gate was never recorded
+
+This is the one open item in Wave 4, and it is a gap in the **record**,
+not a claim about what happened.
+
+The design log's last Wave 4 entry (2026-11-12) says the mockups were
+"drafted and awaiting human approval". The implementation work then
+shipped on 2026-11-14 with no approval entry in between. Two
+acceptance criteria also remain unmet and are recorded rather than
+glossed:
+
+- **The 3-region layout shipped as two regions.** The filter rail and
+  the ticket list are there; the detail pane is not. The page kept its
+  dashboard shape, and the filters are read back from the URL rather
+  than surviving an in-place selection.
+- **`tests/34-ui-redesign-dispatcher.spec.ts` was never written.** The
+  dispatcher regression net is the pre-existing family — `09`, `10`,
+  `11`, `12`, `13`, `21`, `26`.
+
+Both need a human decision: whether to sign the mockups off
+retrospectively or to re-run the gate, and whether the detail pane is
+still wanted.
+
+### 2026-11-15 — A dispatcher opening a report was told "You can only view reports you created."
+
+The report says: *dispatcher sees "You can only view reports you created."
+but dispatcher should see all reports*. It was **two defects**, and
+neither one was what the sentence suggested.
+
+**The wrong copy.** `app/reports/[id]/page.tsx` rendered a single message
+for every 403 on the shared `/reports/:id` surface — the CITIZEN
+ownership sentence. But a dispatcher's 403 was a **scope** denial
+(`cross_ward_access_denied` / `cross_department_access_denied`), and
+the API had already put the right code in the response body. The page
+discarded it. The fix reads `body.error` and branches: `not_owner` gets
+the ownership sentence, everything else gets a new
+`detail.error.forbidden_scope` ("This report is outside your ward or
+department.").
+
+**The scope-filter divergence.** The shared `/reports` LIST hands a
+staff member every report filed in the session's city. The shared
+`/reports/:id` DETAIL narrowed dispatcher/crew reads to (ward +
+department). So the list showed a ticket the detail route refused — the
+"can see it but can't open it" shape.
+
+**The resolution.** `GET /api/tickets/:id` — the shared surface's
+endpoint — now matches the list it is opened from:
+
+| Role | Before | After |
+|---|---|---|
+| citizen | own reports only | own reports only |
+| admin | whole city | whole city |
+| dispatcher / crew | ward + department | **whole city** |
+
+The ward + department boundary **moved, it did not evaporate**. It is
+enforced on the surfaces that WORK a ticket — `GET
+/api/v1/dispatcher/tickets/:id`, `GET /api/v1/crew/tickets/:id` and
+`GET /api/v1/dispatcher/queue` — and the dispatcher's out-of-scope read
+is still **404, not 403**, so existence cannot be probed. The city
+boundary (`requireSameCity`) survives everywhere, and it runs before
+the ticket is serialised, so a cross-city id can never reach the
+response body.
+
+This was a **product decision**, not a code-reading exercise: the spec
+(`DISP-REQ-001`, `DISP-001-auth-scope.md`) pins the dispatcher as
+ward-bound, and a city-wide dispatcher is not a supported configuration
+(`400 dispatcher_needs_ward`). The scope of the change was therefore
+put to the user, who chose to widen the shared read and keep the
+boundary on the work surfaces.
+
+The refused viewer is also sent back to their **own** role home
+(`roleHome(role)`) rather than to `/`, the citizen landing — the same
+"this surface is really the citizen's" assumption that caused the
+original copy.
+
+Verified live against the dev store: the shared list shows the
+dispatcher 10 city reports and **10/10 open**; the dispatcher's scoped
+surface still refuses 2 of them with 404 and the queue still shows 4; a
+citizen opening another citizen's report still gets `403 not_owner`;
+and the new copy is asserted on-screen by two new Playwright cases.

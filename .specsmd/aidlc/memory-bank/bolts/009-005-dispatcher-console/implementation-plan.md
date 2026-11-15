@@ -30,7 +30,7 @@ The wave must land four things that **do not exist today**:
 
 ### Deliverables
 
-**Story 011 — Dispatcher mockups**
+**Story 011 — Dispatcher mockups** — **as planned, then superseded**
 
 1. `design-artifacts/D-Design-System/01-Visual-Design/mockups/17-triage-queue.html` — 3-region triage.
 2. `.../mockups/18-dispatcher-ticket-detail.html` — sticky action bar, crew picker, internal notes.
@@ -42,6 +42,18 @@ The wave must land four things that **do not exist today**:
 8. `.../README.md` — the file table, the tree, the coverage rationale.
 9. `tests/01-mockups.spec.ts` — 5 new entries at `['LARGE','MEDIUM']`.
 10. 10 Playwright baselines under `tests-mockups/baselines/01-mockups.spec.ts/`.
+
+Items 1–6 and 10 were **authored** (`70bc91e`) and then **deleted**
+(`3b2b70a`). The mockup set was replaced wholesale by four role
+dashboards on a shared `mockups/dashboards.css`:
+
+| Mockup | Surface |
+|--------|---------|
+| `02-dispatcher-dashboard.html` | `/dispatcher` |
+
+with 8 CI-captured baselines (4 dashboards × 2 viewports) under
+`tests-mockups/baselines/01-mockups.spec.ts/`. Items 7–9 were
+rewritten to the new set (`3b2b70a`, `d24a226`).
 
 **Story 012 — Dispatcher page implementation**
 
@@ -55,6 +67,13 @@ The wave must land four things that **do not exist today**:
 18. `components/ui/SlaCountdown.tsx` (NEW) — the SLA countdown chip.
 19. `lib/i18n/keys.ts` — every new user-facing string, `bn` + `en`.
 20. `tests/34-ui-redesign-dispatcher.spec.ts` — the route spec.
+
+**Delivered** — 12, 15, 16, 17, 18, 19 shipped. Item 11 shipped the
+filter rail but **not** the detail pane; item 20 was **never created**
+(`tests/34-ui-redesign-dispatcher.spec.ts` does not exist). The wave's
+new surface work landed in `components/dispatcher/FilterRail.tsx`,
+`components/ui/KpiCards.tsx`, `lib/dispatcher/sla.ts` and
+`lib/dispatcher/sla-resolve.ts`, none of which were in the plan.
 
 ### Dependencies
 
@@ -274,33 +293,58 @@ The wave must land four things that **do not exist today**:
 
 ### Acceptance Criteria
 
+Verified against the working tree at `8050587` (2026-11-14). `[x]` = met,
+`[~]` = partially met, `[ ]` = not met.
+
 **Story 011 — Dispatcher mockups**
 
-- [ ] The 5 mockups exist and are wired into `gallery.html` (which shows 21 mockups) and `tests/01-mockups.spec.ts`.
-- [ ] Every `var(--token)` in every mockup — and in `dispatcher-surfaces.css` — is declared in `tokens.css`.
-- [ ] Every mockup uses inline SVG icons — zero emoji.
-- [ ] Every mockup's copy is Bangla-first.
-- [ ] `20-dispatcher-monitor.html` renders in `.theme-dark`.
-- [ ] The 5 mockups are captured at 1440×900 and 1024×768; 10 committed baselines exist.
-- [ ] `npm run test:mockups` is green.
-- [ ] **A human has approved the mockups**, recorded in `_progress/00-design-log.md`.
+- [x] The dispatcher mockup exists and is wired into `gallery.html` and `tests/01-mockups.spec.ts` — as `02-dispatcher-dashboard.html` (the original 5 were replaced by the four-dashboard set).
+- [x] Every `var(--token)` in every mockup is declared in `tokens.css` — `tests/unit/ui/mockup-tokens.test.ts` covers the shared `dashboards.css` too (`52f705b`).
+- [x] Every mockup uses inline SVG icons — zero emoji.
+- [x] Every mockup's copy is Bangla-first.
+- [~] The monitor board renders dark — `/dispatcher/monitor` has no `.theme-dark` class of its own; the theme comes from the shell, and `73cdb7c` fixed the story panels staying dark in both themes.
+- [x] The mockups are captured at 1440×900 and 1024×768; 8 committed baselines exist (`d24a226`).
+- [x] `npm run test:mockups` is green.
+- [ ] **A human has approved the mockups**, recorded in `_progress/00-design-log.md` — the log's last Wave 4 entry (2026-11-12) says the mockups were "awaiting human approval"; the 2026-11-13/14 work is not recorded there. **The approval gate was never recorded.**
 
 **Story 012 — Dispatcher page implementation**
 
-- [ ] The 6 dispatcher routes are composed from `components/ui/` primitives; zero hand-rolled `<button>` elements.
-- [ ] `/dispatcher` renders the 3-region layout: a filter rail, a ticket list, and a detail pane.
-- [ ] Selecting a ticket updates the detail pane **in place** — no full navigation — and the ward/status filters still hold afterwards.
-- [ ] The SLA countdown chip shows the **remaining** time against the target, and it appears on the triage row, the ticket detail and the monitor board.
-- [ ] The crew picker is a **searchable combobox** (ARIA `combobox`, keyboard-navigable, filterable), not a `<select>`.
-- [ ] The sticky action bar on the ticket detail survives scrolling.
-- [ ] The trend + category charts are labelled directly and paired with a **visible, sortable** data table.
-- [ ] No series is encoded by hue alone (dash pattern or direct label in addition to colour).
-- [ ] Every new user-facing string is in `lib/i18n/keys.ts` with both `bn` and `en`.
-- [ ] `tests/34-ui-redesign-dispatcher.spec.ts` is green, and passes in BOTH the dev store and real Postgres.
-- [ ] `tests/29-admin-dark-theme.spec.ts` is green.
-- [ ] `npx tsc --noEmit` is clean; `npm run test:unit` is green; `npm run check:i18n` is ok.
+- [~] The 6 dispatcher routes are composed from `components/ui/` primitives — 10 raw `<button>` elements remain across the six (`tickets/[id]` 7, `dedup` 2, `map` 1).
+- [ ] `/dispatcher` renders the 3-region layout: a filter rail, a ticket list, and a detail pane — the **filter rail shipped** (`components/dispatcher/FilterRail.tsx`); the **detail pane did not**. The page kept its dashboard shape.
+- [ ] Selecting a ticket updates the detail pane **in place** — no detail pane exists. The filters are read back from the URL instead, so a shared link reproduces the same filtered queue.
+- [~] The SLA countdown chip shows the **remaining** time against the target, and it appears on the triage row and the ticket detail — both call sites ship. It does **not** appear on the monitor board. `SlaBullet` (the chart variant) still has 0 call sites.
+- [x] The crew picker is a **searchable combobox** (ARIA `combobox`, keyboard-navigable, filterable), not a `<select>` — `components/ui/Combobox.tsx`, used at `app/dispatcher/tickets/[id]/page.tsx:1195`.
+- [x] The sticky action bar on the ticket detail survives scrolling — `position: 'sticky'` at `app/dispatcher/tickets/[id]/page.tsx:1306`.
+- [x] The trend + category charts are labelled directly and paired with a **visible, sortable** data table — `monitor` and `performance` use `TrendLine` / `CategoryBar` / `StatusDonut` from `components/ui/charts/`.
+- [x] No series is encoded by hue alone (dash pattern or direct label in addition to colour).
+- [x] Every new user-facing string is in `lib/i18n/keys.ts` with both `bn` and `en`.
+- [ ] `tests/34-ui-redesign-dispatcher.spec.ts` is green — **the spec was never written**. The dispatcher regression net is the pre-existing family: `09`, `10`, `11`, `12`, `13`, `21`, `26`.
+- [x] `tests/29-admin-dark-theme.spec.ts` is green.
+- [x] `npx tsc --noEmit` is clean; `npm run test:unit` is green (2320 tests at `f6aa222`); `npm run check:i18n` is ok.
 
-**Wave exit gate** — the Unit 003 exit gate, plus `tests/34-ui-redesign-dispatcher.spec.ts` green AND `tests/29-admin-dark-theme.spec.ts` green.
+**Wave exit gate** — `tests/29-admin-dark-theme.spec.ts` green AND the
+`npx tsc --noEmit && npm run test:unit && npm run test:mockups` chain
+green. The plan's own named route spec does not exist, so the gate was
+satisfied by the pre-existing dispatcher specs rather than by the one
+the plan called for.
+
+### Carried into the wave, shipped as unplanned work
+
+The plan's Stage 2 reconnaissance found four places where the wave was
+not presentation-layer only. All four were necessary, and all four
+shipped:
+
+| Gap | Resolution | Where |
+|---|---|---|
+| `ward` was not a query parameter | Added, additive and narrowing-only; intersected with the session's ward | `app/api/v1/dispatcher/queue/route.ts` |
+| `status` enum was two states | Widened to four; the DB filter moved to a code-level filter so `in_progress` is reachable | same route |
+| The SLA target had no read path | Policy resolved server-side; the tone is carried on the row so the client cannot re-derive the band and drift | `lib/dispatcher/sla-resolve.ts` |
+| The dev store had no `slaPolicy` entity | Mirrored: `DevSlaPolicy`, the `Map`, the five Dhaka policies, and an `slaPolicy` delegate | `lib/dev-store.ts` |
+
+The ward rail also needed a read path, because the only ward-list
+endpoint was admin-gated. The ward list is folded into the queue
+response's metadata block — the same precedent as
+`pendingDedupCount`.
 
 ### Notes and known hazards
 

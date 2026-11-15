@@ -1,12 +1,27 @@
 ---
 intent: 009-ui-redesign
 phase: inception
-status: in-progress
+status: units-defined
 created: 2026-11-02T18:00:00Z
-updated: 2026-11-02T19:10:00Z
+updated: 2026-11-15T00:00:00Z
 ---
 
 # Requirements: 009-ui-redesign
+
+> **Status note.** The `status` field reads `units-defined` because that
+> is what the specsmd status cascade derives: units 001–005 are
+> `complete`, and units 006–008 are `not-started`, so no unit is
+> `in-progress` and the intent is not yet `construction`. The build is
+> nevertheless three-quarters done — see the status block below and
+> `units.md` for the per-unit state. The `units-defined` label is the
+> tool's vocabulary, not a statement about the work.
+>
+> **Status as of 2026-11-14** (reconciled against the working tree at
+> `8050587`): units 001–005 shipped; 006–008 open. The mockup set was
+> replaced by four role dashboards on 2026-11-13 (`3b2b70a`), and the
+> Wave 4 dispatcher implementation shipped on 2026-11-14 (`f6aa222`,
+> `8050587`) with two acceptance criteria unmet and the human
+> mockup-approval gate unrecorded.
 
 ## Intent Overview
 

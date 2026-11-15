@@ -7,9 +7,16 @@ import { defineConfig, devices } from '@playwright/test';
  * runs against a dedicated dev:feat on 3100 to avoid clashing with
  * any external process on 3000.
  *
+ * `BASE_URL` overrides the port, so the same config can be pointed at
+ * a dev-store server on any free port:
+ *
+ *     BASE_URL=http://localhost:3300 npx playwright test --config=playwright.config.local.ts
+ *
  * Mirrors all other settings from the default config; only `webServer`
  * + `use.baseURL` change.
  */
+const TARGET = process.env.BASE_URL ?? 'http://localhost:3100';
+
 export default defineConfig({
   testDir: './tests',
   outputDir: './tests-mockups/artifacts',
@@ -21,12 +28,12 @@ export default defineConfig({
     // dev:feat server on 3100. `reuseExistingServer: true` short-
     // circuits the spawn when the URL is already reachable.
     command: 'node -e "setInterval(()=>{}, 1000*60*60)"',
-    url: 'http://localhost:3100',
+    url: TARGET,
     reuseExistingServer: true,
     timeout: 60_000,
   },
   use: {
-    baseURL: 'http://localhost:3100',
+    baseURL: TARGET,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

@@ -3,7 +3,7 @@ standard: construction-handoff
 phase: standards
 status: complete
 created: 2026-10-11T18:00:00Z
-updated: 2026-10-11T18:00:00Z
+updated: 2026-11-15T00:00:00Z
 ---
 
 # Handoff: Inception → Construction
@@ -16,11 +16,24 @@ Agent works the 5 Bolts in `bolts/plan.md` and produces
 the bolt template in
 `../templates/construction/bolt-types/ddd-construction-bolt.md`.
 
+> **Superseded 2026-11-15.** The "Active intent" and "Bolt plan"
+> sections below still name Intent 002, which closed on 2026-10-11.
+> The active intent is **009-ui-redesign**. The DDD artifact set named
+> above was never produced for any bolt — every bolt folder carries
+> only `bolt.md` plus, for the two newest, an `implementation-plan.md`.
+> The working convention is recorded in each unit's
+> `construction-log.md`. Read the current state from
+> `intents/index.md` and `story-index.md`; treat the rest of this
+> document as the 2026-10-11 snapshot it is.
+
 ## Active intent
 
 `intents/002-citizen-report-flow/` is the active intent
 (WO-001, Citizen Report Flow). It is `in-progress` per
 `intents/index.md` and contains 5 units, 17 stories.
+
+**Current:** `intents/009-ui-redesign/` — 8 units, 18 stories, 8 bolts.
+Units 001–005 shipped (the last on 2026-11-14); 006–008 open.
 
 ## Bolt plan
 
@@ -90,6 +103,32 @@ These are the active decisions in `REFINEMENT.md`:
 - **G6 — Audit dashboard** (defer; Intent 005 /
   ADM-007 deliverable).
 
+### Open gaps in Intent 009 — as of 2026-11-15
+
+- **The Wave 4 mockup-approval gate was never recorded.** The design
+  log's last Wave 4 entry (2026-11-12) says the mockups were awaiting
+  human approval; the implementation shipped on 2026-11-14 with no
+  approval entry in between. A human must either sign the mockups off
+  retrospectively or re-run the gate.
+- **The 3-region triage layout shipped as two regions.** The filter
+  rail and the ticket list are there; the detail pane is not. The
+  plan called it a restoration, and it did not happen.
+- **`tests/34-ui-redesign-dispatcher.spec.ts` was never written.** The
+  dispatcher regression net is the pre-existing family (`09`, `10`,
+  `11`, `12`, `13`, `21`, `26`).
+- **The mockup baselines are below their expected count.** The 43
+  PNGs for the deleted page mockups were deleted, not replaced; the
+  current set is 8 (4 dashboards × 2 viewports). They are captured on
+  `ubuntu-latest` by the `regenerate-baselines.yml` workflow — never
+  by hand on Windows.
+- **Waves 5 and 6 (crew, admin) have code but not wave status.** The
+  surfaces were rebuilt on the new primitives on 2026-11-04/06 and
+  2026-11-09, but from the `ui-design/` reference images rather than
+  from these waves' mockups, and without the approval gate. Stories
+  013–016 are still `draft`.
+- **10 raw `<button>` elements remain** across the six dispatcher
+  routes; the plan called for zero.
+
 ## Per-Bolt exit criteria (recap)
 
 From `bolts/plan.md`:
@@ -111,6 +150,11 @@ From `bolts/plan.md`:
 
 (Recorded in `standards/rules/team.md` and
 `standards/rules/project.md`.)
+
+**Local caveat on this machine:** port 3000 is taken by a
+WSL2-forwarded app and `playwright.config.ts` hardcodes it, so the
+mockup suite needs a port override — see `runbook.md`. Use the port
+the dev server actually bound to for the `curl`.
 
 ## Conventions the Construction Agent must follow
 
@@ -149,12 +193,14 @@ Agent picks up again when:
 
 ## Cross-references
 
-- **Active intent**: `intents/002-citizen-report-flow/`.
-- **Bolt plan**: `bolts/plan.md`.
+- **Active intent**: `intents/009-ui-redesign/`.
+- **Bolt plan**: `bolts/plan.md` (the 2026-10-11 plan for Intent 002);
+  the Intent 009 bolt plan is in `intents/009-ui-redesign/units.md`.
 - **Bolt folder layout**: `bolts/README.md`.
 - **Story index**: `story-index.md`.
 - **Decision index**: `standards/decision-index.md`.
 - **Refinement notes**: `REFINEMENT.md`.
+- **Current state**: `intents/index.md`, `story-index.md`.
 - **Bolt template**:
   `../templates/construction/bolt-types/ddd-construction-bolt.md`.
 - **Construction Agent**:

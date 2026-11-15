@@ -65,7 +65,7 @@
  *   - BASE_URL points at it (default http://localhost:3000).
  */
 
-import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
+import { test, expect, APIRequestContext, Page } from '@playwright/test';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
@@ -85,6 +85,21 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
  * citizen-only "feel heard" rating prompt is not offered to staff.
  */
 const TICKET_ID = 'ticket_seed_crew_done_today_1';
+
+/**
+ * A ticket the dispatcher is NOT scoped to see.
+ *
+ * `ticket_seed_resolved_1` is a `cat_drainage` ticket, and drainage
+ * belongs to `dept_roads` — while the dev store's dispatcher persona
+ * is bound to `dept_streetlight`. So this ticket is outside the
+ * dispatcher's scope on the DEPARTMENT dimension, in the same ward.
+ *
+ * This is the ticket that produced the bug: on the shared `/reports/:id`
+ * surface the dispatcher was refused it, and the refusal rendered the
+ * CITIZEN-ownership copy ("You can only view reports you created.")
+ * — a rule that does not apply to a dispatcher at all.
+ */
+const OUT_OF_SCOPE_TICKET_ID = 'ticket_seed_resolved_1';
 
 async function devLogin(ctx: APIRequestContext, role: string): Promise<void> {
   const res = await ctx.post(`${BASE}/api/dev/login?role=${role}`, {
@@ -236,4 +251,56 @@ test('a ticket that does not exist renders "not found", not "sign in"', async ({
 
   await expect(reportNotFound(page)).toBeVisible({ timeout: 10_000 });
   await expect(signInRequired(page)).toHaveCount(0);
+});
+
+/**
+ * THE SCOPE-FILTER DIVERGENCE, FIXED.
+ *
+ * The shared `/reports` LIST hands a staff member every report filed
+ * in the session's city. The shared `/reports/:id` DETAIL used to
+ * narrow dispatcher / crew reads to (ward + department), so the list
+ * showed a ticket the detail route refused — "I can see it but I
+ * can't open it".
+ *
+ * The detail route now matches the list it is opened from: a staff
+ * member may open any report in their own city.
+ */
+test('a dispatcher opens a report OUTSIDE their ward / department on the shared surface', async ({
+  page,
+  context,
+}) => {
+  await devLogin(context.request, 'dispatcher');
+
+  const resp = await page.goto(`${BASE}/reports/${OUT_OF_SCOPE_TICKET_ID}`, {
+    waitUntil: 'domcontentloaded',
+  });
+  expect(resp).not.toBeNull();
+  expect(resp!.status()).toBe(200);
+
+  // The ticket body renders — no refusal at all.
+  await expect(ticketDescription(page)).toBeVisible({ timeout: 10_000 });
+  await expect(signInRequired(page)).toHaveCount(0);
+});
+
+test('a dispatcher never sees the citizen-ownership message', async ({
+  page,
+  context,
+}) => {
+  // "You can only view reports you created." is a CITIZEN-ownership
+  // sentence. A dispatcher does not create reports, so that sentence
+  // describes a rule that does not apply to them — and it was the
+  // exact copy the bug reported.
+  //
+  // The ownership sentence is legitimate for a CITIZEN opening
+  // someone else's report, so the assertion is scoped to the staff
+  // viewer: on every page a staff member can reach, the ownership
+  // copy must be absent.
+  await devLogin(context.request, 'dispatcher');
+
+  await page.goto(`${BASE}/reports/${TICKET_ID}`, { waitUntil: 'domcontentloaded' });
+  await expect(ticketDescription(page)).toBeVisible({ timeout: 10_000 });
+
+  await expect(
+    page.getByText(/শুধুমাত্র আপনার নিজের রিপোর্ট|only view reports you created/i),
+  ).toHaveCount(0);
 });

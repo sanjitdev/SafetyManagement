@@ -697,6 +697,17 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'শুধুমাত্র আপনার নিজের রিপোর্ট দেখতে পারবেন।',
     en: 'You can only view reports you created.',
   },
+  // The STAFF flavour of the same refusal. A citizen is refused
+  // because the report is not theirs ("you can only view reports you
+  // created"); a staff member is refused because the report is
+  // outside their ward or department. The old copy collapsed both
+  // into the citizen sentence, which told a dispatcher they could
+  // only see reports they had created — a rule that does not apply
+  // to them at all.
+  'detail.error.forbidden_scope': {
+    bn: 'এই রিপোর্টটি আপনার ওয়ার্ড বা বিভাগের বাইরে।',
+    en: 'This report is outside your ward or department.',
+  },
   'detail.error.rate_limited.title': {
     bn: 'লোড হচ্ছে — একটু অপেক্ষা করুন',
     en: 'Loading — please wait',
