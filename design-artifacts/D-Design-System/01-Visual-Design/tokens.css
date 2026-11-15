@@ -79,19 +79,36 @@
   --color-surface-inverse: #0F172A; /* dark surfaces (monitor, outdoor) */
 
   /* Role rail — the fixed sidebar on the dispatcher, crew and admin
-   * consoles. It is a DARK OPERATIONS SURFACE in every theme: the
-   * reference designs put the navigation rail on a deep navy so the
-   * working area stays the brightest thing on screen. These tokens
-   * exist so the rail is themed rather than hardcoded — the dark
-   * theme deepens the navy instead of leaving it untouched, which is
-   * what a raw hex does. */
-  --color-rail: #111C34;            /* the rail's own surface */
-  --color-rail-hover: #1C2A45;     /* a rail link on hover */
-  --color-rail-active: #2859B4;    /* the active rail link */
-  --color-rail-ink: #F7F9FF;       /* the rail's primary text */
-  --color-rail-ink-muted: #B8C4D9; /* the rail's secondary text */
-  --color-rail-border: #2C3850;    /* the rail's hairline dividers */
-  --color-rail-accent: #79A8FF;    /* the active rail link's edge mark */
+   * consoles. It is themed, not hardcoded, and the two themes do NOT
+   * look the same: in LIGHT mode the rail is a slightly-dark off-white
+   * (a "paper" rail) so the working area still reads as the brightest
+   * thing on screen without a heavy navy slab down the left edge; in
+   * DARK mode it deepens to a navy operations surface.
+   *
+   * The rail's own ink therefore flips with the surface, and the
+   * ACTIVE pill keeps white text on the civic blue in both themes —
+   * that is why `--color-rail-ink-active` is separate from
+   * `--color-rail-ink` instead of reusing it. */
+  --color-rail: #E4E8EF;            /* the rail's own surface */
+  --color-rail-hover: #D3DAE4;     /* a rail link on hover */
+  --color-rail-active: #1E40AF;    /* the active rail link */
+  --color-rail-ink: #0F172A;       /* the rail's primary text */
+  --color-rail-ink-muted: #475569; /* the rail's secondary text */
+  --color-rail-ink-active: #FFFFFF;/* the active rail link's text */
+  --color-rail-border: #BFC8D6;    /* the rail's hairline dividers */
+  --color-rail-accent: #1E40AF;    /* the active rail link's edge mark */
+  /* The skyline illustration at the foot of the rail is drawn in the
+   * accent colour at low opacity. The accent is a saturated blue in
+   * light mode, so the same opacity that reads as a faint watermark
+   * on the navy rail reads as a solid blue block on the off-white
+   * one — the opacity is themed with the surface, not hardcoded. */
+  --color-rail-cityline-opacity: .07;
+  /* The login / register story panel. It is a DARK surface in EVERY
+   * theme — its copy is `--color-ink-on-dark`, so a themed surface
+   * would put light ink on light. It therefore does NOT reuse
+   * `--color-rail` (the rail is now off-white in light mode) nor
+   * `--color-surface-inverse` (that one flips with the theme). */
+  --color-story-surface: #111C34;
 
   /* Border — `--color-border` is a hairline divider (decorative);
    * `--color-border-strong` separates interactive controls from the
@@ -319,14 +336,20 @@
   --color-surface-inverse: #F7FAFC;
 
   /* Role rail — the rail deepens in dark mode so it recedes behind
-   * the working area instead of reading as a light-mode leftover. */
+   * the working area instead of reading as a light-mode leftover.
+   * The active pill keeps white text on the civic blue here too. */
   --color-rail: #0B1428;
   --color-rail-hover: #16233D;
   --color-rail-active: #1E4FB0;
   --color-rail-ink: #F7F9FF;
   --color-rail-ink-muted: #A9B7D0;
+  --color-rail-ink-active: #FFFFFF;
   --color-rail-border: #22304A;
   --color-rail-accent: #8AB4FF;
+  --color-rail-cityline-opacity: .12;
+  /* The story panel stays a dark surface in every theme — see the
+   * note on the light-theme declaration. */
+  --color-story-surface: #111C34;
 
   /* Ink */
   --color-ink: #F9FAFB;
@@ -456,8 +479,11 @@
     --color-rail-active: #1E4FB0;
     --color-rail-ink: #F7F9FF;
     --color-rail-ink-muted: #A9B7D0;
+    --color-rail-ink-active: #FFFFFF;
     --color-rail-border: #22304A;
     --color-rail-accent: #8AB4FF;
+    --color-rail-cityline-opacity: .12;
+    --color-story-surface: #111C34;
 
     --color-ink: #F9FAFB;
     --color-ink-secondary: #CBD5E0;

@@ -384,6 +384,25 @@ describe('the token file ships everything the source references', () => {
     expect(rawToken(light, '--icon-size-lg')).toBe('24px');
   });
 
+  it('themes the rail skyline opacity with the rail surface', () => {
+    // The skyline illustration at the foot of the rail is drawn in the
+    // accent colour at low opacity. The accent is a saturated blue in
+    // light mode, so the opacity that reads as a faint watermark on
+    // the navy rail reads as a solid blue block on the off-white one.
+    // The opacity is therefore themed, not hardcoded — and it is a
+    // NUMBER, so it is read as a declared value rather than resolved
+    // as a colour.
+    const lightOpacity = Number(rawToken(light, '--color-rail-cityline-opacity'));
+    const darkOpacity = Number(rawToken(dark, '--color-rail-cityline-opacity'));
+
+    expect(Number.isFinite(lightOpacity), 'light cityline opacity').toBe(true);
+    expect(Number.isFinite(darkOpacity), 'dark cityline opacity').toBe(true);
+    expect(lightOpacity).toBeGreaterThan(0);
+    expect(lightOpacity).toBeLessThan(1);
+    expect(darkOpacity).toBeGreaterThan(0);
+    expect(darkOpacity).toBeLessThan(1);
+  });
+
   it('keeps every surface and ink token the admin console depends on', () => {
     // `tests/unit/admin-theme-tokens.test.ts` asserts these are
     // defined; this test additionally proves they resolve to REAL
@@ -422,11 +441,93 @@ describe('the token file ships everything the source references', () => {
       '--color-rail-active',
       '--color-rail-ink',
       '--color-rail-ink-muted',
+      '--color-rail-ink-active',
       '--color-rail-border',
       '--color-rail-accent',
+      '--color-story-surface',
     ]) {
       expect(resolveToken(light, name), `${name} must resolve`).not.toBeNull();
       expect(resolveToken(dark, name), `dark ${name} must resolve`).not.toBeNull();
+    }
+  });
+
+  it('gives the role rail a genuinely different surface in each theme', async () => {
+    // The rail used to be the SAME deep navy in both themes, so a
+    // user who switched to light mode still saw a dark slab down the
+    // left edge. The light rail is now an off-white "paper" rail and
+    // the dark rail is a navy operations surface.
+    //
+    // The assertion is on the RELATIVE luminance of the two surfaces,
+    // not on a literal hex: the exact values may be tuned, but the
+    // light rail must be decisively lighter than the dark one.
+    const lightRail = resolveToken(light, '--color-rail')!;
+    const darkRail = resolveToken(dark, '--color-rail')!;
+
+    expect(relativeLuminance(lightRail)).toBeGreaterThan(
+      relativeLuminance(darkRail) + 0.2,
+    );
+  });
+
+  it('keeps the rail ink readable on the rail surface in BOTH themes', () => {
+    // The rail's ink flips with its surface: near-white on the navy
+    // dark rail, near-black on the off-white light rail. Each pair
+    // must clear AA for body text.
+    for (const [theme, source] of [
+      ['light', light],
+      ['dark', dark],
+    ] as const) {
+      const rail = resolveToken(source, '--color-rail')!;
+      const ink = resolveToken(source, '--color-rail-ink')!;
+      const muted = resolveToken(source, '--color-rail-ink-muted')!;
+
+      expect(
+        meetsAaText(ink, rail),
+        `${theme} rail ink ${ink} on ${rail}`,
+      ).toBe(true);
+      expect(
+        meetsAaText(muted, rail),
+        `${theme} rail muted ink ${muted} on ${rail}`,
+      ).toBe(true);
+    }
+  });
+
+  it('keeps the active rail pill readable in BOTH themes', () => {
+    // The active nav item is a FILLED civic-blue pill. Its text is
+    // `--color-rail-ink-active`, which is white in both themes — the
+    // rail's general ink is near-black in light mode and would be
+    // unreadable on the blue fill.
+    for (const [theme, source] of [
+      ['light', light],
+      ['dark', dark],
+    ] as const) {
+      const active = resolveToken(source, '--color-rail-active')!;
+      const activeInk = resolveToken(source, '--color-rail-ink-active')!;
+
+      expect(
+        meetsAaText(activeInk, active),
+        `${theme} active rail ink ${activeInk} on ${active}`,
+      ).toBe(true);
+    }
+  });
+
+  it('keeps the story panel dark in EVERY theme', () => {
+    // The login / register story panel carries `--color-ink-on-dark`
+    // copy. It must therefore never be a light surface, in either
+    // theme — that pairing would be invisible copy.
+    for (const [theme, source] of [
+      ['light', light],
+      ['dark', dark],
+    ] as const) {
+      const story = resolveToken(source, '--color-story-surface')!;
+      const onDark = resolveToken(source, '--color-ink-on-dark')!;
+
+      expect(relativeLuminance(story), `${theme} story surface`).toBeLessThan(
+        0.2,
+      );
+      expect(
+        meetsAaText(onDark, story),
+        `${theme} story copy ${onDark} on ${story}`,
+      ).toBe(true);
     }
   });
 });

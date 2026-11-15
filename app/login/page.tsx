@@ -720,9 +720,10 @@ function LoginInner() {
                * (#F7FAFC) while the panel's ink is --color-ink-on-dark
                * (#F9FAFB) — a 1.02:1 pair, i.e. invisible copy. The
                * StoryMap strokes are light-on-dark at 30% opacity too.
-               * --color-rail is dark in light AND dark mode, and
-               * --color-rail-ink is its light counterpart. */
-              background: var(--color-rail);
+               * --color-story-surface is the always-dark surface for
+               * this panel; --color-rail cannot be used because the
+               * rail is off-white in light mode. */
+              background: var(--color-story-surface);
               color: var(--color-ink-on-dark);
               padding: var(--space-8) var(--space-8) var(--space-7);
               display: flex;

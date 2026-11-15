@@ -135,8 +135,13 @@ test.describe('Auth story panel — contrast', () => {
    * theme: in dark mode it resolves to #F7FAFC (near-white) while the
    * panel's copy stays `--color-ink-on-dark` #F9FAFB — a ~1.02:1 pair,
    * i.e. the whole panel is invisible. It only looked correct in light
-   * mode, which is not the default. The panel now uses `--color-rail`,
-   * which is dark in both themes.
+   * mode, which is not the default. The panel now uses
+   * `--color-story-surface`, which is dark in both themes.
+   *
+   * It deliberately does NOT use `--color-rail` any more: the rail is
+   * an off-white surface in light mode now, so painting the story
+   * panel with it would put light ink on a light surface — the exact
+   * failure this test exists to catch.
    *
    * This asserts the panel's own ink/background pair, so a future
    * "tidy-up" back to surface-inverse fails here instead of shipping.

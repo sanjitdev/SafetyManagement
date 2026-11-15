@@ -165,7 +165,7 @@
 .admin-side-nav { flex: 1 1 auto; min-height: 0; display: grid; align-content: start; gap: 6px; overflow-y: auto; margin-top: 42px; }
 .admin-side-link { min-height: 44px; display: flex; align-items: center; gap: 13px; padding: 0 13px; border: 0; border-radius: 9px; color: var(--color-rail-ink-muted); background: transparent; text-decoration: none; font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: color 140ms ease, background 140ms ease; }
 .admin-side-link:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
-.admin-side-link.is-active { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); }
+.admin-side-link.is-active { color: var(--color-rail-ink-active); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); }
 .admin-side-link > span { flex: 1; }
 .admin-side-toggle { width: 100%; }
 .admin-side-chevron { transition: transform 150ms ease; }
@@ -174,7 +174,7 @@
 .admin-side-subnav a { padding: 8px 10px; border-radius: 7px; color: var(--color-rail-ink-muted); text-decoration: none; font-size: 12px; }
 .admin-side-subnav a:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
 .admin-dashboard-main { min-width: 0; }
-.admin-dashboard-topbar { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 34px; background: var(--admin-surface); border-bottom: 1px solid var(--admin-line); }
+.admin-dashboard-topbar { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 34px; background: var(--admin-surface); }
 .admin-searchbox { width: min(440px, 48%); min-width: 260px; height: 40px; display: flex; align-items: center; gap: 11px; padding: 0 13px; color: var(--color-ink-tertiary); border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-raised); }
 .admin-searchbox:focus-within { border-color: var(--color-border-focus); background: var(--color-surface-card); box-shadow: var(--shadow-focus); }
 .admin-searchbox input { width: 100%; border: 0; outline: 0; color: var(--admin-ink); background: transparent; font: inherit; font-size: 12px; }
@@ -448,20 +448,20 @@
 .role-sidebar-link svg { flex: 0 0 auto; }
 .role-sidebar-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .role-sidebar-link:hover { color: var(--color-rail-ink); background: var(--color-rail-hover); }
-.role-sidebar-link.is-active { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; }
+.role-sidebar-link.is-active { color: var(--color-rail-ink-active); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; }
 /* The current step of the report flow renders as a NON-interactive
  * marker: it reads as the active item (same fill + accent bar) but it
  * is not a link, so it cannot throw the citizen back to step 1
  * mid-flow. `cursor: default` makes that difference visible. */
-.role-sidebar-link--current { color: var(--color-rail-ink); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; cursor: default; }
-.role-sidebar-link--current:hover { color: var(--color-rail-ink); background: var(--color-rail-active); }
+.role-sidebar-link--current { color: var(--color-rail-ink-active); background: var(--color-rail-active); box-shadow: inset 3px 0 var(--color-rail-accent); font-weight: 650; cursor: default; }
+.role-sidebar-link--current:hover { color: var(--color-rail-ink-active); background: var(--color-rail-active); }
 .role-sidebar-cityline { z-index: 0; }
-.role-sidebar-cityline { position: absolute; right: 0; bottom: 64px; left: 0; height: 80px; opacity: .12; pointer-events: none; background: linear-gradient(to top, var(--color-rail-accent) 0 12px, transparent 12px), linear-gradient(to top, transparent 0 14px, var(--color-rail-accent) 14px 48px, transparent 48px), linear-gradient(to top, transparent 0 9px, var(--color-rail-accent) 9px 64px, transparent 64px); background-size: 100% 100%, 25% 100%, 19% 100%; background-position: 0 0, 18% 0, 72% 0; background-repeat: no-repeat; }
-.role-sidebar-cityline--front { height: 48px; bottom: 62px; opacity: .09; background-size: 100% 100%, 31% 100%, 25% 100%; background-position: 0 0, 38% 0, 79% 0; }
+.role-sidebar-cityline { position: absolute; right: 0; bottom: 64px; left: 0; height: 80px; opacity: var(--color-rail-cityline-opacity); pointer-events: none; background: linear-gradient(to top, var(--color-rail-accent) 0 12px, transparent 12px), linear-gradient(to top, transparent 0 14px, var(--color-rail-accent) 14px 48px, transparent 48px), linear-gradient(to top, transparent 0 9px, var(--color-rail-accent) 9px 64px, transparent 64px); background-size: 100% 100%, 25% 100%, 19% 100%; background-position: 0 0, 18% 0, 72% 0; background-repeat: no-repeat; }
+.role-sidebar-cityline--front { height: 48px; bottom: 62px; opacity: calc(var(--color-rail-cityline-opacity) * .75); background-size: 100% 100%, 31% 100%, 25% 100%; background-position: 0 0, 38% 0, 79% 0; }
 .role-app-main { min-width: 0; min-height: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .role-app-content { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; background: var(--color-surface-page); }
 .role-shell-scrim { display: none; }
-.appheader-root[data-compact="true"] { position: relative; height: 72px !important; min-height: 72px; padding-inline: 28px !important; background: var(--color-surface-card) !important; border-bottom-color: var(--color-border) !important; }
+.appheader-root[data-compact="true"] { position: relative; height: 72px !important; min-height: 72px; padding-inline: 28px !important; background: var(--color-surface-card) !important; }
 /* Staff surfaces only. This rule block was authored for the admin /
  * dispatcher / crew "compact city operations workspace", where the
  * brand block and the citizen Report CTA must not appear. It was

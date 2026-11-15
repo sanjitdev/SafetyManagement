@@ -21,8 +21,13 @@
 
    DESIGN LANGUAGE READ FROM THE REFERENCES
    ----------------------------------------
-   1. The rail is a deep navy (`--color-rail`) carrying the brand mark, the
-      role's nav, a skyline illustration and a footer (status + user).
+   1. The rail is a deep navy carrying the brand mark, the role's nav, a
+      skyline illustration and a footer (status + user). The reference
+      images show a LIGHT page beside a NAVY rail, so these mockups are
+      light-theme pages that keep the rail's dark treatment: the rail
+      tokens are re-declared on `.dash` below rather than pinning a
+      whole `theme-dark` class on <html>, which would also flip the
+      content area the references show as light.
    2. The active nav item is a FILLED PILL in civic blue — not an inset edge
       bar. The references are unambiguous on this.
    3. Every KPI is a card with a big figure, a label, and a CIRCULAR TINTED
@@ -39,6 +44,24 @@
 
 .dash {
   --dash-pad: 20px;
+
+  /* The reference design is a LIGHT page beside a NAVY rail. The product's
+     light theme now uses an off-white rail, so the mockups re-declare the
+     rail's dark treatment HERE, scoped to the mockup frame only. The
+     content area stays on the light `:root` palette — pinning a whole
+     `theme-dark` class would have flipped that too, and the references
+     do not show a dark page.
+
+     Every value below is a token `tokens.css` already declares (the
+     token-purity test enforces that), just the DARK theme's value for
+     that token, applied where the mockup needs it. */
+  --color-rail: #111C34;
+  --color-rail-hover: #1C2A45;
+  --color-rail-ink: #F7F9FF;
+  --color-rail-ink-muted: #B8C4D9;
+  --color-rail-border: #2C3850;
+  --color-rail-accent: #79A8FF;
+
   min-height: 100vh;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
@@ -346,7 +369,7 @@
 
 /* The top-right user (citizen, dispatcher, admin): dark circle + name. */
 .dash-account { display: flex; align-items: center; gap: 9px; }
-.dash-account .dash-avatar { color: var(--color-on-primary); background: var(--color-rail); }
+.dash-account .dash-avatar { color: var(--color-on-primary); background: var(--color-story-surface); }
 .dash-account-name { color: var(--color-ink); font-size: 13.5px; font-weight: 600; }
 .dash-account svg { color: var(--color-ink-tertiary); }
 

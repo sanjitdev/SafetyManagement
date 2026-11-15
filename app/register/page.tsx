@@ -793,8 +793,9 @@ function RegisterInner() {
               overflow: hidden;
               /* Dark in every theme — see the note in app/login/page.tsx.
                * --color-surface-inverse flips to near-white in dark mode
-               * and would leave the panel's on-dark copy invisible. */
-              background: var(--color-rail);
+               * and would leave the panel's on-dark copy invisible, and
+               * --color-rail is off-white in light mode now. */
+              background: var(--color-story-surface);
               color: var(--color-ink-on-dark);
               padding: var(--space-8);
               display: flex;

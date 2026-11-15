@@ -6527,3 +6527,113 @@ dispatcher 10 city reports and **10/10 open**; the dispatcher's scoped
 surface still refuses 2 of them with 404 and the queue still shows 4; a
 citizen opening another citizen's report still gets `403 not_owner`;
 and the new copy is asserted on-screen by two new Playwright cases.
+
+### 2026-11-15 — The role rail was the same navy in BOTH themes
+
+The left navigation rail (`#role-sidebar` on the dispatcher / crew /
+citizen consoles, `.admin-dashboard-sidebar` on the admin console) was
+`#111C34` in `:root` and `#0B1428` in `.theme-dark` — two shades of the
+same deep navy. Switching the app to light mode therefore left a dark
+slab down the left edge, so the "light theme" was not really light.
+
+The rail was **entirely token-driven** (`.role-sidebar` reads
+`--color-rail` / `--color-rail-ink` and nothing else), so the fix was
+a new light-mode token set rather than a CSS change:
+
+| Token | Light (before → after) | Dark (unchanged) |
+|---|---|---|
+| `--color-rail` | `#111C34` → **`#E4E8EF`** | `#0B1428` |
+| `--color-rail-hover` | `#1C2A45` → **`#D3DAE4`** | `#16233D` |
+| `--color-rail-active` | `#2859B4` → **`#1E40AF`** | `#1E4FB0` |
+| `--color-rail-ink` | `#F7F9FF` → **`#0F172A`** | `#F7F9FF` |
+| `--color-rail-ink-muted` | `#B8C4D9` → **`#475569`** | `#A9B7D0` |
+| `--color-rail-border` | `#2C3850` → **`#BFC8D6`** | `#22304A` |
+| `--color-rail-accent` | `#79A8FF` → **`#1E40AF`** | `#8AB4FF` |
+
+Two new tokens came out of it:
+
+- **`--color-rail-ink-active`** — the active nav item is a FILLED
+  civic-blue pill, and its text used to be `--color-rail-ink`. That was
+  fine while the ink was near-white on a dark rail, but the light rail's
+  ink is near-black, and near-black on the blue fill is unreadable. The
+  pill's text is now its own token — white on blue in BOTH themes.
+- **`--color-story-surface`** — the login / register story panel painted
+  `--color-rail`, because the rail used to be dark in both themes. With
+  an off-white light rail that would have put `--color-ink-on-dark`
+  copy on a light surface — invisible copy, the exact failure
+  `tests/02-live-audit.spec.ts` exists to catch. The panel now has its
+  own always-dark surface token.
+- **`--color-rail-cityline-opacity`** — the skyline illustration at the
+  foot of the rail is drawn in the accent colour at low opacity. The
+  accent became a saturated blue in light mode, so the opacity that
+  read as a faint watermark on navy read as solid blue blocks on
+  off-white. The opacity is now themed with the surface (.12 dark, .07
+  light).
+
+The four design-system mockups show a LIGHT page beside a NAVY rail,
+so they are NOT pinned to the dark theme — that would have flipped the
+content area the references show as light. Instead the mockup frame
+(`.dash`) re-declares the rail's dark treatment locally, scoped to the
+mockup stylesheet, leaving the rest of the page on `:root`. Their
+committed pixel baselines stay valid.
+
+Measured, not eyeballed: every rail pair clears WCAG AA in both themes
+(the tightest is the muted nav label at 6.17:1 on the light rail, and
+the active pill at 8.72:1). `tests/unit/ui/tokens-contrast.test.ts`
+now asserts the rail's contrast rather than merely that its tokens
+resolve, and `tests/34-role-sidebar-theme.spec.ts` pins the two-theme
+behaviour on the live app for both the role rail and the admin sidebar.
+
+**The route-spec baselines now need a CI refresh.** The rail is the
+leftmost 220–232px of every role console screenshot, so changing its
+colour moves those pixels by definition. Running the full baseline
+suite twice — once with the change and once with the change stashed —
+showed 25 failures with the change against 24 on the clean tree, and
+the ONE new failure is `17-admin-cities-light` → `/admin/cities/<id>/
+wards — wards list (1440x900)`: the rail block pushed it past the 1%
+tolerance where the pre-existing font drift alone had not. The diff
+image confirms it — the sidebar column is a solid changed block and the
+content area shows only glyph outlines.
+
+The 24 common failures are the documented Windows-vs-Linux Noto Sans
+Bengali rasterisation drift (`tests-mockups/README.md`), and they fail
+identically on the clean tree. Per that README the baselines must be
+regenerated on `ubuntu-latest`, never on a dev machine:
+
+```
+gh workflow run regenerate-baselines.yml
+gh run download            # artifact: refreshed-baselines
+```
+
+The eight static mockup baselines are NOT affected — the mockup rail
+keeps its navy, so all 8 still match byte-for-byte.
+
+### 2026-11-15 — The header's underline is gone
+
+Two separate headers carry a bottom rule, and both were removed:
+
+| Header | Where the rule lived |
+|---|---|
+| The shared app header (citizen / dispatcher / crew / report flow) | `components/AppHeader.tsx` — an inline `borderBottom: '1px solid var(--color-border)'` |
+| The admin console's own topbar | `app/globals.css` — `.admin-dashboard-topbar { border-bottom: 1px solid var(--admin-line) }` |
+
+The shared header's rule was also re-stated by a stylesheet override —
+`.appheader-root[data-compact="true"] { border-bottom-color: … }` — which
+re-coloured a border that was already there. Removing only the inline
+style would have left that override painting a rule on the compact
+variant, so both went.
+
+The rule was a *surface* separator, and after the rail work the header
+sits on the same `--color-surface-card` as the content beneath it, so
+the hairline was the only thing distinguishing "header" from "page" —
+and a stronger edge than the design wanted.
+
+Verified on the live app: `getComputedStyle(...).borderBottomWidth` is
+`0px` on `/home`, `/dispatcher`, `/crew` and `/admin`, and the pages
+render correctly in both themes. The functional specs pass (84 across
+the live-audit, rail-theme, auth-redesign and post-auth-target files).
+`tests/28-role-walkthrough.spec.ts` times out at its 600s ceiling —
+identically on the clean tree, so it is pre-existing and unrelated.
+
+The route-spec baselines need another CI refresh for the same reason as
+the rail: the rule was one of the header's pixels.

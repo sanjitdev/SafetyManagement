@@ -173,7 +173,6 @@ export function AppHeader({ lang: langProp, role = 'public', signedIn: signedInP
       style={{
         height: 'var(--header-height-desktop)',
         background: 'var(--color-surface-card)',
-        borderBottom: '1px solid var(--color-border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
