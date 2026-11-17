@@ -5,8 +5,14 @@
  * DISP-002 (Intent 003, Unit 002): the dispatcher's primary
  * surface. The queue is the list of tickets in (submitted, routed)
  * status, scoped to the dispatcher's (cityId, wardId, departmentId)
- * and sorted oldest-first. The status filter is optional — by
- * default both statuses are included.
+ * and ordered by TRIAGE priority — priority band first (urgent
+ * above high above normal above low), then untriaged before
+ * triaged within a band, then oldest first. The status filter is
+ * optional — by default both statuses are included.
+ *
+ * The ordering rule lives in `lib/dispatcher/priority.ts`, which
+ * explains why the sort runs in code rather than in the database
+ * query.
  *
  * Query parameters (Zod-validated):
  *   - status?: 'submitted' | 'routed'        (default: both)
@@ -43,6 +49,7 @@ import {
   slaStateFor,
   slaStateForResolved,
 } from '@/lib/dispatcher/sla-resolve';
+import { sortByTriagePriority } from '@/lib/dispatcher/priority';
 
 const QuerySchema = z.object({
   /**
@@ -78,6 +85,22 @@ const QuerySchema = z.object({
    * could not be driven from this endpoint.
    */
   ward: z.string().min(1).optional(),
+  /**
+   * The priority filter.
+   *
+   * ADDITIVE and NARROWING ONLY, like `ward`.
+   *
+   * The filter matches the BAND, and it matches the UNTRIAGED
+   * state separately: `?priority=untriaged` returns the reports no
+   * dispatcher has looked at yet, which is the one filter a triage
+   * queue genuinely needs (the work nobody has claimed).
+   *
+   * Omitting the parameter returns every band, so the default
+   * queue is unchanged.
+   */
+  priority: z
+    .enum(['low', 'normal', 'high', 'urgent', 'untriaged'])
+    .optional(),
   // The dispatcher's `?cityId=` is NOT honoured; the session's
   // cityId is the only city the API reads. We accept the query
   // parameter so a typo returns a 400 instead of silently being
@@ -108,6 +131,7 @@ export async function GET(req: NextRequest) {
     status: req.nextUrl.searchParams.get('status') ?? undefined,
     limit: req.nextUrl.searchParams.get('limit') ?? undefined,
     ward: req.nextUrl.searchParams.get('ward') ?? undefined,
+    priority: req.nextUrl.searchParams.get('priority') ?? undefined,
     cityId: req.nextUrl.searchParams.get('cityId') ?? undefined,
   });
   if (!parsed.success) {
@@ -116,7 +140,7 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
   }
-  const { status, limit, ward: requestedWard } = parsed.data;
+  const { status, limit, ward: requestedWard, priority: requestedPriority } = parsed.data;
 
   // Status filter: by default both 'submitted' and 'routed'.
   const wantedStatuses = status ? [status] : ['submitted', 'routed'];
@@ -184,6 +208,28 @@ export async function GET(req: NextRequest) {
     // dispatcher cannot reach in the first place.
     if (requestedWard && t.wardId !== requestedWard) return false;
     if (session!.wardId && t.wardId !== session!.wardId) return false;
+    // ── The priority filter ─────────────────────────────────────
+    //
+    // The `untriaged` option is NOT a band — it is the ABSENCE of
+    // a decision, and it matches on the TIMESTAMP rather than the
+    // band. A report carries the default `low` band before anyone
+    // has triaged it, so filtering `low` by band alone would sweep
+    // in the untriaged reports and the dispatcher could not tell
+    // them from the ones they set aside.
+    //
+    // A band that was never stamped (`prioritySetAt` is null) is
+    // ALSO untriaged, even if it carries a band. The write path
+    // always stamps a band and a timestamp together, so this can
+    // only happen on a row written before the feature existed — and
+    // such a row has genuinely never been triaged.
+    if (requestedPriority) {
+      const triaged = t.prioritySetAt !== null && t.prioritySetAt !== undefined;
+      if (requestedPriority === 'untriaged') {
+        if (triaged) return false;
+      } else if (!triaged || t.priority !== requestedPriority) {
+        return false;
+      }
+    }
     // Department: a ticket's category determines its department.
     // A category with no department (e.g. "Other") is not
     // department-scoped, so it stays visible to every dispatcher.
@@ -204,8 +250,27 @@ export async function GET(req: NextRequest) {
   const slaPolicies = await loadSlaPoliciesByCategory(session!.cityId);
   const slaNow = Date.now();
 
+  // ── The triage order ───────────────────────────────────────────
+  //
+  // Priority DESC, then untriaged-before-triaged within a band,
+  // then oldest first. The sort happens HERE, in code, rather than
+  // in the query above, because the dev store's `findMany` supports
+  // exactly ONE `orderBy` field and only `createdAt` at that — a
+  // database-side multi-field sort would silently degrade in the
+  // dev store, and the ordering would never be exercised by the
+  // test suite.
+  //
+  // It runs AFTER the scope filter and BEFORE the limit slice. Both
+  // sides of that ordering matter: slicing first would let a
+  // filtered-out ticket's absence shift the window (the dispatcher
+  // would see 50 of the 50 that survived, which is right), whereas
+  // sorting after the slice would order only the first N by
+  // `createdAt` and then re-rank them — so an `urgent` ticket that
+  // happened to be the 51st oldest would never reach the top.
+  const ordered = sortByTriagePriority(filtered);
+
   const tickets = await Promise.all(
-    filtered.slice(0, limit).map(async (t) => {
+    ordered.slice(0, limit).map(async (t) => {
       const withTrail = await getTicketWithTrail(t.id);
       if (!withTrail) {
         // Should not happen for tickets returned by findMany, but the

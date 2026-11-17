@@ -28,6 +28,7 @@
 import type { Role, TicketStatus } from '@prisma/client';
 import { applyCitizenTrailFilter, bucketPhotosByRole } from './trail';
 import type { SlaTone } from '@/lib/dispatcher/sla';
+import type { TicketPriority } from '@/lib/dispatcher/priority';
 
 const ANONYMIZED_ACTOR_LABEL = {
   bn: 'সিটি কর্পোরেশন',
@@ -162,6 +163,28 @@ export interface TicketLike {
    * omits it, and the serializer emits `null`.
    */
   slaTone?: SlaTone | null;
+  /**
+   * The triage priority band.
+   *
+   * Optional for the same reason as the SLA fields above: a call
+   * site that has not adopted the priority read path omits it, and
+   * the serializer emits `null` — which reads as "no band set"
+   * rather than "low".
+   *
+   * `null` and `'low'` are DIFFERENT states, and the queue's
+   * ordering depends on the difference: a ticket nobody has triaged
+   * sorts ahead of one a dispatcher deliberately deprioritised.
+   */
+  priority?: TicketPriority | null;
+  /**
+   * When a dispatcher last set the priority band.
+   *
+   * `null` means the ticket has never been triaged. This is the
+   * field that distinguishes "nobody has looked at this yet" from
+   * "a dispatcher judged this unimportant" — both carry the `low`
+   * band, and without this timestamp the two are indistinguishable.
+   */
+  prioritySetAt?: string | null;
 }
 
 export interface SerializedTicketTrailEntry {
@@ -314,6 +337,21 @@ export interface SerializedTicket {
    * "nothing was promised", which is NOT the same as "on track".
    */
   slaTone: SlaTone | null;
+  /**
+   * The triage priority band. Staff-only — see the note on
+   * `TicketLike`.
+   *
+   * `null` means the field was not read by the call site. On a
+   * real row it is one of the four bands; the default for a fresh
+   * report is `'low'`.
+   */
+  priority: TicketPriority | null;
+  /**
+   * When the band was last set. `null` means the ticket has never
+   * been triaged — the state the queue sorts ahead of a triaged
+   * ticket in the same band.
+   */
+  prioritySetAt: string | null;
   trail: SerializedTicketTrailEntry[];
 }
 
@@ -422,6 +460,12 @@ export function serializeTicketForRole(
       slaStartedAt: null,
       slaDueAt: null,
       slaTone: null,
+      // The priority band is staff-only. A citizen has no work to
+      // schedule against, and the band is the city's internal
+      // triage judgement — exposing it would tell a citizen their
+      // report was judged unimportant.
+      priority: null,
+      prioritySetAt: null,
       trail: serializedTrail,
     };
   }
@@ -471,6 +515,8 @@ export function serializeTicketForRole(
     slaStartedAt: ticket.slaStartedAt ?? null,
     slaDueAt: ticket.slaDueAt ?? null,
     slaTone: ticket.slaTone ?? null,
+    priority: ticket.priority ?? null,
+    prioritySetAt: ticket.prioritySetAt ?? null,
     trail: serializedTrail,
   };
 }

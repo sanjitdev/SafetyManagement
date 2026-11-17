@@ -102,6 +102,10 @@ function mkTicket(overrides: Partial<SerializedTicket> = {}): SerializedTicket {
     // Wave 4 / bolt 009-005 — the resolved SLA tone. Staff-only;
     // `null` means "no target", which is NOT the same as "on track".
     slaTone: null,
+    // Triage priority. Staff-only; the serializer ships explicit
+    // `null` when the read path has not adopted the field.
+    priority: null,
+    prioritySetAt: null,
     trail: [],
     ...overrides,
   };

@@ -373,6 +373,18 @@ const SERIALIZED_TICKET_SCHEMA: JsonSchema = {
         'The assigned crew member\'s display name, joined server-side. Always null on the citizen serializer.',
     },
     trail: { type: 'array', items: TRAIL_ENTRY_SCHEMA },
+    priority: {
+      type: ['string', 'null'],
+      enum: ['low', 'normal', 'high', 'urgent', null],
+      description:
+        'The triage priority band. Staff-only — always null on the citizen serializer. `null` means the field was not read by the call site; on a real row it is one of the four bands.',
+    },
+    prioritySetAt: {
+      type: ['string', 'null'],
+      format: 'date-time',
+      description:
+        'When a dispatcher last set the priority band. `null` means the report has never been triaged — the state the dispatcher queue sorts ahead of a triaged report in the same band. Staff-only.',
+    },
   },
 };
 
@@ -1659,10 +1671,12 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Dispatcher'],
       summary: 'The dispatcher triage queue',
       description:
-        'Returns the reports in the dispatcher’s scope, oldest first, and the number of pending dedup flags awaiting review. Reports carrying a pending dedup flag are excluded from the list until the flag is resolved.',
+        'Returns the reports in the dispatcher’s scope, ordered by TRIAGE priority — priority band first (urgent above low), then untriaged before triaged within a band, then oldest first — and the number of pending dedup flags awaiting review. Reports carrying a pending dedup flag are excluded from the list until the flag is resolved.',
       operationId: 'dispatcherQueue',
       parameters: [
         queryParam('status', 'Filter by status. Omit to include both `submitted` and `routed`.', { type: 'string', enum: ['submitted', 'routed'] }),
+        queryParam('priority', 'Filter by triage priority band. `untriaged` matches reports no dispatcher has triaged yet. Omit to include every band.', { type: 'string', enum: ['low', 'normal', 'high', 'urgent', 'untriaged'] }),
+        queryParam('ward', 'Filter by ward. Intersected with the session’s ward — it can never widen the scope.', { type: 'string', minLength: 1 }),
         queryParam('limit', 'Maximum rows to return.', { type: 'integer', minimum: 1, maximum: 100, default: 50 }),
         queryParam('cityId', 'Must match the session’s city, or the request is refused.', { type: 'string', minLength: 1 }),
       ],
@@ -2308,6 +2322,47 @@ export const openapiPaths: Record<string, PathItem> = {
           ],
         }),
         '500': jsonResponse('The assignment could not be read back.', errorBody('post_assign_fetch_failed')),
+      },
+    },
+  },
+  '/api/v1/dispatcher/tickets/{id}/priority': {
+    parameters: [{ $ref: '#/components/parameters/TicketId' }],
+    post: {
+      tags: ['Dispatcher'],
+      summary: 'Set a report’s triage priority',
+      description:
+        'Sets the triage band on a report. The band is what the dispatcher queue orders by — `urgent` above `high` above `normal` above `low` — and within a band an untriaged report (one no dispatcher has ever set a band on) sorts ahead of a triaged one, then the oldest first.\n\nSetting the band to the value it already holds is a no-op: no audit row is written and the report’s version is not bumped, so a click that changed nothing leaves no trace.\n\nThe band can only be set on an open report; a resolved, closed or cancelled report is refused with `409 ticket_not_open`.',
+      operationId: 'dispatcherSetPriority',
+      requestBody: jsonBody({
+        type: 'object',
+        required: ['priority'],
+        properties: {
+          priority: {
+            type: 'string',
+            enum: ['low', 'normal', 'high', 'urgent'],
+            description: 'The triage band to set.',
+          },
+        },
+      }),
+      responses: {
+        '200': jsonResponse('The report with its new priority.', {
+          type: 'object',
+          required: ['ticket', 'changed'],
+          properties: {
+            ticket: { $ref: '#/components/schemas/SerializedTicket' },
+            changed: { type: 'boolean', description: 'False when the requested value already matched.' },
+          },
+        }),
+        '400': jsonResponse('Validation failed.', issuesBody('invalid_input')),
+        '401': { $ref: '#/components/responses/Unauthorized' },
+        '404': jsonResponse('The report does not exist, or is outside the dispatcher’s scope.', errorBody('not_found')),
+        '409': jsonResponse('Another writer changed the report first, or the report is no longer open.', {
+          oneOf: [
+            errorBody('concurrent_write'),
+            errorBody('ticket_not_open'),
+          ],
+        }),
+        '500': jsonResponse('The report could not be read back.', errorBody('post_priority_fetch_failed')),
       },
     },
   },

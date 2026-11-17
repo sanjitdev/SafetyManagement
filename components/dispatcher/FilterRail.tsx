@@ -66,6 +66,22 @@ export type QueueStatusFilter =
   | 'in_progress'
   | 'resolved';
 
+/**
+ * The priority axis.
+ *
+ * `'all'` plus the four bands plus `'untriaged'` — and `'untriaged'`
+ * is NOT a band. It is the absence of a decision, and it is the
+ * one value on this axis a triage queue genuinely needs: the work
+ * no dispatcher has claimed yet.
+ */
+export type QueuePriorityFilter =
+  | 'all'
+  | 'low'
+  | 'normal'
+  | 'high'
+  | 'urgent'
+  | 'untriaged';
+
 export interface WardOption {
   id: string;
   number: number;
@@ -78,6 +94,10 @@ export interface FilterRailProps {
   status: QueueStatusFilter;
   /** Fired when the status axis changes. */
   onStatusChange: (status: QueueStatusFilter) => void;
+  /** The selected priority. `'all'` means "no priority filter". */
+  priority: QueuePriorityFilter;
+  /** Fired when the priority axis changes. */
+  onPriorityChange: (priority: QueuePriorityFilter) => void;
   /** The selected ward id, or `null` for "all wards". */
   ward: string | null;
   /** Fired when the ward axis changes. */
@@ -117,9 +137,43 @@ const STATUS_OPTIONS: ReadonlyArray<{
   { value: 'resolved', key: 'dispatcher.queue.filter.resolved' },
 ];
 
+/**
+ * The priority axis, in SCALE ORDER — lowest first, so the
+ * escalation reads bottom-up and the list mirrors the picker on
+ * the ticket page.
+ *
+ * "Untriaged" sits FIRST, not last. It is the state that needs
+ * attention — the reports nobody has looked at — and a filter rail
+ * is a list of what to work on next, so the unclaimed work leads.
+ */
+const PRIORITY_OPTIONS: ReadonlyArray<{
+  value: QueuePriorityFilter;
+  key: string;
+}> = [
+  { value: 'untriaged', key: 'dispatcher.priority.untriaged' },
+  { value: 'urgent', key: 'dispatcher.priority.urgent' },
+  { value: 'high', key: 'dispatcher.priority.high' },
+  { value: 'normal', key: 'dispatcher.priority.normal' },
+  { value: 'low', key: 'dispatcher.priority.low' },
+  { value: 'all', key: 'dispatcher.priority.filter.all' },
+];
+
+/**
+ * The per-chip test hook for the priority axis.
+ *
+ * The GROUP carries `dispatcher-priority-filter`, but a spec that
+ * clicks one specific band needs to name that chip — the group
+ * testid selects the whole group, not a member of it.
+ */
+function priorityChipTestId(value: QueuePriorityFilter): string {
+  return `dispatcher-priority-filter-${value}`;
+}
+
 export function FilterRail({
   status,
   onStatusChange,
+  priority,
+  onPriorityChange,
   ward,
   onWardChange,
   wards,
@@ -172,6 +226,25 @@ export function FilterRail({
           }))}
           className="dispatcher-filter-rail-chips"
           data-testid="dispatcher-status-filter"
+        />
+      </div>
+
+      <div className="dispatcher-filter-rail-axis">
+        <span className="dispatcher-filter-rail-label" id="dispatcher-priority-filter-label">
+          {t('dispatcher.priority.label', null, lang)}
+        </span>
+        <FilterChipGroup
+          lang={lang}
+          value={priority}
+          onChange={onPriorityChange}
+          ariaLabel={t('dispatcher.priority.label', null, lang)}
+          options={PRIORITY_OPTIONS.map((option) => ({
+            value: option.value,
+            label: t(option.key, null, lang),
+            testId: priorityChipTestId(option.value),
+          }))}
+          className="dispatcher-filter-rail-chips"
+          data-testid="dispatcher-priority-filter"
         />
       </div>
 

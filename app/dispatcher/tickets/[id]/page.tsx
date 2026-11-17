@@ -48,9 +48,12 @@ import { formatTicketId } from '@/lib/format/ticket-id';
 import { formatTimestampShort as formatTimestamp } from '@/lib/format/datetime';
 import { thumbnailBackground } from '@/lib/format/photo-url';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { PriorityPill } from '@/components/ui/PriorityPill';
+import { PriorityPicker } from '@/components/ui/PriorityPicker';
 import { Combobox } from '@/components/ui/Combobox';
 import { SlaCountdown } from '@/components/ui/SlaCountdown';
 import type { SlaState, SlaTone } from '@/lib/dispatcher/sla';
+import type { TicketPriority } from '@/lib/dispatcher/priority';
 import { useLanguage } from '@/components/useLanguage';
 import { TicketDetailSkeleton } from '@/components/ui/Skeleton';
 import {
@@ -141,6 +144,16 @@ interface TicketDetail {
   slaDueAt: string | null;
   /** Set once the ticket is resolved; the chip reports "met" or "missed". */
   resolvedAt: string | null;
+  /**
+   * The triage priority band.
+   *
+   * `null` means UNTRIAGED — nobody has ever set a band. That is a
+   * different state from `'low'`, which means a dispatcher
+   * deliberately deprioritised the report.
+   */
+  priority: TicketPriority | null;
+  /** When a dispatcher last set the band. `null` on an untriaged ticket. */
+  prioritySetAt: string | null;
   trail: TrailEntry[];
 }
 
@@ -231,6 +244,22 @@ export default function DispatcherTicketDetailPage() {
   const [assignInFlight, setAssignInFlight] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignSuccess, setAssignSuccess] = useState<boolean>(false);
+  // ── The triage priority control ─────────────────────────────────
+  //
+  // `priorityDraft` is the WORKING selection: the band the
+  // dispatcher has chosen but not yet saved. It is separate from
+  // `ticket.priority` so the picker can hold a pending choice
+  // without the record list claiming the ticket already carries
+  // it. `priorityInFlight` disables the picker while the POST is
+  // pending; `priorityError` carries the localized server error.
+  //
+  // The draft is re-synced from the ticket whenever the ticket
+  // changes, so a save (or another dispatcher's write, arriving on
+  // the next poll) resets the picker to the truth.
+  const [priorityDraft, setPriorityDraft] = useState<TicketPriority | null>(null);
+  const [priorityInFlight, setPriorityInFlight] = useState(false);
+  const [priorityError, setPriorityError] = useState<string | null>(null);
+  const [prioritySuccess, setPrioritySuccess] = useState(false);
 
   useEffect(() => {
     function syncLang() {
@@ -270,6 +299,17 @@ export default function DispatcherTicketDetailPage() {
       // `assignedCrewId` so the dropdown reflects the saved
       // state on every refresh (assign, clear, page reload).
       setAssignDraft(data.ticket.assignedCrewId ?? '');
+      // The priority picker syncs the same way: a refresh (page
+      // load, a poll picking up another dispatcher's triage) resets
+      // the draft to the truth, so the picker never offers a band
+      // that contradicts the saved record.
+      //
+      // The draft is the TRIAGE STATE, not the band: a ticket with
+      // a band but no `prioritySetAt` has never been triaged, so it
+      // selects nothing.
+      setPriorityDraft(
+        data.ticket.prioritySetAt ? data.ticket.priority : null,
+      );
       setLoading(false);
     } catch {
       setLoading(false);
@@ -549,6 +589,62 @@ export default function DispatcherTicketDetailPage() {
     }
   };
 
+  /**
+   * Save the chosen triage band.
+   *
+   * The draft is sent as the band's NAME. The server stamps the
+   * band and `prioritySetAt` together — the client never sends a
+   * timestamp, because a client-supplied timestamp would let a
+   * stale page claim a triage happened at a time it did not.
+   *
+   * The server's errors are mapped to localized copy the same way
+   * the crew picker maps them. `ticket_not_open` is the one the
+   * dispatcher is most likely to hit: the ticket was resolved (or
+   * closed) between the page load and the save, and a closed
+   * ticket is not triaged.
+   */
+  const onSavePriority = async () => {
+    if (!ticket || priorityDraft === null) return;
+    setPriorityError(null);
+    setPrioritySuccess(false);
+    setPriorityInFlight(true);
+    try {
+      const res = await fetch(
+        `/api/v1/dispatcher/tickets/${encodeURIComponent(id)}/priority`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: priorityDraft }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const errorKey =
+          body.error === 'ticket_not_open'
+            ? 'dispatcher.priority.error.not_open'
+            : body.error === 'not_found'
+              ? 'dispatcher.priority.error.not_found'
+              : body.error === 'concurrent_write'
+                ? 'dispatcher.priority.error.concurrent'
+                : 'dispatcher.priority.error.save_failed';
+        setPriorityError(t(errorKey, null, lang));
+        setPriorityInFlight(false);
+        return;
+      }
+      const data = (await res.json()) as { ticket: TicketDetail };
+      setTicket(data.ticket);
+      setPriorityDraft(
+        data.ticket.prioritySetAt ? data.ticket.priority : null,
+      );
+      setPrioritySuccess(true);
+      setPriorityInFlight(false);
+    } catch {
+      setPriorityError(t('dispatcher.priority.error.save_failed', null, lang));
+      setPriorityInFlight(false);
+    }
+  };
+
   if (notFound) {
     return (
       <div
@@ -737,6 +833,25 @@ export default function DispatcherTicketDetailPage() {
                 status={ticket.status}
                 lang={lang}
                 data-testid="dispatcher-ticket-status-pill"
+              />
+              {/*
+                * The triage priority chip, beside the status chip.
+                *
+                * Three chips sit here — status, priority, SLA — and
+                * each answers a different question: WHERE the report
+                * is in the workflow, HOW URGENT it is, and whether it
+                * is still inside the promised window. They are
+                * separate chips precisely so the dispatcher never
+                * has to work out which colour belongs to which
+                * fact.
+                */}
+              <PriorityPill
+                priority={ticket.priority ?? null}
+                prioritySetAt={ticket.prioritySetAt ?? null}
+                lang={lang}
+                size="md"
+                showLabel
+                data-testid="dispatcher-ticket-priority-pill"
               />
               {detailSlaState ? (
                 <SlaCountdown
@@ -938,6 +1053,27 @@ export default function DispatcherTicketDetailPage() {
               </FieldValue>
               <FieldLabel lang={lang}>{t('dispatcher.detail.field.created', null, lang)}</FieldLabel>
               <FieldValue>{formatTimestamp(ticket.createdAt, lang)}</FieldValue>
+              <FieldLabel lang={lang}>{t('dispatcher.priority.label', null, lang)}</FieldLabel>
+              <FieldValue>
+                {/*
+                  * The record list is the "what" view — the saved
+                  * truth. The picker in the sidebar is the "how"
+                  * view. So this row reports what is SAVED, not what
+                  * the dispatcher has picked but not yet written.
+                  *
+                  * The chip distinguishes "nobody has triaged this"
+                  * from "a dispatcher judged this low", which the
+                  * bare band could not.
+                  */}
+                <PriorityPill
+                  priority={ticket.priority ?? null}
+                  prioritySetAt={ticket.prioritySetAt ?? null}
+                  lang={lang}
+                  size="sm"
+                  showLabel
+                  data-testid="dispatcher-ticket-record-priority"
+                />
+              </FieldValue>
             </dl>
           </section>
 
@@ -1291,6 +1427,97 @@ export default function DispatcherTicketDetailPage() {
               {assignInFlight
                 ? t('dispatcher.assignCrew.saving', null, lang)
                 : t('dispatcher.assignCrew.save', null, lang)}
+            </button>
+          </div>
+
+          {/* The triage priority picker.
+              It sits ABOVE the crew picker because triage comes
+              FIRST: a dispatcher decides how urgent a report is
+              before deciding who works it. The order of the
+              sidebar is the order of the work. */}
+          <div>
+            <h3
+              lang={lang}
+              style={{
+                fontSize: 'var(--text-body-sm)',
+                fontWeight: 'var(--weight-bold)',
+                color: 'var(--color-ink-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                margin: '0 0 var(--space-3)',
+              }}
+            >
+              {t('dispatcher.priority.heading', null, lang)}
+            </h3>
+            <PriorityPicker
+              value={priorityDraft}
+              onChange={(next) => {
+                setPriorityDraft(next);
+                setPrioritySuccess(false);
+                setPriorityError(null);
+              }}
+              lang={lang}
+              disabled={priorityInFlight}
+              data-testid="dispatcher-priority-picker"
+            />
+            {priorityError && (
+              <div
+                role="alert"
+                lang={lang}
+                data-testid="dispatcher-priority-error"
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-danger)',
+                  marginTop: 'var(--space-2)',
+                }}
+              >
+                {priorityError}
+              </div>
+            )}
+            {prioritySuccess && (
+              <div
+                role="status"
+                lang={lang}
+                data-testid="dispatcher-priority-success"
+                style={{
+                  fontSize: 'var(--text-caption)',
+                  color: 'var(--color-status-resolved)',
+                  marginTop: 'var(--space-2)',
+                }}
+              >
+                {t('dispatcher.priority.success', null, lang)}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onSavePriority}
+              // The button is disabled until the dispatcher has
+              // actually CHOSEN something. A ticket that is
+              // untriaged has nothing to save, and offering a Save
+              // that does nothing is a button that lies.
+              disabled={priorityInFlight || priorityDraft === null}
+              data-testid="dispatcher-priority-save"
+              style={{
+                width: '100%',
+                marginTop: 'var(--space-3)',
+                padding: 'var(--space-2) var(--space-3)',
+                background: 'var(--color-primary)',
+                color: 'var(--color-on-primary)',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-body-sm)',
+                fontWeight: 'var(--weight-semibold)',
+                cursor:
+                  priorityInFlight || priorityDraft === null
+                    ? 'not-allowed'
+                    : 'pointer',
+                opacity:
+                  priorityInFlight || priorityDraft === null ? 0.5 : 1,
+              }}
+            >
+              {priorityInFlight
+                ? t('dispatcher.priority.saving', null, lang)
+                : t('dispatcher.priority.save', null, lang)}
             </button>
           </div>
 

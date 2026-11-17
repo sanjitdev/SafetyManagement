@@ -40,11 +40,13 @@ import {
   ChartLineUp,
   CheckCircle,
   Check,
+  Circle,
   CircleNotch,
   ClipboardText,
   Clock,
   Copy,
   Crosshair,
+  Diamond,
   DownloadSimple,
   DotsThree,
   Drop,
@@ -63,6 +65,7 @@ import {
   MapPinArea,
   Note,
   LockKey,
+  Octagon,
   Phone,
   MapPin,
   MapTrifold,
@@ -83,6 +86,7 @@ import {
   Trash,
   TreeStructure,
   TrashSimple,
+  Triangle,
   UserPlus,
   Users,
   WarningCircle,
@@ -162,6 +166,19 @@ export const ICONS = {
   statusPaused: entry(Clock),
   statusError: entry(XCircle),
   statusWarning: entry(WarningCircle),
+  /* Triage priority (2026-11-17). Four escalating SHAPES for the four
+     priority bands. The colour is never the only signal, so each band
+     needs its own silhouette.
+
+     The shapes escalate by SIDE COUNT — circle (0), triangle (3),
+     diamond (4), octagon (8) — so the escalation is countable rather
+     than a matter of taste: more sides means more urgent. The bands
+     do not collapse into one another when the colour is dropped (a
+     greyscale printout, a colour-blind reader). */
+  priorityLow: entry(Circle),
+  priorityNormal: entry(Triangle),
+  priorityHigh: entry(Diamond),
+  priorityUrgent: entry(Octagon),
   info: entry(Info),
   loading: entry(CircleNotch),
 

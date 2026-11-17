@@ -2214,6 +2214,78 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
     bn: 'কোনো কর্মী নিযুক্ত নয়',
     en: 'Not assigned',
   },
+
+  // ── Triage priority (2026-11-17) ─────────────────────────────────
+  //
+  // The four bands, plus the UNTRIAGED state.
+  //
+  // "Untriaged" is NOT a fifth band — it is the ABSENCE of a decision,
+  // and it needs its own word because "nobody has looked at this yet"
+  // and "a dispatcher judged this low" are different facts. The chip
+  // draws them differently too (a dashed outline rather than a fill).
+  'dispatcher.priority.low': {
+    bn: 'কম',
+    en: 'Low',
+  },
+  'dispatcher.priority.normal': {
+    bn: 'সাধারণ',
+    en: 'Normal',
+  },
+  'dispatcher.priority.high': {
+    bn: 'বেশি',
+    en: 'High',
+  },
+  'dispatcher.priority.urgent': {
+    bn: 'জরুরি',
+    en: 'Urgent',
+  },
+  'dispatcher.priority.untriaged': {
+    bn: 'ট্রায়াজ হয়নি',
+    en: 'Not triaged',
+  },
+  'dispatcher.priority.label': {
+    bn: 'অগ্রাধিকার',
+    en: 'Priority',
+  },
+  'dispatcher.priority.heading': {
+    bn: 'ট্রায়াজ অগ্রাধিকার',
+    en: 'Triage priority',
+  },
+  'dispatcher.priority.save': {
+    bn: 'সংরক্ষণ',
+    en: 'Save',
+  },
+  'dispatcher.priority.saving': {
+    bn: 'সংরক্ষণ হচ্ছে…',
+    en: 'Saving…',
+  },
+  'dispatcher.priority.success': {
+    bn: 'অগ্রাধিকার আপডেট হয়েছে',
+    en: 'Priority updated',
+  },
+  'dispatcher.priority.error.not_open': {
+    bn: 'বন্ধ হয়ে যাওয়া রিপোর্টে অগ্রাধিকার দেওয়া যায় না',
+    en: 'Priority cannot be set on a closed report',
+  },
+  'dispatcher.priority.error.not_found': {
+    bn: 'রিপোর্ট পাওয়া যায়নি',
+    en: 'Report not found',
+  },
+  'dispatcher.priority.error.concurrent': {
+    bn: 'রিপোর্টটি পরিবর্তিত হয়েছে — আবার চেষ্টা করুন',
+    en: 'This report changed — reload and try again',
+  },
+  'dispatcher.priority.error.save_failed': {
+    bn: 'অগ্রাধিকার সংরক্ষণ ব্যর্থ',
+    en: 'Could not save priority',
+  },
+  /**
+   * The queue filter's priority rail option.
+   */
+  'dispatcher.priority.filter.all': {
+    bn: 'সব',
+    en: 'All',
+  },
   'ticket.status.submitted': {
     bn: 'জমা দেওয়া হয়েছে',
     en: 'Submitted',

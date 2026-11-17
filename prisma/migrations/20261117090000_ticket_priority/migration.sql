@@ -1,0 +1,90 @@
+-- Ticket triage priority (2026-11-17).
+--
+-- THE GAP
+-- -------
+-- The dispatcher queue had no way to express "work on this one
+-- next". `TicketStatus` describes the ticket's PLACE IN THE
+-- WORKFLOW (submitted → routed → in_progress → resolved), not its
+-- URGENCY. Every open ticket looked equally urgent, so triage was
+-- whatever order the queue happened to return.
+--
+-- This is not a cosmetic gap. The production-readiness audit
+-- recorded it as row 12.3 — "audit trail — who changed priority" —
+-- and marked that row NOT VERIFIED with the note: "No `priority`
+-- field exists on `Ticket` — the question has no referent." The
+-- audit could not ask the question because there was nothing to ask
+-- it about. There was also no way to ANSWER it, because the
+-- dispatcher's only field writes were ward, category and internal
+-- note.
+--
+-- WHY THE DEFAULT IS `low`, NOT `normal`
+-- -------------------------------------
+-- A ticket is created by a CITIZEN, who cannot judge whether their
+-- pothole is more urgent than someone else's water leak. So a fresh
+-- ticket is untriaged. The default is deliberately the LOWEST value
+-- on the scale so that two different states stay distinguishable:
+--
+--   - "nobody has looked at this yet"  → `low` (the default)
+--   - "a dispatcher judged this ordinary" → `normal`
+--
+-- If the default were `normal`, those two states would be
+-- indistinguishable and the queue could not surface the untriaged
+-- backlog. `low` as the default means the queue's "oldest first"
+-- ordering IS the untriaged-first ordering.
+--
+-- WHY PRIORITY IS NOT AN SLA
+-- ---------------------------
+-- Priority answers "what should the dispatcher work on next". SLA
+-- answers "did we promise a deadline". They are independent, and
+-- conflating them would be a real defect:
+--
+--   - `lib/dispatcher/sla.ts` computes a tone ('on_track' |
+--     'at_risk' | 'breached' | 'not_started' | 'met') from the
+--     city's `SlaPolicy` and the ticket's route timestamp.
+--   - `urgent` here means "the dispatcher wants this next". It
+--     carries NO deadline and does NOT shorten the SLA window.
+--
+--   A ticket can be `urgent` and still comfortably inside its SLA,
+--   and a ticket can be `low` and already in breach. Neither field
+--   reads the other. Attaching an SLA to a priority level would
+--   make the same ticket's deadline depend on a triage opinion,
+--   which is exactly the kind of coupling the `SlaPolicy` table
+--   exists to avoid.
+--
+-- WHY `prioritySetAt` IS SEPARATE FROM `updatedAt`
+-- ----------------------------------------------
+-- `updatedAt` moves for every write — a status transition, an
+-- internal note, a crew assignment. It is the ticket's last
+-- touched time, NOT the last time anyone triaged it.
+--
+-- The dispatcher's triage list sorts within a priority band by
+-- age, and "age since triage" is the useful number: a ticket
+-- someone deliberately deprioritised an hour ago should not jump
+-- back above a ticket someone raised ten minutes ago just because
+-- an internal note bumped its `updatedAt`. `prioritySetAt` is NULL
+-- until a dispatcher touches the priority, so an untriaged ticket
+-- carries no triage time at all.
+--
+-- THE AUDIT TRAIL
+-- ----------------
+-- A priority change is a triage DECISION, and the audit trail is
+-- where a decision belongs: the dispatcher queue writes a
+-- `ticket.priority` audit row with the before/after pair. That
+-- closes the audit's row 12.3 — the question now has a referent,
+-- and the answer is recorded.
+--
+-- This migration is ADDITIVE only — a new enum type, a new column
+-- with a constant default, a nullable timestamp column, and a new
+-- index. No existing row is rewritten: every existing ticket gets
+-- `priority = 'low'` and `prioritySetAt = NULL`, which is the
+-- correct value for "untriaged". Nothing is dropped.
+
+-- CreateEnum
+CREATE TYPE "TicketPriority" AS ENUM ('low', 'normal', 'high', 'urgent');
+
+-- AlterTable
+ALTER TABLE "Ticket" ADD COLUMN "priority" "TicketPriority" NOT NULL DEFAULT 'low';
+ALTER TABLE "Ticket" ADD COLUMN "prioritySetAt" TIMESTAMP(3);
+
+-- CreateIndex
+CREATE INDEX "Ticket_cityId_priority_idx" ON "Ticket"("cityId", "priority");

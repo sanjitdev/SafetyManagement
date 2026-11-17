@@ -37,6 +37,8 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof FilterRail>> 
   const props: React.ComponentProps<typeof FilterRail> = {
     status: 'all',
     onStatusChange: vi.fn(),
+    priority: 'all',
+    onPriorityChange: vi.fn(),
     ward: null,
     onWardChange: vi.fn(),
     wards: WARDS,
@@ -87,8 +89,72 @@ describe('FilterRail — the status axis', () => {
   });
 });
 
-describe('FilterRail — the ward axis', () => {
-  it('lists the wards it was given, and nothing else', () => {
+describe('FilterRail — the priority axis', () => {
+  it('offers the four bands, the untriaged state, and All', () => {
+    renderRail();
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const labels = Array.from(group.querySelectorAll('button')).map((b) =>
+      b.textContent,
+    );
+    expect(labels).toEqual([
+      'Not triaged',
+      'Urgent',
+      'High',
+      'Normal',
+      'Low',
+      'All',
+    ]);
+  });
+
+  it('puts the untriaged reports FIRST — the work nobody has claimed', () => {
+    renderRail();
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const first = group.querySelector('button');
+    expect(first!.textContent).toBe('Not triaged');
+  });
+
+  it('marks the active priority as pressed', () => {
+    renderRail({ priority: 'urgent' });
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const pressed = Array.from(group.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('aria-pressed') === 'true',
+    );
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0].textContent).toBe('Urgent');
+  });
+
+  it('fires onPriorityChange with the chosen band', () => {
+    const props = renderRail();
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const button = Array.from(group.querySelectorAll('button')).find(
+      (b) => b.textContent === 'High',
+    );
+    fireEvent.click(button!);
+    expect(props.onPriorityChange).toHaveBeenCalledWith('high');
+  });
+
+  it('fires onPriorityChange with untriaged', () => {
+    const props = renderRail();
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const button = Array.from(group.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Not triaged',
+    );
+    fireEvent.click(button!);
+    expect(props.onPriorityChange).toHaveBeenCalledWith('untriaged');
+  });
+
+  it('translates the axis into Bangla', () => {
+    renderRail({ lang: 'bn' });
+    const group = screen.getByTestId('dispatcher-priority-filter');
+    const labels = Array.from(group.querySelectorAll('button')).map((b) =>
+      b.textContent,
+    );
+    expect(labels[0]).toBe('ট্রায়াজ হয়নি');
+    expect(labels).toContain('জরুরি');
+  });
+});
+
+describe('FilterRail — the ward axis', () => {  it('lists the wards it was given, and nothing else', () => {
     renderRail();
     const select = screen.getByTestId('dispatcher-ward-filter');
     const values = Array.from(select.querySelectorAll('option')).map(

@@ -143,7 +143,7 @@
  * stat, and the seed prints a warning about it.
  */
 
-import type { Prisma, TicketStatus } from '@prisma/client';
+import type { Prisma, TicketPriority, TicketStatus } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
 import { seedPhotoUrl } from '@/lib/dev-store/seed-photo';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
@@ -542,6 +542,25 @@ interface SeedReport {
   assignedCrewId: string | null;
   /** Title + description, folded into `note`. */
   note: string;
+  /**
+   * The triage priority band.
+   *
+   * `null` means UNTRIAGED — nobody has ever looked at this report.
+   * That is a real state and not the same as `'low'`: `'low'` is a
+   * band a dispatcher deliberately chose, while `null` is the
+   * absence of a decision. The dispatcher queue sorts untriaged
+   * reports AHEAD of triaged ones inside the same band, because an
+   * unexamined report may be anything and a deprioritised one has
+   * already been judged.
+   *
+   * The band is stated EXPLICITLY rather than parsed out of
+   * `internalNote`, because the note is prose ("Priority: High.
+   * Verified by the dispatcher…") and parsing prose for a column
+   * would make the column's value depend on a string format that
+   * nothing enforces. The two are written together and the seed
+   * asserts they agree — see the note on the write below.
+   */
+  priority: TicketPriority | null;
   /** Priority + dispatcher notes, folded into `internalNote`. */
   internalNote: string | null;
   /** The citizen's post-resolution feedback. */
@@ -888,6 +907,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Severe waterlogging on Dhanmondi 27. Rainwater has accumulated on the road, making it difficult for pedestrians and vehicles to pass. Nearby roadside drainage appears blocked.',
+    priority: 'urgent',
     internalNote: 'Priority: Critical. Verified by the dispatcher; drainage response team assigned.',
     feedback: null,
     closeReason: null,
@@ -936,6 +956,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Large pothole near road junction on Green Road. The hole is deep enough to catch a motorcycle wheel and is right beside the bus stop.',
+    priority: 'high',
     internalNote: 'Priority: High. Verified by the dispatcher; awaiting crew assignment.',
     feedback: null,
     closeReason: null,
@@ -969,6 +990,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Blocked roadside drainage on New Market. Water pools across the market entrance and the grate is packed with waste.',
+    priority: 'high',
     internalNote: 'Priority: High. Assigned to the drainage response team.',
     feedback: null,
     closeReason: null,
@@ -1002,6 +1024,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Broken road surface on Kazipara. A section of the carriageway has collapsed into potholes across the bus stop approach.',
+    priority: null,
     internalNote: 'Priority: Medium. Awaiting dispatcher review.',
     feedback: null,
     closeReason: null,
@@ -1029,6 +1052,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_jamal',
     note:
       'Overflowing roadside garbage at Shewrapara. Waste has not been collected for several days and is spilling into the drain.',
+    priority: 'high',
     internalNote: 'Priority: High. Sanitation team assigned.',
     feedback: null,
     closeReason: null,
@@ -1071,6 +1095,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_rashid',
     note:
       'Non-functional streetlights in Mirpur 10. A whole stretch of the road has been dark since the last maintenance visit.',
+    priority: 'normal',
     internalNote: 'Priority: Medium. Electrical team assigned.',
     feedback: null,
     closeReason: null,
@@ -1104,6 +1129,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Open roadside drain in Badda. The cover is missing and the exposed chamber is a hazard to pedestrians and motorcyclists.',
+    priority: 'urgent',
     internalNote: 'Priority: Critical. Public safety — escalated and verified. Awaiting crew assignment.',
     feedback: null,
     closeReason: null,
@@ -1137,6 +1163,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_jamal',
     note:
       'Garbage accumulation near Mohammadpur Town Hall. The pile blocks the footpath outside the hall entrance.',
+    priority: 'high',
     internalNote: 'Priority: High. Sanitation team assigned.',
     feedback: 'Cleared promptly. Thank you.',
     closeReason: 'resolved',
@@ -1185,6 +1212,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Waterlogging near Rampura intersection. Water stands across the junction after every rainfall.',
+    priority: null,
     internalNote: 'Priority: High. Awaiting dispatcher review.',
     feedback: null,
     closeReason: null,
@@ -1212,6 +1240,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Damaged footpath at Fakirapool. Several slabs are cracked and lifted, which is dangerous for pedestrians at night.',
+    priority: 'normal',
     internalNote: 'Priority: Medium. Road maintenance team assigned.',
     feedback: null,
     closeReason: null,
@@ -1251,6 +1280,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Exposed manhole cover at Dhanmondi 27. The cover is missing and the open chamber is on a busy footpath.',
+    priority: null,
     internalNote: 'Priority: Critical. Public safety. Awaiting dispatcher review.',
     feedback: null,
     closeReason: null,
@@ -1278,6 +1308,7 @@ const SPEC_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Water leakage from municipal pipe at Kazipara. Water is running continuously across the footpath.',
+    priority: 'high',
     internalNote: 'Priority: High. Water supply — routed to the roads team for the pipe repair.',
     feedback: 'Resolved, though the puddle came back the next day.',
     closeReason: 'resolved',
@@ -1337,6 +1368,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Blocked drain at Dhanmondi 27. The same drain as the earlier report on this road — submitting anyway because the water has spread further.',
+    priority: null,
     internalNote: 'Duplicate — linked to the original report. Both submissions retained.',
     feedback: null,
     closeReason: 'duplicate',
@@ -1370,6 +1402,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Streetlight not working on a service road outside the city corporation boundary.',
+    priority: null,
     internalNote: 'Rejected — the location is outside the city corporation service area.',
     feedback: null,
     closeReason: 'cancelled',
@@ -1403,6 +1436,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_jamal',
     note:
       'Uncovered manhole on the Badda link road. The chamber is fully open to traffic.',
+    priority: 'urgent',
     internalNote: 'Priority: Critical. Public safety — escalated and given immediate attention.',
     feedback: null,
     closeReason: null,
@@ -1442,6 +1476,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Waterlogging at a low point in Fakirapool. Standing water since the last rainfall.',
+    priority: 'high',
     internalNote: 'Priority: High. Verified — waiting in the dispatch queue; no drainage crew is currently available.',
     feedback: null,
     closeReason: null,
@@ -1475,6 +1510,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_jamal',
     note:
       'Missed waste collection in Shewrapara. Two days of household waste is uncollected.',
+    priority: 'high',
     internalNote: 'Priority: High. Reassigned — the original crew went off duty.',
     feedback: null,
     closeReason: null,
@@ -1520,6 +1556,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_rashid',
     note:
       'A row of streetlights on the New Market service road has been out for over a week.',
+    priority: 'normal',
     internalNote: 'Priority: Medium. Overdue — the resolution deadline has passed.',
     feedback: null,
     closeReason: null,
@@ -1559,6 +1596,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Drain still overflowing on Green Road after the earlier clearance.',
+    priority: 'high',
     internalNote: 'Priority: High. Reopened — the citizen disputes the resolution.',
     feedback: null,
     closeReason: null,
@@ -1613,6 +1651,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_karim',
     note:
       'Pothole on the road outside Mohammadpur Town Hall.',
+    priority: 'normal',
     internalNote: 'Priority: Medium. Awaiting citizen review of the crew completion evidence.',
     feedback: null,
     closeReason: 'resolved',
@@ -1661,6 +1700,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: 'user_crew_jamal',
     note:
       'Overflowing bin beside the Rampura footpath. Waste is spilling onto the pavement.',
+    priority: 'normal',
     internalNote: 'Priority: Medium. Verified — a competing assignment was rejected by the version guard.',
     feedback: null,
     closeReason: null,
@@ -1694,6 +1734,7 @@ const EDGE_REPORTS: SeedReport[] = [
     assignedCrewId: null,
     note:
       'Streetlight flickering near the Rampura junction.',
+    priority: null,
     internalNote: 'Priority: Medium. Low-confidence geocode — the address is incomplete and needs manual correction.',
     feedback: null,
     closeReason: null,
@@ -1925,12 +1966,59 @@ export async function seedTickets(
     // counter the runtime path increments on every transition.
     const version = Math.max(0, r.trail.length - 1);
 
+    // ── The triage priority and when it was set ────────────────────
+    //
+    // `prioritySetAt` is the instant a dispatcher last set the band.
+    // The runtime stamps it with the moment of the write, so the seed
+    // stamps it with the moment the equivalent decision happened: the
+    // FIRST trail step where a dispatcher acted on the report.
+    //
+    // In this dataset that is the `routed` step — the transition the
+    // dispatcher makes when they verify a report and hand it to a
+    // crew. A report that was never routed was never triaged, which
+    // is exactly the untriaged state `prioritySetAt = null` means.
+    //
+    // A report WITH a band but WITHOUT a `routed` step would be a
+    // contradiction — a triage decision nobody made — so the seed
+    // asserts the two agree rather than inventing a timestamp.
+    //
+    // The runtime ALWAYS writes the band and the timestamp together
+    // (`lib/dispatcher/set-priority.ts`), so a band without a
+    // timestamp is a state the product cannot produce.
+    //
+    // Four reports carry a severity in their prose but no band:
+    // CF-1004, CF-1009, CF-1011 and EDGE-10. They are `submitted`,
+    // never routed, and their notes say "Awaiting dispatcher review"
+    // — the spec describing the report, not a dispatcher acting on
+    // it. They are untriaged, and their severity stays in the note.
+    const firstDispatchStep = r.trail.find(
+      (s) => s.toStatus === 'routed' && s.actorId !== r.reporterId,
+    );
+    const prioritySetAt =
+      r.priority === null
+        ? null
+        : firstDispatchStep
+          ? stepAt(createdMs, firstDispatchStep.afterH)
+          : null;
+    if (r.priority !== null && prioritySetAt === null) {
+      throw new Error(
+        `seed-tickets: ${r.ref} has a priority band but no dispatcher ` +
+          'trail step, so the moment it was triaged cannot be established.',
+      );
+    }
+
     const ticketData = {
       wardId,
       categoryId,
       reporterId: r.reporterId,
       assignedCrewId: r.assignedCrewId,
       status: r.status,
+      // A report with NO band is untriaged, not `low`. The column is
+      // NOT NULL with a `low` default, so the untriaged state is
+      // carried by `prioritySetAt = null` and the band is `low` — the
+      // same convention the runtime uses.
+      priority: r.priority ?? 'low',
+      prioritySetAt,
       locationLat: lat,
       locationLng: lng,
       locationLabel: locality.label,

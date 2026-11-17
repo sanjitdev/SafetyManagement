@@ -93,6 +93,11 @@ type TicketStatus =
   | 'resolved'
   | 'closed'
   | 'cancelled';
+/**
+ * Triage priority (2026-11-17). Mirrors the Prisma
+ * `TicketPriority` enum.
+ */
+type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface DevCity {
   id: string;
@@ -307,6 +312,27 @@ export interface DevTicket {
    * which is what the database does too.
    */
   dedupKey?: string | null;
+  /**
+   * Triage priority (2026-11-17). Mirrors the Prisma
+   * `Ticket.priority TicketPriority @default(low)` column.
+   *
+   * Optional in the type (rather than a required union) so the
+   * hand-built test fixtures that plant a raw `DevTicket` keep
+   * compiling; every read treats a missing value as `'low'`,
+   * exactly as the database default would.
+   */
+  priority?: TicketPriority;
+  /**
+   * When the priority was last CHANGED (not when the ticket was
+   * created). Mirrors the Prisma `Ticket.prioritySetAt DateTime?`
+   * column.
+   *
+   * An ISO string, not a `Date`, for the same reason `createdAt`
+   * and `updatedAt` are strings here: the dev store's rows are
+   * JSON-shaped and a `Date` would not survive a round trip
+   * through the store's serialisation.
+   */
+  prioritySetAt?: string | null;
 }
 
 export interface DevAuditEntry {
@@ -899,6 +925,20 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১০, বাজারের কাছে',
       note: 'Streetlight has been out for 3 nights. The intersection is dangerous after dark.',
       internalNote: null,
+      // TRIAGE PRIORITY (2026-11-17).
+      //
+      // `priority` is the band; `prioritySetAt` is WHEN a dispatcher
+      // last set it. `prioritySetAt = null` means UNTRIAGED — nobody
+      // has ever looked at this report. That is a different state
+      // from the `low` band, and the dispatcher queue sorts untriaged
+      // reports AHEAD of triaged ones inside the same band.
+      //
+      // The demo dataset deliberately spans several bands AND both
+      // triage states, so the queue's ORDERING is exercised by the
+      // test suite rather than being a uniform column that sorts
+      // trivially. See `sortByTriagePriority`.
+      priority: 'low',
+      prioritySetAt: null,
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -920,6 +960,10 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১২, পাশের সড়ক',
       note: 'Streetlight pole leaning after the storm. Live wires may be exposed.',
       internalNote: 'Crew dispatched; please verify the wire casing before starting work.',
+      // Triaged URGENT — exposed live wires. A dispatcher looked at
+      // this one and raised it, so `prioritySetAt` is set.
+      priority: 'urgent',
+      prioritySetAt: new Date(now - 2 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -946,6 +990,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৪, প্রধান সড়ক',
       note: 'Streetlight out on the main road for three nights. The stretch is pitch dark after sunset.',
       internalNote: 'Crew dispatched; ETA tomorrow morning.',
+      // Triaged HIGH — a dark main road, but no exposed wiring.
+      priority: 'high',
+      prioritySetAt: new Date(now - 4 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -969,6 +1016,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১১, পাশের গলি',
       note: 'Drainage blocked; water pooling after rain.',
       internalNote: 'Cleared by waste-management crew.',
+      // Triaged NORMAL before the crew cleared it.
+      priority: 'normal',
+      prioritySetAt: new Date(now - 10 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -990,6 +1040,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৩, আবাসিক ব্লক',
       note: 'Garbage has not been collected for a week.',
       internalNote: 'Duplicate of an earlier ticket; closed by dispatcher.',
+      // Triaged LOW before the dispatcher closed it as a duplicate.
+      priority: 'low',
+      prioritySetAt: new Date(now - 20 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: 'duplicate',
@@ -1030,6 +1083,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৫, স্কুলের গেট',
       note: 'The light above the school gate is completely dark.',
       internalNote: 'Fuse replaced; unit tested at 19:00.',
+      // Triaged HIGH — a dark school gate.
+      priority: 'high',
+      prioritySetAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -1051,6 +1107,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৬, মসজিদের গলি',
       note: 'Streetlight flickering for a week, now off completely.',
       internalNote: 'Driver replaced; wiring re-terminated.',
+      // Triaged NORMAL.
+      priority: 'normal',
+      prioritySetAt: new Date(now - 7 * 60 * 60 * 1000).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -1072,6 +1131,9 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৭, বাজারের মোড়',
       note: 'Two streetlights out on the junction.',
       internalNote: 'Both units replaced.',
+      // Triaged NORMAL.
+      priority: 'normal',
+      prioritySetAt: new Date(now - 3 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -1103,6 +1165,13 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৮, কমিউনিটি সেন্টার',
       note: 'The light in front of the community centre is out.',
       internalNote: null,
+      // Triaged NORMAL — a community-centre light, triaged and
+      // deliberately deprioritised. `prioritySetAt` is set, so the
+      // queue sorts it BELOW the untriaged reports in the `low`
+      // band. This row and `ticket_seed_crew_routed_3` are the pair
+      // that makes rule 3 of the ordering observable.
+      priority: 'normal',
+      prioritySetAt: new Date(now - 1 * day).toISOString(),
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -1124,6 +1193,13 @@ function seed(): Store {
       locationLabelBn: 'মিরপুর ১৯, ফুটব্রিজ',
       note: 'Footbridge approach light is out — very dark at night.',
       internalNote: null,
+      // UNTRIAGED — `low` with no `prioritySetAt`. The report is
+      // routed to a crew, but no dispatcher ever set a band on it,
+      // so nobody has judged it. The queue sorts it AHEAD of the
+      // triaged `normal` report above despite being older, because
+      // untriaged work is unknown work.
+      priority: 'low',
+      prioritySetAt: null,
       feedback: null,
       duplicateOfId: null,
       closeReason: null,
@@ -2004,6 +2080,15 @@ export const devDb = {
         closeReason: args.data.closeReason ?? null,
         feedback: args.data.feedback ?? null,
         dedupKey: args.data.dedupKey ?? null,
+        // Triage priority (2026-11-17). Defaults to `low` — the
+        // same default the database column carries, so a ticket
+        // created through the dev store is indistinguishable from
+        // one created through Prisma.
+        priority: args.data.priority ?? 'low',
+        // `prioritySetAt` stays NULL: the ticket has not been
+        // triaged, and a triage time on an untriaged ticket would
+        // be a lie.
+        prioritySetAt: args.data.prioritySetAt ?? null,
         id,
         createdAt: now,
         updatedAt: now,

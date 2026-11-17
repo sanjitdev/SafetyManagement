@@ -12,7 +12,7 @@
 // isolation needs it.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // `native` alone resolves to the platform the client was GENERATED on,
   // so a `node_modules` produced on Windows contains only
   // `query_engine-windows.dll.node` and the same tree fails on Linux with
@@ -326,14 +326,50 @@ enum TicketStatus {
   cancelled // terminal
 }
 
+// Triage priority (2026-11-17).
+//
+// The dispatcher had no way to say "this one first". Every open
+// ticket looked equally urgent, so triage was whatever the queue
+// happened to return.
+//
+// The ordering is by DECLARED urgency, not by severity: `low` is
+// the default because a ticket is filed by a citizen who cannot
+// judge whether their pothole is more urgent than someone else's
+// water leak. Only a dispatcher may raise it.
+//
+// `urgent` is the top of the scale but NOT an emergency channel —
+// there is no SLA attached to it. The SLA clock is driven by
+// `SlaPolicy` and is independent of priority; a ticket can be
+// `urgent` and still be inside its SLA window. Priority answers
+// "what should the dispatcher work on next", SLA answers "did we
+// promise a deadline".
+enum TicketPriority {
+  low // default — a fresh citizen report, untriaged
+  normal // a dispatcher has looked at it and it is the expected workload
+  high // visibly worse than the usual flow (a chokepoint, a cluster)
+  urgent // the dispatcher wants this worked next
+}
+
 model Ticket {
-  id              String       @id @default(cuid())
+  id              String         @id @default(cuid())
   cityId          String
   wardId          String
   categoryId      String
   reporterId      String
   assignedCrewId  String? // PLAT-REQ-001 internal-only (hidden from citizen serializer)
-  status          TicketStatus @default(submitted)
+  status          TicketStatus   @default(submitted)
+  // Triage priority (2026-11-17). Defaults to `low` — a ticket
+  // arrives untriaged, and only a dispatcher may raise it. The
+  // default is deliberately the LOWEST value so that "nobody has
+  // looked at this yet" and "a dispatcher judged this unimportant"
+  // are not the same state.
+  priority        TicketPriority @default(low)
+  // When the priority was last CHANGED (not when the ticket was
+  // created). This is what the dispatcher's triage list sorts on
+  // within a priority band, and what the audit trail's
+  // `ticket.priority` action pairs with `beforeValue`/`afterValue`.
+  // NULL until a dispatcher touches it.
+  prioritySetAt   DateTime?
   // GeoJSON point: { type: "Point", coordinates: [lng, lat] }
   // Stored as text in v1; v1.1 may promote to geometry column.
   locationLng     Float
@@ -364,8 +400,8 @@ model Ticket {
   // cancelled tickets; 'resolved' for the normal close path).
   duplicateOfId   String?
   closeReason     String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   resolvedAt      DateTime?
   // Optimistic-lock counter (2026-11-08). Every status transition
   // writes `WHERE id = ? AND version = <the version it read>` and
@@ -377,7 +413,7 @@ model Ticket {
   // validation and the second would clobber the first, leaving the
   // citizen-facing status trail describing a sequence that could not
   // legally have happened.
-  version         Int          @default(0)
+  version         Int            @default(0)
   // Dedup-key backstop (2026-11-08). A hash of
   // `(cityId, categoryId, locationLat, locationLng)` — the identity
   // of "this exact spot in this category in this city".
@@ -396,7 +432,7 @@ model Ticket {
   // `@@unique([cityId, dedupKey])` index makes "two unacknowledged
   // open tickets at the same spot" a database-level impossibility
   // instead of a convention.
-  dedupKey       String?
+  dedupKey        String?
 
   city                 City               @relation(fields: [cityId], references: [id], onDelete: Cascade)
   ward                 Ward               @relation(fields: [wardId], references: [id], onDelete: Restrict)
@@ -410,16 +446,20 @@ model Ticket {
   dedupFlagsAsFlagged  DedupFlag[]        @relation("DedupFlagFlaggedTicket")
   dedupFlagsAsOriginal DedupFlag[]        @relation("DedupFlagOriginalTicket")
 
-  @@index([cityId, status])
-  @@index([cityId, wardId])
-  @@index([reporterId])
-  @@index([assignedCrewId])
-  @@index([updatedAt])
   // Dedup-key backstop (2026-11-08). NULLs are distinct in a Postgres
   // unique index, so a ticket with no dedupKey never collides — that
   // is what lets a DECLINED duplicate (which carries no key) exist
   // alongside the original it duplicates.
   @@unique([cityId, dedupKey])
+  @@index([cityId, status])
+  @@index([cityId, wardId])
+  // Triage ordering (2026-11-17). The dispatcher's queue sorts by
+  // priority DESC then age ASC, so the index is (cityId, priority)
+  // and the age sort rides the createdAt the rows already carry.
+  @@index([cityId, priority])
+  @@index([reporterId])
+  @@index([assignedCrewId])
+  @@index([updatedAt])
   // PLAT-REQ-004 spatial index surrogate: a compound on (cityId, locationLat, locationLng)
   // gives Postgres enough to use BRIN if we add one; for v1 we filter post-query in JS.
   @@index([cityId, locationLat, locationLng])

@@ -1160,6 +1160,15 @@ export async function getTicketWithTrail(
     // left `assignedCrewId` null — so the crew the dispatcher picked
     // never saw the report assigned to them.
     version: t.version,
+    // Triage priority (2026-11-17). Prisma returns the enum value
+    // as-is; the dev store holds the same string union.
+    // `prioritySetAt` is a Date here and an ISO string in the dev
+    // store, so it is normalised to a string for the contract — the
+    // same shape `createdAt` / `resolvedAt` take.
+    priority: t.priority,
+    prioritySetAt: t.prioritySetAt
+      ? t.prioritySetAt.toISOString()
+      : null,
     // Prisma returns Date objects; DevTicketWithTrail stores
     // ISO strings. The serializer (lib/serializers/ticket.ts)
     // already handles both shapes, so this is a type-only

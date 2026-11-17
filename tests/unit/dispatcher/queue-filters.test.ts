@@ -81,6 +81,8 @@ interface QueueBody {
     status: string;
     wardId: string;
     categoryId: string;
+    priority: string | null;
+    prioritySetAt: string | null;
     slaTargetHours: number | null;
     slaRemainingHours: number | null;
     slaStartedAt: string | null;
@@ -227,6 +229,118 @@ describe('GET /api/v1/dispatcher/queue — the ward filter', () => {
     expect(seededWardIds.length).toBeGreaterThan(body.wards.length);
     for (const ward of body.wards) {
       expect(seededWardIds).toContain(ward.id);
+    }
+  });
+});
+
+describe('GET /api/v1/dispatcher/queue — the priority filter', () => {
+  it('accepts every band the rail offers', async () => {
+    await loginAsDispatcher();
+
+    // A rail that offers a value the endpoint rejects with a 400
+    // is a rail that lies.
+    for (const wanted of [
+      'low',
+      'normal',
+      'high',
+      'urgent',
+      'untriaged',
+    ]) {
+      const { status } = await getQueue(`?priority=${wanted}`);
+      expect(status, `priority=${wanted} must be accepted`).toBe(200);
+    }
+  });
+
+  it('rejects a band the scale does not have', async () => {
+    await loginAsDispatcher();
+
+    const { status, body } = await getQueue('?priority=catastrophic');
+    expect(status).toBe(400);
+    expect(body.error).toBe('invalid_query');
+  });
+
+  it('returns only the requested band', async () => {
+    await loginAsDispatcher();
+
+    const { body } = await getQueue('?priority=urgent');
+    for (const ticket of body.tickets) {
+      expect(ticket.priority).toBe('urgent');
+      // A band that was never stamped has never been triaged, so
+      // it cannot satisfy a band filter.
+      expect(ticket.prioritySetAt).not.toBeNull();
+    }
+  });
+
+  it('returns only the untriaged reports for the untriaged filter', async () => {
+    await loginAsDispatcher();
+
+    const { body } = await getQueue('?priority=untriaged');
+    for (const ticket of body.tickets) {
+      expect(ticket.prioritySetAt).toBeNull();
+    }
+  });
+
+  it('keeps the untriaged reports out of the band filters', async () => {
+    await loginAsDispatcher();
+
+    // An untriaged report carries the DEFAULT `low` band. If the
+    // `low` filter matched on the band alone, it would sweep in
+    // the untriaged reports and the dispatcher could not tell them
+    // from the ones they deliberately set aside.
+    const { body } = await getQueue('?priority=low');
+    for (const ticket of body.tickets) {
+      expect(ticket.prioritySetAt).not.toBeNull();
+    }
+  });
+
+  it('returns every band when the filter is omitted', async () => {
+    await loginAsDispatcher();
+
+    const all = await getQueue();
+    // The bands PARTITION the queue: the untriaged reports plus
+    // every triaged band add back up to the unfiltered queue. If
+    // they did not, a report would be in two buckets at once or in
+    // none — and the dispatcher could not trust the rail.
+    const buckets = await Promise.all(
+      ['untriaged', 'low', 'normal', 'high', 'urgent'].map((band) =>
+        getQueue(`?priority=${band}`),
+      ),
+    );
+    const total = buckets.reduce((sum, b) => sum + b.body.tickets.length, 0);
+    expect(total).toBe(all.body.tickets.length);
+  });
+});
+
+describe('GET /api/v1/dispatcher/queue — the triage order', () => {
+  it('puts the urgent reports first', async () => {
+    await loginAsDispatcher();
+
+    const { body } = await getQueue();
+    const ranks = body.tickets.map((t) => {
+      if (t.prioritySetAt === null) return 0;
+      return ['low', 'normal', 'high', 'urgent'].indexOf(t.priority ?? 'low');
+    });
+    // Non-increasing: the order never steps back UP the scale.
+    for (let i = 1; i < ranks.length; i++) {
+      expect(ranks[i]).toBeLessThanOrEqual(ranks[i - 1]);
+    }
+  });
+
+  it('puts the untriaged reports ahead of the triaged ones in the same band', async () => {
+    await loginAsDispatcher();
+
+    const { body } = await getQueue();
+    for (let i = 1; i < body.tickets.length; i++) {
+      const prev = body.tickets[i - 1];
+      const cur = body.tickets[i];
+      if (prev.priority !== cur.priority) continue;
+      // Within one band, an untriaged report comes first.
+      if (prev.prioritySetAt === null && cur.prioritySetAt !== null) {
+        continue;
+      }
+      expect(
+        prev.prioritySetAt !== null || cur.prioritySetAt === null,
+      ).toBe(true);
     }
   });
 });

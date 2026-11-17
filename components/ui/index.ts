@@ -27,6 +27,8 @@
  */
 
 export { StatusPill, type StatusPillProps, type StatusKey } from './StatusPill';
+export { PriorityPill, type PriorityPillProps } from './PriorityPill';
+export { PriorityPicker, type PriorityPickerProps } from './PriorityPicker';
 export { CategoryIcon, type CategoryIconProps } from './CategoryIcon';
 export { ReportCard, type ReportCardProps } from './ReportCard';
 export {

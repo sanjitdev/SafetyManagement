@@ -45,6 +45,7 @@ import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/phot
 import { formatWeekday } from '@/lib/format/datetime';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { PriorityPill } from '@/components/ui/PriorityPill';
 import { SlaCountdown } from '@/components/ui/SlaCountdown';
 import { useLanguage } from '@/components/useLanguage';
 import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
@@ -53,12 +54,14 @@ import { useSession } from '@/components/SessionProvider';
 import {
   FilterRail,
   type QueueStatusFilter,
+  type QueuePriorityFilter,
   type WardOption,
 } from '@/components/dispatcher/FilterRail';
 import type { CityActivityPin, CityActivityStatus } from '@/components/CityActivityMap';
 import { ICONS } from '@/lib/ui/icon-map';
 import type { PerfSnapshot } from '@/lib/dispatcher/performance';
 import type { SlaState, SlaTone } from '@/lib/dispatcher/sla';
+import type { TicketPriority } from '@/lib/dispatcher/priority';
 
 const POLL_INTERVAL_MS = 30_000;
 const DHAKA_CENTER = { lat: 23.789, lng: 90.4075 };
@@ -97,6 +100,20 @@ interface QueueTicket {
   slaStartedAt?: string | null;
   slaDueAt?: string | null;
   slaTone?: SlaTone | null;
+  /**
+   * The triage priority band.
+   *
+   * `null` means UNTRIAGED — nobody has ever set a band on this
+   * report. That is a different state from `'low'`, which means a
+   * dispatcher deliberately deprioritised it, and the queue's
+   * ordering turns on the difference.
+   */
+  priority?: TicketPriority | null;
+  /**
+   * When a dispatcher last set the band. `null` on an untriaged
+   * report.
+   */
+  prioritySetAt?: string | null;
 }
 
 function formatAge(iso: string, lang: Language): string {
@@ -192,6 +209,14 @@ export default function DispatcherPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<QueueStatusFilter>('all');
   /**
+   * The selected priority band, or `'all'`.
+   *
+   * `'untriaged'` is not a band — it is the absence of a decision,
+   * and it is the filter a triage queue most needs: the reports
+   * nobody has looked at yet.
+   */
+  const [priorityFilter, setPriorityFilter] = useState<QueuePriorityFilter>('all');
+  /**
    * The selected ward, or `null` for "all wards".
    *
    * `null` means "no ward narrowing", which is only reachable by
@@ -252,6 +277,10 @@ export default function DispatcherPage() {
       // open it" — which is the exact class of bug the ward
       // boundary exists to prevent.
       if (ward) qs.set('ward', ward);
+      // The priority narrowing is sent to the server for the same
+      // reason the ward narrowing is: a client-side filter would
+      // show rows the API refused to return.
+      if (priorityFilter !== 'all') qs.set('priority', priorityFilter);
       qs.set('limit', '50');
       const url =
         '/api/v1/dispatcher/queue' + (qs.toString() ? `?${qs.toString()}` : '');
@@ -290,6 +319,8 @@ export default function DispatcherPage() {
           slaStartedAt?: string | null;
           slaDueAt?: string | null;
           slaTone?: SlaTone | null;
+          priority?: TicketPriority | null;
+          prioritySetAt?: string | null;
           internalNote: string | null;
           assignedCrewId: string | null;
           trail: Array<{
@@ -326,6 +357,8 @@ export default function DispatcherPage() {
         slaStartedAt: t.slaStartedAt ?? null,
         slaDueAt: t.slaDueAt ?? null,
         slaTone: t.slaTone ?? null,
+        priority: t.priority ?? null,
+        prioritySetAt: t.prioritySetAt ?? null,
       }));
       setTickets(items);
       // The ward rail reads its options from the response. A
@@ -351,7 +384,7 @@ export default function DispatcherPage() {
       setError('dispatcher.queue.error');
       setLoading(false);
     }
-  }, [filter, ward]);
+  }, [filter, ward, priorityFilter]);
 
   // Auth check — reads the shared session instead of issuing its own
   // `/api/auth/status` request.
@@ -577,6 +610,8 @@ export default function DispatcherPage() {
           <FilterRail
             status={filter}
             onStatusChange={setFilter}
+            priority={priorityFilter}
+            onPriorityChange={setPriorityFilter}
             ward={ward}
             onWardChange={setWard}
             wards={wards}
@@ -742,6 +777,26 @@ function QueueRow({ ticket, lang }: { ticket: QueueTicket; lang: Language }) {
             {wardLabel(ticket, lang)} · {categoryLabel(ticket, lang)}
           </span>
           <StatusPill status={ticket.status} lang={lang} />
+          {/*
+           * The triage priority chip.
+           *
+           * It sits beside the status pill because the two answer
+           * different questions and the dispatcher needs both: the
+           * status says WHERE the report is in the workflow, the
+           * priority says HOW URGENT it is. A report can be `urgent`
+           * and still `submitted` — that is precisely the combination
+           * the dispatcher must not miss.
+           *
+           * The chip is drawn in the untriaged STYLE (dashed, no
+           * fill) when nobody has set a band, so "never looked at"
+           * never looks like "judged low".
+           */}
+          <PriorityPill
+            priority={ticket.priority ?? null}
+            prioritySetAt={ticket.prioritySetAt ?? null}
+            lang={lang}
+            size="sm"
+          />
         </div>
         {/*
          * The row's second line: the age and the SLA chip.
