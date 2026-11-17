@@ -37,9 +37,117 @@
 
 import { PrismaClient, type Role } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { seedTickets } from './seed-tickets';
 
 const prisma = new PrismaClient();
+
+/**
+ * Does this stored geometry hold a REAL boundary?
+ *
+ * The older seed wrote a Feature wrapper with an EMPTY ring
+ * (`coordinates: [[]]`) for every ward — a placeholder, not a
+ * boundary. A re-seed must replace that placeholder with the real
+ * DNCC geometry, but must NOT overwrite a boundary an admin has
+ * since published through the ward editor.
+ *
+ * So the test is "does this parse to at least one usable ring",
+ * not "is this column non-empty".
+ */
+function hasRealGeometry(polygonGeoJson: string | null | undefined): boolean {
+  if (!polygonGeoJson) return false;
+  let value: unknown;
+  try {
+    value = JSON.parse(polygonGeoJson);
+  } catch {
+    return false;
+  }
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  // Accept both the bare-geometry shape and the Feature wrapper.
+  const geometry =
+    obj.type === 'Feature' || obj.geometry !== undefined
+      ? obj.geometry
+      : obj;
+  if (!geometry || typeof geometry !== 'object') return false;
+  const geo = geometry as Record<string, unknown>;
+  const coordinates = geo.coordinates;
+  if (!Array.isArray(coordinates)) return false;
+  if (geo.type === 'MultiPolygon') {
+    return coordinates.some(
+      (polygon) =>
+        Array.isArray(polygon) &&
+        Array.isArray(polygon[0]) &&
+        polygon[0].length >= 3,
+    );
+  }
+  // Polygon: `coordinates` is [ring].
+  const ring = coordinates[0];
+  return Array.isArray(ring) && ring.length >= 3;
+}
+
+/**
+ * The ward numbers this seed creates — DNCC's official count.
+ *
+ * The ward NUMBER is the join key with the boundary file: the
+ * DNCC geometry carries `ward_no` 1..54 with no gaps, so the two
+ * line up one-to-one.
+ */
+const DNCC_WARD_NUMBERS = Array.from({ length: 54 }, (_, i) => i + 1);
+
+/**
+ * The imported ward boundaries, as GeoJSON text ready for the
+ * `Ward.polygonGeoJson` column.
+ *
+ * ## Where the data comes from
+ *
+ * `prisma/geo/dncc-wards.geojson` is the official Dhaka North City
+ * Corporation **Urban Planning** ward boundary set (the
+ * `DNCC_Ward_Boundary_poly_urp_f` layer), published via the DNCC
+ * Innovation Lab's public repository. It is WGS84 (EPSG:4326),
+ * covers all 54 wards, and every ring is closed and wound
+ * counter-clockwise per RFC 7946.
+ *
+ * ## Stored shape
+ *
+ * The column stores the BARE geometry — `{ type: 'Polygon',
+ * coordinates: [ring] }` for the 52 single-part wards and
+ * `{ type: 'MultiPolygon', coordinates: [...] }` for wards 16 and
+ * 32, whose boundaries are split into two disjoint parts.
+ *
+ * The bare shape is deliberate: it is what
+ * `lib/admin/ward-polygon.ts` `validatePolygon()` accepts, so the
+ * seeded rows pass the app's own validator. (The older seed wrote a
+ * `Feature` wrapper, which that validator rejects.)
+ *
+ * ## Attribution
+ *
+ * Ward boundaries © Dhaka North City Corporation (Urban Planning
+ * Department), via the DNCC Innovation Lab public repository. The
+ * source carries no explicit licence, so treat it as
+ * all-rights-reserved and seek DNCC permission before redistributing.
+ */
+function loadDnccWardGeometry(): Map<number, string> {
+  const file = path.join(__dirname, 'geo', 'dncc-wards.geojson');
+  const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+    type: 'FeatureCollection';
+    features: Array<{
+      properties: { ward_no: number };
+      geometry:
+        | { type: 'Polygon'; coordinates: number[][][] }
+        | { type: 'MultiPolygon'; coordinates: number[][][][] };
+    }>;
+  };
+
+  const out = new Map<number, string>();
+  for (const feature of parsed.features) {
+    const wardNo = feature.properties.ward_no;
+    if (typeof wardNo !== 'number') continue;
+    out.set(wardNo, JSON.stringify(feature.geometry));
+  }
+  return out;
+}
 
 /**
  * Argon2id parameters — MUST match `lib/auth/password.ts`
@@ -348,34 +456,49 @@ async function main() {
     console.log(`    Category: ${c.name}`);
   }
 
-  // Wards — Dhaka North has 54 wards in the official count, but for the
-  // pilot we seed 50 with placeholder GeoJSON polygons (empty feature).
-  // Aamir's WO-004 work replaces these with real boundaries.
+  // Wards — Dhaka North has 54 wards in the official count, and the
+  // REAL ward boundaries are imported here from the official DNCC
+  // Urban Planning boundary set (prisma/geo/dncc-wards.geojson).
+  //
+  // Previously every ward was written with an EMPTY placeholder
+  // polygon (`coordinates: [[]]`) and the real boundaries were meant
+  // to be drawn by an admin in a ward-boundary editor that was never
+  // built. With no geometry, the report location step could not
+  // resolve which ward a citizen's pin sat in — it showed the
+  // citizen's HOME ward regardless, and filed the ticket there.
+  //
+  // The geometry is written ONCE. A re-seed must NOT overwrite a
+  // boundary an admin has since hand-edited — but it MUST replace
+  // the EMPTY PLACEHOLDER the older seed wrote, or the real
+  // geometry would never land on an existing database.
   const wardMap = new Map<number, string>();
-  for (let n = 1; n <= 50; n += 1) {
-    const placeholderPolygon = JSON.stringify({
-      type: 'Feature',
-      properties: { ward_number: n },
-      geometry: {
-        type: 'Polygon',
-        // Empty polygon — Aamir fills these in via the ward-boundary editor (Feature #19)
-        coordinates: [[]],
-      },
+  const dnccWardGeometry = loadDnccWardGeometry();
+  for (const wardNo of DNCC_WARD_NUMBERS) {
+    const geometry = dnccWardGeometry.get(wardNo) ?? null;
+    const existing = await prisma.ward.findUnique({
+      where: { cityId_number: { cityId: dhaka.id, number: wardNo } },
     });
     const ward = await prisma.ward.upsert({
-      where: { cityId_number: { cityId: dhaka.id, number: n } },
-      update: {},
+      where: { cityId_number: { cityId: dhaka.id, number: wardNo } },
+      // Write-once: keep an existing REAL boundary, but replace a
+      // missing or placeholder one.
+      update: hasRealGeometry(existing?.polygonGeoJson)
+        ? {}
+        : { polygonGeoJson: geometry },
       create: {
         cityId: dhaka.id,
-        number: n,
-        name: `Ward ${n}`,
-        nameBn: `ওয়ার্ড ${n}`,
-        polygonGeoJson: placeholderPolygon,
+        number: wardNo,
+        name: `Ward ${wardNo}`,
+        nameBn: `ওয়ার্ড ${wardNo}`,
+        polygonGeoJson: geometry,
       },
     });
-    wardMap.set(n, ward.id);
+    wardMap.set(wardNo, ward.id);
   }
-  console.log(`  Wards: 50 placeholder polygons`);
+  console.log(
+    `  Wards: ${DNCC_WARD_NUMBERS.length} with DNCC boundary geometry ` +
+      `(${dnccWardGeometry.size} loaded)`,
+  );
 
   // Per-category SLA policies.
   for (const p of DHAKA_SLA_POLICIES) {

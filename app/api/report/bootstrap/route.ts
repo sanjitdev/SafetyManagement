@@ -29,6 +29,10 @@ export async function GET() {
   return NextResponse.json({
     city: {
       id: city.id,
+      // The slug lets the client fetch the city's public ward
+      // geometry (`/api/cities/[slug]/wards/geojson`) without
+      // hard-coding a city id.
+      slug: city.slug,
       name: city.name,
       nameBn: city.nameBn,
       defaultLanguage: city.defaultLanguage,

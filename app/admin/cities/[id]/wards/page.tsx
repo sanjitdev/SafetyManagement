@@ -59,6 +59,33 @@ const SAMPLE_POLYGON = JSON.stringify(
   0,
 );
 
+/**
+ * Does this ward's boundary have more than one disjoint part?
+ *
+ * Two of the official DNCC wards (16 and 32) are MultiPolygons
+ * with two disjoint rings. `validatePolygon` — the admin WRITE
+ * path's guard — accepts a single-ring Polygon only, so those
+ * two wards cannot be re-saved from this page as-is. The map
+ * and the ward lookup handle MultiPolygon natively; only the
+ * write path does not.
+ *
+ * The badge tells the admin that, rather than surfacing a raw
+ * validation error when they try to re-save the ward.
+ */
+function isMultiPart(polygonGeoJson: string | null): boolean {
+  if (!polygonGeoJson) return false;
+  try {
+    const parsed = JSON.parse(polygonGeoJson) as {
+      type?: string;
+      geometry?: { type?: string };
+    };
+    const type = parsed?.type === 'Feature' ? parsed.geometry?.type : parsed?.type;
+    return type === 'MultiPolygon';
+  } catch {
+    return false;
+  }
+}
+
 export default function WardsPage() {
   const pathname = usePathname();
   const params = useParams<{ id: string }>();
@@ -322,7 +349,17 @@ export default function WardsPage() {
                     {lang === 'bn' ? w.nameBn ?? w.name : w.name}
                   </td>
                   <td className="px-3 py-2" style={{ color: 'var(--color-ink-secondary)' }}>
-                    {w.polygonGeoJson ? '✓' : '—'}
+                    {w.polygonGeoJson ? (
+                      <span title={isMultiPart(w.polygonGeoJson)
+                        ? t('admin.wards.multipart.hint', null, lang)
+                        : undefined}>
+                        {isMultiPart(w.polygonGeoJson)
+                          ? t('admin.wards.multipart.badge', null, lang)
+                          : '✓'}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button

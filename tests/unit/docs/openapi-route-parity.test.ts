@@ -155,11 +155,11 @@ const documentedRoutes = new Map<string, Set<Method>>(
 
 describe('the route-handler surface', () => {
   test('every route file was found', () => {
-    // 63 as of 2026-11-14 (62 + the dispatcher reassign-options route
-    // added by Bolt 009-005 in Wave 4). The exact number is asserted
-    // because a silent drop to zero (a bad glob, a moved directory)
-    // would make every parity test vacuously pass.
-    expect(liveRoutes.size).toBe(63);
+    // 64 as of 2026-11-17 (63 + the public city ward-geometry route
+    // added by the ward-aware report location step). The exact number
+    // is asserted because a silent drop to zero (a bad glob, a moved
+    // directory) would make every parity test vacuously pass.
+    expect(liveRoutes.size).toBe(64);
   });
 
   test('every route file exports its handlers as named functions', () => {

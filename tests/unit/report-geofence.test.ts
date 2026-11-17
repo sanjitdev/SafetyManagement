@@ -49,6 +49,20 @@ describe('inGeofence', () => {
     // A point well outside the bbox (e.g. Old Dhaka south) is out.
     expect(inGeofence(23.71, 90.41, DHAKA_NORTH_BBOX)).toBe(false);
   });
+
+  it('covers the northern DNCC wards', () => {
+    // The official ward geometry reaches lat 23.90054 (Ward 46 and
+    // its neighbours). The old northLat of 23.85 cut those wards
+    // off, so a pin dragged there was rejected as out-of-bounds
+    // even though it was inside the city. The bbox must contain
+    // the WHOLE ward extent.
+    expect(inGeofence(23.9, 90.36, DHAKA_NORTH_BBOX)).toBe(true);
+    expect(inGeofence(23.9, 90.44, DHAKA_NORTH_BBOX)).toBe(true);
+    // The westernmost ward vertex (lng 90.32982).
+    expect(inGeofence(23.86, 90.33, DHAKA_NORTH_BBOX)).toBe(true);
+    // The easternmost ward vertex (lng 90.49053).
+    expect(inGeofence(23.86, 90.49, DHAKA_NORTH_BBOX)).toBe(true);
+  });
 });
 
 describe('clampToGeofence', () => {

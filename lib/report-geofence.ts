@@ -27,12 +27,19 @@ export interface GeofenceBbox {
  * polygon read from `ward.polygonGeoJson` will
  * replace this constant; the helper API does
  * not change.
+ *
+ * The extents were widened to cover the official DNCC
+ * ward geometry (`prisma/geo/dncc-wards.geojson`), which
+ * spans lat 23.74068–23.90054 and lng 90.32982–90.49053.
+ * The old northLat of 23.85 cut off the northern wards
+ * entirely — a pin dragged to Ward 46 fell outside the
+ * bbox even though it is inside the city.
  */
 export const DHAKA_NORTH_BBOX: GeofenceBbox = {
   southLat: 23.74,
-  northLat: 23.85,
-  westLng: 90.34,
-  eastLng: 90.48,
+  northLat: 23.91,
+  westLng: 90.32,
+  eastLng: 90.5,
 };
 
 /**

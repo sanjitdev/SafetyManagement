@@ -826,6 +826,7 @@ export const openapiSpec: OpenApiObject = {
     { name: 'Crew', description: 'The crew work surface: assigned tickets, transitions, after-photos.' },
     { name: 'Admin', description: 'City-wide configuration and oversight. Writes require a WebAuthn assertion.' },
     { name: 'Activity', description: 'City activity feeds — one personal, one public.' },
+    { name: 'Geo', description: 'Public city geography — ward boundaries.' },
     { name: 'Misc', description: 'Push subscriptions, report bootstrap, and profile.' },
   ],
   security: [],
@@ -2598,6 +2599,85 @@ export const openapiPaths: Record<string, PathItem> = {
         '401': jsonResponse('No session, or the session is not a citizen.', {
           oneOf: [errorBody('not_authenticated'), errorBody('forbidden_role')],
         }),
+      },
+    },
+  },
+  '/api/cities/{slug}/wards/geojson': {
+    get: {
+      tags: ['Geo'],
+      summary: "The city's ward boundaries",
+      description:
+        "The ward polygons of one city, as plain `[lng, lat]` rings. The rings are PRE-EXTRACTED so the client can hand them straight to MapLibre without parsing GeoJSON.\n\n" +
+        "This route is PUBLIC and city-scoped by slug (not citizen-only): a dispatcher map, an admin ward editor and the citizen's report location step all want the same geometry, and the payload is ~58k vertices — far too large for `GET /api/report/bootstrap`, which every report step re-downloads.\n\n" +
+        "Wards with no geometry are omitted. A ward's `centroid` is a placement hint (the area centroid of the largest ring, or an interior point); it is not guaranteed to be inside the ward. The client resolves a pin against the rings themselves.",
+      operationId: 'getCityWardGeoJson',
+      parameters: [
+        pathParam('slug', "The city's slug."),
+      ],
+      responses: {
+        '200': jsonResponse('The ward boundaries.', {
+          type: 'object',
+          required: ['city', 'wards'],
+          properties: {
+            city: {
+              type: 'object',
+              required: ['id', 'slug', 'name', 'nameBn'],
+              properties: {
+                id: { type: 'string' },
+                slug: { type: 'string' },
+                name: { type: 'string' },
+                nameBn: { type: ['string', 'null'] },
+              },
+            },
+            wards: {
+              type: 'array',
+              description:
+                'One entry per ward that HAS geometry. A ward with two disjoint parts (the official DNCC wards 16 and 32) carries two rings.',
+              items: {
+                type: 'object',
+                required: ['id', 'number', 'name', 'nameBn', 'rings', 'bbox', 'centroid'],
+                properties: {
+                  id: { type: 'string' },
+                  number: { type: 'integer' },
+                  name: { type: 'string' },
+                  nameBn: { type: ['string', 'null'] },
+                  rings: {
+                    type: 'array',
+                    description: 'One or more closed `[lng, lat]` rings.',
+                    items: {
+                      type: 'array',
+                      items: {
+                        type: 'array',
+                        items: { type: 'number' },
+                        minItems: 2,
+                        maxItems: 2,
+                      },
+                    },
+                  },
+                  bbox: {
+                    type: 'object',
+                    required: ['southLat', 'northLat', 'westLng', 'eastLng'],
+                    properties: {
+                      southLat: { type: 'number' },
+                      northLat: { type: 'number' },
+                      westLng: { type: 'number' },
+                      eastLng: { type: 'number' },
+                    },
+                  },
+                  centroid: {
+                    type: 'object',
+                    required: ['lat', 'lng'],
+                    properties: {
+                      lat: { type: 'number' },
+                      lng: { type: 'number' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        '404': jsonResponse('No city has that slug.', errorBody('city_not_found')),
       },
     },
   },

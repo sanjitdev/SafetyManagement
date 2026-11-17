@@ -56,6 +56,7 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import type { WardBoundary } from '@/lib/geo/ward-lookup';
 import { OSM_ATTRIBUTION, OSM_TILE_URL } from '@/lib/map/osm-raster';
 import { MAP_PRIMARY_COLOR } from '@/lib/ui/map-colors';
 
@@ -81,6 +82,24 @@ interface MapViewProps {
   // indicate the supported area. The polygon is always
   // outlined; this flag toggles the fill.
   showBoundary?: boolean;
+  /**
+   * The city's ward boundaries, drawn as distinct sections.
+   *
+   * When supplied, the map draws one filled, outlined polygon per
+   * ward so the citizen can see which section they are in. The
+   * ward containing the pin is highlighted via `activeWardId`.
+   *
+   * The boundaries are drawn UNDER the district outline but OVER
+   * the raster basemap, and the district's own fill is suppressed
+   * while they are shown — two translucent fills stacked would
+   * wash the basemap out and make the sections harder to read.
+   */
+  wardBoundaries?: WardBoundary[];
+  /**
+   * The id of the ward to highlight — normally the ward that
+   * contains the pin. `null` highlights nothing.
+   */
+  activeWardId?: string | null;
 }
 
 const DHAKA_DISTRICT_SOURCE_ID = 'dhaka-district';
@@ -89,6 +108,11 @@ const DHAKA_DISTRICT_LINE_LAYER_ID = 'dhaka-district-line';
 const DEDUP_RING_SOURCE_ID = 'dedup-ring';
 const DEDUP_RING_FILL_LAYER_ID = 'dedup-ring-fill';
 const DEDUP_RING_LINE_LAYER_ID = 'dedup-ring-line';
+const WARD_SOURCE_ID = 'ward-boundaries';
+const WARD_FILL_LAYER_ID = 'ward-boundaries-fill';
+const WARD_LINE_LAYER_ID = 'ward-boundaries-line';
+const WARD_ACTIVE_FILL_LAYER_ID = 'ward-boundaries-active-fill';
+const WARD_ACTIVE_LINE_LAYER_ID = 'ward-boundaries-active-line';
 
 /**
  * OpenStreetMap raster basemap. The free public tile
@@ -137,6 +161,48 @@ function makeCirclePolygon(
   };
 }
 
+/**
+ * Turn the ward boundaries into a GeoJSON FeatureCollection
+ * for the MapLibre `geojson` source.
+ *
+ * Each ward becomes ONE feature whose geometry is a
+ * `MultiPolygon` when the ward has more than one ring
+ * (wards 16 and 32 in the DNCC data are split into two
+ * disjoint parts) and a `Polygon` otherwise. A single
+ * feature per ward keeps the `wardId` property — and
+ * therefore the active-ward `filter` — unambiguous.
+ *
+ * `wardId` is carried as a string property so the
+ * MapLibre expression `['get', 'wardId']` can compare
+ * against it directly.
+ */
+function buildWardFeatureCollection(
+  boundaries: readonly WardBoundary[],
+): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  for (const boundary of boundaries) {
+    if (boundary.rings.length === 0) continue;
+    const polygons: GeoJSON.Position[][] = boundary.rings.map((ring) => [
+      ...ring,
+      ring[0],
+    ]);
+    const geometry: GeoJSON.Geometry =
+      polygons.length === 1
+        ? { type: 'Polygon', coordinates: polygons }
+        : { type: 'MultiPolygon', coordinates: polygons.map((p) => [p]) };
+    features.push({
+      type: 'Feature',
+      properties: {
+        wardId: boundary.id,
+        wardNumber: boundary.number,
+        wardName: boundary.name,
+      },
+      geometry,
+    });
+  }
+  return { type: 'FeatureCollection', features };
+}
+
 export default function MapView({
   lat,
   lng,
@@ -147,6 +213,8 @@ export default function MapView({
   onPinMove,
   showDedupRing = false,
   showBoundary = false,
+  wardBoundaries = [],
+  activeWardId = null,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -157,6 +225,14 @@ export default function MapView({
   // would tear down and re-create the map).
   const onPinMoveRef = useRef(onPinMove);
   onPinMoveRef.current = onPinMove;
+  // The latest map centre target. The map's `load` event can fire
+  // long after the centre effect ran, and by then the pin may have
+  // moved again — the deferred callback must ease to where the pin
+  // is NOW.
+  const latestCentreRef = useRef<[number, number]>([
+    center.lng,
+    center.lat,
+  ]);
 
   // Decide whether the container should fill its
   // parent (100%) or honour the explicit width /
@@ -206,6 +282,59 @@ export default function MapView({
     // outline is visible; the fill is toggled via
     // the layer's `paint` property.
     map.on('load', () => {
+      // Ward boundaries. Added FIRST so they sit below the
+      // district outline in the layer stack — the ward fill
+      // is the translucent wash and the district line is the
+      // crisp outer edge.
+      if (!map.getSource(WARD_SOURCE_ID)) {
+        map.addSource(WARD_SOURCE_ID, {
+          type: 'geojson',
+          data: buildWardFeatureCollection(wardBoundaries),
+        });
+        map.addLayer({
+          id: WARD_FILL_LAYER_ID,
+          type: 'fill',
+          source: WARD_SOURCE_ID,
+          paint: {
+            'fill-color': MAP_PRIMARY_COLOR,
+            'fill-opacity': 0.1,
+          },
+        });
+        map.addLayer({
+          id: WARD_LINE_LAYER_ID,
+          type: 'line',
+          source: WARD_SOURCE_ID,
+          paint: {
+            'line-color': MAP_PRIMARY_COLOR,
+            'line-width': 1,
+            'line-opacity': 0.7,
+          },
+        });
+        // The ward containing the pin gets a stronger fill
+        // and a solid outline so the citizen can see which
+        // section their report will go to.
+        map.addLayer({
+          id: WARD_ACTIVE_FILL_LAYER_ID,
+          type: 'fill',
+          source: WARD_SOURCE_ID,
+          filter: ['==', ['get', 'wardId'], ''],
+          paint: {
+            'fill-color': MAP_PRIMARY_COLOR,
+            'fill-opacity': 0.28,
+          },
+        });
+        map.addLayer({
+          id: WARD_ACTIVE_LINE_LAYER_ID,
+          type: 'line',
+          source: WARD_SOURCE_ID,
+          filter: ['==', ['get', 'wardId'], ''],
+          paint: {
+            'line-color': MAP_PRIMARY_COLOR,
+            'line-width': 2.5,
+          },
+        });
+      }
+
       if (!map.getSource(DHAKA_DISTRICT_SOURCE_ID)) {
         map.addSource(DHAKA_DISTRICT_SOURCE_ID, {
           type: 'geojson',
@@ -344,10 +473,42 @@ export default function MapView({
   }, [lat, lng]);
 
   // Centre the map when the `center` prop changes.
+  //
+  // The centre only moves when the target has drifted OUT of
+  // the visible viewport — e.g. the pin was moved to another
+  // ward, or the default pin sits in a home ward away from the
+  // city's centre. Re-centring on every change would yank the
+  // map out from under a citizen who is panning it.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setCenter([center.lng, center.lat]);
+    const target: [number, number] = [center.lng, center.lat];
+    // The latest target, so the deferred `load` callback eases to
+    // where the pin is NOW rather than where it was when the
+    // effect ran.
+    latestCentreRef.current = target;
+    const apply = () => {
+      const to = latestCentreRef.current;
+      // `getBounds()` needs a sized map; before that the map has
+      // no viewport, so there is nothing to keep the target inside
+      // of — just centre on it.
+      if (!map.getCanvas().clientWidth) {
+        map.jumpTo({ center: to });
+        return;
+      }
+      const visible = map.getBounds();
+      const inView = visible.contains(
+        new maplibregl.LngLat(to[0], to[1]),
+      );
+      if (inView) return;
+      map.easeTo({ center: to, duration: 400 });
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      // The style is still loading; retry once it is ready.
+      map.once('load', apply);
+    }
   }, [center.lat, center.lng]);
 
   // Toggle the dedup ring visibility + position.
@@ -388,6 +549,11 @@ export default function MapView({
   // line is always visible; the fill is gated by
   // `showBoundary` (true when the pin is in-bounds,
   // false when the geofence reject UX is showing).
+  //
+  // When the ward boundaries are drawn, the district
+  // fill is suppressed — two translucent fills stacked
+  // wash the basemap out and make the sections harder
+  // to read.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -396,7 +562,7 @@ export default function MapView({
         map.setPaintProperty(
           DHAKA_DISTRICT_FILL_LAYER_ID,
           'fill-opacity',
-          showBoundary ? 0.08 : 0,
+          showBoundary && wardBoundaries.length === 0 ? 0.08 : 0,
         );
       }
     };
@@ -405,7 +571,52 @@ export default function MapView({
     } else {
       map.once('load', apply);
     }
-  }, [showBoundary]);
+  }, [showBoundary, wardBoundaries.length]);
+
+  // Push the ward boundaries into the map whenever they
+  // change. The source is created on `load`, so the data
+  // may arrive before or after the style is ready.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const source = map.getSource(WARD_SOURCE_ID) as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (source) {
+        source.setData(buildWardFeatureCollection(wardBoundaries));
+      }
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [wardBoundaries]);
+
+  // Highlight the ward that contains the pin.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const filter: maplibregl.FilterSpecification = [
+        '==',
+        ['get', 'wardId'],
+        activeWardId ?? '',
+      ];
+      if (map.getLayer(WARD_ACTIVE_FILL_LAYER_ID)) {
+        map.setFilter(WARD_ACTIVE_FILL_LAYER_ID, filter);
+      }
+      if (map.getLayer(WARD_ACTIVE_LINE_LAYER_ID)) {
+        map.setFilter(WARD_ACTIVE_LINE_LAYER_ID, filter);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [activeWardId]);
 
   return (
     <div

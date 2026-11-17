@@ -28,7 +28,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MapView from '@/components/MapView';
 import { ReportStepAside } from '@/components/ui/ReportStepAside';
@@ -41,6 +41,12 @@ import {
   DHAKA_DISTRICT_RING,
 } from '@/lib/geo/dhaka-district';
 import { pointInPolygon } from '@/lib/geo/polygon-test';
+import {
+  findWardAt,
+  findWardByNumber,
+  interiorPoint,
+  type WardBoundary,
+} from '@/lib/geo/ward-lookup';
 import {
   emptyDraft,
   loadDraft,
@@ -56,7 +62,13 @@ import { ReportFlowSkeleton } from '@/components/ui/Skeleton';
 
 
 interface Bootstrap {
-  city: { id: string; name: string; nameBn: string | null; defaultLanguage: 'bn' | 'en' };
+  city: {
+    id: string;
+    slug: string;
+    name: string;
+    nameBn: string | null;
+    defaultLanguage: 'bn' | 'en';
+  };
   ward: { id: string; cityId: string; number: number; name: string; nameBn: string | null } | null;
   categories: Array<{
     id: string;
@@ -99,9 +111,16 @@ export default function LocationPage() {
   const LANG = lang;
   const router = useRouter();
   const [boot, setBoot] = useState<Bootstrap | null>(null);
+  const [wards, setWards] = useState<WardBoundary[]>([]);
   const [lat, setLat] = useState<number>(DHAKA_CENTER.lat);
   const [lng, setLng] = useState<number>(DHAKA_CENTER.lng);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  // True once the citizen has moved the pin themselves. Until then
+  // the page is free to place the pin at a sensible default (the
+  // home ward). A restored draft counts as "not moved" only when
+  // it carries the default coordinates — a draft the citizen
+  // saved from a previous step IS their choice.
+  const [pinMoved, setPinMoved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +143,16 @@ export default function LocationPage() {
       if (draft) {
         setLat(draft.locationLat);
         setLng(draft.locationLng);
+        // A draft that already carries a chosen point is the
+        // citizen's own decision — the default-pin effect must
+        // not override it. A draft still sitting on the default
+        // coordinates has not chosen anything yet.
+        if (
+          draft.locationLat !== DHAKA_CENTER.lat ||
+          draft.locationLng !== DHAKA_CENTER.lng
+        ) {
+          setPinMoved(true);
+        }
       } else if (data.ward) {
         const initial = emptyDraft(data.city.id, data.ward.id);
         setLat(initial.locationLat);
@@ -135,6 +164,84 @@ export default function LocationPage() {
       cancelled = true;
     };
   }, []);
+
+  // The ward boundaries. A PUBLIC, city-scoped, cacheable
+  // endpoint (not the citizen-only bootstrap) — the
+  // geometry is ~58k vertices and does not belong in a
+  // payload every report step re-downloads.
+  //
+  // The city slug is not known until the bootstrap
+  // resolves, so the fetch is chained off it.
+  useEffect(() => {
+    if (!boot) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/cities/${boot.city.slug}/wards/geojson`,
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { wards: WardBoundary[] };
+        if (cancelled) return;
+        setWards(data.wards ?? []);
+      } catch {
+        // The map still works without boundaries; the ward
+        // row falls back to the bootstrap value.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [boot]);
+
+  const outOfBounds = !isInBounds(lat, lng);
+
+  // The DEFAULT pin must sit inside the citizen's home ward.
+  //
+  // `DHAKA_CENTER` (23.7890, 90.4075) is in Ward 19, but every
+  // demo persona, crew and seeded ticket is scoped to Ward 14.
+  // Accepting the default pin unchanged would file the report in
+  // Ward 19 — where no dispatcher or crew can see it, because
+  // both list filters require `wardId === session.wardId`.
+  //
+  // So once the boundaries load, the pin is moved to an interior
+  // point of the home ward — but ONLY while the citizen has not
+  // moved the pin themselves.
+  useEffect(() => {
+    if (pinMoved) return;
+    if (!boot || !boot.ward || wards.length === 0) return;
+    const home = findWardByNumber(wards, boot.ward.number);
+    if (!home) return;
+    const point = interiorPoint(home);
+    if (!point) return;
+    setLat(point.lat);
+    setLng(point.lng);
+  }, [boot, wards, pinMoved]);
+
+  // The ward that CONTAINS the pin. This is the ward the
+  // report will be filed under — not the citizen's home
+  // ward. A report filed against the wrong ward is invisible
+  // to the dispatcher and crew who should handle it (both
+  // list filters require `wardId === session.wardId`), so
+  // the resolution must be exact and must not silently fall
+  // back to the home ward.
+  const resolvedWard = useMemo(
+    () => findWardAt(wards, lat, lng),
+    [wards, lat, lng],
+  );
+
+  // The home ward, for the "this is not your ward" notice.
+  const homeWard =
+    boot?.ward && boot.ward.number
+      ? findWardByNumber(wards, boot.ward.number)
+      : null;
+
+  // The report cannot be filed until the point resolves to a
+  // ward. Either the pin is outside the city entirely (the
+  // out-of-bounds card) or it is inside the city but in a
+  // place with no ward of its own (e.g. Dhaka Cantonment —
+  // the "unresolved" card).
+  const wardUnresolved = !outOfBounds && resolvedWard === null;
 
   if (authed === false) {
     return (
@@ -161,18 +268,17 @@ export default function LocationPage() {
     return <ReportFlowSkeleton lang={LANG} testId="report-location-loading" />;
   }
 
-  const outOfBounds = !isInBounds(lat, lng);
-
   function handleContinue() {
-    if (!boot) return;
-    const draft = loadDraft() ?? emptyDraft(boot.city.id, boot.ward?.id ?? '');
-    const wardNameBn = boot.ward?.nameBn ?? boot.ward?.name ?? '';
+    if (!boot || !resolvedWard) return;
+    const draft = loadDraft() ?? emptyDraft(boot.city.id, resolvedWard.id);
+    const wardNameBn = resolvedWard.nameBn ?? resolvedWard.name;
     const cityNameBn = boot.city.nameBn ?? boot.city.name;
     const locationLabel = wardNameBn ? `${wardNameBn}, ${cityNameBn}` : cityNameBn;
     const next = {
       ...draft,
       cityId: boot.city.id,
-      wardId: boot.ward?.id ?? '',
+      // The RESOLVED ward, not the citizen's home ward.
+      wardId: resolvedWard.id,
       locationLat: lat,
       locationLng: lng,
       locationLabel,
@@ -186,6 +292,17 @@ export default function LocationPage() {
     const clamped = clampToGeofence(lat, lng, DHAKA_DISTRICT_BBOX);
     setLat(clamped.lat);
     setLng(clamped.lng);
+  }
+
+  // Move the pin into the citizen's HOME ward. Used when the
+  // ward is unresolved so the citizen can recover in one tap.
+  function handleMoveToHomeWard() {
+    if (!homeWard) return;
+    const point = interiorPoint(homeWard);
+    if (!point) return;
+    setPinMoved(true);
+    setLat(point.lat);
+    setLng(point.lng);
   }
 
   return (
@@ -281,10 +398,17 @@ export default function LocationPage() {
         <MapView
           lat={lat}
           lng={lng}
-          center={DHAKA_CENTER}
+          // The map follows the PIN, not the city centre. The
+          // pin may start in the citizen's home ward (far from
+          // `DHAKA_CENTER`) and the ward sections only make sense
+          // when the active ward is on screen.
+          center={{ lat, lng }}
           draggable
           showBoundary={!outOfBounds}
+          wardBoundaries={wards}
+          activeWardId={resolvedWard?.id ?? null}
           onPinMove={(nlat, nlng) => {
+            setPinMoved(true);
             setLat(nlat);
             setLng(nlng);
           }}
@@ -368,9 +492,18 @@ export default function LocationPage() {
             <ReportStepPrimary onClick={handleMoveToBoundary}>
               {t('report.location.out_of_bounds.move', null, LANG)}
             </ReportStepPrimary>
+          ) : wardUnresolved ? (
+            <ReportStepPrimary
+              onClick={handleMoveToHomeWard}
+              disabled={!homeWard}
+              data-testid="report-location-move-home-ward"
+            >
+              {t('report.location.ward_outside_hint', null, LANG)}
+            </ReportStepPrimary>
           ) : (
             <ReportStepPrimary
               onClick={handleContinue}
+              disabled={!resolvedWard}
               trailing={
                 <span aria-hidden style={{ display: 'inline-flex' }}>
                   <ICONS.forward.icon size={16} weight={ICONS.forward.weight} />
@@ -417,11 +550,101 @@ export default function LocationPage() {
           <dt style={{ color: 'var(--color-ink-secondary)' }}>
             {t('report.location.ward_label', null, LANG)}
           </dt>
-          <dd style={{ margin: 0, fontWeight: 'var(--weight-semibold)' }} lang={LANG}>
-            {boot.ward?.nameBn ?? t('report.location.ward_unknown', null, LANG)}
-            {boot.ward?.number ? ` (${boot.ward.number})` : ''}
+          <dd
+            style={{
+              margin: 0,
+              fontWeight: 'var(--weight-semibold)',
+              color: resolvedWard ? 'var(--color-ink)' : 'var(--color-danger)',
+            }}
+            lang={LANG}
+            data-testid="report-location-ward"
+          >
+            {resolvedWard
+              ? `${resolvedWard.nameBn ?? resolvedWard.name} (${resolvedWard.number})`
+              : wards.length > 0
+                ? t('report.location.ward_unresolved', null, LANG)
+                : boot.ward?.nameBn ?? t('report.location.ward_unknown', null, LANG)}
+            {resolvedWard ? '' : boot.ward?.number && wards.length === 0 ? ` (${boot.ward.number})` : ''}
           </dd>
         </dl>
+
+        {/*
+         * The report is filed in the ward that contains the
+         * PIN, which may not be the citizen's home ward. A
+         * cross-ward ticket is routed to that ward's crew —
+         * so the citizen must be told before Continue.
+         */}
+        {resolvedWard && homeWard && resolvedWard.id !== homeWard.id && (
+          <p
+            lang={LANG}
+            style={{
+              margin: 0,
+              fontSize: 'var(--text-caption)',
+              lineHeight: 1.5,
+              color: 'var(--color-ink-secondary)',
+            }}
+          >
+            {t('report.location.cross_ward_notice', null, LANG)}
+          </p>
+        )}
+
+        {wardUnresolved && (
+          <div
+            role="alert"
+            data-testid="report-location-ward-unresolved"
+            style={{
+              padding: 'var(--space-4)',
+              background: 'var(--color-danger-soft)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-danger)',
+              color: 'var(--color-ink)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--space-2)',
+                alignItems: 'center',
+                marginBottom: 'var(--space-2)',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  color: 'var(--color-danger)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </span>
+              <strong
+                lang={LANG}
+                style={{
+                  fontSize: 'var(--text-body)',
+                  color: 'var(--color-ink)',
+                }}
+              >
+                {t('report.location.ward_unresolved', null, LANG)}
+              </strong>
+            </div>
+            <p
+              lang={LANG}
+              style={{
+                fontSize: 'var(--text-caption)',
+                margin: 0,
+                lineHeight: 1.5,
+                color: 'var(--color-ink-secondary)',
+              }}
+            >
+              {t('report.location.ward_outside_hint', null, LANG)}
+            </p>
+          </div>
+        )}
 
         {outOfBounds && (
           <div

@@ -26,11 +26,64 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { DHAKA_CENTER } from './geo/constants';
 import { seedPhotoUrl } from './dev-store/seed-photo';
 import { nowIso, nowMs, slotInProductZone } from './format/clock';
 
 export { DHAKA_CENTER };
+
+/**
+ * The ward boundaries for the dev store's seeded wards, read from
+ * the same committed DNCC boundary file the Prisma seed uses.
+ *
+ * The dev store exists so the report flow can run end-to-end in a
+ * browser without Postgres. The report location step resolves the
+ * ward from the PIN's coordinates, so the dev store's wards need
+ * real geometry too — without it the map draws no ward sections and
+ * the ward never resolves.
+ *
+ * The file is read once and cached; the dev store seeds once per
+ * process.
+ *
+ * Attribution: ward boundaries © Dhaka North City Corporation
+ * (Urban Planning Department), via the DNCC Innovation Lab public
+ * repository.
+ */
+let dnccGeometryCache: Map<number, string> | null = null;
+
+function loadDnccGeometry(): Map<number, string> {
+  if (dnccGeometryCache) return dnccGeometryCache;
+  const out = new Map<number, string>();
+  try {
+    const file = path.join(process.cwd(), 'prisma', 'geo', 'dncc-wards.geojson');
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
+      features: Array<{
+        properties: { ward_no: number };
+        geometry: unknown;
+      }>;
+    };
+    for (const feature of parsed.features) {
+      const wardNo = feature.properties?.ward_no;
+      if (typeof wardNo === 'number') out.set(wardNo, JSON.stringify(feature.geometry));
+    }
+  } catch {
+    // A missing boundary file must not break the dev store — the
+    // wards simply have no geometry, which the resolver treats as
+    // "no geometry" rather than "outside the city".
+  }
+  dnccGeometryCache = out;
+  return out;
+}
+
+/**
+ * The stored geometry for one DNCC ward, or `null` when the ward
+ * has none.
+ */
+function dnccWardGeometry(wardNumber: number): string | null {
+  return loadDnccGeometry().get(wardNumber) ?? null;
+}
 
 type Role = 'citizen' | 'dispatcher' | 'crew' | 'admin';
 type TicketStatus =
@@ -488,7 +541,7 @@ function seed(): Store {
     number: 14,
     name: 'Ward 14 — Mirpur',
     nameBn: 'ওয়ার্ড ১৪ — মিরপুর',
-    polygonGeoJson: null,
+    polygonGeoJson: dnccWardGeometry(14),
   });
   // A SECOND ward in the SAME city, so the out-of-scope paths are
   // reachable from the dev store.
@@ -510,7 +563,7 @@ function seed(): Store {
     number: 15,
     name: 'Ward 15 — Cantonment',
     nameBn: 'ওয়ার্ড ১৫ — ক্যান্টনমেন্ট',
-    polygonGeoJson: null,
+    polygonGeoJson: dnccWardGeometry(15),
   });
 
   const departments = new Map<string, DevDepartment>();

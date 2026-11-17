@@ -65,8 +65,15 @@ model Ward {
   name           String // primary display name
   nameBn         String?
   // PLAT-REQ-003: Ward polygons stored as GeoJSON; consumed by WO-001/002 maps.
-  // Stored as text (GeoJSON Feature<Polygon>) in v1 to avoid PostGIS dep;
-  // v1.1 may promote to geometry column for spatial queries.
+  // Stored as text in v1 to avoid PostGIS dep; v1.1 may promote to geometry
+  // column for spatial queries.
+  //
+  // The shape is the bare GeoJSON geometry — `{ type: 'Polygon',
+  // coordinates: [ring] }` for a single-part ward, or
+  // `{ type: 'MultiPolygon', coordinates: [...] }` for a ward whose
+  // boundary is split into disjoint parts (DNCC wards 16 and 32).
+  // The bare shape is what `lib/admin/ward-polygon.ts`
+  // `validatePolygon()` accepts.
   polygonGeoJson String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

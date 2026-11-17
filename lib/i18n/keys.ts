@@ -910,6 +910,26 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   // stand in for a missing ward, which is a citizen-visible
   // punctuation mark with no meaning in either language.
   'report.location.ward_unknown': { bn: 'অজানা ওয়ার্ড', en: 'Unknown ward' },
+  // The pin does not resolve to any ward (e.g. it landed in
+  // Dhaka Cantonment, which is an enclave with no ward of its
+  // own). The report cannot be filed against an unresolved
+  // ward — a wrong wardId makes the ticket invisible to the
+  // dispatcher who should handle it.
+  'report.location.ward_unresolved': {
+    bn: 'ওয়ার্ড নির্ধারণ করা যায়নি',
+    en: 'Ward could not be determined',
+  },
+  'report.location.ward_outside_hint': {
+    bn: 'অনুগ্রহ করে পিনটি কোনো ওয়ার্ডের ভেতরে রাখুন।',
+    en: 'Please place the pin inside a ward.',
+  },
+  // The resolved ward differs from the citizen's home ward.
+  // This matters because a ticket filed in another ward is
+  // routed to THAT ward's crew, not the citizen's own.
+  'report.location.cross_ward_notice': {
+    bn: 'অভিযোগটি পিনের অবস্থান অনুযায়ী ওয়ার্ডে যাবে, আপনার নিজের ওয়ার্ডে নয়।',
+    en: 'Your report will go to the ward where the pin is, not your home ward.',
+  },
 
   'report.photo.h1': { bn: 'ছবি যোগ করুন', en: 'Add photos' },
   'report.photo.help': {
@@ -3120,6 +3140,18 @@ export const TRANSLATIONS: Record<string, Record<Language, string>> = {
   'admin.wards.cta.save': { bn: 'ওয়ার্ড সংরক্ষণ', en: 'Save ward' },
   'admin.wards.cta.cancel': { bn: 'বাতিল', en: 'Cancel' },
   'admin.wards.cta.delete': { bn: 'মুছুন', en: 'Delete' },
+  // A ward whose boundary has more than one disjoint part (the
+  // official DNCC wards 16 and 32). The map draws it correctly,
+  // but the write path's single-ring validator rejects it, so
+  // re-saving it needs the boundary split first.
+  'admin.wards.multipart.badge': {
+    bn: '✓ বহু-অংশ',
+    en: '✓ Multi-part',
+  },
+  'admin.wards.multipart.hint': {
+    bn: 'এই ওয়ার্ডের সীমানা একাধিক অংশে বিভক্ত। আবার সংরক্ষণ করতে হলে সীমানাটি আগে ভাগ করে নিন।',
+    en: 'This ward’s boundary has multiple parts. Split it before saving again.',
+  },
   'admin.wards.cta.edit': { bn: 'সম্পাদনা', en: 'Edit' },
   'admin.wards.preview': {
     bn: 'প্রকাশের আগে পূর্বরূপ',
