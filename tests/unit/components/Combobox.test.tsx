@@ -101,6 +101,28 @@ describe('Combobox — the ARIA contract', () => {
     expect(input.getAttribute('aria-haspopup')).toBe('listbox');
   });
 
+  it('renders the data-testid it is given', () => {
+    // The prop was declared and destructured but never put on any
+    // element, so the dispatcher's crew picker had no
+    // `data-testid="dispatcher-assign-crew"` in the DOM at all and
+    // every route spec that looked for it failed with
+    // "element(s) not found". A prop that is accepted and dropped
+    // is invisible until a test asks for it — so this asserts the
+    // prop reaches the DOM.
+    const { container } = render(
+      <Combobox
+        options={OPTIONS}
+        value={null}
+        onChange={() => {}}
+        label="ক্রু বেছে নিন"
+        data-testid="dispatcher-assign-crew"
+      />,
+    );
+    expect(
+      container.querySelector('[data-testid="dispatcher-assign-crew"]'),
+    ).not.toBeNull();
+  });
+
   it('starts collapsed and expands on focus', () => {
     render(
       <Combobox
@@ -116,6 +138,34 @@ describe('Combobox — the ARIA contract', () => {
     fireEvent.focus(input);
     expect(input.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('listbox')).toBeDefined();
+  });
+
+  it('closes the list when the selection is cleared from outside', () => {
+    // The footer's "clear" control empties the value. The list must
+    // close: it covers whatever sits below the control, and on the
+    // dispatcher ticket page the open list sat on top of the Save
+    // button and swallowed its click.
+    const { rerender } = render(
+      <Combobox
+        options={OPTIONS}
+        value="crew_a"
+        onChange={() => {}}
+        label="ক্রু বেছে নিন"
+      />,
+    );
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+
+    rerender(
+      <Combobox
+        options={OPTIONS}
+        value={null}
+        onChange={() => {}}
+        label="ক্রু বেছে নিন"
+      />,
+    );
+    expect(input.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('points aria-controls at the listbox it actually renders', () => {

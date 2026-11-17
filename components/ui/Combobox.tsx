@@ -210,6 +210,22 @@ export function Combobox({
     setEditing(false);
   }, [value]);
 
+  /**
+   * A selection cleared from OUTSIDE closes the list.
+   *
+   * The footer's "clear" control empties the value, and the field is
+   * now showing nothing chosen. Leaving the list open would cover
+   * whatever sits below the control — on the dispatcher ticket page
+   * the open list sat on top of the Save button and swallowed its
+   * click, so the user cleared the crew and could not save it.
+   *
+   * A selection CHANGED from outside does not close the list: the
+   * user may still be choosing among the options.
+   */
+  useEffect(() => {
+    if (value === null) setOpen(false);
+  }, [value]);
+
   // Close the list when the pointer goes somewhere else.
   useEffect(() => {
     if (!open) return;
@@ -323,7 +339,11 @@ export function Combobox({
   const CaretIcon = ICONS.forward.icon;
 
   return (
-    <div ref={rootRef} style={{ position: 'relative', width: '100%' }}>
+    <div
+      ref={rootRef}
+      data-testid={testId}
+      style={{ position: 'relative', width: '100%' }}
+    >
       <label
         htmlFor={inputId}
         id={`${inputId}-label`}
@@ -465,6 +485,17 @@ export function Combobox({
                     role="option"
                     aria-selected={isSelected}
                     aria-disabled={option.disabled || undefined}
+                    /**
+                     * The option's VALUE. The ARIA pattern has no
+                     * `value` attribute on `role="option"` — the
+                     * selected value is carried by the input — so
+                     * the value was invisible to anything that
+                     * inspected the DOM, and a test could not
+                     * select an option by the value it would
+                     * submit. `data-value` exposes it without
+                     * inventing a non-standard ARIA attribute.
+                     */
+                    data-value={option.value}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => commit(option)}

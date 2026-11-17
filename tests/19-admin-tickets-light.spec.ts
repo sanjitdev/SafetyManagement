@@ -35,7 +35,7 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
-import { resetDevStore } from './helpers/fixtures';
+import { resetDevStore, pinnedEpochMs } from './helpers/fixtures';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
@@ -67,6 +67,27 @@ async function devLogin(
     maxRedirects: 0,
     failOnStatusCode: false,
   });
+}
+
+/**
+ * The lower bound of the query window, 30 days before "now".
+ *
+ * The window is measured against the PINNED clock, not the wall
+ * clock. The server's clock is pinned to `CITYFIX_SEED_NOW`
+ * (2026-11-06 in CI) and the seed tickets are dated relative to that
+ * pin — the oldest, `ticket_seed_closed_1`, is `now - 20d`. The API
+ * applies the window against the pinned clock too, so a wall-clock
+ * `from` walks away from the pin as the pin ages: by 2026-11-17 a
+ * wall-clock 30-day window started 2026-10-18 and the 2026-10-17
+ * ticket fell out of it, so the list returned 9 tickets where 10
+ * were seeded.
+ *
+ * `pinnedEpochMs()` returns the pin when there is one and the wall
+ * clock when there is not (a developer running the server without
+ * the pin), which is what the server is on in that case.
+ */
+function thirtyDayWindowStart(): string {
+  return new Date(pinnedEpochMs() - 30 * 86_400_000).toISOString();
 }
 
 async function forceLightTheme(page: Page) {
@@ -129,7 +150,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     await devLogin(ctx, 'admin');
     // The dev-store seed tickets span -0d to -20d; the API default
     // is now-7d, so we widen the window to 30d to cover all of them.
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?from=${encodeURIComponent(from)}`,
       { failOnStatusCode: false },
@@ -165,7 +186,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
   test('GET ?status=submitted → 1 ticket', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?status=submitted&from=${encodeURIComponent(from)}`,
       { failOnStatusCode: false },
@@ -182,7 +203,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
   test('GET ?status=closed → 1 ticket (covers status.closed i18n key)', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?status=closed&from=${encodeURIComponent(from)}`,
       { failOnStatusCode: false },
@@ -199,7 +220,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
   test('GET ?q=ticket_seed_routed_1 → 1 ticket (exact-match id)', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?q=ticket_seed_routed_1&from=${encodeURIComponent(from)}`,
       { failOnStatusCode: false },
@@ -215,7 +236,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
   test('GET ?categoryId=cat_streetlight → 6 tickets', async () => {
     const ctx = await pwRequest.newContext();
     await devLogin(ctx, 'admin');
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     const res = await ctx.get(
       `${BASE}/api/v1/admin/tickets?categoryId=cat_streetlight&from=${encodeURIComponent(from)}`,
       { failOnStatusCode: false },
@@ -318,12 +339,18 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     // Admin sees the full record (internalNote, assignedCrewId).
     expect(body.ticket.assignedCrewId).not.toBeNull();
     expect(body.ticket.internalNote).toContain('Crew dispatched');
-    // Trail rows have the real actorId surfaced as `actorLabel`
-    // (the serializer's contract is to anonymize only for citizens;
-    // admin sees the raw user id).
+    // Trail rows surface the actor as `actorLabel`. The serializer's
+    // contract is to anonymize ONLY for citizens; for a staff viewer
+    // it is the actor's NAME where one is known, falling back to the
+    // raw user id — `entry.actorName ?? entry.actorId`
+    // (lib/serializers/ticket.ts). So the label is a person, not an
+    // id: an earlier version of this spec asserted `/^user_/`,
+    // which contradicted the name-first contract the admin trail
+    // panel renders.
     expect(body.ticket.trail.length).toBeGreaterThan(0);
     for (const entry of body.ticket.trail) {
-      expect(entry.actorLabel).toMatch(/^user_/);
+      expect(entry.actorLabel).not.toBe('');
+      expect(entry.actorLabel).toMatch(/^(user_|Rahim|Habib|Anwar|Rashid|Karim)/);
     }
   });
 
@@ -360,7 +387,7 @@ test.describe('ADM-008 — Admin Reports (Bolt admin-tickets)', () => {
     // Pass a 30-day from= in the URL so all 5 seed tickets fit
     // (the seed data is at -1d, -2d, -4d, -10d, -20d; the default
     // 7-day window hides the older two).
-    const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const from = thirtyDayWindowStart();
     await page.goto(
       `${BASE}/admin/tickets?from=${encodeURIComponent(from)}`,
       { waitUntil: 'networkidle' },

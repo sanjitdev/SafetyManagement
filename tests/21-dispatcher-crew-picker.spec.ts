@@ -529,17 +529,25 @@ test('UI: dispatcher ticket page shows the picker with ward-scoped crew options'
   const picker = page.locator('[data-testid="dispatcher-assign-crew"]');
   await expect(picker).toBeVisible();
 
-  // Wait for the crew fetch to resolve and the dropdown to
-  // populate. The page fires the crew fetch in a `useEffect`
-  // keyed on `ticket?.wardId` after the initial ticket fetch;
-  // `networkidle` covers it, but React's commit + render is
-  // async, so we also wait for the second crew option to appear
-  // before reading the option list.
-  await expect(picker.locator('option[value="user_crew_rashid"]')).toBeAttached({
-    timeout: 5_000,
-  });
+  // Wave 4 (bolt 009-005) replaced the native `<select>` with the
+  // searchable `Combobox`, so the options are `<li role="option">`
+  // elements, not `<option>` elements, and the list is CLOSED until
+  // the input is focused. Each option carries its submitted value in
+  // `data-value`.
+  const input = picker.locator('[role="combobox"]');
+  await expect(input).toBeVisible();
 
-  // Two options: the placeholder (empty value) + Rashid.
+  // Wait for the crew fetch to resolve and the list to populate. The
+  // page fires the crew fetch in a `useEffect` keyed on
+  // `ticket?.wardId` after the initial ticket fetch; `networkidle`
+  // covers it, but React's commit + render is async, so we focus the
+  // input and then wait for Rashid's option to appear.
+  await input.focus();
+  await expect(
+    picker.locator('[role="option"][data-value="user_crew_rashid"]'),
+  ).toBeAttached({ timeout: 5_000 });
+
+  // One option: Rashid.
   //
   // The picker is DEPARTMENT-scoped, not just ward-scoped. The
   // ticket is `cat_streetlight` → `dept_streetlight`, and the
@@ -553,10 +561,15 @@ test('UI: dispatcher ticket page shows the picker with ward-scoped crew options'
   // (['', 'user_crew_karim', 'user_crew_rashid']) — that asserted
   // the department filter away, which the picker has always
   // applied.
-  const optionValues = await picker.locator('option').evaluateAll(
-    (opts) => (opts as HTMLOptionElement[]).map((o) => o.value),
-  );
-  expect(optionValues).toEqual(['', 'user_crew_rashid']);
+  //
+  // The combobox has no separate placeholder option: "nothing
+  // chosen" is the empty input, so the list holds the roster only.
+  const optionValues = await picker
+    .locator('[role="option"]')
+    .evaluateAll((opts) =>
+      (opts as HTMLElement[]).map((o) => o.getAttribute('data-value')),
+    );
+  expect(optionValues).toEqual(['user_crew_rashid']);
 });
 
 test('UI: pick a crew + Save → ticket.assignedCrewId updates, success shown', async ({ page }) => {
@@ -577,7 +590,20 @@ test('UI: pick a crew + Save → ticket.assignedCrewId updates, success shown', 
 
   const picker = page.locator('[data-testid="dispatcher-assign-crew"]');
   await expect(picker).toBeVisible();
-  await picker.selectOption('user_crew_rashid');
+
+  // The combobox is not a native `<select>`, so the choice is made by
+  // opening the list and clicking the option. The list opens on
+  // focus.
+  const input = picker.locator('[role="combobox"]');
+  await input.focus();
+  const rashidOption = picker.locator(
+    '[role="option"][data-value="user_crew_rashid"]',
+  );
+  await expect(rashidOption).toBeAttached({ timeout: 5_000 });
+  await rashidOption.click();
+
+  // The committed choice is shown in the input as the label.
+  await expect(input).toHaveValue(/Rashid/);
 
   const save = page.locator('[data-testid="dispatcher-assign-save"]');
   await save.click();
@@ -625,10 +651,22 @@ test('UI: clear via placeholder + Save → ticket.assignedCrewId becomes null', 
   // The picker should be pre-populated with the assigned crew.
   const picker = page.locator('[data-testid="dispatcher-assign-crew"]');
   await expect(picker).toBeVisible();
-  await expect(picker).toHaveValue('user_crew_rashid');
 
-  // Switch back to the placeholder (Unassigned).
-  await picker.selectOption('');
+  // The combobox shows the chosen crew's LABEL, not its id — the
+  // label is what the dispatcher reads. The id is asserted through
+  // the API below.
+  const input = picker.locator('[role="combobox"]');
+  await expect(input).toHaveValue(/Rashid/);
+
+  // Clear the selection. The combobox has no placeholder `<option>`
+  // to switch back to; the list's footer carries a Clear control
+  // (`dispatcher-assign-clear`) that empties the draft.
+  await input.focus();
+  const clear = page.locator('[data-testid="dispatcher-assign-clear"]');
+  await expect(clear).toBeVisible();
+  await clear.click();
+  await expect(input).toHaveValue('');
+
   const save = page.locator('[data-testid="dispatcher-assign-save"]');
   await save.click();
 
@@ -668,9 +706,18 @@ test('dispatcher-crew-picker-1280x800 matches light baseline', async ({ page }) 
   // Wait for the picker to populate before snapshotting so the
   // baseline reflects the populated state, not the empty fetch-
   // pending state.
+  //
+  // The combobox's options are `<li role="option">` elements and its
+  // list is closed until the input is focused, so the option is
+  // opened before it can be found.
+  const picker = page.locator('[data-testid="dispatcher-assign-crew"]');
+  await picker.locator('[role="combobox"]').focus();
   await expect(
-    page.locator('[data-testid="dispatcher-assign-crew"] >> option[value="user_crew_rashid"]'),
+    picker.locator('[role="option"][data-value="user_crew_rashid"]'),
   ).toBeAttached({ timeout: 5_000 });
+  // Close the list again so the snapshot shows the picker at rest
+  // rather than with its dropdown hanging open.
+  await page.keyboard.press('Escape');
   // The picker is part of the actions sidebar; the full page
   // baseline is the most useful comparison because the picker
   // sits inside the existing ticket detail layout. A focused
