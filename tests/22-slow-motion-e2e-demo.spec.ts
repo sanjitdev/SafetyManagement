@@ -282,29 +282,16 @@ async function citizenSubmitReport(
   await page.waitForSelector('h1', { timeout: 30_000 });
   await capture(page, '02-citizen-report-location');
 
-  // Continue to the category step. (v1.1: location now routes
-  // directly to category, not photo — category-before-photo lets
-  // the photo cap narrow to the category's rule.)
-  await page
-    .getByRole('button', { name: /পরবর্তী|Continue/i })
-    .first()
-    .click();
-  await page.waitForURL(/\/report\/category/, {
-    waitUntil: 'commit',
-    timeout: 30_000,
-  });
-  await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '03-citizen-report-category');
-
-  // Pick the Streetlight category. (v1.1 redesign: the options
-  // are rendered as `role="radio"` inside a `role="radiogroup"`,
-  // not as buttons — getByRole('button') would not match.)
-  const streetlightOption = page.getByRole('radio', {
-    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
-  }).first();
-  await streetlightOption.click();
-  await capture(page, '04-citizen-report-category-selected');
-
+  // Continue to the photo step. The canonical report flow is
+  // Location → Photo → Category → Note → Summary (see
+  // app/report/(create)/layout.tsx STEP_BY_PATH).
+  //
+  // An earlier version of this helper navigated Location → Category
+  // → Photo, on the "v1.1" theory that category-before-photo lets
+  // the photo cap narrow to the category's rule. That navigation was
+  // the outlier: the RAIL, the UX specs ("Step 2 of 4: Photo",
+  // "Step 3 of 4: Category") and mockup 14 all put Photo second, and
+  // the code was corrected to match in commit 84a8f58.
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })
     .first()
@@ -314,7 +301,7 @@ async function citizenSubmitReport(
     timeout: 30_000,
   });
   await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '05-citizen-report-photo-empty');
+  await capture(page, '03-citizen-report-photo-empty');
 
   // Upload a 1×1 PNG via the hidden file input.
   await page
@@ -324,15 +311,37 @@ async function citizenSubmitReport(
       mimeType: 'image/png',
       buffer: TINY_PNG_BUFFER,
     });
-  await page.waitForFunction(
-    () =>
-      document.querySelectorAll(
-        'button[aria-label*="সরান"], button[aria-label*="Remove"]',
-      ).length > 0,
-    { timeout: 15_000 },
-  );
+  // Wait for the per-photo remove button, which signals the thumbnail
+  // rendered. The TESTID is used rather than the aria-label: the
+  // label is `report.photo.remove_one_aria` → Bangla "ছবি 1 মুছুন" /
+  // English "Remove photo 1", and a Bangla run matched neither
+  // "সরান" nor "Remove" — so the wait timed out on a page where the
+  // photo had in fact attached.
+  await page
+    .locator('[data-testid="report-photo-remove-0"]')
+    .waitFor({ state: 'visible', timeout: 15_000 });
   await page.waitForTimeout(300);
-  await capture(page, '06-citizen-report-photo-with-image');
+  await capture(page, '04-citizen-report-photo-with-image');
+
+  await page
+    .getByRole('button', { name: /পরবর্তী|Continue/i })
+    .first()
+    .click();
+  await page.waitForURL(/\/report\/category/, {
+    waitUntil: 'commit',
+    timeout: 30_000,
+  });
+  await page.waitForSelector('h1', { timeout: 30_000 });
+  await capture(page, '05-citizen-report-category');
+
+  // Pick the Streetlight category. (v1.1 redesign: the options
+  // are rendered as `role="radio"` inside a `role="radiogroup"`,
+  // not as buttons — getByRole('button') would not match.)
+  const streetlightOption = page.getByRole('radio', {
+    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
+  }).first();
+  await streetlightOption.click();
+  await capture(page, '06-citizen-report-category-selected');
 
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })
@@ -407,18 +416,25 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
     // Wait for the crew picker to populate (Bolt 007-002). The fetch
     // is async after the page commits; we anchor on the
     // `user_crew_rashid` option being attached.
-    await page
-      .locator('[data-testid="dispatcher-assign-crew"]')
-      .waitFor({ state: 'visible', timeout: 15_000 });
+    //
+    // The picker is the `Combobox` primitive, not a native `<select>`
+    // — Wave 4 replaced it. So the option is a `role="option"` listbox
+    // item, and its submitted value is exposed as `data-value` (the
+    // ARIA pattern has no `value` attribute on `role="option"`).
+    const crewPicker = page.locator('[data-testid="dispatcher-assign-crew"]');
+    await crewPicker.waitFor({ state: 'visible', timeout: 15_000 });
+    const crewInput = crewPicker.locator('[role="combobox"]');
+    await crewInput.focus();
     await expect(
-      page.locator('[data-testid="dispatcher-assign-crew"] option[value="user_crew_rashid"]'),
+      crewPicker.locator('[role="option"][data-value="user_crew_rashid"]'),
     ).toBeAttached({ timeout: 5_000 });
     await capture(page, '10-dispatcher-picker-populated');
 
     // Pick Rashid and save.
-    await page
-      .locator('[data-testid="dispatcher-assign-crew"]')
-      .selectOption('user_crew_rashid');
+    await crewPicker
+      .locator('[role="option"][data-value="user_crew_rashid"]')
+      .click();
+    await expect(crewInput).toHaveValue(/Rashid/);
     await capture(page, '11-dispatcher-picker-rashid-selected');
     await page.locator('[data-testid="dispatcher-assign-save"]').click();
     // The success banner appears once the PATCH/POST commits.

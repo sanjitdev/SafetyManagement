@@ -306,36 +306,24 @@ async function submitReport(
   await capture(page, '02-citizen-report-location');
 
   // Step 3 — continue from location. The report flow is
-  // Location → Category → Photo → Note → Summary (see
+  // Location → Photo → Category → Note → Summary (see
   // app/report/(create)/layout.tsx STEP_BY_PATH).
-  await page
-    .getByRole('button', { name: /পরবর্তী|Continue/i })
-    .first()
-    .click();
-  await page.waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 });
-  await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '03-citizen-report-category');
-
-  // Step 4 — pick the "Broken streetlight" category. The page renders
-  // a radiogroup of options; each option is a <button role="radio">,
-  // so match on the `radio` role (an explicit role overrides the
-  // implicit `button` role). We click by visible text to be
-  // persona-stable across seeds.
-  const streetlightOption = page.getByRole('radio', {
-    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
-  }).first();
-  await streetlightOption.click();
-  await capture(page, '04-citizen-report-category-selected');
-
+  //
+  // The ORDER matters here. Before Intent 009 the code navigated
+  // Location → Category → Photo while the RAIL, the UX specs
+  // ("Step 2 of 4: Photo", "Step 3 of 4: Category") and mockup 14
+  // all said Photo is step 2. The navigation was the outlier and was
+  // corrected to match the contract in commit 84a8f58 — so this spec
+  // waits for /report/photo here, NOT /report/category.
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })
     .first()
     .click();
   await page.waitForURL(/\/report\/photo/, { waitUntil: 'commit', timeout: 30_000 });
   await page.waitForSelector('h1', { timeout: 30_000 });
-  await capture(page, '05-citizen-report-photo-empty');
+  await capture(page, '03-citizen-report-photo-empty');
 
-  // Step 5 — upload a 1x1 PNG via the hidden file input. The "Take
+  // Step 4 — upload a 1x1 PNG via the hidden file input. The "Take
   // photo" CTA is the visible button (it's the only visible button on
   // the empty photo page besides Continue); clicking it opens the
   // hidden file picker. We bypass the click and set the file input
@@ -352,17 +340,38 @@ async function submitReport(
       mimeType: 'image/png',
       buffer: pngBuffer,
     });
-  // Wait for the remove-photo button (aria-label "ছবি সরান" / "Remove
-  // photo") to appear, which signals the thumbnail rendered.
-  await page.waitForFunction(
-    () =>
-      document.querySelectorAll(
-        'button[aria-label*="সরান"], button[aria-label*="Remove"]',
-      ).length > 0,
-    { timeout: 15_000 },
-  );
+  // Wait for the per-photo remove button to appear, which signals the
+  // thumbnail rendered.
+  //
+  // This waits on the `report-photo-remove-0` TESTID, not on the
+  // button's aria-label. The label is `report.photo.remove_one_aria`
+  // → Bangla "ছবি 1 মুছুন" / English "Remove photo 1" — a
+  // Bangla-language run matched neither "সরান" nor "Remove", so the
+  // wait timed out on a page where the photo had in fact attached.
+  await page
+    .locator('[data-testid="report-photo-remove-0"]')
+    .waitFor({ state: 'visible', timeout: 15_000 });
   await page.waitForTimeout(300);
-  await capture(page, '06-citizen-report-photo-with-image');
+  await capture(page, '04-citizen-report-photo-with-image');
+
+  await page
+    .getByRole('button', { name: /পরবর্তী|Continue/i })
+    .first()
+    .click();
+  await page.waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 });
+  await page.waitForSelector('h1', { timeout: 30_000 });
+  await capture(page, '05-citizen-report-category');
+
+  // Step 5 — pick the "Broken streetlight" category. The page renders
+  // a radiogroup of options; each option is a <button role="radio">,
+  // so match on the `radio` role (an explicit role overrides the
+  // implicit `button` role). We click by visible text to be
+  // persona-stable across seeds.
+  const streetlightOption = page.getByRole('radio', {
+    name: /রাস্তার আলো|Broken streetlight|Streetlight/i,
+  }).first();
+  await streetlightOption.click();
+  await capture(page, '06-citizen-report-category-selected');
 
   await page
     .getByRole('button', { name: /পরবর্তী|Continue/i })

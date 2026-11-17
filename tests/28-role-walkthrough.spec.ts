@@ -656,11 +656,11 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
 
       // --- Step C5: the LOCATION step comes first -------------------------
       //
-      // The report flow is location → category → photo → note →
+      // The report flow is location → photo → category → note →
       // summary. The location step is what CREATES the sessionStorage
       // draft (`emptyDraft` + `saveDraft`); every later step reads it
       // and silently no-ops if it is absent. So a walkthrough that
-      // jumps straight to /report/category stalls — the Continue
+      // jumps straight to /report/photo stalls — the Continue
       // button does nothing because `loadDraft()` returns null.
       //
       // We let the citizen enter the flow the way a real one does:
@@ -691,71 +691,19 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         if (await btn.isEnabled().catch(() => false)) {
           await btn.click();
           await page
-            .waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 })
+            .waitForURL(/\/report\/photo/, { waitUntil: 'commit', timeout: 30_000 })
             .catch(() => undefined);
         }
       }
 
-      // --- Step C6: category step ------------------------------------------
-      // The category page renders its options client-side from
-      // `/api/report/bootstrap`, so wait for the radios to appear
-      // rather than sampling the DOM the instant the URL changes.
-      const catOptions = page.getByRole('radio');
-      await catOptions
-        .first()
-        .waitFor({ state: 'visible', timeout: 20_000 })
-        .catch(() => undefined);
-      const atCategory = /\/report\/category/.test(page.url());
-      const catCount = await catOptions.count();
-      observe({
-        role,
-        step: 'C6 — report step 2: pick a category',
-        outcome: atCategory && catCount > 0 ? 'pass' : 'gap',
-        detail:
-          atCategory && catCount > 0
-            ? `${catCount} categories offered as radio options.`
-            : `At ${new URL(page.url()).pathname}; ${catCount} category option(s) rendered.`,
-        screenshot: await capture(page, 'c6-citizen-report-category'),
-      });
-
-      // Pick the streetlight category — its department
-      // (streetlight-maintenance) is the one both Habib and Rashid
-      // are scoped to, so the dispatcher and crew can actually act.
-      const streetlight = page
-        .getByRole('radio', { name: /রাস্তার আলো|Broken streetlight|Streetlight/i })
-        .first();
-      const slVisible = await streetlight.isVisible().catch(() => false);
-      if (slVisible) {
-        await streetlight.click();
-        await page.waitForTimeout(500);
-      }
-      observe({
-        role,
-        step: 'C7 — choose "Broken streetlight" (the actionable category)',
-        outcome: slVisible ? 'pass' : 'gap',
-        detail: slVisible
-          ? 'Category selection works; streetlight routes to the streetlight-maintenance department, which both staff personas are scoped to.'
-          : 'Streetlight category option was not found.',
-      });
-
-      const catContinue = page.getByTestId('report-category-continue');
-      const catContinueEnabled = await catContinue.isEnabled().catch(() => false);
-      if (catContinueEnabled) {
-        await catContinue.click();
-        await page
-          .waitForURL(/\/report\/photo/, { waitUntil: 'commit', timeout: 30_000 })
-          .catch(() => undefined);
-      }
-      observe({
-        role,
-        step: 'C8 — category → photo navigation',
-        outcome: /\/report\/photo/.test(page.url()) ? 'pass' : 'gap',
-        detail: /\/report\/photo/.test(page.url())
-          ? 'Continue advances to the photo step.'
-          : `Continue did not advance (at ${new URL(page.url()).pathname}).`,
-      });
-
-      // --- Step C9: photo step — at least one photo is mandatory ---------
+      // --- Step C6: photo step — at least one photo is mandatory ---------
+      //
+      // The photo is step 2 of the flow (the rail and the UX specs put
+      // it there; mockup 14 agrees). An earlier version of this
+      // walkthrough advanced from location straight to the category
+      // step, which is the pre-Intent-009 order — it no longer
+      // matches the app, so the walkthrough stalled on a URL that no
+      // longer exists in the flow.
       const atPhoto = /\/report\/photo/.test(page.url());
       let photoOk = false;
       if (atPhoto) {
@@ -771,27 +719,86 @@ test.describe('Role walkthrough — every persona, start to finish', () => {
         photoOk = await photoCta.isEnabled().catch(() => false);
         observe({
           role,
-          step: 'C9 — report step 3: attach a photo (mandatory)',
+          step: 'C6 — report step 2: attach a photo (mandatory)',
           outcome: photoOk ? 'pass' : 'gap',
           detail: photoOk
             ? 'Photo attaches and the Continue button enables — the mandatory-photo rule is enforced correctly.'
             : 'Photo did not attach, or Continue stayed disabled.',
-          screenshot: await capture(page, 'c9-citizen-report-photo'),
+          screenshot: await capture(page, 'c6-citizen-report-photo'),
         });
         if (photoOk) {
           await photoCta.click();
           await page
-            .waitForURL(/\/report\/note/, { waitUntil: 'commit', timeout: 30_000 })
+            .waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 })
             .catch(() => undefined);
         }
       } else {
         observe({
           role,
-          step: 'C9 — report step 3: attach a photo (mandatory)',
+          step: 'C6 — report step 2: attach a photo (mandatory)',
           outcome: 'gap',
           detail: `Never reached /report/photo (at ${new URL(page.url()).pathname}).`,
         });
       }
+
+      // --- Step C7: category step ------------------------------------------
+      // The category page renders its options client-side from
+      // `/api/report/bootstrap`, so wait for the radios to appear
+      // rather than sampling the DOM the instant the URL changes.
+      const catOptions = page.getByRole('radio');
+      await catOptions
+        .first()
+        .waitFor({ state: 'visible', timeout: 20_000 })
+        .catch(() => undefined);
+      const atCategory = /\/report\/category/.test(page.url());
+      const catCount = await catOptions.count();
+      observe({
+        role,
+        step: 'C7 — report step 3: pick a category',
+        outcome: atCategory && catCount > 0 ? 'pass' : 'gap',
+        detail:
+          atCategory && catCount > 0
+            ? `${catCount} categories offered as radio options.`
+            : `At ${new URL(page.url()).pathname}; ${catCount} category option(s) rendered.`,
+        screenshot: await capture(page, 'c7-citizen-report-category'),
+      });
+
+      // Pick the streetlight category — its department
+      // (streetlight-maintenance) is the one both Habib and Rashid
+      // are scoped to, so the dispatcher and crew can actually act.
+      const streetlight = page
+        .getByRole('radio', { name: /রাস্তার আলো|Broken streetlight|Streetlight/i })
+        .first();
+      const slVisible = await streetlight.isVisible().catch(() => false);
+      if (slVisible) {
+        await streetlight.click();
+        await page.waitForTimeout(500);
+      }
+      observe({
+        role,
+        step: 'C8 — choose "Broken streetlight" (the actionable category)',
+        outcome: slVisible ? 'pass' : 'gap',
+        detail: slVisible
+          ? 'Category selection works; streetlight routes to the streetlight-maintenance department, which both staff personas are scoped to.'
+          : 'Streetlight category option was not found.',
+      });
+
+      const catContinue = page.getByTestId('report-category-continue');
+      const catContinueEnabled = await catContinue.isEnabled().catch(() => false);
+      if (catContinueEnabled) {
+        await catContinue.click();
+        await page
+          .waitForURL(/\/report\/note/, { waitUntil: 'commit', timeout: 30_000 })
+          .catch(() => undefined);
+      }
+      observe({
+        role,
+        step: 'C9 — category → note navigation',
+        outcome: /\/report\/note/.test(page.url()) ? 'pass' : 'gap',
+        detail: /\/report\/note/.test(page.url())
+          ? 'Continue advances to the note step.'
+          : `Continue did not advance (at ${new URL(page.url()).pathname}).`,
+      });
 
       // --- Step C10: note step ---------------------------------------------
       const atNote = /\/report\/note/.test(page.url());
