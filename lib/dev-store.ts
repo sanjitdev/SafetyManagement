@@ -85,6 +85,22 @@ function dnccWardGeometry(wardNumber: number): string | null {
   return loadDnccGeometry().get(wardNumber) ?? null;
 }
 
+/**
+ * The two wards that carry a LOCALITY name.
+ *
+ * The other 52 are numbered wards with no locality name in the
+ * source data, so they are named `Ward N` / `ওয়ার্ড N` — the same
+ * naming the Prisma seed uses (`prisma/seed.ts:491-492`).
+ *
+ * 14 and 15 are named because the dispatcher-scope rules need two
+ * clearly different wards to tell apart, and because the route
+ * specs' fixtures refer to them by name.
+ */
+const WARD_NAMES: Record<number, { name: string; nameBn: string }> = {
+  14: { name: 'Ward 14 — Mirpur', nameBn: 'ওয়ার্ড ১৪ — মিরপুর' },
+  15: { name: 'Ward 15 — Cantonment', nameBn: 'ওয়ার্ড ১৫ — ক্যান্টনমেন্ট' },
+};
+
 type Role = 'citizen' | 'dispatcher' | 'crew' | 'admin';
 type TicketStatus =
   | 'submitted'
@@ -561,36 +577,40 @@ function seed(): Store {
   });
 
   const wards = new Map<string, DevWard>();
-  wards.set(wardId, {
-    id: wardId,
-    cityId,
-    number: 14,
-    name: 'Ward 14 — Mirpur',
-    nameBn: 'ওয়ার্ড ১৪ — মিরপুর',
-    polygonGeoJson: dnccWardGeometry(14),
-  });
-  // A SECOND ward in the SAME city, so the out-of-scope paths are
-  // reachable from the dev store.
+  // ALL 54 DNCC wards, so the dev store matches the real database.
   //
-  // `POST /api/tickets` validates the client-supplied ward against
-  // the session's city (app/api/tickets/route.ts:155) and rejects an
-  // unknown ward with 400 `ward_not_in_city`. With only `ward_14`
-  // seeded, there was NO way to file a ticket in a ward the
-  // dispatcher is not scoped to — so the dispatcher-scope rules
-  // ("a ticket outside my ward returns 404, not 403") could not be
-  // exercised against the dev store at all. The Prisma seed has the
-  // same gap (prisma/seed.ts seeds only `ward_14`).
+  // The Prisma seed has upserted every ward in `DNCC_WARD_NUMBERS`
+  // with the DNCC boundary geometry since 2026-11-18
+  // (prisma/seed.ts:476-497). The dev store used to seed only
+  // `ward_14` and `ward_15`, which made the dev store a REDUCED
+  // world: `/report/location` draws the wards it fetches from
+  // `GET /api/cities/[slug]/wards/geojson`, which serves the ward
+  // ROWS, so the dev-store map showed 2 polygons and 2 number
+  // discs while the real app showed 54. The geometry file itself
+  // was always complete — `dnccWardGeometry(n)` reads the same
+  // `prisma/geo/dncc-wards.geojson` the seed uses, so all 54
+  // polygons were already available; the dev store simply never
+  // created a row to hang them on.
   //
-  // The ward id is `ward_15` to match what the route specs use for
-  // their out-of-ward fixtures.
-  wards.set('ward_15', {
-    id: 'ward_15',
-    cityId,
-    number: 15,
-    name: 'Ward 15 — Cantonment',
-    nameBn: 'ওয়ার্ড ১৫ — ক্যান্টনমেন্ট',
-    polygonGeoJson: dnccWardGeometry(15),
-  });
+  // Two wards are still NAMED (14 — Mirpur and 15 — Cantonment)
+  // because the dispatcher-scope rules need a second, clearly
+  // different ward: `POST /api/tickets` validates the client-supplied
+  // ward against the session's city and rejects an unknown ward with
+  // 400 `ward_not_in_city`, so without a second ward there would be
+  // no way to file a ticket the dispatcher is not scoped to, and
+  // "a ticket outside my ward returns 404, not 403" could not be
+  // exercised at all.
+  for (let wardNo = 1; wardNo <= 54; wardNo += 1) {
+    const id = `ward_${wardNo}`;
+    wards.set(id, {
+      id,
+      cityId,
+      number: wardNo,
+      name: WARD_NAMES[wardNo]?.name ?? `Ward ${wardNo}`,
+      nameBn: WARD_NAMES[wardNo]?.nameBn ?? `ওয়ার্ড ${wardNo}`,
+      polygonGeoJson: dnccWardGeometry(wardNo),
+    });
+  }
 
   const departments = new Map<string, DevDepartment>();
   departments.set(deptIds.streetlight, {
