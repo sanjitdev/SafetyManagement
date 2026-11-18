@@ -73,6 +73,31 @@ For a real run with persistent storage.
 > *deployment* concern. A hosted Neon `DATABASE_URL` is needed only for
 > an actual production deploy.
 
+### Running BOTH modes at the same time
+
+Two `next dev` servers in one checkout share the `.next` build
+directory, and they **destroy each other**: a hot-reload in one wipes
+the other's compiled route artifacts, and the victim starts answering
+with the HTML not-found page instead of its route handler. The symptom
+is a route that "worked on the first request, then 404s forever".
+
+So the two servers need separate build directories:
+
+```bash
+npm run dev          # real Postgres, port 3000, .next
+npm run dev:store    # dev store,   port 3000+ (or -p 3100), .next-store
+```
+
+`npm run dev:store` sets `CITYFIX_DIST_DIR=.next-store`, which
+`next.config.js` turns into Next's `distDir`. If you only ever run
+ONE server, `npm run dev:feat` is fine and unchanged.
+
+**Tell-tale of the corruption:** a route's own guard returns **JSON**
+(`{"error":"not_found"}`), but the corruption returns the **HTML**
+not-found page (`Content-Type: text/html`). If you get HTML, the route
+handler was never reached — check
+`ls .next/server/app/api/<route>/` for an EMPTY directory.
+
 ### 0. The seeded personas
 
 `npm run db:seed` creates one user per role. Every seeded persona shares
@@ -196,6 +221,7 @@ All scripts are defined in `package.json`.
 |---|---|---|
 | `npm run dev` | `next dev` | Bare dev server, fails on missing DB |
 | `npm run dev:feat` | `cross-env CITYFIX_DEV_STORE=1 next dev` | **Recommended for local**; in-memory store, no DB required |
+| `npm run dev:store` | `cross-env CITYFIX_DEV_STORE=1 CITYFIX_DIST_DIR=.next-store next dev` | The same dev store, with its OWN build directory — use this when a `npm run dev` (real Postgres) server is already running |
 | `npm run build` | `prisma generate && next build` | Production build |
 | `npm run start` | `node scripts/start-next.mjs` | Production server (after `build`); auto-picks a free port |
 | `npm run typecheck` | `tsc --noEmit` | TypeScript strict compile check |
