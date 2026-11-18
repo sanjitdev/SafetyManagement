@@ -57,15 +57,18 @@ import maplibregl, {
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
 import {
-  interiorPoint,
   type WardBoundary,
 } from '@/lib/geo/ward-lookup';
 import {
   GLYPHS_URL,
   OSM_ATTRIBUTION,
   OSM_TILE_URL,
-  SYMBOL_FONT,
 } from '@/lib/map/osm-raster';
+import {
+  addWardLayers,
+  setActiveWard,
+  updateWardLayers,
+} from '@/lib/map/ward-layers';
 import { MAP_PRIMARY_COLOR } from '@/lib/ui/map-colors';
 
 interface MapViewProps {
@@ -116,51 +119,14 @@ const DHAKA_DISTRICT_LINE_LAYER_ID = 'dhaka-district-line';
 const DEDUP_RING_SOURCE_ID = 'dedup-ring';
 const DEDUP_RING_FILL_LAYER_ID = 'dedup-ring-fill';
 const DEDUP_RING_LINE_LAYER_ID = 'dedup-ring-line';
-const WARD_SOURCE_ID = 'ward-boundaries';
-const WARD_FILL_LAYER_ID = 'ward-boundaries-fill';
-const WARD_LINE_LAYER_ID = 'ward-boundaries-line';
-const WARD_HALO_LAYER_ID = 'ward-boundaries-halo';
-const WARD_ACTIVE_FILL_LAYER_ID = 'ward-boundaries-active-fill';
-const WARD_ACTIVE_LINE_LAYER_ID = 'ward-boundaries-active-line';
 /**
- * The ward-number LABELS.
- *
- * A separate Point source rather than a `text-field` on the
- * polygon layer: MapLibre renders polygon symbol labels at the
- * polygon's own centroid, which for the four concave or split DNCC
- * wards (5, 16, 32, 49) can land OUTSIDE the ward — the label
- * would then float in the neighbouring ward, which is worse than
- * no label at all. An explicit point source lets each label be
- * placed at a point verified to be inside its ward.
+ * The ward layers — their source ids, layer ids and the label
+ * geometry — live in `lib/map/ward-layers.ts` so the report map
+ * and the staff maps build the IDENTICAL mosaic. See that module
+ * for the silent-rendering-failure traps it encodes (the glyphs
+ * endpoint, EMS vs pixel offsets, and the `concat` text-field that
+ * renders no glyphs at all).
  */
-const WARD_LABEL_SOURCE_ID = 'ward-labels';
-const WARD_LABEL_LAYER_ID = 'ward-labels-label';
-const WARD_ACTIVE_LABEL_LAYER_ID = 'ward-labels-active-label';
-const WARD_ACTIVE_LABEL_DISC_LAYER_ID = 'ward-labels-active-label-disc';
-
-/**
- * How far UPWARD, in pixels, the active ward's label is drawn
- * from its anchor point.
- *
- * The active ward's label point IS the pin's position, and the
- * pin is a DOM marker that paints over the whole WebGL canvas.
- * Without this offset the active ward's number is invisible —
- * hidden under the pin it labels. 34px clears the pin's 28px
- * box plus its 3px white border.
- */
-const ACTIVE_LABEL_OFFSET_Y = -34;
-
-/**
- * The active label's `text-size`.
- *
- * `text-offset` is measured in EM, not pixels: a value of `-34`
- * with a `text-size` of 15 throws the text 510px off-screen,
- * which is how the label went from "hidden behind the pin" to
- * "not rendered at all" without any visible error. The offset is
- * therefore divided by the text size to convert the pixel
- * distance into ems.
- */
-const ACTIVE_LABEL_TEXT_SIZE = 15;
 
 /**
  * OpenStreetMap raster basemap. The free public tile
@@ -209,92 +175,6 @@ function makeCirclePolygon(
   };
 }
 
-/**
- * Turn the ward boundaries into a GeoJSON FeatureCollection
- * for the MapLibre `geojson` source.
- *
- * Each ward becomes ONE feature whose geometry is a
- * `MultiPolygon` when the ward has more than one ring
- * (wards 16 and 32 in the DNCC data are split into two
- * disjoint parts) and a `Polygon` otherwise. A single
- * feature per ward keeps the `wardId` property — and
- * therefore the active-ward `filter` — unambiguous.
- *
- * `wardId` is carried as a string property so the
- * MapLibre expression `['get', 'wardId']` can compare
- * against it directly.
- */
-function buildWardFeatureCollection(
-  boundaries: readonly WardBoundary[],
-): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = [];
-  for (const boundary of boundaries) {
-    if (boundary.rings.length === 0) continue;
-    const polygons: GeoJSON.Position[][] = boundary.rings.map((ring) => [
-      ...ring,
-      ring[0],
-    ]);
-    const geometry: GeoJSON.Geometry =
-      polygons.length === 1
-        ? { type: 'Polygon', coordinates: polygons }
-        : { type: 'MultiPolygon', coordinates: polygons.map((p) => [p]) };
-    features.push({
-      type: 'Feature',
-      properties: {
-        wardId: boundary.id,
-        wardNumber: boundary.number,
-        wardName: boundary.name,
-      },
-      geometry,
-    });
-  }
-  return { type: 'FeatureCollection', features };
-}
-
-/**
- * Build the ward-number LABEL points — one point per ward,
- * placed at a location verified to be inside that ward.
- *
- * `interiorPoint` (lib/geo/ward-lookup.ts) tries the ward's
- * area centroid first and falls back to a ring vertex, so the
- * returned point is guaranteed to lie within the ward's own
- * outline. That guarantee is the whole reason this is a
- * separate point source rather than a `text-field` on the
- * polygon layer: MapLibre's own polygon-label placement uses
- * the polygon's centroid, which for a concave ward can sit
- * outside it, and a label floating in the wrong ward is
- * worse than no label.
- *
- * A ward with no usable interior point is skipped — the label
- * is a nicety, and a missing label must never break the map.
- */
-function buildWardLabelCollection(
-  boundaries: readonly WardBoundary[],
-): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = [];
-  for (const boundary of boundaries) {
-    const point = interiorPoint(boundary);
-    if (!point) continue;
-    features.push({
-      type: 'Feature',
-      properties: {
-        wardId: boundary.id,
-        wardNumber: boundary.number,
-        // The rendered text, precomputed as a STRING.
-        //
-        // The `text-field` used to be
-        //   ['concat', '#', ['to-string', ['get', 'wardNumber']]]
-        // which produced NO visible text at all: the disc rendered
-        // but the number inside it did not. A plain
-        // `['get', 'wardLabel']` — the pattern the activity map's
-        // numbered pins already use successfully — renders.
-        wardLabel: `#${boundary.number}`,
-      },
-      geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-    });
-  }
-  return { type: 'FeatureCollection', features };
-}
 
 export default function MapView({
   lat,
@@ -403,184 +283,11 @@ export default function MapView({
       // district outline in the layer stack — the ward fill
       // is the translucent wash and the district line is the
       // crisp outer edge.
-      if (!map.getSource(WARD_SOURCE_ID)) {
-        map.addSource(WARD_SOURCE_ID, {
-          type: 'geojson',
-          data: buildWardFeatureCollection(wardBoundaries),
-        });
-        map.addLayer({
-          id: WARD_FILL_LAYER_ID,
-          type: 'fill',
-          source: WARD_SOURCE_ID,
-          paint: {
-            'fill-color': MAP_PRIMARY_COLOR,
-            // 0.1 was too faint to separate the sections from the
-            // OSM raster. At 0.18 the ward mosaic reads as a set
-            // of tinted cells while the basemap still shows
-            // through — two stacked translucent washes (this fill
-            // and the district's) would wash the map out, which
-            // is why the district fill is suppressed below.
-            'fill-opacity': 0.18,
-          },
-        });
-        // The HALO: a white line under the boundary line.
-        //
-        // A 2px blue line at 0.8 opacity still disappears where it
-        // crosses a dark or saturated OSM feature (a road casing,
-        // a water body, a building block). Drawing a wider
-        // near-white line FIRST gives the boundary a light
-        // backing, so the blue always has contrast to sit on.
-        // MapLibre paints layers in insertion order, so the halo
-        // must be added before the boundary line.
-        map.addLayer({
-          id: WARD_HALO_LAYER_ID,
-          type: 'line',
-          source: WARD_SOURCE_ID,
-          paint: {
-            'line-color': '#FFFFFF',
-            'line-width': 3.5,
-            'line-opacity': 0.75,
-          },
-        });
-        map.addLayer({
-          id: WARD_LINE_LAYER_ID,
-          type: 'line',
-          source: WARD_SOURCE_ID,
-          paint: {
-            'line-color': MAP_PRIMARY_COLOR,
-            'line-width': 1.8,
-            'line-opacity': 0.9,
-          },
-        });
-        // The ward containing the pin gets a stronger fill
-        // and a solid outline so the citizen can see which
-        // section their report will go to.
-        map.addLayer({
-          id: WARD_ACTIVE_FILL_LAYER_ID,
-          type: 'fill',
-          source: WARD_SOURCE_ID,
-          filter: ['==', ['get', 'wardId'], latestActiveWardRef.current ?? ''],
-          paint: {
-            'fill-color': MAP_PRIMARY_COLOR,
-            'fill-opacity': 0.34,
-          },
-        });
-        map.addLayer({
-          id: WARD_ACTIVE_LINE_LAYER_ID,
-          type: 'line',
-          source: WARD_SOURCE_ID,
-          filter: ['==', ['get', 'wardId'], latestActiveWardRef.current ?? ''],
-          paint: {
-            'line-color': MAP_PRIMARY_COLOR,
-            'line-width': 3,
-            'line-opacity': 1,
-          },
-        });
-
-        // The ward-number LABELS.
-        //
-        // Added LAST so the text paints over every fill and
-        // line. The label is the ward's NUMBER, prefixed with
-        // the "#" so it reads as an identifier rather than a
-        // stray digit on the map (the same treatment the
-        // ticket codes use).
-        //
-        // The label is drawn in white on a dark blue disc, which
-        // keeps it legible over both the pale ward fill and the
-        // busy OSM raster underneath. The disc is a `circle`
-        // layer paired with the `symbol` layer — the same
-        // pattern the activity map uses for its numbered pins.
-        if (!map.getSource(WARD_LABEL_SOURCE_ID)) {
-          map.addSource(WARD_LABEL_SOURCE_ID, {
-            type: 'geojson',
-            data: buildWardLabelCollection(wardBoundaries),
-          });
-          map.addLayer({
-            id: `${WARD_LABEL_LAYER_ID}-disc`,
-            type: 'circle',
-            source: WARD_LABEL_SOURCE_ID,
-            paint: {
-              'circle-color': MAP_PRIMARY_COLOR,
-              'circle-radius': 14,
-              'circle-stroke-width': 2.5,
-              'circle-stroke-color': '#FFFFFF',
-            },
-          });
-          map.addLayer({
-            id: WARD_LABEL_LAYER_ID,
-            type: 'symbol',
-            source: WARD_LABEL_SOURCE_ID,
-            layout: {
-              'text-field': ['get', 'wardLabel'],
-              'text-size': 13,
-              'text-font': [...SYMBOL_FONT],
-              // The label must NOT wrap or shrink: `text-max-width`
-              // on a two- or three-character ward number squeezes
-              // the glyphs until they are unreadable. The disc is
-              // sized to fit the widest case ("#54") instead.
-              'text-allow-overlap': true,
-              'text-justify': 'center',
-              'text-anchor': 'center',
-            },
-            paint: {
-              'text-color': '#FFFFFF',
-            },
-          });
-
-          // The ACTIVE ward's label, drawn larger and in the
-          // accent colour so the citizen can pick their own
-          // section out of the mosaic at a glance.
-          //
-          // WHY IT IS OFFSET UPWARD
-          // ------------------------
-          // The active ward is, by definition, the ward the pin
-          // is in — so its label point and the pin are at the SAME
-          // coordinate. The pin is a `maplibregl.Marker`, which
-          // renders as a DOM element ABOVE the entire WebGL
-          // canvas. A label drawn at that coordinate is therefore
-          // never visible: the pin (28px) covers the disc (34px
-          // across) completely. The active ward's number — the
-          // one number the citizen most needs — was invisible.
-          //
-          // `circle-translate` moves the disc in PIXELS;
-          // `text-offset` moves the text in EMS. The two are
-          // converted from the same pixel distance so the disc and
-          // its number stay aligned. The offset clears the pin's
-          // 28px box plus its 3px border with room to spare.
-          map.addLayer({
-            id: WARD_ACTIVE_LABEL_DISC_LAYER_ID,
-            type: 'circle',
-            source: WARD_LABEL_SOURCE_ID,
-            filter: ['==', ['get', 'wardId'], latestActiveWardRef.current ?? ''],
-            paint: {
-              'circle-color': '#FFFFFF',
-              'circle-radius': 17,
-              'circle-stroke-width': 3.5,
-              'circle-stroke-color': MAP_PRIMARY_COLOR,
-              'circle-translate': [0, ACTIVE_LABEL_OFFSET_Y],
-            },
-          });
-          map.addLayer({
-            id: WARD_ACTIVE_LABEL_LAYER_ID,
-            type: 'symbol',
-            source: WARD_LABEL_SOURCE_ID,
-            filter: ['==', ['get', 'wardId'], latestActiveWardRef.current ?? ''],
-            layout: {
-              'text-field': ['get', 'wardLabel'],
-              'text-size': ACTIVE_LABEL_TEXT_SIZE,
-              'text-font': [...SYMBOL_FONT],
-              'text-allow-overlap': true,
-              'text-justify': 'center',
-              'text-anchor': 'center',
-              // EMs, not pixels — see ACTIVE_LABEL_TEXT_SIZE.
-              'text-offset': [0, ACTIVE_LABEL_OFFSET_Y / ACTIVE_LABEL_TEXT_SIZE],
-            },
-            paint: {
-              'text-color': MAP_PRIMARY_COLOR,
-            },
-          });
-        }
-      }
+      //
+      // The layer definitions live in `lib/map/ward-layers.ts`
+      // so this map and the staff maps build the IDENTICAL
+      // mosaic — one copy of the paint properties, not three.
+      addWardLayers(map, wardBoundaries, latestActiveWardRef.current);
 
       if (!map.getSource(DHAKA_DISTRICT_SOURCE_ID)) {
         map.addSource(DHAKA_DISTRICT_SOURCE_ID, {
@@ -820,86 +527,34 @@ export default function MapView({
     }
   }, [showBoundary, wardBoundaries.length]);
 
-  // Push the ward boundaries into the map whenever they
-  // change. The source is created on `load`, so the data
-  // may arrive before or after the style is ready.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const apply = () => {
-      const source = map.getSource(WARD_SOURCE_ID) as
-        | maplibregl.GeoJSONSource
-        | undefined;
-      if (source) {
-        source.setData(buildWardFeatureCollection(wardBoundaries));
-      }
-    };
-    if (map.isStyleLoaded()) {
-      apply();
-    } else {
-      map.once('load', apply);
-    }
-  }, [wardBoundaries]);
-
-  // Push the ward-number LABELS into the map whenever the
-  // ward data changes.
+  // Push the ward boundaries AND their labels into the map
+  // whenever they change, and highlight the active ward.
   //
-  // This must mirror the effect above, and for the same
-  // reason: the label source is created inside the map's
-  // `load` handler, and the geojson fetch resolves AFTER the
-  // map has loaded (the fetch is chained off the bootstrap
-  // response). Without this re-push the labels would be
-  // created from an empty boundary list and would stay empty.
+  // The ward sources are created inside the map's `load`
+  // handler, and the geojson fetch resolves AFTER the map has
+  // loaded (the fetch is chained off the bootstrap response).
+  // Without this re-push the layers would be created from an
+  // empty boundary list and would stay empty.
+  //
+  // `updateWardLayers` pushes both the polygon source and the
+  // label source — a polygon without its label point is a mosaic
+  // with no numbers.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
-      const source = map.getSource(WARD_LABEL_SOURCE_ID) as
-        | maplibregl.GeoJSONSource
-        | undefined;
-      if (source) {
-        source.setData(buildWardLabelCollection(wardBoundaries));
-      }
+      updateWardLayers(map, wardBoundaries);
+      // The active ward's LABEL gets the same filter as the
+      // highlight fill, so the larger accent-coloured badge
+      // tracks the pin exactly as the highlight fill does.
+      setActiveWard(map, activeWardId);
     };
     if (map.isStyleLoaded()) {
       apply();
     } else {
       map.once('load', apply);
     }
-  }, [wardBoundaries]);
-
-  // Highlight the ward that contains the pin.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const apply = () => {
-      const filter: maplibregl.FilterSpecification = [
-        '==',
-        ['get', 'wardId'],
-        activeWardId ?? '',
-      ];
-      if (map.getLayer(WARD_ACTIVE_FILL_LAYER_ID)) {
-        map.setFilter(WARD_ACTIVE_FILL_LAYER_ID, filter);
-      }
-      if (map.getLayer(WARD_ACTIVE_LINE_LAYER_ID)) {
-        map.setFilter(WARD_ACTIVE_LINE_LAYER_ID, filter);
-      }
-      // The active ward's LABEL gets the same filter, so the
-      // larger accent-coloured badge tracks the pin exactly as
-      // the highlight fill does.
-      if (map.getLayer(WARD_ACTIVE_LABEL_LAYER_ID)) {
-        map.setFilter(WARD_ACTIVE_LABEL_LAYER_ID, filter);
-      }
-      if (map.getLayer(WARD_ACTIVE_LABEL_DISC_LAYER_ID)) {
-        map.setFilter(WARD_ACTIVE_LABEL_DISC_LAYER_ID, filter);
-      }
-    };
-    if (map.isStyleLoaded()) {
-      apply();
-    } else {
-      map.once('load', apply);
-    }
-  }, [activeWardId]);
+  }, [wardBoundaries, activeWardId]);
 
   return (
     <div

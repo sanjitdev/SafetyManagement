@@ -34,6 +34,7 @@ import { MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { FilterChipGroup } from '@/components/ui/FilterChipGroup';
 import { useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 
 // MapLibre is browser-only; load the page's map component on
 // the client only. The page's own state (auth gate, filters,
@@ -74,6 +75,21 @@ export default function DispatcherMapPage() {
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [dedupPendingCount, setDedupPendingCount] = useState<number>(0);
   const previousIdsRef = useRef<Set<string>>(new Set());
+
+  /**
+   * The city's ward boundaries, for the map's ward mosaic.
+   *
+   * A dispatcher triaging pins needs to see WHICH WARD each pin
+   * falls in — "reassign this to Ward 19" is meaningless without
+   * the ward sections on screen. The session carries `cityId` (not
+   * a slug), and the geojson endpoint resolves either.
+   *
+   * The fetch resolves AFTER the map's `load` event, so the map's
+   * ward layers are created empty and filled in when the data
+   * lands. A failure here is not fatal — the map still works, it
+   * just has no ward mosaic.
+   */
+  const { wards } = useWardBoundaries(session?.cityId);
 
   /**
    * The dispatcher's scope, in words.
@@ -547,6 +563,7 @@ export default function DispatcherMapPage() {
                 center={DHAKA_CENTER}
                 onPinClick={(pin) => setSelectedPin(pin)}
                 selectedPinId={selectedPin?.id ?? null}
+                wardBoundaries={wards}
               />
             )}
 

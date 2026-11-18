@@ -885,5 +885,14 @@ export async function GET(req: NextRequest) {
     stats,
     nextCursor,
     total,
+    // The city's id, so the client can fetch the city's ward
+    // GEOMETRY — the `wards` above are stubs (id, number, name)
+    // with no polygons, which is all the filter chips need.
+    //
+    // The landing page's map draws the ward mosaic, and
+    // `GET /api/cities/[slug]/wards/geojson` is keyed by city.
+    // The visitor may be anonymous, so the client has no session
+    // to read a cityId from — this is where it comes from.
+    cityId: resolvedCityId,
   });
 }

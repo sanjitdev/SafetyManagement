@@ -44,12 +44,17 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import type { WardBoundary } from '@/lib/geo/ward-lookup';
 import {
   GLYPHS_URL,
   OSM_ATTRIBUTION,
   OSM_TILE_URL,
   SYMBOL_FONT,
 } from '@/lib/map/osm-raster';
+import {
+  addWardLayers,
+  updateWardLayers,
+} from '@/lib/map/ward-layers';
 import { MAP_PRIMARY_COLOR, MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 export type MapStatus = 'submitted' | 'routed' | 'in_progress';
@@ -81,6 +86,22 @@ interface DispatcherMapProps {
   center: { lat: number; lng: number };
   onPinClick: (pin: MapPin) => void;
   selectedPinId?: string | null;
+  /**
+   * The city's ward boundaries, drawn as a mosaic under the pins.
+   *
+   * A dispatcher triaging a map of pins needs to see WHICH WARD
+   * each pin belongs to — "reassign this to Ward 19" is
+   * meaningless without the ward sections on screen. The layers
+   * are the same ones the citizen's report map uses
+   * (`lib/map/ward-layers.ts`), so the map reads identically
+   * across the citizen and staff surfaces.
+   *
+   * The geojson fetch usually resolves AFTER the map's `load`
+   * event, so the layers are created empty and filled in by
+   * `updateWardLayers` when the data arrives. Omitting the prop
+   * simply draws no ward mosaic.
+   */
+  wardBoundaries?: WardBoundary[];
 }
 
 const DHAKA_DISTRICT_SOURCE_ID = 'dhaka-district';
@@ -155,6 +176,7 @@ export default function DispatcherMap({
   center,
   onPinClick,
   selectedPinId = null,
+  wardBoundaries = [],
 }: DispatcherMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -165,6 +187,14 @@ export default function DispatcherMap({
   pinsRef.current = pins;
   const onPinClickRef = useRef(onPinClick);
   onPinClickRef.current = onPinClick;
+  // The latest ward boundaries. The map's `load` event can fire
+  // long after the geojson fetch resolves, and the geojson fetch
+  // usually resolves AFTER the map loads — so the layers created
+  // in the `load` handler must be seeded with, and later
+  // re-pushed with, the CURRENT boundaries rather than the ones
+  // captured when the map was constructed.
+  const wardBoundariesRef = useRef(wardBoundaries);
+  wardBoundariesRef.current = wardBoundaries;
 
   const clusterEnabled = pins.length > CLUSTER_THRESHOLD;
 
@@ -208,6 +238,13 @@ export default function DispatcherMap({
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     map.on('load', () => {
+      // Ward mosaic FIRST, so the ward fill and the district
+      // outline paint over it and the pins paint over both.
+      //
+      // MapLibre paints layers in insertion order, so the order
+      // of the `addLayer` calls IS the stacking order.
+      addWardLayers(map, wardBoundariesRef.current);
+
       // Dhaka District polygon (line + fill).
       if (!map.getSource(DHAKA_DISTRICT_SOURCE_ID)) {
         map.addSource(DHAKA_DISTRICT_SOURCE_ID, {
@@ -439,6 +476,26 @@ export default function DispatcherMap({
     if (!map) return;
     map.setCenter([center.lng, center.lat]);
   }, [center.lat, center.lng]);
+
+  // Push the ward boundaries into the map whenever they change.
+  //
+  // The geojson fetch resolves AFTER the map's `load` event, so
+  // the ward layers are typically created from an EMPTY boundary
+  // list. Without this re-push the mosaic would stay empty — the
+  // layers would exist and render nothing, which is exactly the
+  // silent failure this repo has been bitten by before.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      updateWardLayers(map, wardBoundaries);
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [wardBoundaries]);
 
   return (
     <div

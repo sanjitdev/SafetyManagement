@@ -56,6 +56,7 @@ import type { SerializedTicket } from '@/lib/serializers/ticket';
 import { firstDisplayablePhotoUrl, thumbnailBackground } from '@/lib/format/photo-url';
 import { ticketReference } from '@/lib/crew/ticket-reference';
 import { useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -463,6 +464,10 @@ export default function CrewPage() {
   // The shared session — one request for the whole page, shared by the
   // header, the sidebar, the user menu and this page.
   const { authenticated, session } = useSession();
+  // The city's ward boundaries, for the map's ward mosaic. The
+  // session carries `cityId` (not a slug); the geojson endpoint
+  // resolves either.
+  const { wards } = useWardBoundaries(session?.cityId);
 
   useEffect(() => {
     function syncLang() {
@@ -1235,6 +1240,7 @@ export default function CrewPage() {
                 showPinMarkers
                 userLocation={geo?.state === 'granted' ? { lat: geo.lat, lng: geo.lng } : null}
                 showRoute
+                wardBoundaries={wards}
               />
             ) : (
               <div className="crew-map-loading" />

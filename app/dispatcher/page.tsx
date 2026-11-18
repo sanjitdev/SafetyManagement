@@ -51,6 +51,7 @@ import { useLanguage } from '@/components/useLanguage';
 import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCards';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 import {
   FilterRail,
   type QueueStatusFilter,
@@ -242,6 +243,14 @@ export default function DispatcherPage() {
   const [lastPollAt, setLastPollAt] = useState<string | null>(null);
   const [dedupPendingCount, setDedupPendingCount] = useState<number>(0);
   const previousIdsRef = useRef<Set<string>>(new Set());
+  // The city's ward boundaries, for the map's ward mosaic. The
+  // session carries `cityId` (not a slug); the geojson endpoint
+  // resolves either.
+  //
+  // Named `wardBoundaries`, not `wards`: the state above is the
+  // list of wards the dispatcher may FILTER by, which is a
+  // different thing (name-only options) from the map's geometry.
+  const { wards: wardBoundaries } = useWardBoundaries(session?.cityId);
 
   useEffect(() => {
     function syncLang() {
@@ -599,7 +608,7 @@ export default function DispatcherPage() {
             <div className="dispatcher-map-legend"><span><i className="is-new" />{t('dispatcher.dashboard.new', null, lang)}</span><span><i className="is-assigned" />{t('dispatcher.dashboard.review', null, lang)}</span><span><i className="is-progress" />{t('dispatcher.dashboard.progress', null, lang)}</span><span><i className="is-resolved" />{t('dispatcher.dashboard.resolved', null, lang)}</span></div>
             <Link href="/dispatcher/map">{t('dispatcher.dashboard.full_map', null, lang)} <ICONS.forward.icon size={15} aria-hidden /></Link>
           </header>
-          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: '100%' }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} />}</div>
+          <div className="dispatcher-dashboard-map">{loading ? <SkeletonStatus lang={lang} className="dispatcher-dashboard-map-skeleton"><SkeletonBlock style={{ width: '100%', height: '100%' }} /></SkeletonStatus> : <CityActivityMap pins={dashboardPins} center={DHAKA_CENTER} wardBoundaries={wardBoundaries} />}</div>
         </article>
 
         <article className="dispatcher-panel dispatcher-recent-panel">

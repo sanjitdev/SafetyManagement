@@ -2602,6 +2602,11 @@ export const openapiPaths: Record<string, PathItem> = {
               description:
                 'How many tickets the active filter matches — the denominator for the feed’s "showing X of Y" line. Unlike the chip counts in `stats`, this is scoped to the active `status`/`ward` filter.',
             },
+            cityId: {
+              type: ['string', 'null'],
+              description:
+                'The id of the city the feed was resolved for. The `wards` above are name-only stubs, which is all the filter chips need; a client that wants the ward GEOMETRY (the landing page’s map draws the ward mosaic) fetches `GET /api/cities/{slug}/wards/geojson` with this id. The visitor may be anonymous, so this is where the client learns which city it is looking at.',
+            },
           },
         }),
         '400': { $ref: '#/components/responses/InvalidInput' },
@@ -2667,7 +2672,10 @@ export const openapiPaths: Record<string, PathItem> = {
         "Wards with no geometry are omitted. A ward's `centroid` is a placement hint (the area centroid of the largest ring, or an interior point); it is not guaranteed to be inside the ward. The client resolves a pin against the rings themselves.",
       operationId: 'getCityWardGeoJson',
       parameters: [
-        pathParam('slug', "The city's slug."),
+        pathParam(
+          'slug',
+          "The city's slug OR its id. The citizen's report flow knows the slug (it comes from `GET /api/report/bootstrap`); the STAFF surfaces know only the session's `cityId`, and the session payload carries no slug. City ids are `city_*` and slugs never are, so the two are unambiguous.",
+        ),
       ],
       responses: {
         '200': jsonResponse('The ward boundaries.', {

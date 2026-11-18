@@ -48,12 +48,17 @@ import maplibregl, {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DHAKA_DISTRICT_FEATURE_COLLECTION } from '@/lib/geo/dhaka-district';
+import type { WardBoundary } from '@/lib/geo/ward-lookup';
 import {
   GLYPHS_URL,
   OSM_ATTRIBUTION,
   OSM_TILE_URL,
   SYMBOL_FONT,
 } from '@/lib/map/osm-raster';
+import {
+  addWardLayers,
+  updateWardLayers,
+} from '@/lib/map/ward-layers';
 import { MAP_PRIMARY_COLOR, MAP_STATUS_COLORS } from '@/lib/ui/map-colors';
 
 export type CityActivityStatus =
@@ -134,6 +139,22 @@ interface CityActivityMapProps {
    * the visual promise of that route.
    */
   showRoute?: boolean;
+  /**
+   * The city's ward boundaries, drawn as a mosaic under the pins.
+   *
+   * A crew member reading a map of work sites needs to see WHICH
+   * WARD each site is in — the ward is the authorisation boundary
+   * for the work, and a site drawn in the neighbouring ward reads
+   * as the wrong job. The layers are the same ones the citizen's
+   * report map uses (`lib/map/ward-layers.ts`), so the map reads
+   * identically across the citizen and staff surfaces.
+   *
+   * The geojson fetch usually resolves AFTER the map's `load`
+   * event, so the layers are created empty and filled in by
+   * `updateWardLayers` when the data arrives. Omitting the prop
+   * simply draws no ward mosaic.
+   */
+  wardBoundaries?: WardBoundary[];
 }
 
 const DHAKA_DISTRICT_SOURCE_ID = 'dhaka-district';
@@ -389,6 +410,7 @@ export default function CityActivityMap({
   showPinMarkers = false,
   userLocation = null,
   showRoute = false,
+  wardBoundaries = [],
 }: CityActivityMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -399,6 +421,14 @@ export default function CityActivityMap({
   pinsRef.current = pins;
   const pinColorsRef = useRef({ ...PIN_COLORS, ...pinColors });
   pinColorsRef.current = { ...PIN_COLORS, ...pinColors };
+  // The latest ward boundaries. The map's `load` event can fire
+  // long after the geojson fetch resolves, and the geojson fetch
+  // usually resolves AFTER the map loads — so the layers created
+  // in the `load` handler must be seeded with, and later
+  // re-pushed with, the CURRENT boundaries rather than the ones
+  // captured when the map was constructed.
+  const wardBoundariesRef = useRef(wardBoundaries);
+  wardBoundariesRef.current = wardBoundaries;
   // The label toggle is read once at map creation (the layer is
   // added or omitted at `load` time), so it is held in a ref
   // rather than a dependency of the mount effect.
@@ -463,6 +493,13 @@ export default function CityActivityMap({
     );
 
     map.on('load', async () => {
+      // Ward mosaic FIRST, so the ward fill and the district
+      // outline paint over it and the pins paint over both.
+      //
+      // MapLibre paints layers in insertion order, so the order
+      // of the `addLayer` calls IS the stacking order.
+      addWardLayers(map, wardBoundariesRef.current);
+
       // Dhaka District polygon (line + translucent fill so
       // the basemap shows through). Same source as
       // `MapView` + `DispatcherMap`.
@@ -858,6 +895,26 @@ export default function CityActivityMap({
       map.once('load', apply);
     }
   }, [pins]);
+
+  // Push the ward boundaries into the map whenever they change.
+  //
+  // The geojson fetch resolves AFTER the map's `load` event, so
+  // the ward layers are typically created from an EMPTY boundary
+  // list. Without this re-push the mosaic would stay empty — the
+  // layers would exist and render nothing, which is exactly the
+  // silent failure this repo has been bitten by before.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      updateWardLayers(map, wardBoundaries);
+    };
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once('load', apply);
+    }
+  }, [wardBoundaries]);
 
   // Update the crew's position marker when the position changes.
   useEffect(() => {

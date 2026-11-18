@@ -41,6 +41,7 @@ import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCar
 import { StatusPill } from '@/components/ui/StatusPill';
 import { Button, FilterChipGroup } from '@/components/ui';
 import { useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import CityActivityMap, {
@@ -112,6 +113,15 @@ interface CityConfig {
     name: string;
     nameBn: string | null;
   }>;
+  /**
+   * The city's id.
+   *
+   * The visitor may be anonymous, so the session cannot be the
+   * source of the city. The public activity response carries it,
+   * and the map needs it to fetch the ward GEOMETRY — the `wards`
+   * above are name-only stubs, which is all the filter chips need.
+   */
+  cityId: string | null;
 }
 
 function formatAge(iso: string, lang: Language): string {
@@ -144,6 +154,10 @@ export default function HomePage() {
   const [userName, setUserName] = useState<string | null>(null);
   const previousIdsRef = useRef<Set<string>>(new Set());
   const { authenticated, session } = useSession();
+  // The city's ward boundaries, for the map's ward mosaic. The
+  // visitor may be anonymous, so the city comes from the public
+  // activity response (`config.cityId`) rather than the session.
+  const { wards } = useWardBoundaries(config?.cityId);
 
   useEffect(() => {
     try {
@@ -198,10 +212,12 @@ export default function HomePage() {
       const data = (await res.json()) as {
         categories: CityConfig['categories'];
         wards: CityConfig['wards'];
+        cityId?: string | null;
       };
       const next: CityConfig = {
         categories: data.categories ?? [],
         wards: data.wards ?? [],
+        cityId: data.cityId ?? null,
       };
       if (!cancelled) setConfig(next);
       return next;
@@ -513,6 +529,7 @@ export default function HomePage() {
             }))}
             center={DHAKA_CENTER}
             pinColors={HOME_MAP_COLORS}
+            wardBoundaries={wards}
           />
 
           {/* Location pill */}

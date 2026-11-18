@@ -12,6 +12,7 @@ import { KpiCards, KpiCardsSkeleton, type KpiCard } from '@/components/ui/KpiCar
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SkeletonBlock, SkeletonStatus } from '@/components/ui/Skeleton';
 import { SessionProvider, useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 import { useLanguage } from '@/components/useLanguage';
 import { ICONS } from '@/lib/ui/icon-map';
 import { DHAKA_CENTER } from '@/lib/geo/constants';
@@ -299,6 +300,10 @@ function AdminHomePageInner() {
   const [navOpen, setNavOpen] = useState(false);
   // The shared session — one request for the whole page.
   const { authenticated, session } = useSession();
+  // The city's ward boundaries, for the map's ward mosaic. The
+  // session carries `cityId` (not a slug); the geojson endpoint
+  // resolves either.
+  const { wards } = useWardBoundaries(session?.cityId);
 
   const toggleLanguage = useCallback(() => {
     const next: Language = lang === 'bn' ? 'en' : 'bn';
@@ -522,7 +527,7 @@ function AdminHomePageInner() {
                 </div>
               </header>
               <div className="admin-map-view">
-                {loading && !dashboard ? <SkeletonStatus lang={lang} className="admin-map-data-skeleton"><SkeletonBlock style={{ width: '100%', height: 262, borderRadius: 0 }} /></SkeletonStatus> : <CityActivityMap pins={pins} center={DHAKA_CENTER} pinColors={ADMIN_MAP_COLORS} />}
+                {loading && !dashboard ? <SkeletonStatus lang={lang} className="admin-map-data-skeleton"><SkeletonBlock style={{ width: '100%', height: 262, borderRadius: 0 }} /></SkeletonStatus> : <CityActivityMap pins={pins} center={DHAKA_CENTER} pinColors={ADMIN_MAP_COLORS} wardBoundaries={wards} />}
               </div>
             </article>
 

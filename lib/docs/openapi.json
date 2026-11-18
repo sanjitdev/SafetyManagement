@@ -6795,6 +6795,13 @@
                     "total": {
                       "type": "integer",
                       "description": "How many tickets the active filter matches — the denominator for the feed’s \"showing X of Y\" line. Unlike the chip counts in `stats`, this is scoped to the active `status`/`ward` filter."
+                    },
+                    "cityId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The id of the city the feed was resolved for. The `wards` above are name-only stubs, which is all the filter chips need; a client that wants the ward GEOMETRY (the landing page’s map draws the ward mosaic) fetches `GET /api/cities/{slug}/wards/geojson` with this id. The visitor may be anonymous, so this is where the client learns which city it is looking at."
                     }
                   }
                 }
@@ -7101,7 +7108,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "description": "The city's slug.",
+            "description": "The city's slug OR its id. The citizen's report flow knows the slug (it comes from `GET /api/report/bootstrap`); the STAFF surfaces know only the session's `cityId`, and the session payload carries no slug. City ids are `city_*` and slugs never are, so the two are unambiguous.",
             "schema": {
               "type": "string"
             }

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { t, type Language } from '@/lib/i18n/keys';
 import { useSession } from '@/components/SessionProvider';
+import { useWardBoundaries } from '@/components/useWardBoundaries';
 import { useLanguage } from '@/components/useLanguage';
 import CityActivityMap, {
   type CityActivityPin,
@@ -47,7 +48,11 @@ export default function CrewMapPage() {
   const [error, setError] = useState<string | null>(null);
   // The shared session — one request for the whole page, shared by the
   // header, the sidebar, the user menu and this page.
-  const { authenticated } = useSession();
+  const { authenticated, session } = useSession();
+  // The city's ward boundaries, for the map's ward mosaic. The
+  // session carries `cityId` (not a slug); the geojson endpoint
+  // resolves either.
+  const { wards } = useWardBoundaries(session?.cityId);
 
   useEffect(() => {
     function syncLang() {
@@ -181,6 +186,7 @@ export default function CrewMapPage() {
               pins={pins}
               center={DEFAULT_CENTER}
               showPinLabels
+              wardBoundaries={wards}
             />
           </div>
         )}

@@ -543,6 +543,20 @@ Uses `serializeTicketForPublic`, which strips `reporterId`, `internalNote`, `ass
 
 **Responses** — `200` `{ items: [...] }` · `429` rate limited
 
+The response also carries `cityId` — the city the feed was resolved for. The `wards` array holds name-only stubs, which is all the filter chips need; a client that wants the ward **geometry** (the landing page's map draws the ward mosaic) fetches `GET /api/cities/{slug}/wards/geojson` with that id. The visitor may be anonymous, so this is where the client learns which city it is looking at.
+
+---
+
+#### `GET /api/cities/{slug}/wards/geojson`
+
+The city's ward boundaries — one entry per ward that HAS geometry, with the rings pre-extracted into plain `[lng, lat]` arrays so the client can hand them straight to MapLibre.
+
+**Public** and city-scoped. The payload is ~58k vertices, far too large for `GET /api/report/bootstrap`, which every report step re-downloads.
+
+The path segment accepts either a city **slug** or a city **id**. The citizen's report flow knows the slug (from the report bootstrap); the staff surfaces know only the session's `cityId`, and the session payload carries no slug. City ids are `city_*` and slugs never are, so the two are unambiguous.
+
+**Responses** — `200` `{ city, wards: [...] }` · `404` `city_not_found`
+
 ---
 
 ### Admin

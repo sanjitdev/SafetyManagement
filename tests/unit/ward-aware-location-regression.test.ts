@@ -50,6 +50,22 @@ const MAP_VIEW = readFileSync(
   'utf8',
 );
 
+/**
+ * The ward LAYER definitions.
+ *
+ * They used to live inline in `components/MapView.tsx`. They now
+ * live in `lib/map/ward-layers.ts` so the citizen's report map and
+ * the STAFF maps (`/dispatcher`, `/dispatcher/map`, `/crew`,
+ * `/crew/map`, `/admin`, `/home`) build the IDENTICAL mosaic — one
+ * copy of the paint properties rather than six, each of which would
+ * be a place for the silent rendering failures documented in
+ * `feedback_maplibre_client_only_patterns` to creep in.
+ */
+const WARD_LAYERS = readFileSync(
+  path.join(ROOT, 'lib', 'map', 'ward-layers.ts'),
+  'utf8',
+);
+
 const WARD_LOOKUP = readFileSync(
   path.join(ROOT, 'lib', 'geo', 'ward-lookup.ts'),
   'utf8',
@@ -139,15 +155,15 @@ describe('the map draws the ward sections', () => {
   });
 
   it('draws a fill and a line layer for the wards', () => {
-    expect(MAP_VIEW).toMatch(/id:\s*WARD_FILL_LAYER_ID/);
-    expect(MAP_VIEW).toMatch(/id:\s*WARD_LINE_LAYER_ID/);
-    expect(MAP_VIEW).toMatch(/id:\s*WARD_ACTIVE_FILL_LAYER_ID/);
-    expect(MAP_VIEW).toMatch(/id:\s*WARD_ACTIVE_LINE_LAYER_ID/);
+    expect(WARD_LAYERS).toMatch(/id:\s*WARD_FILL_LAYER_ID/);
+    expect(WARD_LAYERS).toMatch(/id:\s*WARD_LINE_LAYER_ID/);
+    expect(WARD_LAYERS).toMatch(/id:\s*WARD_ACTIVE_FILL_LAYER_ID/);
+    expect(WARD_LAYERS).toMatch(/id:\s*WARD_ACTIVE_LINE_LAYER_ID/);
   });
 
   it('highlights the active ward by its id', () => {
     // The highlight is a `filter` on the ward's id property.
-    expect(MAP_VIEW).toMatch(/\['get',\s*'wardId'\]/);
+    expect(WARD_LAYERS).toMatch(/\['get',\s*'wardId'\]/);
   });
 
   it('suppresses the district fill while the wards are drawn', () => {

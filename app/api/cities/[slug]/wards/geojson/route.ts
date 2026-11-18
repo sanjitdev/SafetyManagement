@@ -21,6 +21,16 @@
  * So this is a PUBLIC, city-scoped, cacheable route — the same
  * posture as `GET /api/v1/activity/public`.
  *
+ * ## The path segment
+ *
+ * `[slug]` accepts EITHER a city slug OR a city id. The citizen's
+ * report flow knows the slug (it comes from `GET /api/report/bootstrap`);
+ * the staff surfaces know only the `cityId`, because that is what the
+ * session carries (`SessionScope.cityId` has no slug). Resolving
+ * either form avoids widening the session contract, which every role
+ * depends on. City ids are `city_*` and slugs never are, so the two
+ * are unambiguous.
+ *
  * ## Response shape
  *
  * The rings are PRE-EXTRACTED into plain `[lng, lat]` arrays, so
@@ -62,7 +72,22 @@ export async function GET(
   _req: Request,
   { params }: { params: { slug: string } },
 ) {
-  const city = await db.city.findUniqueBySlug({ where: { slug: params.slug } });
+  // The path segment accepts EITHER a city slug or a city id.
+  //
+  // The citizen's report flow knows the slug — it comes from
+  // `GET /api/report/bootstrap`. The STAFF surfaces know only the
+  // `cityId`, because that is what the session carries
+  // (`SessionScope.cityId`); their session payload has no slug.
+  // Rather than widen the session contract — which every role
+  // depends on — the endpoint resolves either form.
+  //
+  // City ids are `city_*` and slugs never are, so the two are
+  // unambiguous. The id is tried FIRST: a slug lookup that
+  // happened to match an id would be a silent wrong-city.
+  const segment = params.slug;
+  const city = segment.startsWith('city_')
+    ? await db.city.findUnique({ where: { id: segment } })
+    : await db.city.findUniqueBySlug({ where: { slug: segment } });
   if (!city) {
     return NextResponse.json({ error: 'city_not_found' }, { status: 404 });
   }
