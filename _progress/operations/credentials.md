@@ -129,20 +129,30 @@ POST /api/v1/auth/verify-otp
   { "phone": "+8801800000000", "code": "<read from dev:feat stdout>" }
 ```
 
-### 3. Production escape hatch (Vercel only)
+### 3. Production escape hatch — **REMOVED 2026-11-17**
 
-When `CITYFIX_DEV_PROMOTE_SECRET` is set on Vercel, the new
-`/dev/login?secret=…&next=/reports` page lets the team mint a
-session for any seed user by userId. One click, no DevTools. See
-the Bolt 008-004 commit `8402fa7`.
+**This procedure no longer works.** It used to rely on
+`CITYFIX_DEV_PROMOTE_SECRET` being set on Vercel: the
+`/dev/login?secret=…&next=/reports` page called
+`POST /api/dev/list-users` to populate a dropdown, then
+`POST /api/dev/issue-session` to mint a session.
 
-```text
-https://<vercel-host>/dev/login?secret=<CITYFIX_DEV_PROMOTE_SECRET>&next=/reports
-```
+As of 2026-11-17 all four `/api/dev/*` promote routes
+(`bootstrap-admin`, `issue-session`, `promote-admin`, `list-users`)
+return **404 in a production build**, whatever the secret happens to
+be. The `/dev/login` page therefore renders an empty list on Vercel,
+and its error message — *"list-users: 404 — CITYFIX_DEV_PROMOTE_SECRET
+is not set on this env"* — is now **misleading**: a 404 can equally
+mean the production gate fired.
 
-The page renders a `<select>` of every user in `city_dhaka_north`
-(defaulted to the first citizen). One click → `issue-session` →
-redirect to `?next=`.
+**Action item:** remove `CITYFIX_DEV_PROMOTE_SECRET` from the Vercel
+environment. It no longer buys access to anything in production, and
+a leaked value still exposes the dev tooling in every non-production
+environment.
+
+**The real path to production admin access** is the WebAuthn
+passkey flow in §4 below: the admin signs in with their own
+credentials and registers a passkey on the deployed host.
 
 ### 4. WebAuthn (admin only)
 
@@ -170,8 +180,8 @@ because the team uses the dev session for testing.
 | Demo the dispatcher flow on dev:feat | `/api/dev/login?role=dispatcher` |
 | Demo the crew flow on dev:feat | `/api/dev/login?role=crew` |
 | Demo the admin flow on dev:feat | `/api/dev/login?role=admin` |
-| Look at the Vercel production data as a citizen | `/dev/login?secret=<X>&next=/reports` |
-| Look at the Vercel production data as an admin | `/dev/login?secret=<X>&next=/admin/cities` |
+| ~~Look at the Vercel production data as a citizen~~ | **Removed 2026-11-17** — the dev routes are production-gated. Use the real auth route (§3). |
+| ~~Look at the Vercel production data as an admin~~ | **Removed 2026-11-17** — same. Use the WebAuthn flow (§4). |
 | Log in as a seed citizen with the **real** auth route | `POST /api/v1/auth/login {phone, password:"12345678", citySlug}` |
 | Register a brand-new citizen end-to-end (phone+NID+password+OTP) | `/register` → fill the form → read OTP from server stdout → `/verify-otp` |
 | Reset the dev store (wipe all tickets) | `POST /api/dev/reset` |

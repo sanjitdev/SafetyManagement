@@ -499,7 +499,7 @@
           "Auth"
         ],
         "summary": "Send a one-time password",
-        "description": "Issues an OTP for a phone number. The code is delivered by SMS; in development it is also returned in `dev_code`.",
+        "description": "Issues an OTP for a phone number. The code is delivered by SMS; on the in-memory dev store only, it is also returned in `dev_code` so a QA can complete the flow without an SMS gateway.",
         "operationId": "sendOtp",
         "security": [],
         "requestBody": {
@@ -545,8 +545,7 @@
                   "type": "object",
                   "required": [
                     "ok",
-                    "ttlMs",
-                    "dev_code"
+                    "ttlMs"
                   ],
                   "properties": {
                     "ok": {
@@ -561,7 +560,7 @@
                     },
                     "dev_code": {
                       "type": "string",
-                      "description": "The plaintext code. Present in every environment while the SMS provider is stubbed."
+                      "description": "The plaintext code. Present ONLY on the in-memory dev store (CITYFIX_DEV_STORE=1). Never returned outside it — the code is delivered by SMS."
                     }
                   }
                 }

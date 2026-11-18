@@ -10,10 +10,20 @@
  * them to /, and there is no other way to acquire the admin role
  * without going through full phone+NID+OTP+WebAuthn onboarding.
  *
- * This endpoint is gated by CITYFIX_DEV_PROMOTE_SECRET — a known
- * shared secret that must be present in the Vercel env. If it
- * isn't set, the endpoint returns 404 (the same gating pattern
- * the rest of the dev tree uses for `CITYFIX_DEV_STORE`).
+ * This endpoint is gated by CITYFIX_DEV_PROMOTE_SECRET **and** a
+ * non-production build. If the secret isn't set, the endpoint
+ * returns 404 (the same gating pattern the rest of the dev tree
+ * uses). It ALSO returns 404 when `NODE_ENV === 'production'` — the
+ * secret alone is not enough, because this route promotes a real
+ * user in REAL Prisma.
+ *
+ * The gate is on `NODE_ENV`, NOT on `isDevStore()`: this endpoint
+ * is inherently PRODUCTION-shaped. `db.user.update` (the role
+ * flip) only has a Prisma branch — the dev store's persona rows
+ * are seed-immutable and `lib/db-switch.ts` throws there. So a
+ * dev-store gate would break the endpoint outright, while a
+ * production gate removes exactly the deployment it was written
+ * for.
  *
  * On success, this endpoint:
  *   1. Reads the current session via `getActiveSession()`.
@@ -37,11 +47,20 @@ import { db, getActiveSession } from '@/lib/db-switch';
 import { writeAudit } from '@/lib/platform/audit';
 
 export async function POST(req: NextRequest) {
-  // Gate: the env var must be set, AND the caller must supply
-  // the matching secret in the X-Cityfix-Promote-Secret header.
-  // Two layers so a leaked env var alone is not enough.
+  // Gate: the env var must be set, the app must NOT be a
+  // production build, AND the caller must supply the matching
+  // secret in the X-Cityfix-Promote-Secret header.
+  //
+  // The production-build half is not redundancy. This route
+  // promotes a user to admin in REAL Prisma, so a leaked secret
+  // on the deployed environment would be a live privilege
+  // escalation. The 404 (not 403) also tells a production caller
+  // nothing about whether the secret exists.
   const expected = process.env.CITYFIX_DEV_PROMOTE_SECRET;
   if (!expected) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   const supplied = req.headers.get('x-cityfix-promote-secret');

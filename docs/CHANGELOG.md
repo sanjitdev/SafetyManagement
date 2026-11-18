@@ -378,10 +378,10 @@ Recorded here so the changelog is useful on its own. Full evidence is in the lin
 
 | Finding | Evidence |
 |---|---|
-| `dev_code` is returned in the OTP response **in every environment**, and `OTP_PROVIDER` defaults to `stub` | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
+| ~~`dev_code` is returned in the OTP response **in every environment**, and `OTP_PROVIDER` defaults to `stub`~~ — **closed 2026-11-17**; `dev_code` is dev-store only, and `stub` is rejected in a production build | `app/api/v1/auth/send-otp/route.ts`; `lib/auth/otp-provider/index.ts` |
 | ~~The OTP attempt limit is **never enforced** — `attempts` is incremented and never read; `OTP_MAX_ATTEMPTS` is imported nowhere~~ — **closed 2026-11-09** | `app/api/v1/auth/verify-otp/route.ts`; `lib/auth/otp.ts:32` |
-| Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
-| `bootstrap-admin` and `issue-session` mint **admin sessions**, bypassing both the password and WebAuthn | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` |
+| ~~Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check~~ — **closed 2026-11-17**; they now 404 in a production build too | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
+| ~~`bootstrap-admin` and `issue-session` mint **admin sessions**, bypassing both the password and WebAuthn~~ — **closed 2026-11-17**; both are unreachable in a production build | `app/api/dev/bootstrap-admin/route.ts`; `app/api/dev/issue-session/route.ts` |
 
 ### High — the structural cause
 
@@ -420,11 +420,11 @@ Derived from [PRODUCTION_READINESS_CHECKLIST.md](PRODUCTION_READINESS_CHECKLIST.
 
 **Before any production traffic**
 
-1. Gate the four `/api/dev/*` routes on `isDevStore()` — four lines; deletes the largest hole.
-2. Guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `twilio` in production.
-3. Read `attempts`; return 429 at the limit and lock the row. This also makes the route's own docstring true.
-4. Add a production guard on `CITYFIX_DEV_STORE` — one guard closes the whole class.
-5. Verify the four dangerous env vars in the deployed environment.
+1. ~~Gate the four `/api/dev/*` routes out of production~~ — **done, closed 2026-11-17** (the gate is on `NODE_ENV`, not `isDevStore()`).
+2. ~~Guard `dev_code` on the dev store and reject `OTP_PROVIDER=stub` in production~~ — **done, closed 2026-11-17**.
+3. ~~Read `attempts`; return 429 at the limit and lock the row~~ — **done, closed 2026-11-09**.
+4. Add a production guard on `CITYFIX_DEV_STORE` — one guard closes the whole class. **Still open.**
+5. Verify the four dangerous env vars in the deployed environment. **Still open.**
 
 **Next — correctness**
 

@@ -24,6 +24,23 @@ import { resetStore } from '@/lib/dev-store';
 
 const ORIGINAL_ENV = { ...process.env };
 
+/**
+ * Set env vars for one test.
+ *
+ * `process.env.NODE_ENV` is typed as a readonly literal union by
+ * `@types/node`, so a direct `process.env.NODE_ENV = 'production'` is
+ * a TS2540 compile error ("Cannot assign to 'NODE_ENV' because it is
+ * a read-only property"). Writing through a dynamically-keyed index
+ * sidesteps that typing — the same approach the sibling
+ * `tests/unit/platform/db-guard.test.ts` uses.
+ */
+function setEnv(env: Record<string, string | undefined>): void {
+  for (const [k, v] of Object.entries(env)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+}
+
 beforeEach(() => {
   process.env.CITYFIX_DEV_STORE = '1';
   process.env.DEV_SKIP_WEBAUTHN = '1';
@@ -178,11 +195,38 @@ describe('TwilioProvider retry policy (Bolt 005-003 / ADR-012)', () => {
 describe('getOtpProvider factory (Bolt 005-003 / ADR-012)', () => {
   it("returns StubProvider when OTP_PROVIDER is unset (dev default)", () => {
     delete process.env.OTP_PROVIDER;
+    // The stub is a DEVELOPMENT tool — it is rejected outright in a
+    // production build (see the next test). This case runs with
+    // NODE_ENV='test', so the guard does not fire and the dev
+    // default still holds.
     const provider = getOtpProvider();
     expect(provider.name).toBe('stub');
   });
 
-  it("returns StubProvider when OTP_PROVIDER === 'stub'", () => {
+  it('THROWS when OTP_PROVIDER resolves to stub in a production build', () => {
+    // A missing OTP_PROVIDER used to silently downgrade the
+    // deployed app to a no-op provider that logs codes to the
+    // console — a failure that looks like success until a real
+    // user tries to log in. The factory must now fail LOUDLY.
+    //
+    // `process.env.NODE_ENV` is typed as a readonly literal union
+    // by `@types/node`, so a direct assignment is a TS2540 compile
+    // error. Writing through a dynamically-keyed index sidesteps
+    // that typing — the same approach the sibling
+    // `tests/unit/platform/db-guard.test.ts` uses.
+    delete process.env.OTP_PROVIDER;
+    const originalNodeEnv = process.env.NODE_ENV;
+    setEnv({ NODE_ENV: 'production' });
+    __resetOtpProviderForTests();
+    try {
+      expect(() => getOtpProvider()).toThrow(/not allowed in production/);
+    } finally {
+      setEnv({ NODE_ENV: originalNodeEnv });
+      __resetOtpProviderForTests();
+    }
+  });
+
+  it("returns StubProvider when OTP_PROVIDER === 'stub' (outside production)", () => {
     process.env.OTP_PROVIDER = 'stub';
     const provider = getOtpProvider();
     expect(provider.name).toBe('stub');

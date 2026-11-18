@@ -8,9 +8,24 @@
  * companion /dev/login page can render a `<select>` of all users
  * in the caller's city.
  *
- * Gated by CITYFIX_DEV_PROMOTE_SECRET — same shared-secret header
- * pattern as issue-session / promote-admin / bootstrap-admin.
- * Returns 404 if the env var is unset.
+ * Gated by CITYFIX_DEV_PROMOTE_SECRET **and** a non-production
+ * build — same shared-secret header pattern as issue-session /
+ * promote-admin / bootstrap-admin. Returns 404 if the env var is
+ * unset, and 404 if `NODE_ENV === 'production'`.
+ *
+ * The production half of the gate matters here too: this endpoint
+ * enumerates every user's id, name, role and phone in the city, and
+ * that directory is exactly what an attacker needs to drive
+ * `bootstrap-admin` and `issue-session`. In production it must not
+ * be reachable at all.
+ *
+ * The gate is on `NODE_ENV`, NOT on `isDevStore()`: the directory
+ * this endpoint returns is only useful against the REAL database —
+ * the dev store's persona ids are fixed and already public in the
+ * seed. So a dev-store gate would make the endpoint useless where
+ * it is wanted and would not have removed the production leak,
+ * while a production gate removes exactly the deployment it must
+ * never run in.
  *
  * Body: { citySlug?: string, role?: 'citizen'|'dispatcher'|'crew'|'admin' }
  *   - `citySlug` defaults to `dhaka-north`, the v1.1-launch seed city.
@@ -36,6 +51,12 @@ function isRole(value: unknown): value is Role {
 export async function POST(req: NextRequest) {
   const expected = process.env.CITYFIX_DEV_PROMOTE_SECRET;
   if (!expected) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  // The dev routes must not run in a PRODUCTION BUILD — see the
+  // route's docblock. The 404 (not 403) also tells a production
+  // caller nothing about whether the secret exists.
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   const supplied = req.headers.get('x-cityfix-promote-secret');

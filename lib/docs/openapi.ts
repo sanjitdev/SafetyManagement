@@ -984,7 +984,7 @@ export const openapiPaths: Record<string, PathItem> = {
       tags: ['Auth'],
       summary: 'Send a one-time password',
       description:
-        'Issues an OTP for a phone number. The code is delivered by SMS; in development it is also returned in `dev_code`.',
+        'Issues an OTP for a phone number. The code is delivered by SMS; on the in-memory dev store only, it is also returned in `dev_code` so a QA can complete the flow without an SMS gateway.',
       operationId: 'sendOtp',
       security: [],
       requestBody: jsonBody({
@@ -999,11 +999,11 @@ export const openapiPaths: Record<string, PathItem> = {
       responses: {
         '200': jsonResponse('The OTP was issued.', {
           type: 'object',
-          required: ['ok', 'ttlMs', 'dev_code'],
+          required: ['ok', 'ttlMs'],
           properties: {
             ok: { type: 'boolean', enum: [true] },
             ttlMs: { type: 'integer', description: 'The code’s lifetime in milliseconds.' },
-            dev_code: { type: 'string', description: 'The plaintext code. Present in every environment while the SMS provider is stubbed.' },
+            dev_code: { type: 'string', description: 'The plaintext code. Present ONLY on the in-memory dev store (CITYFIX_DEV_STORE=1). Never returned outside it — the code is delivered by SMS.' },
           },
         }),
         '400': jsonResponse('Validation failed.', issuesBody('invalid_input')),

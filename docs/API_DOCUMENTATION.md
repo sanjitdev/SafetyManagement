@@ -161,7 +161,7 @@ Request an SMS OTP.
 
 **Responses** — `200` `{ ok: true, ttlMs: 300000, dev_code?: string }` · `429` rate limited / resend cooldown (60 s)
 
-> ⚠️ **`dev_code` is currently returned unconditionally, in every environment.** See [SECURITY_AUDIT.md §1.3](SECURITY_AUDIT.md#13-otp-flow) (finding #1, Critical). Treat this endpoint as unsafe to expose until fixed.
+> **`dev_code` is returned ONLY on the in-memory dev store** (`CITYFIX_DEV_STORE=1`), where a QA needs to type the code in without an SMS gateway. Outside the dev store the response is `{ ok, ttlMs }` and the code goes out over SMS — the plaintext is never in the response body. Fixed 2026-11-17; see [SECURITY_AUDIT.md §1.3](SECURITY_AUDIT.md#13-otp-flow) (finding #1) and `tests/unit/auth/otp-dev-code.test.ts`.
 
 ---
 
@@ -691,12 +691,14 @@ Both are **public and un-rate-limited** by design — Swagger's "Try it out" fet
 |---|---|---|---|
 | `/api/dev/login` | GET, POST | `isDevStore()` → 404 | Sign in as a seeded persona |
 | `/api/dev/reset` | POST | `isDevStore()` → 404 | Reset the dev store |
-| `/api/dev/bootstrap-admin` | POST | **`CITYFIX_DEV_PROMOTE_SECRET` only** | Promote a citizen to admin **and mint an admin session** |
-| `/api/dev/issue-session` | POST | **`CITYFIX_DEV_PROMOTE_SECRET` only** | Mint a session for any userId, bypassing the password |
-| `/api/dev/promote-admin` | POST | **`CITYFIX_DEV_PROMOTE_SECRET` only** | Promote the session's user to admin |
-| `/api/dev/list-users` | POST | **`CITYFIX_DEV_PROMOTE_SECRET` only** | List users with roles and phone numbers |
+| `/api/dev/bootstrap-admin` | POST | `CITYFIX_DEV_PROMOTE_SECRET` **and** non-production build → 404 | Promote a citizen to admin **and mint an admin session** |
+| `/api/dev/issue-session` | POST | `CITYFIX_DEV_PROMOTE_SECRET` **and** non-production build → 404 | Mint a session for any userId, bypassing the password |
+| `/api/dev/promote-admin` | POST | `CITYFIX_DEV_PROMOTE_SECRET` **and** non-production build → 404 | Promote the session's user to admin |
+| `/api/dev/list-users` | POST | `CITYFIX_DEV_PROMOTE_SECRET` **and** non-production build → 404 | List users with roles and phone numbers |
 
-> ⚠️ The last four are **not** gated on `isDevStore()`, unlike the first two. A single leaked static secret yields unauthenticated privilege escalation to admin. See findings #3 and #4, Critical.
+> The last four are **doubly gated**: the shared secret *and* a `NODE_ENV !== 'production'` check. They return 404 in a production build whatever the secret happens to be, so a leaked static secret yields nothing there. Fixed 2026-11-17; see findings #3 and #4 in [SECURITY_AUDIT.md](SECURITY_AUDIT.md) and `tests/unit/auth/dev-route-gating.test.ts`.
+>
+> The gate is on `NODE_ENV`, not `isDevStore()`: the first two routes work against the dev store, but the promote routes perform a role flip that only has a Prisma branch — the dev store's persona rows are seed-immutable.
 
 ---
 

@@ -10,6 +10,21 @@
  * it in without an SMS gateway. **Never** include the code in the prod
  * response.
  *
+ * ── When the code is included ────────────────────────────────────
+ *
+ * `dev_code` is included ONLY when `isDevStore()` is true — i.e. when
+ * the app is running against the in-memory dev store. That is the
+ * discriminator, NOT the OTP provider: the provider is `stub` in the
+ * deployed app too (`_progress/operations/cityfix-deployment.md`),
+ * so a provider-conditional check would leak the code in exactly
+ * the environment where leaking it matters most.
+ *
+ * This used to be unconditional. The response carried the plaintext
+ * code on EVERY request, in every environment, which is a complete
+ * account takeover: request an OTP for any phone number, read the
+ * code out of the response, verify it, and you are that user.
+ * `tests/unit/auth/otp-dev-code.test.ts` pins the guard.
+ *
  * Bolt 005-003 (Intent 005, Unit 003, Story ADM-006):
  * the SMS delivery goes through the provider-agnostic
  * `sendOtp(...)` helper (lib/auth/otp.ts), which delegates
@@ -31,6 +46,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db-switch';
+import { isDevStore } from '@/lib/dev-store';
 import { generateOtp, hashOtp, OTP_TTL_MS, sendOtp } from '@/lib/auth/otp';
 import { rateLimit } from '@/lib/platform/rate-limit';
 import { writeAudit } from '@/lib/platform/audit';
@@ -149,20 +165,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // While OTP_PROVIDER=stub, surface the code in the
-  // response so the citizen can complete the flow.
-  // The verify-otp page reads `dev_code` and renders
-  // it in a "Dev code" hint box (yellow warning style,
-  // marked "(dev only — production sends SMS)" so the
-  // path is obvious). When the real Twilio provider
-  // lands (v1.1), this returns to the dev-only branch
-  // and the response becomes `{ ok, ttlMs }` again.
-  return NextResponse.json(
-    {
-      ok: true,
-      ttlMs: OTP_TTL_MS,
-      dev_code: code,
-    },
-    { status: 200 },
-  );
+  // The code is surfaced ONLY in the dev store, so the citizen
+  // (or a QA) can complete the flow without an SMS gateway.
+  // The verify-otp page reads `dev_code` and renders it in a
+  // "Dev code" hint box (yellow warning style, marked "(dev
+  // only — production sends SMS)" so the path is obvious).
+  //
+  // Outside the dev store the response carries no code at all:
+  // `{ ok, ttlMs }`. The code went out over SMS (or nowhere, and
+  // the 502 above already said so).
+  const responseBody: { ok: true; ttlMs: number; dev_code?: string } = {
+    ok: true,
+    ttlMs: OTP_TTL_MS,
+  };
+  if (isDevStore()) responseBody.dev_code = code;
+  return NextResponse.json(responseBody, { status: 200 });
 }

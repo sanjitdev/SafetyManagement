@@ -109,8 +109,8 @@ echo 'DATABASE_URL="postgresql://user:pass@localhost:5432/cityfix"' >> .env
 # Session signing key — must be ≥32 characters
 echo 'SESSION_SECRET="'"$(openssl rand -hex 32)"'"' >> .env
 
-# Optional: real OTP provider (v1.1; otherwise the stub logs
-# the code to Vercel function logs + returns it in dev_code)
+# Optional: real OTP provider (v1.1; the stub only logs the code
+# to the console and is REJECTED in a production build)
 # echo 'OTP_PROVIDER=twilio' >> .env
 # echo 'TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' >> .env
 # echo 'TWILIO_AUTH_TOKEN=your_token' >> .env
@@ -122,8 +122,9 @@ echo 'SESSION_SECRET="'"$(openssl rand -hex 32)"'"' >> .env
 > `CITYFIX_DEV_STORE=1` disables the database, **unsigns the session
 > cookie** and bypasses the WebAuthn gate. `DEV_SKIP_WEBAUTHN=1`
 > bypasses WebAuthn entirely. `CITYFIX_DEV_PROMOTE_SECRET` gates four
-> privilege-escalation routes that are *not* dev-store-gated — a
-> leaked secret there yields unauthenticated admin access.
+> privilege-escalation routes; since 2026-11-17 those routes also
+> 404 in a production build, so a leaked secret yields nothing there
+> — but keep the variable unset anyway.
 > See [DEPLOYMENT_GUIDE.md §3](DEPLOYMENT_GUIDE.md#3-environment-variables).
 
 > **`NODE_ENV=production` refuses a loopback `DATABASE_URL`.** The
@@ -285,9 +286,10 @@ curl -i 'http://localhost:3000/api/dev/reset'
 `/api/dev/login` and `/api/dev/reset` are no-ops in production (gated
 by `process.env.CITYFIX_DEV_STORE === '1'`).
 
-> **Four sibling routes are gated on the secret only, not the dev
-> store** — `bootstrap-admin`, `issue-session`, `promote-admin` and
-> `list-users`. Two of them mint admin sessions. Keep
+> **Four sibling routes need the secret AND a non-production build**
+> — `bootstrap-admin`, `issue-session`, `promote-admin` and
+> `list-users`. Two of them mint admin sessions. They return 404
+> whenever `NODE_ENV=production`, whatever the secret is. Keep
 > `CITYFIX_DEV_PROMOTE_SECRET` unset in production. See
 > [SECURITY_AUDIT.md §2](SECURITY_AUDIT.md#2-authorization) and
 > [KNOWN_ISSUES.md #3](KNOWN_ISSUES.md#3-four-apidev-routes-are-not-dev-store-gated).
@@ -381,10 +383,10 @@ There is no separate backend service. The API surface is the
 
 - `app/api/dev/login/route.ts` — role-shortcut session bootstrap (dev-store gated)
 - `app/api/dev/reset/route.ts` — wipe + reseed the in-memory store (dev-store gated)
-- `app/api/dev/bootstrap-admin/route.ts` — **secret-gated only**
-- `app/api/dev/issue-session/route.ts` — **secret-gated only**
-- `app/api/dev/promote-admin/route.ts` — **secret-gated only**
-- `app/api/dev/list-users/route.ts` — **secret-gated only**
+- `app/api/dev/bootstrap-admin/route.ts` — **secret-gated + non-production build**
+- `app/api/dev/issue-session/route.ts` — **secret-gated + non-production build**
+- `app/api/dev/promote-admin/route.ts` — **secret-gated + non-production build**
+- `app/api/dev/list-users/route.ts` — **secret-gated + non-production build**
 
 All handlers go through the service layer in `lib/` — no raw Prisma
 or raw SQL in route handlers (per the Forbidden rules in
@@ -436,7 +438,7 @@ node scripts/ci-env.mjs npx next build
 | `PrismaClientInitializationError: loopback DATABASE_URL rejected` | The db-guard fired | **Expected in production mode.** Use a hosted Postgres, or run in dev mode |
 | Map shows blank tiles on `/home` | OSM tile CDN unreachable from your network | Check `https://tile.openstreetmap.org/{z}/{x}/{y}.png` in a browser. (Per project memory, the OSM Tile Usage Policy forbids heavy production use — a paid provider is the scale path.) |
 | Bangla text renders in the wrong font | The webfont is blocked — `fonts.googleapis.com` missing from `style-src` or `fonts.gstatic.com` from `font-src` | Check the CSP in `next.config.js` |
-| `OTP_PROVIDER=twilio` but SMS doesn't send | Missing Twilio credentials or from-number | Check `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER`; falls back to the stub provider if any is missing |
+| `OTP_PROVIDER=twilio` but SMS doesn't send | Missing Twilio credentials or from-number | Check `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER`; the provider **throws** if any is missing — it does not fall back to the stub |
 | `400` on `/api/v1/auth/register` | Validation failed (Zod) | Inspect response body — usually a missing field or weak password. The platform requires `phone` (E.164), `nid` (BD format), `password` (≥ 8 chars), and `name` |
 | Stale data after edits | In-memory store from a previous `dev:feat` | `curl http://localhost:3000/api/dev/reset` to wipe + reseed, then restart the server |
 | Playwright baselines failing | Visual regression after a real change | Check whether the mockup changed without a baseline refresh. Refresh baselines **in CI** via `gh workflow run regenerate-baselines.yml` — never locally |

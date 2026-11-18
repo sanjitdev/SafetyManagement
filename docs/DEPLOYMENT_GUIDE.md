@@ -38,7 +38,7 @@ CityFix is a **single full-stack Next.js 14 app**. There is no separate backend 
 | Node.js | **22 for CI**, ≥20 for runtime | `engines.node: >=20.0.0`. CI uses 22 — see [TESTING_REPORT.md §5](TESTING_REPORT.md#the-node-22-requirement) |
 | PostgreSQL | 16 | Neon or equivalent managed Postgres |
 | Vercel account | — | Project already linked (`.vercel/project.json`) |
-| Twilio account | — | Only if `OTP_PROVIDER=twilio` |
+| Twilio account | — | **Required in production** — `OTP_PROVIDER=stub` is rejected there |
 
 ---
 
@@ -53,7 +53,7 @@ CityFix is a **single full-stack Next.js 14 app**. There is no separate backend 
 | `WEBAUTHN_RP_ID` | `cityfix-bd.vercel.app` | Must **not** be `localhost` in production |
 | `WEBAUTHN_RP_ORIGIN` | `https://cityfix-bd.vercel.app` | Must be `https://` in production |
 | `WEBAUTHN_RP_NAME` | `CityFix` | |
-| `OTP_PROVIDER` | `twilio` | ⚠️ **Defaults to `stub` if unset** — see below |
+| `OTP_PROVIDER` | `twilio` | ⚠️ **The `stub` provider is rejected in a production build.** `lib/auth/otp-provider/index.ts` throws if the resolved provider is `stub` while `NODE_ENV=production` — a missing env var is a loud failure, not a silent downgrade |
 
 ### Required when `OTP_PROVIDER=twilio`
 
@@ -83,9 +83,9 @@ CityFix is a **single full-stack Next.js 14 app**. There is no separate backend 
 |---|---|
 | `CITYFIX_DEV_STORE` | ⚠️ **No production guard exists.** Setting it disables the database, **unsigns the session cookie**, and bypasses the WebAuthn gate. See [SECURITY_AUDIT.md §5.4](SECURITY_AUDIT.md#54-production-db-guard--libplatformdb-guardts) |
 | `DEV_SKIP_WEBAUTHN` | Bypasses the entire WebAuthn gate. Correctly double-gated on `isDevStore()`, but do not rely on that alone |
-| `CITYFIX_DEV_PROMOTE_SECRET` | Gates four privilege-escalation endpoints that are **not** `isDevStore()`-gated |
+| `CITYFIX_DEV_PROMOTE_SECRET` | Gates four privilege-escalation endpoints (`bootstrap-admin`, `issue-session`, `promote-admin`, `list-users`). Since 2026-11-17 they are **doubly gated** — they 404 in a production build whatever the secret is — but a leaked secret still exposes the dev tooling everywhere else |
 
-> **The first action item before any production launch is to check these three in the deployed environment.** Whether they are set determines whether [SECURITY_AUDIT.md](SECURITY_AUDIT.md) findings #1, #3 and #4 are theoretical or live.
+> **The first action item before any production launch is to check these three in the deployed environment.** Whether they are set determines whether [SECURITY_AUDIT.md](SECURITY_AUDIT.md) findings #1, #3 and #4 are theoretical or live. As of 2026-11-17 findings #1, #3 and #4 are closed **in code** — the env vars still need checking for the remaining defence-in-depth gaps.
 
 ---
 
@@ -185,7 +185,7 @@ Run through this before the first production traffic.
 - [ ] `SESSION_SECRET` is ≥32 random characters, unique to this deployment
 - [ ] `WEBAUTHN_RP_ID` is the production hostname
 - [ ] `WEBAUTHN_RP_ORIGIN` is the production https origin
-- [ ] `OTP_PROVIDER=twilio` — **not** the default `stub`
+- [ ] `OTP_PROVIDER=twilio` — **not** the default `stub` (the stub is rejected in a production build)
 - [ ] `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` are set
 - [ ] `BLOB_PROVIDER=s3` with the S3 credentials and `BLOB_PUBLIC_BASE_URL`
 - [ ] `CITYFIX_DEV_STORE` is **unset**
@@ -194,11 +194,12 @@ Run through this before the first production traffic.
 
 ### Code
 
-- [ ] The four `/api/dev/*` promote routes are `isDevStore()`-gated (finding #3) — **or the routes are deleted**
-- [ ] `dev_code` is not returned in the OTP response (finding #1)
+- [x] The four `/api/dev/*` promote routes are gated on a non-production build (finding #3) — **done 2026-11-17**
+- [x] `dev_code` is only returned on the dev store (finding #1) — **done 2026-11-17**
+- [x] The `stub` OTP provider is rejected in production (finding #1, root cause) — **done 2026-11-17**
 - [x] `OTP_MAX_ATTEMPTS` is enforced (finding #2) — **done 2026-11-09**
 - [x] `PUT /api/profile` is WebAuthn-gated (finding #5) — **done 2026-11-09**
-- [ ] WebAuthn challenges are consumed on use (finding #6)
+- [x] WebAuthn challenges are consumed on use (finding #6) — **done 2026-11-09**
 
 ### Verification
 
@@ -264,7 +265,7 @@ The app loads Noto Sans Bengali from Google Fonts. If `fonts.googleapis.com` is 
 
 ### "SMS is not being delivered"
 
-1. Confirm `OTP_PROVIDER=twilio` — if unset, the default is `stub`, which only logs the code.
+1. Confirm `OTP_PROVIDER=twilio` — if it is unset or `stub`, the provider **throws** in a production build rather than silently logging the code. The send-otp route then returns `502 sms_provider_failure`.
 2. Confirm all three `TWILIO_*` variables are set — the provider throws if any is missing.
 3. Check `TWILIO_FROM_NUMBER` is E.164.
 4. The Twilio provider has a 3-attempt backoff (`[100, 200, 400]ms`) and treats 4xx as permanent.

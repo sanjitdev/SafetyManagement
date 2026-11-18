@@ -80,14 +80,18 @@ Dedup-flag resolve is server-only (not a page):
 
 ## Dev tooling (gated by `CITYFIX_DEV_PROMOTE_SECRET`)
 
+**None of the promote routes work on the deployed Vercel build.** Since
+2026-11-17 they 404 whenever `NODE_ENV === 'production'`, whatever the
+secret is.
+
 | URL | File | How to get there |
 |---|---|---|
-| `/dev/login?secret=<X>&next=/reports` | `app/dev/login/page.tsx` | Bookmark the URL with the secret pre-filled. One click mints a session and redirects. |
-| `POST /api/dev/issue-session` | `app/api/dev/issue-session/route.ts` | Direct API call from `curl` or from `/dev/login`. Body: `{ userId }`. |
-| `POST /api/dev/list-users` | `app/api/dev/list-users/route.ts` | Used by `/dev/login` to populate the `<select>`. |
+| `/dev/login?secret=<X>&next=/reports` | `app/dev/login/page.tsx` | **Dev builds only** — on the Vercel build `list-users` 404s and the page renders an empty list. Bookmark the URL with the secret pre-filled. One click mints a session and redirects. |
+| `POST /api/dev/issue-session` | `app/api/dev/issue-session/route.ts` | Direct API call from `curl` or from `/dev/login`. Body: `{ userId }`. **Dev builds only.** |
+| `POST /api/dev/list-users` | `app/api/dev/list-users/route.ts` | Used by `/dev/login` to populate the `<select>`. **Dev builds only.** |
 | `POST /api/dev/login?role=citizen\|dispatcher\|crew\|admin` | `app/api/dev/login/route.ts` | Dev-mode-only. Mints a session for the named persona. 303-redirects to that role's home. Returns 404 when `CITYFIX_DEV_STORE` is unset (i.e. on the Vercel build). |
-| `POST /api/dev/bootstrap-admin` | `app/api/dev/bootstrap-admin/route.ts` | Production-only. Promotes a phone-keyed user to admin and mints a session, in one call. |
-| `POST /api/dev/promote-admin` | `app/api/dev/promote-admin/route.ts` | Production-only. Promotes the current session's user to admin (one-shot bootstrap). |
+| `POST /api/dev/bootstrap-admin` | `app/api/dev/bootstrap-admin/route.ts` | Promotes a phone-keyed user to admin and mints a session, in one call. **Not reachable in a production build.** |
+| `POST /api/dev/promote-admin` | `app/api/dev/promote-admin/route.ts` | Promotes the current session's user to admin (one-shot bootstrap). **Not reachable in a production build.** |
 | `POST /api/dev/reset` | `app/api/dev/reset/route.ts` | Dev-mode-only. Wipes the in-memory dev store and re-seeds it. |
 
 ---
@@ -131,5 +135,5 @@ Dedup-flag resolve is server-only (not a page):
 - **New citizen, full flow**: `/splash` → `/home` → `/report/category` → `/report/location` → `/report/photo` → `/report/note` → `/report/summary` → `/report/[id]/submitted` → back to `/home` → click the new row → `/reports/[id]`
 - **Dispatcher workflow**: `/dispatcher` → click a row → `/dispatcher/tickets/[id]` → pick a crew → click **Route** → ticket status becomes `routed`
 - **Crew workflow**: `/crew` → click a row → `/crew/tickets/[id]` → click **In progress** → upload after-photo → type a resolution note → click **Resolved**
-- **Admin on Vercel**: `/dev/login?secret=…&next=/admin` → the console cards → click a city → tabs for `setup` / `wards` / `taxonomy` → `/admin/tickets` for the read-only cross-city feed → `/admin/audit` for the audit log
-- **Production citizen on Vercel, the team needs to look at the data without sending the citizen an OTP**: `/dev/login?secret=…&next=/reports` (one click, redirects to a citizen session for whoever you pick from the dropdown)
+- **Admin on Vercel**: ~~`/dev/login?secret=…&next=/admin`~~ — **no longer works** (the dev routes are production-gated as of 2026-11-17). Use the real admin sign-in + WebAuthn passkey.
+- **Production citizen on Vercel, the team needs to look at the data without sending the citizen an OTP**: ~~`/dev/login?secret=…&next=/reports`~~ — **no longer works** (the dev routes are production-gated as of 2026-11-17).

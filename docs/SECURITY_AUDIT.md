@@ -13,14 +13,14 @@
 
 | Severity | Count | Blockers for production launch? |
 |---|---|---|
-| Critical | 3 | Yes — 2 of the 3 are reachable without any credential |
+| Critical | 0 | No — all three open Critical findings were closed on 2026-11-17 |
 | High | 2 | Yes — each independently breaks the ADR-007 threat model |
 | Medium | 5 | Should fix before scale-out, not before pilot |
 | Low | 4 | No |
 
-*Counts are the OPEN findings. Three have been closed since the audit: the unenforced OTP attempt limit (Critical #2), the ungated `PUT /api/profile` admin write (High #5), and the unconsumed WebAuthn challenge (High #6), all on 2026-11-09.*
+*Counts are the OPEN findings. Six have been closed since the audit: the unenforced OTP attempt limit (Critical #2), the ungated `PUT /api/profile` admin write (High #5), and the unconsumed WebAuthn challenge (High #6), all on 2026-11-09; then the unconditional `dev_code` leak and the silent `OTP_PROVIDER=stub` default (Critical #1), and the four production-reachable `/api/dev/*` privilege-escalation routes (Critical #3 and #4), all on 2026-11-17.*
 
-**Verdict: NOT production-ready.** The three open Critical findings are all *configuration-reachable* rather than theoretical — they only become harmless if the deployment's environment variables are set exactly right, and nothing in the codebase enforces that. The single highest-leverage fix is adding an `isDevStore()` guard to four `/api/dev/*` routes (four lines of code).
+**Verdict: NOT production-ready — but the three Critical findings are closed.** As of 2026-11-17 the OTP plaintext leak and the four production-reachable `/api/dev/*` routes are closed **in code**, with non-vacuous regression tests. The remaining Critical-adjacent gap is the **deployed environment's configuration**, which the code cannot decide: `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` must be verified against the real hosting dashboard. Note that `OTP_PROVIDER=stub` is now rejected in a production build, so a missing value fails loudly rather than silently — but the two High findings (#7, #8) are still open.
 
 The strongest part of this codebase is the discipline around the `/api/v1/admin/*` tree: every one of those write handlers calls `requireRole` → `await requireWebAuthn` → `writeAudit`, and the ADR-007 test suite exercises the shared transition route through its real dependency graph rather than with mocks. The weakness is the one ADR-007 itself predicted (lines 229–234): the rule was enforced by *convention* (path layout) before it was enforced by *role*.
 
@@ -30,10 +30,10 @@ The strongest part of this codebase is the discipline around the `/api/v1/admin/
 
 | # | Severity | Finding | Evidence | Remediation |
 |---|---|---|---|---|
-| 1 | **Critical** | OTP plaintext is returned in the API response **in every environment** | `app/api/v1/auth/send-otp/route.ts:160-167`; `lib/auth/otp-provider/index.ts:31` | Guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `'twilio'` in prod |
+| 1 | **Critical** | OTP plaintext is returned in the API response **in every environment** | `app/api/v1/auth/send-otp/route.ts:160-167`; `lib/auth/otp-provider/index.ts:31` | **CLOSED 2026-11-17** — `dev_code` is now attached only when `isDevStore()` is true, so the response carries no code outside the dev store. The root cause is closed too: `getOtpProvider()` **throws** if the resolved provider is `stub` while `NODE_ENV=production`, so a missing `OTP_PROVIDER` is a loud failure rather than a silent downgrade. Covered by `tests/unit/auth/otp-dev-code.test.ts` and `tests/unit/otp-provider.test.ts` |
 | 2 | **Critical** | OTP attempt limit was **never enforced** — `attempts` was written but never read | `app/api/v1/auth/verify-otp/route.ts`; `lib/auth/otp.ts:32` | **CLOSED 2026-11-09** — the counter is read back before verification; `429 too_many_attempts` at the limit. Covered by `tests/unit/otp-attempt-limit.test.ts` |
-| 3 | **Critical** | Four production-reachable `/api/dev/*` endpoints gated only on a shared secret, not on `isDevStore()` | `app/api/dev/{bootstrap-admin:52,issue-session:35,list-users:37,promote-admin:43}/route.ts` | Add `if (!isDevStore()) return 404` to all four, before the secret check |
-| 4 | **Critical** | `bootstrap-admin` + `issue-session` mint a full admin session, bypassing password and WebAuthn entirely | `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76` | Same as #3; delete both routes before production |
+| 3 | **Critical** | Four production-reachable `/api/dev/*` endpoints gated only on a shared secret | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` | **CLOSED 2026-11-17** — all four now 404 whenever `NODE_ENV === 'production'`, whatever the secret happens to be, so they are unreachable in the deployed environment. The gate is on `NODE_ENV`, not `isDevStore()`: the promote routes perform a role flip that only has a Prisma branch (the dev store's persona rows are seed-immutable), so a dev-store gate would have broken them outright. Covered by `tests/unit/auth/dev-route-gating.test.ts` |
+| 4 | **Critical** | `bootstrap-admin` + `issue-session` mint a full admin session, bypassing password and WebAuthn entirely | `app/api/dev/bootstrap-admin/route.ts`; `app/api/dev/issue-session/route.ts` | **CLOSED 2026-11-17** — same production gate as #3; neither route is reachable in a production build. Both are still in the tree because the role flip is Prisma-only; delete them once a real admin user exists |
 | 5 | **High** | Admin write path **not** WebAuthn-gated: `PUT /api/profile` has no role check and no ceremony | `app/api/profile/route.ts` | **CLOSED 2026-11-09** — the admin write calls `requireWebAuthn`; the body is Zod-validated; the write is scoped to `session.userId`; every write lands an audit row. Covered by `tests/unit/profile-webauthn-gate.test.ts` |
 | 6 | **High** | WebAuthn challenges are **never consumed** — one assertion satisfies the gate for many writes | No `webAuthnChallenge.delete` anywhere; `lib/auth/guards.ts:113-125` | **CLOSED 2026-11-09** — `requireWebAuthn` now DELETES the challenge row it accepts (`db.webAuthnChallenge.consume`); the delete is scoped to the owning user; a concurrent consume is a refusal, not a pass. Covered by `tests/unit/webauthn-challenge-consumption.test.ts` |
 | 7 | **High** | Admin city-scoped routes never verify `params.id === session.cityId` — cross-city read + write | `app/api/v1/admin/cities/[id]/**` (only `requireRole('admin')`); `app/api/v1/admin/cities/[id]/adoption/route.ts:50` | Resolve ADR-006, then add `requireSameCity(session, params.id)` consistently |
@@ -106,23 +106,53 @@ This matches the OWASP Argon2id recommendation (19 MiB, t=2, p=1). `hashPassword
 | TTL | 5 minutes | `lib/auth/otp.ts:31` |
 | Length | 6 digits | `lib/auth/otp.ts:33` |
 | Max attempts (declared) | 5 | `lib/auth/otp.ts:32` |
-| Provider abstraction | `lib/auth/otp-provider/index.ts` — `stub` / `twilio` | `lib/auth/otp-provider/index.ts:31` |
+| Provider abstraction | `lib/auth/otp-provider/index.ts` — `stub` / `twilio` (`stub` rejected in production) | `lib/auth/otp-provider/index.ts` |
 | Rate limit | per-IP token bucket on `verify-otp` and `send-otp` | `verify-otp/route.ts:52-58`, `send-otp/route.ts:59-66` |
 | Resend cooldown | 60 s | `send-otp/route.ts:98-114` |
 
-**Finding #1 (Critical) — the OTP is returned to the caller.** `app/api/v1/auth/send-otp/route.ts:160-167`:
+**Finding #1 (Critical) — the OTP was returned to the caller. CLOSED 2026-11-17.** `app/api/v1/auth/send-otp/route.ts` used to end with:
 
 ```ts
 return NextResponse.json({ ok: true, ttlMs: ..., dev_code: code });
 ```
 
-The comment above it (L152-159) says *"While OTP_PROVIDER=stub, surface the code"* — but **there is no such condition**. The field is returned unconditionally, in every environment, regardless of provider. And `lib/auth/otp-provider/index.ts:31` defaults `OTP_PROVIDER` to `'stub'` when the env var is unset:
+The comment above it said *"While OTP_PROVIDER=stub, surface the code"* — but **there was no such condition**. The field was returned unconditionally, in every environment, regardless of provider. And `lib/auth/otp-provider/index.ts` defaulted `OTP_PROVIDER` to `'stub'` when the env var was unset:
 
 ```ts
 const name = process.env.OTP_PROVIDER ?? 'stub';
 ```
 
-So a deployment that sets `DATABASE_URL`, `SESSION_SECRET`, and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full citizen account takeover, no credential theft required. The stub provider also logs the code: `lib/auth/otp-provider/stub.ts:21` → `console.info('[otp:stub] code=${code} phone=${phone}')`.
+So a deployment that set `DATABASE_URL`, `SESSION_SECRET`, and Twilio credentials but forgot `OTP_PROVIDER` got a stub provider *and* a plaintext OTP in every response — full citizen account takeover, no credential theft required. The stub provider also logged the code: `lib/auth/otp-provider/stub.ts:21` → `console.info('[otp:stub] code=${code} phone=${phone}')`.
+
+**The fix — two independent guards:**
+
+1. **The response no longer carries the code outside the dev store.** The body is built conditionally:
+
+```ts
+const responseBody: { ok: true; ttlMs: number; dev_code?: string } = {
+  ok: true,
+  ttlMs: OTP_TTL_MS,
+};
+if (isDevStore()) responseBody.dev_code = code;
+```
+
+The discriminator is `isDevStore()`, **not** the provider. The provider is `stub` in the deployed app too, so a provider-conditional check would have leaked the code in exactly the environment where leaking it matters most.
+
+2. **The stub provider is rejected in a production build.** `getOtpProvider()` now throws if the resolved provider is `stub` while `NODE_ENV === 'production'`:
+
+```ts
+function assertProviderAllowedInProduction(name: string): void {
+  if (name !== 'stub') return;
+  if (process.env.NODE_ENV !== 'production') return;
+  throw new Error('OTP_PROVIDER=stub is not allowed in production — ...');
+}
+```
+
+The check is deliberately **lazy** (inside the function body, never at module load), for the same reason `lib/platform/db-guard.ts` is lazy: Vercel runs `next build` in a separate process, and a module-load throw would fail the build instead of the request. `sendOtp`'s existing try/catch turns the throw into `{ delivered: false, error: 'provider_misconfigured' }` and a `502 sms_provider_failure`.
+
+**Net effect:** a missing `OTP_PROVIDER` is now a **loud** failure at request time, not a silent downgrade to a provider that logs codes to the console.
+
+**Regression tests:** `tests/unit/auth/otp-dev-code.test.ts` (the response must NOT carry `dev_code` outside the dev store — asserted by the *absence* of the key) and `tests/unit/otp-provider.test.ts` (the factory must throw for `stub` in a production build). Both are non-vacuous: reverting either guard turns them red.
 
 **Finding #2 (Critical) — the attempt limit was dead code. CLOSED 2026-11-09.** `app/api/v1/auth/verify-otp/route.ts` used to increment `attempts` and then never read it. `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere** (verified by repo-wide grep — the only hit was the definition). The route's own docstring described behaviour that did not exist:
 
@@ -275,21 +305,25 @@ No `role` constraint. The route's docstring (L26-37) acknowledges this — the p
 - `GET /api/v1/activity` — authenticated.
 - `GET /api/auth/status` — returns `authenticated: false` when no session.
 
-**The `/api/dev/*` cluster (findings #3, #4)** is the serious exception to "intentional":
+**The `/api/dev/*` cluster (findings #3, #4) — closed 2026-11-17.** This was the serious exception to "intentional":
 
 | Route | Gate | Effect |
 |---|---|---|
-| `/api/dev/bootstrap-admin` | `CITYFIX_DEV_PROMOTE_SECRET` **only** (L52-59) | Promotes a citizen to `role='admin'` (L115-130) **and mints an admin session** (L133-146) |
-| `/api/dev/issue-session` | `CITYFIX_DEV_PROMOTE_SECRET` **only** (L35-42) | Mints a session for **any** userId including admin, bypassing the password |
-| `/api/dev/promote-admin` | `CITYFIX_DEV_PROMOTE_SECRET` **only** (L43-50) | Promotes the session's user to admin |
-| `/api/dev/list-users` | `CITYFIX_DEV_PROMOTE_SECRET` **only** (L37-44) | Lists id/name/role/phone/cityId/wardId/departmentId |
+| `/api/dev/bootstrap-admin` | `CITYFIX_DEV_PROMOTE_SECRET` **and** `NODE_ENV !== 'production'` → 404 | Promotes a citizen to `role='admin'` **and mints an admin session** |
+| `/api/dev/issue-session` | `CITYFIX_DEV_PROMOTE_SECRET` **and** `NODE_ENV !== 'production'` → 404 | Mints a session for **any** userId including admin, bypassing the password |
+| `/api/dev/promote-admin` | `CITYFIX_DEV_PROMOTE_SECRET` **and** `NODE_ENV !== 'production'` → 404 | Promotes the session's user to admin |
+| `/api/dev/list-users` | `CITYFIX_DEV_PROMOTE_SECRET` **and** `NODE_ENV !== 'production'` → 404 | Lists id/name/role/phone/cityId/wardId/departmentId |
 
-Contrast with the two dev routes that **are** correctly gated:
+All four now return 404 in a production build, **before** the secret comparison — so a production caller learns nothing about whether the secret exists, and a leaked static secret yields nothing there.
+
+The other two dev routes remain gated on `isDevStore()`:
 
 - `/api/dev/login` — `if (!isDevStore())` → 404 (`app/api/dev/login/route.ts:54-56`)
 - `/api/dev/reset` — `if (!isDevStore())` → 404 (`app/api/dev/reset/route.ts:12`)
 
-The four promote routes omit the `isDevStore()` check. Their own docstrings say *"Returns 404 if the"* secret is absent — i.e. they rely on the secret being unset, and the secret is a single static string in the deploy environment, not a per-request capability. One leaked or guessed secret yields **unauthenticated privilege escalation to admin**, bypassing both password and WebAuthn. `bootstrap-admin` needs no prior session at all.
+**Why the promote routes use `NODE_ENV` rather than `isDevStore()`.** They are inherently PRODUCTION-shaped: `bootstrap-admin` and `promote-admin` perform a role flip through `db.user.update`, which has **only a Prisma branch** — the dev store's persona rows are seed-immutable, and `lib/db-switch.ts:365-372` throws `dev store does not support user.update`. A dev-store gate would have made those two routes permanently non-functional (404 in production, a throw in dev) — closing the leak by breaking the feature. `issue-session` and `list-users` do work against the dev store, but the ids they surface there are the fixed seed personas, already public; the directory that makes them dangerous only exists against real Prisma.
+
+**Regression test:** `tests/unit/auth/dev-route-gating.test.ts` — for each route, asserts a 404 in a production build **even with the correct secret supplied** (a 403 would mean the route was reachable), that no session cookie is minted, and that the routes still work outside a production build. Non-vacuous: reverting the gate turns it red.
 
 ### 2.3 The shared transition route — `app/api/tickets/[id]/transition/route.ts`
 
@@ -529,15 +563,15 @@ Default rate is 1/s, capacity 4 in dev and **1 in production**. Routes using it:
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | OPTIONAL | optional | |
 | `VAPID_PRIVATE_KEY` | OPTIONAL | optional | |
 | `VAPID_SUBJECT` | OPTIONAL | optional | |
-| `OTP_PROVIDER` | OPTIONAL | **effectively required** | Defaults to `stub` — see finding #1 |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | (listed) | required if `OTP_PROVIDER=twilio` | Provider throws if missing |
+| `OTP_PROVIDER` | PROD-REQ | ✅ | **`stub` is rejected in a production build** — the factory throws. Updated 2026-11-17 |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | (listed) | ✅ required in prod | Provider throws if missing |
 | `CITYFIX_DEV_STORE` | DEV-ONLY | **must be unset in prod** | No guard enforces this — finding #3 |
+| `CITYFIX_DEV_PROMOTE_SECRET` | DEV-ONLY | **must be unset in prod** | Documented 2026-11-17. The routes it gates are now doubly gated (see finding #3) |
 | `POLL_RATE_LIMIT_PER_SECOND` | OPTIONAL | optional | |
 
-**Finding #12 (Medium) — three classes of var are missing entirely:**
+**Finding #12 (Medium) — partly closed 2026-11-17.** `CITYFIX_DEV_PROMOTE_SECRET` is now documented in `.env.example` and marked DEV-ONLY / must-be-unset-in-production. The remaining gaps:
 
-- `CITYFIX_DEV_PROMOTE_SECRET` — gates four privilege-escalation endpoints. A deployment that never sets it is safe; a deployment that sets it (as the local `.env.local` does) has an unauthenticated admin-escalation path. It must be documented, and marked **must be unset in production**.
-- `DEV_SKIP_WEBAUTHN` — the WebAuthn bypass. Same "must be unset in prod" marking.
+- `DEV_SKIP_WEBAUTHN` — the WebAuthn bypass. Still undocumented; same "must be unset in prod" marking needed.
 - All `BLOB_*` vars — `BLOB_PROVIDER`, `BLOB_LOCAL_DIR`, `BLOB_LOCAL_BASE_URL`, `BLOB_S3_*`, `BLOB_PUBLIC_BASE_URL`, `BLOB_SIGNED_URL_TTL` (`lib/storage/blob.ts:172-189`). A production deployment with no `BLOB_*` set silently gets the local provider — unsigned, unserved, and writing to the local filesystem.
 
 ---
@@ -591,9 +625,9 @@ Note also: `action` is a free-form string with no enum constraint and no server-
 
 ### Critical
 
-1. **OTP plaintext in the response** (`send-otp/route.ts:160-167`) combined with the **stub provider default** (`otp-provider/index.ts:31`). Remediation: guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `'twilio'`; never let the stub provider be selected in production.
+1. ~~**OTP plaintext in the response**~~ — **CLOSED 2026-11-17.** The `dev_code` field is now attached only when `isDevStore()` is true, so the response carries no code outside the dev store. The root cause is closed too: `getOtpProvider()` throws if the resolved provider is `stub` while `NODE_ENV=production`, so a missing `OTP_PROVIDER` is a loud failure rather than a silent downgrade to a provider that logs codes to the console. Regression tests: `tests/unit/auth/otp-dev-code.test.ts` and `tests/unit/otp-provider.test.ts`.
 2. ~~**OTP attempt limit never enforced**~~ — **CLOSED 2026-11-09.** The route now reads `attempts` back before verifying and returns `429 too_many_attempts` at the limit; the counter is persisted on the `OtpCode` row, the correct code is refused once locked out, and the counter is per-code so a citizen is never locked out permanently. Regression test: `tests/unit/otp-attempt-limit.test.ts`.
-3. **Four `/api/dev/*` routes reachable in production** (gated on a shared secret, not on `isDevStore()`). Remediation: add `if (!isDevStore()) return 404` to `bootstrap-admin`, `issue-session`, `promote-admin`, `list-users` — matching what `dev/login` and `dev/reset` already do. Then delete `bootstrap-admin` and `issue-session` before launch.
+3. ~~**Four `/api/dev/*` routes reachable in production**~~ — **CLOSED 2026-11-17.** All four now 404 whenever `NODE_ENV === 'production'`, whatever the shared secret happens to be. The gate is on `NODE_ENV` rather than `isDevStore()` because the promote routes' role flip has only a Prisma branch — a dev-store gate would have broken them outright. Regression test: `tests/unit/auth/dev-route-gating.test.ts`.
 
 ### High
 
@@ -627,12 +661,12 @@ The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule
 
 ## Recommended remediation order
 
-1. **Check the production env vars.** Determine whether `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, and `CITYFIX_DEV_PROMOTE_SECRET` are set in the deployed environment. This determines whether findings #1–#4 are theoretical or live.
-2. **Add the `isDevStore()` guard to the four `/api/dev/*` promote routes** — a four-line change that closes the largest hole.
-3. **Fix the OTP path** — guard `dev_code` on env, enforce `OTP_MAX_ATTEMPTS`, switch to `crypto.randomInt`. *(The attempt limit is done — closed 2026-11-09. The `dev_code` leak and the `Math.random()` generator remain.)*
-4. **Consume WebAuthn challenges** — restores the platform's core assumption.
-5. **Gate `PUT /api/profile`** *(done — closed 2026-11-09)* **and resolve the admin city-scope question against ADR-006.**
-6. **Document the missing env vars** and add a production guard on `CITYFIX_DEV_STORE`.
+1. **Check the production env vars.** Determine whether `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, and `CITYFIX_DEV_PROMOTE_SECRET` are set in the deployed environment. The three Critical findings are now closed **in code**, so this is about the remaining defence-in-depth gaps — `CITYFIX_DEV_STORE` in particular still has no production guard (finding #3, now re-scoped to that variable alone).
+2. ~~**Add the `isDevStore()` guard to the four `/api/dev/*` promote routes**~~ — **done, closed 2026-11-17.** The guard is on `NODE_ENV !== 'production'` instead, because the role flip has only a Prisma branch.
+3. **Fix the OTP path** — ~~guard `dev_code` on env~~ *(done — closed 2026-11-17)*, ~~enforce `OTP_MAX_ATTEMPTS`~~ *(done — closed 2026-11-09)*, switch to `crypto.randomInt` *(still open — finding #14)*.
+4. ~~**Consume WebAuthn challenges**~~ — **done, closed 2026-11-09.** Restores the platform's core assumption.
+5. **Gate `PUT /api/profile`** *(done — closed 2026-11-09)* **and resolve the admin city-scope question against ADR-006** *(still open — finding #7)*.
+6. **Document the missing env vars** *(partly done — `CITYFIX_DEV_PROMOTE_SECRET` documented 2026-11-17; `DEV_SKIP_WEBAUTHN` and the `BLOB_*` vars remain)* **and add a production guard on `CITYFIX_DEV_STORE`.**
 
 ---
 
@@ -642,7 +676,7 @@ The weakness is the same one ADR-007 itself predicted at lines 229-234: the rule
 |---|---|
 | **Live database behaviour** | No database was reachable. `AuditEntry`'s `onDelete: Restrict` against `lib/admin/users-db.ts:436-460` user deletion could not be tested — it may be a bug or a deliberate safeguard. |
 | **Real WebAuthn hardware** | No authenticator was available. Attestation and assertion paths were read, not executed. `requireUserVerification: false` was confirmed by source inspection but not exercised. Counter-clone detection could not be tested. |
-| **Deployed environment** | No deployment was inspected. Whether `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, `OTP_PROVIDER`, or `CITYFIX_DEV_PROMOTE_SECRET` are set in production is **unknown and decisive** for findings #1, #3, and #4. **This should be checked against the real hosting environment's env vars as the first action item.** |
+| **Deployed environment** | No deployment was inspected. Whether `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN`, `OTP_PROVIDER`, or `CITYFIX_DEV_PROMOTE_SECRET` are set in production is **unknown**. As of 2026-11-17 findings #1, #3 and #4 are closed in code, so this is no longer decisive for them — but `CITYFIX_DEV_STORE` still has no production guard, and `OTP_PROVIDER` must be `twilio` for the app to work at all. **This should be checked against the real hosting environment's env vars as the first action item.** |
 | **Prisma schema vs. actual DB** | The `prisma/schema.prisma` model was read; whether migrations have been applied (and whether the live DB matches) is unknown. |
 | **ADR-006** | Not present in `docs/adr/`. Its resolution determines whether finding #7 is a confirmed cross-city vulnerability or a documented design decision. |
 | **Rate-limit and lockout behaviour under load** | No load testing. The per-instance limitation is established from source (in-process `Map`), not measured. |

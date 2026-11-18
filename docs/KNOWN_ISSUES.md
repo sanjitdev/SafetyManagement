@@ -11,10 +11,10 @@ Every entry below was verified against the source on 2026-11-08, with a file and
 
 | # | Issue | Severity | Area | Status |
 |---|---|---|---|---|
-| 1 | OTP plaintext returned in every environment | **Critical** | Auth | Open |
+| 1 | OTP plaintext returned in every environment | **Critical** | Auth | **Closed 2026-11-17** |
 | 2 | OTP attempt limit never enforced | **Critical** | Auth | **Closed 2026-11-09** |
-| 3 | Four `/api/dev/*` routes not dev-store-gated | **Critical** | Auth | Open |
-| 4 | `bootstrap-admin` + `issue-session` mint admin sessions | **Critical** | Auth | Open |
+| 3 | Four `/api/dev/*` routes not dev-store-gated | **Critical** | Auth | **Closed 2026-11-17** |
+| 4 | `bootstrap-admin` + `issue-session` mint admin sessions | **Critical** | Auth | **Closed 2026-11-17** |
 | 5 | `PUT /api/profile` is an ungated admin write | **High** | AuthZ | **Closed 2026-11-09** |
 | 6 | WebAuthn challenges never consumed | **High** | Auth | **Closed 2026-11-09** |
 | 7 | Admin city-scoped routes skip the city check | **High** | AuthZ | Open — needs ADR-006 |
@@ -129,23 +129,26 @@ One residual sub-case remains open under scenario 3: two photos uploaded in the 
 
 ## Security — Critical
 
-### 1. OTP plaintext returned in every environment
+### 1. ~~OTP plaintext returned in every environment~~ — CLOSED 2026-11-17
 
-**Evidence:** `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31`
+**Evidence:** `app/api/v1/auth/send-otp/route.ts`; `lib/auth/otp-provider/index.ts`
 
-```ts
-dev_code: code,
-```
-
-The comment above it (L152-159) says *"While OTP_PROVIDER=stub, surface the code"* — but there is **no such condition**. The field is returned unconditionally. And `OTP_PROVIDER` **defaults to `'stub'`** when the env var is unset:
+The route used to end with an unconditional `dev_code: code` in the response body, and `OTP_PROVIDER` **defaulted to `'stub'`** when the env var was unset:
 
 ```ts
 const name = process.env.OTP_PROVIDER ?? 'stub';
 ```
 
-A deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full citizen account takeover with no credential theft.
+A deployment that set `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgot `OTP_PROVIDER` got a stub provider *and* a plaintext OTP in every response — full citizen account takeover with no credential theft.
 
-**Fix:** guard `dev_code` on `NODE_ENV !== 'production' && OTP_PROVIDER === 'stub'`; default `OTP_PROVIDER` to `'twilio'` in production. → [SECURITY_AUDIT.md §1.3](SECURITY_AUDIT.md#13-otp-flow)
+**Closed by two independent guards:**
+
+1. `dev_code` is attached only when `isDevStore()` is true. Outside the dev store the response is `{ ok, ttlMs }`. The discriminator is the dev store, **not** the provider — the provider is `stub` in the deployed app too, so a provider-conditional check would have leaked the code exactly where it matters most.
+2. `getOtpProvider()` **throws** if the resolved provider is `stub` while `NODE_ENV === 'production'`, so a missing `OTP_PROVIDER` is a loud failure rather than a silent downgrade to a provider that logs codes to the console.
+
+**Coverage:** `tests/unit/auth/otp-dev-code.test.ts` and `tests/unit/otp-provider.test.ts`. Non-vacuity is proven: with either guard disabled, the corresponding test fails.
+
+→ [SECURITY_AUDIT.md §1.3](SECURITY_AUDIT.md#13-otp-flow)
 
 ---
 
@@ -200,40 +203,44 @@ counter, the lockout, the refusal of the correct code, and the per-row scoping.
 Non-vacuity is proven: with the guard disabled, exactly the 3 lockout tests
 fail.
 
-**Still open in this area:** the OTP plaintext leak (issue #1) and the
-`Math.random()` generator (issue #11) are separate findings and remain open.
+**Still open in this area:** the `Math.random()` generator (issue #11) remains
+open. The OTP plaintext leak (issue #1) was closed on 2026-11-17.
 
 ---
 
-### 3. Four `/api/dev/*` routes are not dev-store-gated
+### 3. ~~Four `/api/dev/*` routes are not dev-store-gated~~ — CLOSED 2026-11-17
 
-**Evidence:** `app/api/dev/{bootstrap-admin:52,issue-session:35,list-users:37,promote-admin:43}/route.ts`
+**Evidence:** `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts`
 
-These four are gated on `CITYFIX_DEV_PROMOTE_SECRET` **only**. Two sibling routes are gated correctly:
+These four were gated on `CITYFIX_DEV_PROMOTE_SECRET` **only**. Two sibling routes were gated correctly:
 
 | Route | Gate |
 |---|---|
 | `/api/dev/login` | `isDevStore()` → 404 (`app/api/dev/login/route.ts:54-56`) |
 | `/api/dev/reset` | `isDevStore()` → 404 (`app/api/dev/reset/route.ts:12`) |
-| `/api/dev/bootstrap-admin` | ❌ secret only |
-| `/api/dev/issue-session` | ❌ secret only |
-| `/api/dev/promote-admin` | ❌ secret only |
-| `/api/dev/list-users` | ❌ secret only |
+| `/api/dev/bootstrap-admin` | ✅ secret **and** non-production build → 404 |
+| `/api/dev/issue-session` | ✅ secret **and** non-production build → 404 |
+| `/api/dev/promote-admin` | ✅ secret **and** non-production build → 404 |
+| `/api/dev/list-users` | ✅ secret **and** non-production build → 404 |
 
-**Fix:** add `if (!isDevStore()) return 404` to all four, before the secret check. Four lines; closes the largest hole in the audit.
+All four now 404 in a production build, whatever the secret happens to be.
+
+**Why the gate is on `NODE_ENV`, not `isDevStore()`:** the promote routes perform a role flip through `db.user.update`, which has **only a Prisma branch** — the dev store's persona rows are seed-immutable and `lib/db-switch.ts` throws. A dev-store gate would have made `bootstrap-admin` and `promote-admin` permanently non-functional (404 in production, a throw in dev). `issue-session` and `list-users` do work against the dev store, but the ids they surface there are the fixed seed personas, already public.
+
+**Coverage:** `tests/unit/auth/dev-route-gating.test.ts`. Non-vacuity is proven: with the gate disabled, the 404-in-production tests fail.
 
 ---
 
-### 4. `bootstrap-admin` and `issue-session` mint full admin sessions
+### 4. ~~`bootstrap-admin` and `issue-session` mint full admin sessions~~ — CLOSED 2026-11-17
 
-**Evidence:** `app/api/dev/bootstrap-admin/route.ts:115-146`; `app/api/dev/issue-session/route.ts:70-76`
+**Evidence:** `app/api/dev/bootstrap-admin/route.ts`; `app/api/dev/issue-session/route.ts`
 
 - `bootstrap-admin` promotes a citizen to `role='admin'` **and mints an admin session** — bypassing both the password and WebAuthn.
 - `issue-session` mints a session for **any** `userId`, including admins, bypassing the password.
 
-Neither needs a prior session. A single leaked static secret yields **unauthenticated privilege escalation to admin**.
+Neither needs a prior session, and a single leaked static secret used to yield **unauthenticated privilege escalation to admin**.
 
-**Fix:** same as #3. Then delete both routes before production — they have no production use.
+**Closed by the same production gate as issue #3** — neither route is reachable in a production build. Both are still in the tree because the role flip is Prisma-only; delete them once a real admin user exists in the system.
 
 ---
 

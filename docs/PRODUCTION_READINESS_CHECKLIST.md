@@ -126,9 +126,9 @@ The auth stack is genuinely well built at the component level: Argon2id with OWA
 
 **The failures are all at the seams**, and all are configuration-reachable rather than theoretical:
 
-- `OTP_PROVIDER` **defaults to `stub`** (`lib/auth/otp-provider/index.ts:31`), and `dev_code` is returned **unconditionally** (`app/api/v1/auth/send-otp/route.ts:164`). A deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgets `OTP_PROVIDER` gets a stub provider *and* a plaintext OTP in every response — full account takeover with no credential theft.
+- `OTP_PROVIDER` **defaults to `stub`** and `dev_code` was returned **unconditionally** — a deployment that sets `DATABASE_URL`, `SESSION_SECRET` and Twilio credentials but forgets `OTP_PROVIDER` got a stub provider *and* a plaintext OTP in every response: full account takeover with no credential theft. **Closed 2026-11-17** — `dev_code` is attached only when `isDevStore()` is true, and `getOtpProvider()` **throws** if the resolved provider is `stub` while `NODE_ENV=production`, so a missing `OTP_PROVIDER` is a loud failure rather than a silent downgrade.
 - `OTP_MAX_ATTEMPTS` was exported from `lib/auth/otp.ts:32` and **imported nowhere**. `attempts` was incremented at `app/api/v1/auth/verify-otp/route.ts` and never read. The route's own docstring promised a 5-attempt lockout that did not exist. **Closed 2026-11-09** — the counter is now read back and enforced.
-- Four `/api/dev/*` routes are gated on `CITYFIX_DEV_PROMOTE_SECRET` only, with no `isDevStore()` check, unlike their two correctly-gated siblings. Two of them mint **admin sessions**, bypassing both the password and WebAuthn. A single leaked static secret yields unauthenticated privilege escalation.
+- Four `/api/dev/*` routes were gated on `CITYFIX_DEV_PROMOTE_SECRET` only. Two of them mint **admin sessions**, bypassing both the password and WebAuthn; a single leaked static secret yielded unauthenticated privilege escalation. **Closed 2026-11-17** — all four now 404 whenever `NODE_ENV === 'production'`, whatever the secret happens to be. The gate is on `NODE_ENV` rather than `isDevStore()` because the promote routes' role flip has only a Prisma branch (the dev store's persona rows are seed-immutable), so a dev-store gate would have broken them outright.
 - `PUT /api/profile` had no `requireRole`, no `requireWebAuthn` and no Zod schema. **Closed 2026-11-09** — the admin write is WebAuthn-gated, the body is Zod-validated, the write is scoped to the session's own user, and every write lands an audit row.
 - WebAuthn challenges were **never consumed**. One ceremony authorised every admin write for the next five minutes, which is not what ADR-007's threat model assumes. **Closed 2026-11-09** — the challenge is now a one-shot nonce: `requireWebAuthn` deletes the row it accepts, scoped to its owner, and a concurrent consume is a refusal rather than a pass.
 - `CITYFIX_DEV_STORE` has **no production guard**. One env var disables the database, unsigns the session cookie and bypasses WebAuthn.
@@ -153,7 +153,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 - The `DATABASE_URL` in the deployed environment is unknown. Whether it points at Neon or a loopback address is **not inspectable from the repository**, and it decides whether three Critical findings are theoretical or live.
 - `prisma migrate deploy` has never been run against a live database. No migration state was verified. There are now **five** migrations; the fifth (`20261108140000_ticket_dedup_key`) was applied to a throwaway PostgreSQL 16 container on 2026-11-08 to check the index's behaviour, but never to a live database.
-- `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` are all **unknown in production**.
+- `OTP_PROVIDER`, `CITYFIX_DEV_STORE`, `DEV_SKIP_WEBAUTHN` and `CITYFIX_DEV_PROMOTE_SECRET` are all **unknown in production**. Since 2026-11-17 the code no longer depends on them being set correctly for the three Critical findings — but `CITYFIX_DEV_STORE` still has no production guard, and `OTP_PROVIDER` must be `twilio` for the app to work at all.
 - The real-mode run is **blocked**: `lib/platform/db-guard.ts` correctly refuses a loopback `DATABASE_URL` under `NODE_ENV=production`, so a genuine production-mode run needs a hosted Neon URL.
 - No monitoring, no alerting, no uptime check, no error tracking, no backup/restore verification.
 - No `BLOB_*` variable is documented in `.env.example` — a production deployment with none set silently gets the local provider, which writes to the filesystem and serves **dead URLs**.
@@ -164,8 +164,8 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 
 | # | Blocker | Severity | Evidence |
 |---|---|---|---|
-| 1 | Four `/api/dev/*` routes not `isDevStore()`-gated; two mint admin sessions | Critical | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts` |
-| 2 | `dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub` | Critical | `app/api/v1/auth/send-otp/route.ts:164`; `lib/auth/otp-provider/index.ts:31` |
+| 1 | ~~**Four `/api/dev/*` routes not production-gated; two mint admin sessions**~~ — **closed 2026-11-17**; all four now 404 whenever `NODE_ENV === 'production'`, whatever the shared secret is | — | `app/api/dev/{bootstrap-admin,issue-session,list-users,promote-admin}/route.ts`; `tests/unit/auth/dev-route-gating.test.ts` |
+| 2 | ~~**`dev_code` returned unconditionally; `OTP_PROVIDER` defaults to `stub`**~~ — **closed 2026-11-17**; `dev_code` is attached only on the dev store, and the `stub` provider is rejected in a production build | — | `app/api/v1/auth/send-otp/route.ts`; `lib/auth/otp-provider/index.ts`; `tests/unit/auth/otp-dev-code.test.ts` |
 | 3 | No production guard on `CITYFIX_DEV_STORE` | Critical | — |
 | 4 | ~~**Concurrency control — 1 of 5 scenarios remains vulnerable**~~ — **closed 2026-11-08**; all five named scenarios now have a guard and a CI-enforced regression test | — | `lib/dispatcher/crew-capacity.ts`; `tests/unit/dispatcher/assign-crew.test.ts` |
 | 5 | ~~WebAuthn challenges never consumed~~ — **closed 2026-11-09**, the challenge is now a one-shot nonce | — | `lib/auth/guards.ts`; `lib/db-switch.ts` |
@@ -201,7 +201,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 1.9 | `engines.node` declared | ✅ | `>=20.0.0` (runtime floor; CI pins 22 — see §5.3) |
 | 1.10 | No secrets committed to the repository | ✅ | `.env.example` holds placeholders only |
 | 1.11 | `docs/running.md` matches the current codebase | ✅ | **Rewritten during this audit** against the real stack — all 62 route files with their methods, all 26 `package.json` scripts, the Node 22 requirement, the visual-baseline platform rule. It previously claimed 40 handlers / 249 tests / 15 baselines. See [KNOWN_ISSUES.md #26](KNOWN_ISSUES.md#26-docsrunningmd-is-stale---resolved-during-this-audit) |
-| 1.12 | `.env.example` documents every variable `lib/` reads | ❌ | Missing `CITYFIX_DEV_PROMOTE_SECRET`, `DEV_SKIP_WEBAUTHN` and **all** `BLOB_*` |
+| 1.12 | `.env.example` documents every variable `lib/` reads | ❌ | `CITYFIX_DEV_PROMOTE_SECRET` documented 2026-11-17; still missing `DEV_SKIP_WEBAUTHN` and **all** `BLOB_*` |
 
 ---
 
@@ -233,8 +233,8 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 3.3 | Session cookies are signed | ✅ | HMAC, `timingSafeEqual`, 14-day TTL — `lib/auth/session.ts` |
 | 3.4 | Session cookie is `httpOnly` + `sameSite` + `secure` in production | ✅ | `lib/auth/session.ts` |
 | 3.5 | OTP delivery has a real provider | ✅ | `twilio` provider with 3-attempt backoff `[100,200,400]ms` and 4xx-as-permanent |
-| 3.6 | `OTP_PROVIDER` defaults to a safe value in production | ❌ | Defaults to `'stub'` — `lib/auth/otp-provider/index.ts:31` |
-| 3.7 | OTP code is never returned in a response in production | ❌ | `dev_code: code` returned unconditionally — `app/api/v1/auth/send-otp/route.ts:164` |
+| 3.6 | `OTP_PROVIDER` defaults to a safe value in production | ✅ | **Fixed 2026-11-17.** `getOtpProvider()` throws if the resolved provider is `stub` while `NODE_ENV=production` — a missing `OTP_PROVIDER` is a loud failure, not a silent downgrade. The check is lazy (inside the function, never at module load) so `next build` still succeeds. Covered by `tests/unit/otp-provider.test.ts` (non-vacuity proven by neutering the guard) |
+| 3.7 | OTP code is never returned in a response in production | ✅ | **Fixed 2026-11-17.** `dev_code` is attached only when `isDevStore()` is true; outside the dev store the response is `{ ok, ttlMs }`. The discriminator is the dev store, **not** the provider — the provider is `stub` in the deployed app too, so a provider-conditional check would have leaked it exactly where it matters most. Covered by `tests/unit/auth/otp-dev-code.test.ts` |
 | 3.8 | OTP attempt limit is enforced | ✅ | **Fixed 2026-11-09.** The `attempts` column on the `OtpCode` row is read back before verification; at `OTP_MAX_ATTEMPTS` the code is locked out with `429 too_many_attempts` and even the correct code is refused. The counter is persisted (it survives a restart) and scoped to the code, not the account — a new code starts a fresh counter. Covered by `tests/unit/otp-attempt-limit.test.ts` (9 tests, non-vacuity proven by neutering the guard) |
 | 3.9 | Account lockout after repeated failures | ❌ | Documented in the route docstring, absent in the code |
 | 3.10 | OTP code uses a CSPRNG | ❌ | `Math.random()` — `lib/auth/otp.ts` |
@@ -242,7 +242,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 3.12 | WebAuthn challenges are consumed on use | ✅ | **Closed 2026-11-09** — `requireWebAuthn` DELETES the challenge row it accepts (`db.webAuthnChallenge.consume`), scoped to the owning user; a concurrent consume is a refusal, not a pass; a rejected call consumes nothing. Covered by `tests/unit/webauthn-challenge-consumption.test.ts` (9 tests) |
 | 3.13 | Admin writes require a fresh WebAuthn assertion | ✅ | ADR-007 is enforced on `/api/v1/admin/*`, the shared transition route, and — since **2026-11-09** — `PUT /api/profile`. Every admin-reachable write in the tree is gated |
 | 3.14 | Password login is role-restricted | ❌ | No `role` constraint — `app/api/v1/auth/login/route.ts:137-139` |
-| 3.15 | Dev-only auth bypasses are `isDevStore()`-gated | ❌ | `DEV_SKIP_WEBAUTHN` is double-gated, but four `/api/dev/*` routes are secret-gated only |
+| 3.15 | Dev-only auth bypasses are gated out of production | ✅ | **Fixed 2026-11-17.** `DEV_SKIP_WEBAUTHN` is double-gated; the four `/api/dev/*` promote routes (`bootstrap-admin`, `issue-session`, `promote-admin`, `list-users`) now 404 whenever `NODE_ENV === 'production'`, whatever the shared secret is. The gate is on `NODE_ENV`, not `isDevStore()`: the promote routes' role flip has only a Prisma branch — the dev store's persona rows are seed-immutable — so a dev-store gate would have broken them outright. Covered by `tests/unit/auth/dev-route-gating.test.ts` |
 | 3.16 | `CITYFIX_DEV_STORE` cannot be set in production | ❌ | **No production guard exists** |
 | 3.17 | `/api/auth/status` does not leak the session identifier | ❌ | Echoes the identifier half of the cookie — `app/api/auth/status/route.ts:57` |
 | 3.18 | The dev-only sign-in route is unreachable in production | ✅ | `/api/dev/login` → 404 via `isDevStore()` — `app/api/dev/login/route.ts:54-56` |
@@ -260,7 +260,7 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 4.5 | ADR-006 exists | ⚠️ | Not present in `docs/adr/`. Its absence leaves 4.4 undecidable from the code |
 | 4.6 | A baseline route guard exists | ❌ | **No `middleware.ts`** — a route is protected only if its author remembered |
 | 4.7 | `PUT /api/profile` requires a role and, for admins, WebAuthn | ✅ | **Closed 2026-11-09** — the admin write calls `requireWebAuthn`; the write is scoped to `session.userId` (ownership), and the non-admin write stays ungated per ADR-007 |
-| 4.8 | The dev-privilege routes are gated on the dev store | ❌ | `bootstrap-admin`, `issue-session`, `promote-admin`, `list-users` — secret-only |
+| 4.8 | The dev-privilege routes are gated on the dev store | ✅ | **Fixed 2026-11-17.** `bootstrap-admin`, `issue-session`, `promote-admin`, `list-users` now 404 whenever `NODE_ENV === 'production'`, whatever the shared secret is. The gate is on `NODE_ENV`, not `isDevStore()`: the role flip in `bootstrap-admin`/`promote-admin` has only a Prisma branch, so a dev-store-only gate would have made those routes permanently non-functional rather than merely unreachable in production. `issue-session` and `list-users` are additionally redundant in the dev store. Covered by `tests/unit/auth/dev-route-gating.test.ts` (non-vacuity proven by neutering the guard) |
 | 4.9 | `requireScope` correctly exempts admins | ✅ | ADR-007:26-33 — an admin session is city-wide authority |
 | 4.10 | Dispatcher and crew writes are correctly *not* admin writes | ✅ | ADR-007 scope — the shared transition route does not demand WebAuthn from them |
 
@@ -386,11 +386,11 @@ The code builds, the CI pipeline is green, and the Vercel project is linked. Wha
 | 10.3 | The Node version is pinned on the host to match CI | ⚠️ | `package.json` declares `>=20.0.0`; the Vercel build must be pinned to 22 manually |
 | 10.4 | `DATABASE_URL` points at a managed, non-loopback host in production | ⚠️ | Not inspectable from the repository |
 | 10.5 | `SESSION_SECRET` is set, unique and ≥32 chars | ⚠️ | Enforced at runtime (`lib/auth/session.ts:22-28`) but unverified in the deployed environment |
-| 10.6 | `OTP_PROVIDER=twilio` in production | ⚠️ | Unverified — and the default is the unsafe `stub` |
+| 10.6 | `OTP_PROVIDER=twilio` in production | ⚠️ | Unverified — but since 2026-11-17 a `stub` value is **rejected** in a production build, so a misconfiguration fails loudly rather than silently degrading |
 | 10.7 | Twilio credentials are set | ⚠️ | Unverified; the provider throws if any of the three is missing |
 | 10.8 | `CITYFIX_DEV_STORE` is unset in production | ⚠️ | Unverified — **and there is no guard** |
 | 10.9 | `DEV_SKIP_WEBAUTHN` is unset in production | ⚠️ | Unverified |
-| 10.10 | `CITYFIX_DEV_PROMOTE_SECRET` is unset in production | ⚠️ | Unverified — and the four routes it gates are not dev-gated |
+| 10.10 | `CITYFIX_DEV_PROMOTE_SECRET` is unset in production | ⚠️ | Unverified — since 2026-11-17 the four routes it gates are production-gated anyway, so a leaked secret yields nothing in production |
 | 10.11 | `BLOB_PROVIDER=s3` with credentials and `BLOB_PUBLIC_BASE_URL` | ⚠️ | Unverified — and no `BLOB_*` variable appears in `.env.example` |
 | 10.12 | WebAuthn RP ID and origin are the production hostname | ⚠️ | Unverified; the code refuses `localhost`/non-https in production |
 | 10.13 | Migrations are applied before new traffic is served | ⚠️ | The recommended CI-job path is documented but no such job exists |

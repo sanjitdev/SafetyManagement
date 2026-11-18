@@ -155,6 +155,11 @@ Playwright configs set by default.
 `/api/dev/*` is gated on `CITYFIX_DEV_PROMOTE_SECRET` in `.env.local`
 (`local-dev-promote-secret`). With it unset, the whole tree returns 404.
 
+The four promote routes (`issue-session`, `promote-admin`,
+`bootstrap-admin`, `list-users`) are **doubly gated** — they also 404
+whenever `NODE_ENV === 'production'`, so they are unreachable on the
+deployed Vercel build whatever the secret is.
+
 - `POST /api/dev/issue-session` — mint a session for any `userId`, no password.
   Useful for reaching staff surfaces without a password-login path.
 - `POST /api/dev/promote-admin` — promote the signed-in user to `admin`.

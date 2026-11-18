@@ -14,8 +14,25 @@
  *      cookie. The response is enough to be authenticated
  *      on the very next request from the same browser.
  *
- * Gated by CITYFIX_DEV_PROMOTE_SECRET. Returns 404 if the
- * env var is unset.
+ * Gated by CITYFIX_DEV_PROMOTE_SECRET **and** a non-production
+ * build. Returns 404 if the env var is unset, and 404 if
+ * `NODE_ENV === 'production'`.
+ *
+ * The production half of the gate is what makes this safe to
+ * leave in the tree. This is the most privileged endpoint in the
+ * app: it flips a citizen to `role='admin'` and mints them a real
+ * session. Against REAL Prisma (i.e. in production) a leaked shared
+ * secret would be a complete, unauthenticated privilege escalation —
+ * no password, no OTP, no WebAuthn. With the gate, the endpoint is
+ * unreachable in production whatever the secret happens to be.
+ *
+ * The gate is on `NODE_ENV`, NOT on `isDevStore()`: this endpoint
+ * is inherently PRODUCTION-shaped. `db.user.update` (the role
+ * flip) only has a Prisma branch — the dev store's persona rows
+ * are seed-immutable and `lib/db-switch.ts` throws there. So a
+ * dev-store gate would break the endpoint outright, while a
+ * production gate removes exactly the deployment it was written
+ * for.
  *
  * Body: { phone: string, citySlug?: string }
  *   - `phone` is required and is matched against the
@@ -49,8 +66,21 @@ function normalizePhone(raw: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Read the flag ONCE. Next's ambient types narrow
+  // `process.env.NODE_ENV` to `'development' | 'test'`, so a second
+  // `=== 'production'` comparison further down the function would
+  // be flagged as an impossible overlap (TS2367).
+  const isProduction = process.env.NODE_ENV === 'production';
+
   const expected = process.env.CITYFIX_DEV_PROMOTE_SECRET;
   if (!expected) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  // The dev routes must not run in a PRODUCTION BUILD — see the
+  // route's docblock. Without this check a leaked secret on the
+  // deployed environment promotes a citizen to admin and mints
+  // them a real session against real Prisma.
+  if (isProduction) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   const supplied = req.headers.get('x-cityfix-promote-secret');
@@ -140,7 +170,7 @@ export async function POST(req: NextRequest) {
   jar.set(SESSION_COOKIE, cookieValue, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     path: '/',
     expires: expiresAt,
   });
