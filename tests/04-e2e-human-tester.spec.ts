@@ -43,6 +43,7 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
@@ -231,26 +232,20 @@ async function submitReport(
   // Wait for the top-bar Report CTA to be visible. The home page is a
   // 'use client' component — its onClick handler is only attached after
   // React hydrates. SSR renders the button text immediately, but a
-  // click on the unhydrated element is a no-op. We probe for hydration
-  // by waiting for a sentinel that only the React-mounted tree can
-  // produce: the activity feed either renders the empty state or the
-  // skeleton, both of which are gated on `signedIn === true` (which is
-  // only set inside the auth useEffect after hydration). Once we see
-  // either, hydration is complete and the Report CTA's onClick is
-  // attached.
-  await page
-    .waitForFunction(
-      () =>
-        document.body.innerText.includes('শহরে কোনো রিপোর্ট নেই') ||
-        document.body.innerText.includes('শহরের কার্যকলাপ') ||
-        // Skeletons don't include either phrase; fall back to
-        // detecting the FeedSkeleton's grid pattern.
-        document.querySelectorAll('aside button[role]').length > 0,
-      { timeout: 20_000 },
-    )
-    .catch(() => undefined);
-  // Belt-and-braces: still give React an extra tick.
-  await page.waitForTimeout(800);
+  // click on the unhydrated element is a no-op.
+  //
+  // The old sentinel here waited for an activity-feed phrase and
+  // SWALLOWED the timeout with `.catch(() => undefined)`, so on a
+  // loaded machine the wait could expire silently and the run would
+  // proceed against an unhydrated page — the click would land on a
+  // server-rendered, inert element and the flow would stall. The
+  // sentinel also proved only that *something* hydrated, not that
+  // the CTA's own handler was attached.
+  //
+  // `waitForHydrated` is the real signal: it polls for the
+  // `__reactProps` key React stores on a hydrated node and, with a
+  // selector, proves that node's own onClick/onChange is attached.
+  await waitForHydrated(page, 'a.home-report-action');
   // The home page's own Report CTA. The header's top-bar Report
   // button was REMOVED on 2026-11-14 (demo simplification — it
   // duplicated this CTA and the role sidebar's "New report" item).
@@ -303,6 +298,11 @@ async function submitReport(
     });
   }
   await page.waitForSelector('h1', { timeout: 30_000 });
+  // Each report-flow step is a fresh client component, so it needs its
+  // own hydration wait before we click its Continue button. We target
+  // the step's own CTA (a stable testid) rather than a generic
+  // container — that proves THIS button's onClick is attached.
+  await waitForHydrated(page, '[data-testid="report-location-confirm"]');
   await capture(page, '02-citizen-report-location');
 
   // Step 3 — continue from location. The report flow is
@@ -321,6 +321,7 @@ async function submitReport(
     .click();
   await page.waitForURL(/\/report\/photo/, { waitUntil: 'commit', timeout: 30_000 });
   await page.waitForSelector('h1', { timeout: 30_000 });
+  await waitForHydrated(page, '[data-testid="report-photo-continue"]');
   await capture(page, '03-citizen-report-photo-empty');
 
   // Step 4 — upload a 1x1 PNG via the hidden file input. The "Take
@@ -333,6 +334,9 @@ async function submitReport(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Zo8DwoAAAAASUVORK5CYII=',
     'base64',
   );
+  // The file input's onChange handler is attached during hydration;
+  // setting files before then silently drops them.
+  await waitForHydrated(page, 'input[type="file"]');
   await page
     .locator('input[type="file"]')
     .setInputFiles({
@@ -360,6 +364,7 @@ async function submitReport(
     .click();
   await page.waitForURL(/\/report\/category/, { waitUntil: 'commit', timeout: 30_000 });
   await page.waitForSelector('h1', { timeout: 30_000 });
+  await waitForHydrated(page, '[data-testid="report-category-continue"]');
   await capture(page, '05-citizen-report-category');
 
   // Step 5 — pick the "Broken streetlight" category. The page renders
@@ -379,6 +384,9 @@ async function submitReport(
     .click();
   await page.waitForURL(/\/report\/note/, { waitUntil: 'commit', timeout: 30_000 });
   await page.waitForSelector('textarea', { timeout: 30_000 });
+  // The textarea is a controlled input — its onChange handler is
+  // attached during hydration, so a fill before then is lost.
+  await waitForHydrated(page, 'textarea');
   await page.locator('textarea').first().fill(note);
   await capture(page, '07-citizen-report-note');
 

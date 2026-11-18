@@ -51,6 +51,7 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 // Pacing: each Playwright action is followed by this many ms of
@@ -250,16 +251,12 @@ async function citizenSubmitReport(
   await preparePage(page);
   await page.goto(`${BASE}/home`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('header', { timeout: 15_000 });
-  await page
-    .waitForFunction(
-      () =>
-        document.body.innerText.includes('শহরে কোনো রিপোর্ট নেই') ||
-        document.body.innerText.includes('শহরের কার্যকলাপ') ||
-        document.querySelectorAll('aside button[role]').length > 0,
-      { timeout: 20_000 },
-    )
-    .catch(() => undefined);
-  await page.waitForTimeout(800);
+  // The old sentinel waited for an activity-feed phrase and SWALLOWED
+  // the timeout, so a loaded machine could proceed against an
+  // unhydrated page and the CTA click would land on an inert
+  // server-rendered element. `waitForHydrated` proves the CTA's own
+  // onClick is attached.
+  await waitForHydrated(page, 'a.home-report-action');
   await capture(page, '01-citizen-home');
 
   // Click the home page's own Report CTA.
@@ -280,6 +277,7 @@ async function citizenSubmitReport(
     waitUntil: 'commit',
   });
   await page.waitForSelector('h1', { timeout: 30_000 });
+  await waitForHydrated(page, '[data-testid="report-location-confirm"]');
   await capture(page, '02-citizen-report-location');
 
   // Continue to the photo step. The canonical report flow is
@@ -301,9 +299,12 @@ async function citizenSubmitReport(
     timeout: 30_000,
   });
   await page.waitForSelector('h1', { timeout: 30_000 });
+  await waitForHydrated(page, '[data-testid="report-photo-continue"]');
   await capture(page, '03-citizen-report-photo-empty');
 
-  // Upload a 1×1 PNG via the hidden file input.
+  // Upload a 1×1 PNG via the hidden file input. The onChange handler
+  // is attached during hydration — setting files before then drops them.
+  await waitForHydrated(page, 'input[type="file"]');
   await page
     .locator('input[type="file"]')
     .setInputFiles({
@@ -332,6 +333,7 @@ async function citizenSubmitReport(
     timeout: 30_000,
   });
   await page.waitForSelector('h1', { timeout: 30_000 });
+  await waitForHydrated(page, '[data-testid="report-category-continue"]');
   await capture(page, '05-citizen-report-category');
 
   // Pick the Streetlight category. (v1.1 redesign: the options
@@ -352,6 +354,8 @@ async function citizenSubmitReport(
     timeout: 30_000,
   });
   await page.waitForSelector('textarea', { timeout: 30_000 });
+  // Controlled input — the onChange handler is attached during hydration.
+  await waitForHydrated(page, 'textarea');
   await page.locator('textarea').first().fill(note);
   await capture(page, '07-citizen-report-note');
 
@@ -424,6 +428,9 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
     const crewPicker = page.locator('[data-testid="dispatcher-assign-crew"]');
     await crewPicker.waitFor({ state: 'visible', timeout: 15_000 });
     const crewInput = crewPicker.locator('[role="combobox"]');
+    // The combobox is a controlled input — its onChange is attached
+    // during hydration, so focusing it before then loses the keystroke.
+    await waitForHydrated(page, '[data-testid="dispatcher-assign-crew"] [role="combobox"]');
     await crewInput.focus();
     await expect(
       crewPicker.locator('[role="option"][data-value="user_crew_rashid"]'),
@@ -436,6 +443,7 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
       .click();
     await expect(crewInput).toHaveValue(/Rashid/);
     await capture(page, '11-dispatcher-picker-rashid-selected');
+    await waitForHydrated(page, '[data-testid="dispatcher-assign-save"]');
     await page.locator('[data-testid="dispatcher-assign-save"]').click();
     // The success banner appears once the PATCH/POST commits.
     await expect(
@@ -456,7 +464,10 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
           ) && r.request().method() === 'POST',
         { timeout: 30_000 },
       ),
-      page.locator('[data-testid="dispatcher-transition-routed"]').click(),
+      (async () => {
+        await waitForHydrated(page, '[data-testid="dispatcher-transition-routed"]');
+        await page.locator('[data-testid="dispatcher-transition-routed"]').click();
+      })(),
     ]);
     expect(routeResponse.status(), 'dispatcher routed status').toBe(200);
     // Brief settle for the re-render to paint the routed pill.
@@ -489,7 +500,10 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
           ) && r.request().method() === 'POST',
         { timeout: 30_000 },
       ),
-      page.locator('[data-testid="crew-transition-in-progress"]').click(),
+      (async () => {
+        await waitForHydrated(page, '[data-testid="crew-transition-in-progress"]');
+        await page.locator('[data-testid="crew-transition-in-progress"]').click();
+      })(),
     ]);
     expect(inProgressResponse.status(), 'crew in_progress status').toBe(200);
     await page.waitForTimeout(800);
@@ -504,6 +518,7 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
     // dev store persists it as `photoUrls` (and the after-
     // photo group on the citizen page renders it as a
     // CSS `background-image`).
+    await waitForHydrated(page, '[data-testid="crew-photo-file"]');
     await page
       .locator('[data-testid="crew-photo-file"]')
       .setInputFiles({
@@ -520,7 +535,10 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
           ) && r.request().method() === 'POST',
         { timeout: 30_000 },
       ),
-      page.locator('[data-testid="crew-photo-submit"]').click(),
+      (async () => {
+        await waitForHydrated(page, '[data-testid="crew-photo-submit"]');
+        await page.locator('[data-testid="crew-photo-submit"]').click();
+      })(),
     ]);
     expect(photoResponse.status(), 'crew after-photo POST status').toBe(200);
     // After a successful file-picker upload, the form clears its
@@ -536,6 +554,7 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
     // Fill the resolution note (required for the `resolved`
     // transition) and resolve. Anchor on the network response
     // (the dev server compiles the route on the first POST).
+    await waitForHydrated(page, '[data-testid="crew-resolution-note"]');
     await page
       .locator('[data-testid="crew-resolution-note"]')
       .fill('Replaced the bulb. Light is back online.');
@@ -548,7 +567,10 @@ test.describe('Slow-motion E2E demo (citizen → dispatcher → crew → citizen
           ) && r.request().method() === 'POST',
         { timeout: 30_000 },
       ),
-      page.locator('[data-testid="crew-transition-resolved"]').click(),
+      (async () => {
+        await waitForHydrated(page, '[data-testid="crew-transition-resolved"]');
+        await page.locator('[data-testid="crew-transition-resolved"]').click();
+      })(),
     ]);
     expect(resolvedResponse.status(), 'crew resolved status').toBe(200);
     await page.waitForTimeout(800);
