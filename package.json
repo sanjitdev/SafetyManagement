@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:feat": "cross-env CITYFIX_DEV_STORE=1 next dev",
+    "dev:store": "cross-env CITYFIX_DEV_STORE=1 CITYFIX_DIST_DIR=.next-store next dev",
     "build": "prisma generate && next build",
     "start": "node scripts/start-next.mjs",
     "postinstall": "prisma generate",

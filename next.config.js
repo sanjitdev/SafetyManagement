@@ -14,6 +14,22 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
+  // Each dev server needs its OWN build directory.
+  //
+  // Two `next dev` servers in the same checkout share `.next` by
+  // default, and they destroy each other: a hot-reload in one wipes
+  // the other's compiled route artifacts, and the victim starts
+  // answering with the HTML not-found page instead of its route
+  // handler. The symptom is a route that "worked on the first
+  // request, then 404s forever" — `/api/dev/login` served a 303 and
+  // every later call returned 404, with the compiled
+  // `.next/server/app/api/dev/login/` directory sitting empty.
+  //
+  // Setting `CITYFIX_DIST_DIR` gives the second server its own
+  // directory, so a real-mode server and a dev-store server can both
+  // run at once without fighting over the build output.
+  ...(process.env.CITYFIX_DIST_DIR ? { distDir: process.env.CITYFIX_DIST_DIR } : {}),
+
   experimental: {
     // Server actions are stable in 14.x but we keep the experimental flag
     // until WO-000 decides on the route-handler vs. server-action split.

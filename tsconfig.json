@@ -28,7 +28,8 @@
     "lib/**/*.ts",
     "components/**/*.ts",
     "components/**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next-store/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out"]
+  "exclude": ["node_modules", ".next", ".next-store", "out"]
 }

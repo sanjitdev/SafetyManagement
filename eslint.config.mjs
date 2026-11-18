@@ -37,6 +37,11 @@ const config = [
     ignores: [
       // Build output / deps / coverage
       '.next/**',
+      // The SECOND dev server's build dir (see the `dev:store` script).
+      // Same generated-code status as `.next` — its webpack runtime
+      // trips `no-assign-module-variable`, which is a Next.js
+      // internal, not product code.
+      '.next-store/**',
       'node_modules/**',
       'coverage/**',
       'out/**',

@@ -85,34 +85,50 @@ async function signInAsCitizen(page: Page) {
 /** Clear the sessionStorage draft so the baselines
  *  capture the first-visit empty state.
  *
- *  WHY THIS IS SCOPED, NOT AN `addInitScript`
- *  ------------------------------------------
- *  `page.addInitScript` runs on EVERY navigation in the
- *  page — including the `page.reload()` the
- *  out-of-bounds and dedup-ring scenarios use to load
- *  the draft they just wrote. An init script that
- *  unconditionally removes the draft therefore deletes
- *  it again on the reload, and the page falls back to
- *  the DEFAULT pin in the home ward. The
- *  out-of-bounds and dedup-ring baselines were
- *  therefore byte-identical to the plain one: three
- *  scenarios, one image, none of them testing what
- *  their names claim.
+ *  WHY THIS IS A ONE-SHOT INIT SCRIPT
+ *  ----------------------------------
+ *  The original version used `page.addInitScript` with an
+ *  unconditional `removeItem`. Init scripts run on EVERY
+ *  navigation in the page — including the `page.reload()` the
+ *  out-of-bounds and dedup-ring scenarios use to load the
+ *  draft they just wrote. So the init script deleted the draft
+ *  again on the reload, the page fell back to the DEFAULT pin
+ *  in the home ward, and the out-of-bounds and dedup-ring
+ *  baselines came out byte-identical to the plain one: three
+ *  scenarios, one image, none of them testing what their names
+ *  claim.
  *
- *  The fix is to clear the draft ONCE, explicitly, on
- *  the first load — and leave every later navigation
- *  alone. The scenario tests then set their draft and
- *  reload into it.
+ *  The obvious repair — clear the draft ONCE explicitly, then
+ *  navigate — is WORSE than the bug. Clearing it requires
+ *  loading a page first, and on a cold Next.js dev server that
+ *  page compiles the WHOLE app (a ~19s compile of `/` was
+ *  observed). The `/api/dev/login` call that follows then lands
+ *  while the dev server is still busy compiling, and Next's dev
+ *  router answers it with a 404 — so the spec failed for a
+ *  reason that has nothing to do with what it asserts. The
+ *  login must happen BEFORE any navigation.
  *
- *  The clear happens on `/` rather than
- *  `/report/location` so the page needs no session:
- *  the draft lives in sessionStorage, which is
- *  per-origin, so clearing it from any page on the
- *  origin clears it for the report flow too. */
+ *  So the clear stays in an init script (no navigation, no
+ *  compile race) but is made ONE-SHOT: a flag marks that the
+ *  draft has already been cleared, and the init script skips
+ *  the removal on every subsequent load.
+ *
+ *  THE FLAG LIVES IN sessionStorage, NOT ON window.
+ *  A `page.reload()` creates a NEW document, so every property
+ *  on `window` is reset to its default — a `window`-based guard
+ *  is `undefined` again on the reload and the removal runs a
+ *  second time, deleting the very draft the scenario just wrote
+ *  (which is why the dedup-ring scenario found no payload). The
+ *  sessionStorage flag survives a same-page reload, so the draft
+ *  written just before the reload survives it — while the very
+ *  first load still starts from a clean slate.
+ */
 async function clearDraft(page: Page) {
-  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     try {
+      const already = window.sessionStorage.getItem('cityfix.__draftCleared.v1');
+      if (already) return;
+      window.sessionStorage.setItem('cityfix.__draftCleared.v1', '1');
       window.sessionStorage.removeItem('cityfix.reportDraft.v1');
       window.sessionStorage.removeItem('cityfix.reportDedup.v1');
     } catch {}
@@ -129,6 +145,103 @@ async function waitForMapIdle(page: Page) {
   // through the map's canvas. A short network settle
   // is enough in practice.
   await page.waitForTimeout(2_500);
+}
+
+/** The MapLibre instance inside the page's React fiber tree.
+ *
+ *  MapLibre is imported as a bundled ESM module, so there is no
+ *  `window.maplibregl` to grab. The instance lives in a React ref
+ *  (`mapRef`), which is a hook value — so it is found by walking the
+ *  React fiber tree looking for a hook whose `memoizedState.current`
+ *  carries a MapLibre method.
+ *
+ *  The walk must start at the `[data-testid="mapview"]` element
+ *  (MapView's own container div), NOT at `.maplibregl-map` (the
+ *  canvas wrapper MapLibre creates). The canvas wrapper is a child
+ *  rendered by MapLibre itself, so the fiber that owns the ref is a
+ *  PARENT of it — and the canvas path's fiber has no hook chain to
+ *  follow. Starting at the mapview element finds it directly at
+ *  depth 1.
+ *
+ *  This body is INJECTED into the page via `page.evaluate`, so it
+ *  must be self-contained: no closure over anything outside the
+ *  function. That is why the MapLibre surface it needs is described
+ *  by a local type rather than by an imported one. */
+const FIND_MAP_IN_PAGE = () => {
+    const el = document.querySelector('[data-testid="mapview"]');
+    if (!el) return null;
+    const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber'));
+    if (!fiberKey) return null;
+    const root = (el as unknown as Record<string, unknown>)[fiberKey];
+    type MapLike = { getLayoutProperty?: (id: string, prop: string) => unknown };
+    // One link in React's hook chain. `memoizedState` is the hook's
+    // value; for a `useRef` that value is `{ current: <the map> }`.
+    type Hook = {
+      memoizedState?: unknown;
+      next?: Hook;
+    };
+    // A holder object, not a plain `let`: TypeScript's
+    // control-flow analysis cannot see an assignment made inside
+    // the `visit` closure, so a `let map` narrows to `never` at the
+    // point of use and every property access errors.
+    const found: { map: MapLike | null } = { map: null };
+    const seen = new Set<unknown>();
+    let hops = 0;
+    const visit = (node: unknown): boolean => {
+      if (!node || found.map || hops > 400) return false;
+      hops += 1;
+      if (seen.has(node)) return false;
+      seen.add(node);
+      const f = node as {
+        stateNode?: MapLike;
+        memoizedState?: Hook;
+        return?: unknown;
+        child?: unknown;
+        sibling?: unknown;
+      };
+      if (f.stateNode && typeof f.stateNode.getLayoutProperty === 'function') {
+        found.map = f.stateNode;
+        return true;
+      }
+      let hook: Hook | undefined = f.memoizedState;
+      let guard = 0;
+      while (hook && guard < 60) {
+        const value = hook.memoizedState;
+        if (value && typeof value === 'object') {
+          const current = (value as { current?: unknown }).current;
+          if (
+            current &&
+            typeof current === 'object' &&
+            typeof (current as { getLayoutProperty?: unknown }).getLayoutProperty ===
+              'function'
+          ) {
+            found.map = current as MapLike;
+            return true;
+          }
+        }
+        hook = hook.next;
+        guard += 1;
+      }
+      return visit(f.return) || visit(f.child) || visit(f.sibling);
+    };
+    visit(root);
+    const map = found.map;
+    if (!map || typeof map.getLayoutProperty !== 'function') return null;
+    // Publish it so later evaluates can reach it without repeating
+    // this walk — `page.evaluate` serialises its callback, so a
+    // callback cannot close over anything from this file.
+    (window as unknown as { __cityfixMap?: unknown }).__cityfixMap = map;
+    return map;
+};
+
+/**
+ * Reach the live MapLibre instance from the page.
+ *
+ * Returns `null` when the instance cannot be reached, so a caller
+ * can assert on that rather than crashing on a property access.
+ */
+async function getMapInstance(page: Page) {
+  return page.evaluate(FIND_MAP_IN_PAGE);
 }
 
 test('report-location-1440x900 matches light baseline', async ({ page }) => {
@@ -283,88 +396,16 @@ test('report-location-with-dedup-ring-1440x900 matches light baseline', async ({
 
   // The ring layers exist in the map style, and they are HIDDEN —
   // because no page passes `showDedupRing`.
-  //
-  // HOW THE MAP INSTANCE IS REACHED
-  // --------------------------------
-  // MapLibre is imported as a bundled ESM module, so there is no
-  // `window.maplibregl` to grab. The instance lives in a React
-  // ref (`mapRef`), which is a hook value — so it is found by
-  // walking the React fiber tree looking for a hook whose
-  // `memoizedState.current` carries a `getStyle` method.
-  //
-  // The walk must start at the `[data-testid="mapview"]` element
-  // (MapView's own container div), NOT at `.maplibregl-map`
-  // (the canvas wrapper MapLibre creates). The canvas wrapper is
-  // a child rendered by MapLibre itself, so the fiber that owns
-  // the ref is a PARENT of it — starting there and only walking
-  // `return`/`child`/`sibling` reaches the owning component, but
-  // the map instance is one hop further up than the canvas path
-  // finds, and the canvas path's fiber has no hook chain to
-  // follow. Starting at the mapview element finds it directly at
-  // depth 1.
+  const map = await getMapInstance(page);
+  expect(map, 'expected to reach the MapLibre map instance').not.toBeNull();
   const ringVisibility = await page.evaluate(() => {
-    const el = document.querySelector('[data-testid="mapview"]');
-    if (!el) return null;
-    const fiberKey = Object.keys(el).find((k) => k.startsWith('__reactFiber'));
-    if (!fiberKey) return null;
-    const root = (el as unknown as Record<string, unknown>)[fiberKey];
-    type MapLike = { getLayoutProperty?: (id: string, prop: string) => unknown };
-    // One link in React's hook chain. `memoizedState` is the hook's
-    // value; for a `useRef` that value is `{ current: <the map> }`.
-    type Hook = {
-      memoizedState?: unknown;
-      next?: Hook;
-    };
-    // A holder object, not a plain `let`: TypeScript's
-    // control-flow analysis cannot see an assignment made inside
-    // the `visit` closure, so a `let map` narrows to `never` at the
-    // point of use and every property access errors.
-    const found: { map: MapLike | null } = { map: null };
-    const seen = new Set<unknown>();
-    let hops = 0;
-    const visit = (node: unknown): boolean => {
-      if (!node || found.map || hops > 400) return false;
-      hops += 1;
-      if (seen.has(node)) return false;
-      seen.add(node);
-      const f = node as {
-        stateNode?: MapLike;
-        memoizedState?: Hook;
-        return?: unknown;
-        child?: unknown;
-        sibling?: unknown;
-      };
-      if (f.stateNode && typeof f.stateNode.getLayoutProperty === 'function') {
-        found.map = f.stateNode;
-        return true;
-      }
-      let hook: Hook | undefined = f.memoizedState;
-      let guard = 0;
-      while (hook && guard < 60) {
-        const value = hook.memoizedState;
-        if (value && typeof value === 'object') {
-          const current = (value as { current?: unknown }).current;
-          if (
-            current &&
-            typeof current === 'object' &&
-            typeof (current as { getLayoutProperty?: unknown }).getLayoutProperty ===
-              'function'
-          ) {
-            found.map = current as MapLike;
-            return true;
-          }
-        }
-        hook = hook.next;
-        guard += 1;
-      }
-      return visit(f.return) || visit(f.child) || visit(f.sibling);
-    };
-    visit(root);
-    const map = found.map;
-    if (!map || typeof map.getLayoutProperty !== 'function') return null;
+    const m = (window as unknown as { __cityfixMap?: unknown }).__cityfixMap as
+      | { getLayoutProperty?: (id: string, prop: string) => unknown }
+      | undefined;
+    if (!m || typeof m.getLayoutProperty !== 'function') return null;
     return {
-      fill: map.getLayoutProperty('dedup-ring-fill', 'visibility'),
-      line: map.getLayoutProperty('dedup-ring-line', 'visibility'),
+      fill: m.getLayoutProperty('dedup-ring-fill', 'visibility'),
+      line: m.getLayoutProperty('dedup-ring-line', 'visibility'),
     };
   });
   expect(ringVisibility, 'expected to reach the MapLibre map instance').not.toBeNull();
@@ -381,4 +422,204 @@ test('report-location-with-dedup-ring-1440x900 matches light baseline', async ({
     'report-location-with-dedup-ring-1440x900.png',
     { fullPage: true },
   );
+});
+
+test('the ward-number labels are rendered and clear of the pin', async ({
+  page,
+}) => {
+  await page.setViewportSize(VIEWPORT);
+  await forceLightTheme(page);
+  await clearDraft(page);
+  await signInAsCitizen(page);
+  const resp = await page.goto(BASE + '/report/location', {
+    waitUntil: 'domcontentloaded',
+  });
+  expect(resp, 'expected response for /report/location').not.toBeNull();
+  expect(resp!.status(), `expected 200 for /report/location, got ${resp!.status()}`).toBe(
+    200,
+  );
+  await waitForMapIdle(page);
+
+  // The ward geometry is fetched AFTER the map loads, so the label
+  // source is empty on first paint. Wait for the map's DOM container
+  // to exist, then give the ward fetch time to land.
+  await page.waitForFunction(
+    () => document.querySelectorAll('.maplibregl-canvas').length > 0,
+    undefined,
+    { timeout: 15_000 },
+  );
+  await page.waitForTimeout(4_000);
+
+  // Publish the map instance for the assertions below.
+  const map = await getMapInstance(page);
+  expect(map, 'expected to reach the MapLibre map instance').not.toBeNull();
+
+  const labels = await page.evaluate(() => {
+    type MapLike = {
+      getLayoutProperty?: (id: string, prop: string) => unknown;
+      getPaintProperty?: (id: string, prop: string) => unknown;
+      queryRenderedFeatures?: (
+        q: unknown,
+      ) => Array<{ properties: Record<string, unknown> }>;
+      getSource?: (
+        id: string,
+      ) =>
+        | { _data?: { features?: Array<{ properties: Record<string, unknown> }> } }
+        | undefined;
+      project?: (ll: unknown) => { x: number; y: number };
+      getContainer?: () => HTMLElement;
+    };
+    const map = (window as unknown as { __cityfixMap?: unknown }).__cityfixMap as
+      | MapLike
+      | undefined;
+    if (!map) return null;
+
+    const feats = map.getSource?.('ward-labels')?._data?.features ?? [];
+    const pin = document.querySelector('[data-testid="mapview-pin"]');
+    const container = map.getContainer?.();
+    const containerBox = container?.getBoundingClientRect();
+    const pinBox = pin?.getBoundingClientRect();
+
+    // The ACTIVE label's position on screen, from its anchor point
+    // plus the offset the layer applies.
+    const active = feats.filter(
+      (f) =>
+        map.queryRenderedFeatures?.({ layers: ['ward-labels-active-label-disc'] }).some(
+          (r) => r.properties.wardId === f.properties.wardId,
+        ),
+    );
+    const activeOffset =
+      (map.getLayoutProperty?.('ward-labels-active-label', 'text-offset') as
+        | number[]
+        | undefined) ?? [0, 0];
+    const activeSize =
+      (map.getLayoutProperty?.('ward-labels-active-label', 'text-size') as
+        | number
+        | undefined) ?? 0;
+
+    // The `text-field` EXPRESSION the layer actually uses.
+    //
+    // Asserting on the source's `wardLabel` property is not enough:
+    // the property can be present and correct while the layer
+    // renders nothing. The original expression was
+    //   ['concat', '#', ['to-string', ['get', 'wardNumber']]]
+    // which produced NO visible glyphs at all — the disc rendered
+    // but the number inside it did not. Only a plain
+    // `['get', 'wardLabel']` renders. So the layer's own
+    // expression is what has to be checked.
+    const activeTextField =
+      (map.getLayoutProperty?.('ward-labels-active-label', 'text-field') as
+        | unknown
+        | undefined) ?? null;
+    const staticTextField =
+      (map.getLayoutProperty?.('ward-labels-label', 'text-field') as
+        | unknown
+        | undefined) ?? null;
+
+    // Rendered DISC positions, in screen pixels.
+    const discs = (map.queryRenderedFeatures?.({
+      layers: ['ward-labels-active-label-disc'],
+    }) ?? []).map((d) => {
+      const coords = (d as unknown as { geometry: { coordinates: number[] } }).geometry
+        .coordinates;
+      const p = map.project?.(coords);
+      const translate =
+        (map.getPaintProperty?.('ward-labels-active-label-disc', 'circle-translate') as
+          | number[]
+          | undefined) ?? [0, 0];
+      return {
+        wardId: d.properties.wardId,
+        wardLabel: d.properties.wardLabel,
+        x: p ? p.x + (translate[0] ?? 0) : null,
+        y: p ? p.y + (translate[1] ?? 0) : null,
+      };
+    });
+
+    return {
+      featureCount: feats.length,
+      featureLabels: feats.map((f) => f.properties.wardLabel),
+      activeOffset,
+      activeSize,
+      activeTextField,
+      staticTextField,
+      activeCount: active.length,
+      discs,
+      containerSize: containerBox
+        ? { w: containerBox.width, h: containerBox.height }
+        : null,
+      pinSize: pinBox ? { w: pinBox.width, h: pinBox.height } : null,
+    };
+  });
+
+  expect(labels, 'expected to reach the MapLibre map instance').not.toBeNull();
+  const l = labels as NonNullable<typeof labels>;
+
+  // The ward geometry loaded.
+  expect(
+    l.featureCount,
+    'expected the ward label source to hold at least one ward',
+  ).toBeGreaterThan(0);
+  expect(
+    l.featureLabels.every((v) => typeof v === 'string' && /^#\d+$/.test(v)),
+    `expected every ward label to be a "#N" string, got ${JSON.stringify(l.featureLabels)}`,
+  ).toBe(true);
+
+  // BOTH label layers read the precomputed `wardLabel` STRING.
+  //
+  // `['concat', '#', ['to-string', ['get', 'wardNumber']]]` renders
+  // NO glyphs — the disc appears but the number inside it does not.
+  // The only expression that renders is a plain
+  // `['get', 'wardLabel']`, so that is what must be asserted.
+  for (const [name, expr] of [
+    ['ward-labels-label', l.staticTextField],
+    ['ward-labels-active-label', l.activeTextField],
+  ] as const) {
+    expect(
+      expr,
+      `expected the ${name} layer to carry a text-field expression`,
+    ).not.toBeNull();
+    expect(
+      Array.isArray(expr) && expr[0] === 'get' && expr[1] === 'wardLabel',
+      `expected the ${name} text-field to be ['get', 'wardLabel'], got ${JSON.stringify(expr)}`,
+    ).toBe(true);
+  }
+
+  // The ACTIVE label is offset — in EMS, converted from the pixel
+  // distance. If the offset were passed through as pixels, the
+  // number would be thrown hundreds of pixels off-screen and the
+  // layer would render nothing at all.
+  expect(
+    Math.abs(l.activeOffset[1]),
+    'expected the active label to carry a non-zero vertical offset',
+  ).toBeGreaterThan(0);
+  expect(
+    Math.abs(l.activeOffset[1]),
+    'expected the active label offset to be in EMS (|offset| < text-size)',
+  ).toBeLessThan(l.activeSize);
+  // The pixel distance it implies.
+  const offsetPx = Math.abs(l.activeOffset[1] * l.activeSize);
+  expect(
+    offsetPx,
+    'expected the active label to clear the pin (offset > pin height)',
+  ).toBeGreaterThan(l.pinSize?.h ?? 0);
+
+  // The active label's DISC is rendered and sits inside the map.
+  expect(
+    l.discs.length,
+    'expected the active ward label disc to be rendered',
+  ).toBeGreaterThan(0);
+  for (const d of l.discs) {
+    expect(
+      d.wardLabel,
+      'expected the active disc to carry a ward label',
+    ).toMatch(/^#\d+$/);
+    expect(
+      d.y,
+      `expected the active disc to be inside the map, got y=${d.y}`,
+    ).toBeGreaterThan(0);
+    expect(
+      d.y,
+      `expected the active disc to be inside the map, got y=${d.y}`,
+    ).toBeLessThan(l.containerSize?.h ?? 0);
+  }
 });
