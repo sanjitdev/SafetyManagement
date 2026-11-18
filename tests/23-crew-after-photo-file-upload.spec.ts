@@ -36,6 +36,7 @@
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
 import path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 390, height: 844 };
@@ -201,6 +202,10 @@ test('UI: setInputFiles + Submit uploads a fixture file → after-photo appears'
   // is a 1×1 transparent PNG (committed alongside the spec for
   // determinism).
   const fixturePath = path.resolve(__dirname, 'fixtures/after-photo.png');
+  // The file input's `onChange` is a React handler, and the submit
+  // button's `disabled`→`enabled` transition is React state. Wait for
+  // hydration — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="crew-photo-file"]');
   await page.locator('[data-testid="crew-photo-file"]').setInputFiles(fixturePath);
 
   // The submit button is now enabled.

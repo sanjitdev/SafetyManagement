@@ -43,6 +43,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
@@ -350,6 +351,10 @@ test.describe('The theme toggle switches the admin body, not just the header', (
       )
       .first();
     await expect(toggle).toBeVisible();
+    // The toggle only flips the theme when React handles the click.
+    // `/admin` compiles ~6700 modules and hydrates late, so wait for
+    // hydration — see tests/helpers/hydration.ts.
+    await waitForHydrated(page, 'header button[aria-label="Dark"], header button[aria-label="গাঢ়"]');
     await toggle.click();
 
     await page.waitForFunction(

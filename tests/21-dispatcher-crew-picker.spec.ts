@@ -43,6 +43,7 @@
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
 import { createPinGenerator, resetDevStore } from './helpers/fixtures';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1280, height: 800 };
@@ -595,6 +596,11 @@ test('UI: pick a crew + Save → ticket.assignedCrewId updates, success shown', 
   // opening the list and clicking the option. The list opens on
   // focus.
   const input = picker.locator('[role="combobox"]');
+  // The combobox is a CONTROLLED React input: the option list is
+  // rendered by React, and the committed value only reaches the input
+  // if React handled the click. Wait for hydration first — see
+  // tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="dispatcher-assign-crew"] [role="combobox"]');
   await input.focus();
   const rashidOption = picker.locator(
     '[role="option"][data-value="user_crew_rashid"]',
@@ -661,6 +667,9 @@ test('UI: clear via placeholder + Save → ticket.assignedCrewId becomes null', 
   // Clear the selection. The combobox has no placeholder `<option>`
   // to switch back to; the list's footer carries a Clear control
   // (`dispatcher-assign-clear`) that empties the draft.
+  // The Clear control only exists once React has rendered the list —
+  // wait for hydration — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="dispatcher-assign-crew"] [role="combobox"]');
   await input.focus();
   const clear = page.locator('[data-testid="dispatcher-assign-clear"]');
   await expect(clear).toBeVisible();

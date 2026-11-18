@@ -47,6 +47,7 @@ import {
   APIRequestContext,
   Page,
 } from '@playwright/test';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1280, height: 800 };
@@ -570,6 +571,9 @@ test('UI: a monitor row expands to reveal the trail and acknowledges', async ({
   );
 
   // Expand → the trail panel appears with its steps.
+  // The expanded panel is rendered by React, so the toggle must be
+  // hydrated before the click — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, `[data-testid="dispatcher-monitor-toggle-${rowId}"]`);
   await page.locator(`[data-testid="dispatcher-monitor-toggle-${rowId}"]`).click();
   await expect(
     page.locator(`[data-testid="dispatcher-monitor-expanded-${rowId}"]`),
@@ -706,6 +710,9 @@ test('UI: the crew table sorts on a header click', async ({ page }) => {
     '[data-testid="dispatcher-performance-sort-crewName"]',
   );
   await expect(header).toBeAttached();
+  // The `aria-sort` attribute only changes when React handles the
+  // click — wait for hydration — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="dispatcher-performance-sort-crewName"]');
   await header.click();
 
   // The clicked column now carries an aria-sort of ascending or

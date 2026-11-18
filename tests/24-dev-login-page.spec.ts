@@ -37,6 +37,7 @@
  */
 
 import { test, expect, request as pwRequest, APIRequestContext } from '@playwright/test';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 390, height: 844 };
@@ -288,6 +289,10 @@ itWithSecret(
     // the response populates the <select>, and the submit button
     // becomes enabled.
     const select = page.locator('[data-testid="dev-login-user"]');
+    // The `<select>` is populated by a React effect and the submit
+    // button's `disabled`→`enabled` transition is React state. Wait
+    // for hydration — see tests/helpers/hydration.ts.
+    await waitForHydrated(page, '[data-testid="dev-login-user"]');
     await expect(select).toBeEnabled({ timeout: 5_000 });
     // The dev seed has Rahim as a citizen; the page defaults
     // to the first citizen in the list.

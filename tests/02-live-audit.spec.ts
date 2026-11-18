@@ -16,6 +16,7 @@
 import { test, expect, Page, ConsoleMessage } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 // The Playwright `webServer` (playwright.config.ts) runs `npm run dev:feat`
 // on port 3000 — this spec must target the same port, or it silently
@@ -201,6 +202,10 @@ test.describe('Theme toggle', () => {
     await page.goto(BASE + '/home');
     const toggle = page.locator(THEME_TOGGLE).first();
     await expect(toggle).toBeVisible();
+    // The toggle flips the theme only when React handles the click —
+    // the resolved class and the localStorage write are both React
+    // state. Wait for hydration — see tests/helpers/hydration.ts.
+    await waitForHydrated(page, THEME_TOGGLE);
 
     // Default is 'system'; HTML class is either theme-light or theme-dark
     // depending on the emulateMedia default (light).

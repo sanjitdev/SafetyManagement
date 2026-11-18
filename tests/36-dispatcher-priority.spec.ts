@@ -65,6 +65,7 @@ import {
   Page,
 } from '@playwright/test';
 import { createPinGenerator, resetDevStore } from './helpers/fixtures';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const CITY_ID = 'city_dhaka_north';
@@ -531,6 +532,10 @@ test('the rail’s "Not triaged" chip narrows the queue to the untriaged rows', 
     '[data-testid="dispatcher-priority-filter-untriaged"]',
   );
   await expect(chip).toBeVisible();
+  // `aria-pressed` flips only when React handles the click, and the
+  // queue request it drives only fires from a hydrated handler. Wait
+  // for hydration before clicking — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="dispatcher-priority-filter-untriaged"]');
   await chip.click();
   await expect(chip).toHaveAttribute('aria-pressed', 'true');
 
@@ -652,6 +657,10 @@ test('picking a band and saving updates the chip and the record list', async ({
   const urgent = page.locator(
     '[data-testid="dispatcher-priority-option-urgent"]',
   );
+  // `aria-checked` flips only when React handles the click, and the
+  // Save button's `disabled`→`enabled` transition is React state too.
+  // Wait for hydration before clicking — see tests/helpers/hydration.ts.
+  await waitForHydrated(page, '[data-testid="dispatcher-priority-option-urgent"]');
   await urgent.click();
   await expect(urgent).toHaveAttribute('aria-checked', 'true');
   await expect(urgent).toHaveAttribute('data-selected', 'true');

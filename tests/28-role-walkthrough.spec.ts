@@ -48,6 +48,7 @@
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const PASSWORD = '12345678';
@@ -95,13 +96,21 @@ function observe(o: Observation): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Wait for React hydration by waiting for a sentinel that only the
- * mounted tree can produce. SSR renders the shell; the client
- * components set `signedIn` inside an effect, so the "signed in"
- * content only appears post-hydration.
+ * Wait for React hydration.
+ *
+ * This used to be a fixed 600 ms sleep, and the docblock above it
+ * claimed it was waiting for a post-hydration sentinel — it was not.
+ * A sleep is not a hydration signal: on a loaded machine the page can
+ * still be un-hydrated 600 ms after navigation, and a click that lands
+ * in that window is swallowed (the DOM event fires, React's synthetic
+ * handler never runs). The symptom looks like a product bug.
+ *
+ * `waitForHydrated` probes the DOM for React's own props key, which
+ * is only present once the component has hydrated. See
+ * tests/helpers/hydration.ts for the full explanation.
  */
 async function waitForHydration(page: Page, timeout = 25_000): Promise<void> {
-  await page.waitForTimeout(600);
+  await waitForHydrated(page, undefined, timeout);
 }
 
 /**

@@ -25,6 +25,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
@@ -97,6 +98,10 @@ for (const [filter, { label, screenshot }] of Object.entries(PILL_BY_TEXT)) {
     await loadHomeAndWaitForFeed(page);
     // Click the target pill (the buttons are rendered in the
     // order: All / New / In progress / Resolved).
+    // The pill's pressed state and the filtered list are React state,
+    // so the click must land on a hydrated handler — see
+    // tests/helpers/hydration.ts.
+    await waitForHydrated(page);
     await page.getByRole('button', { name: label, exact: true }).click();
     // Give the filter state a tick to re-render.
     await page.waitForTimeout(200);

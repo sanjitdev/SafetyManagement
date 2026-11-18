@@ -56,8 +56,50 @@ async function devLogin(ctx: APIRequestContext, role: string): Promise<void> {
   expect(res.status(), `dev login for ${role}`).toBe(303);
 }
 
+/**
+ * Wait until the trigger button is HYDRATED, not merely visible.
+ *
+ * `toBeVisible()` only proves the server-rendered markup is on screen.
+ * React attaches the `onClick` listener during hydration, and on the
+ * admin console — a 6700-module page — hydration can finish AFTER the
+ * button is already visible. A click that lands in that window hits an
+ * inert server-rendered element: the click event fires and bubbles
+ * (so a `document`-level listener sees it) but React's synthetic
+ * handler never runs, the menu never opens, and the panel never
+ * appears.
+ *
+ * The failure looks exactly like a product bug ("the menu does not
+ * open on /admin") but it is a test-harness race: the spec clicked
+ * before the page was ready. On a loaded CI runner it reproduced at
+ * roughly 1 failure in 4.
+ *
+ * The signal is precise and button-local: React stores the element's
+ * props on the DOM node under a `__reactProps$*` key, and that key is
+ * only present once the component has hydrated. Waiting for the
+ * `onClick` prop specifically proves the very handler we are about to
+ * invoke is attached — a router-level signal like `window.next.router`
+ * would only prove the router booted, which happens earlier.
+ */
+async function waitForHydratedTrigger(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const trigger = document.querySelector('.usermenu-trigger') as
+        | (HTMLElement & { [key: string]: unknown })
+        | null;
+      if (!trigger) return false;
+      const key = Object.keys(trigger).find((k) => k.startsWith('__reactProps$'));
+      if (!key) return false;
+      const props = trigger[key] as { onClick?: unknown } | undefined;
+      return typeof props?.onClick === 'function';
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
+}
+
 /** Open the menu and wait for the panel to be on screen. */
 async function openMenu(page: Page) {
+  await waitForHydratedTrigger(page);
   await page.locator('.usermenu-trigger').click();
   await expect(page.locator('.usermenu-panel')).toBeVisible({ timeout: 10_000 });
 }

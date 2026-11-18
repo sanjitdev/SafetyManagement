@@ -28,6 +28,7 @@
 
 import { test, expect, request as pwRequest, APIRequestContext, Page } from '@playwright/test';
 import { resetDevStore, pinnedEpochMs } from './helpers/fixtures';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
@@ -278,6 +279,10 @@ test.describe('ADM-007 — Admin audit dashboard (Bolt 005-004)', () => {
       .locator('table tbody button[aria-expanded]')
       .first();
     await expect(rowToggle).toBeVisible();
+    // `aria-expanded` flips only when React handles the click, and the
+    // expanded row is rendered by React. Wait for hydration — see
+    // tests/helpers/hydration.ts.
+    await waitForHydrated(page, 'table tbody button[aria-expanded]');
     await rowToggle.click();
     // The before/after JSON should be visible.
     await expect(page.locator('pre').first()).toBeVisible();

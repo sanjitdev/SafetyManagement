@@ -21,6 +21,7 @@
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { waitForHydrated } from './helpers/hydration';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
@@ -327,6 +328,14 @@ test.describe('Theme toggle from an authenticated surface', () => {
       'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]',
     );
     await expect(toggle).toBeVisible();
+
+    // The toggle flips the theme only when React handles the click —
+    // the resolved class and the localStorage write are both React
+    // state. Wait for hydration — see tests/helpers/hydration.ts.
+    await waitForHydrated(
+      page,
+      'header button[aria-label="হালকা"], header button[aria-label="গাঢ়"]',
+    );
 
     const wasDark = await page.evaluate(() =>
       document.documentElement.className.includes('theme-dark'),
