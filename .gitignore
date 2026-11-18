@@ -114,6 +114,12 @@ next-env.d.ts
 # anyone, with nothing in version control to restore them from.
 .claude/
 #
+# .puku-cli/ holds the Puku CLI's own local agents/ and commands/
+# definitions for this working directory. Same rationale as .claude/
+# above: it is a per-developer tool registration, not project content,
+# and it must not be swept into a `git add .`.
+.puku-cli/
+#
 # Note on .specsmd/: the canonical specsmd memory bank
 # (.specsmd/aidlc/memory-bank/**) IS
 # committed to main as the team's durable brief artefact (intent
