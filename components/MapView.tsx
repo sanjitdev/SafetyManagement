@@ -139,6 +139,30 @@ const WARD_ACTIVE_LABEL_LAYER_ID = 'ward-labels-active-label';
 const WARD_ACTIVE_LABEL_DISC_LAYER_ID = 'ward-labels-active-label-disc';
 
 /**
+ * How far UPWARD, in pixels, the active ward's label is drawn
+ * from its anchor point.
+ *
+ * The active ward's label point IS the pin's position, and the
+ * pin is a DOM marker that paints over the whole WebGL canvas.
+ * Without this offset the active ward's number is invisible —
+ * hidden under the pin it labels. 34px clears the pin's 28px
+ * box plus its 3px white border.
+ */
+const ACTIVE_LABEL_OFFSET_Y = -34;
+
+/**
+ * The active label's `text-size`.
+ *
+ * `text-offset` is measured in EM, not pixels: a value of `-34`
+ * with a `text-size` of 15 throws the text 510px off-screen,
+ * which is how the label went from "hidden behind the pin" to
+ * "not rendered at all" without any visible error. The offset is
+ * therefore divided by the text size to convert the pixel
+ * distance into ems.
+ */
+const ACTIVE_LABEL_TEXT_SIZE = 15;
+
+/**
  * OpenStreetMap raster basemap. The free public tile
  * CDN at `tile.openstreetmap.org`. No API key, no
  * auth, no token. The OSM Tile Usage Policy forbids
@@ -256,6 +280,15 @@ function buildWardLabelCollection(
       properties: {
         wardId: boundary.id,
         wardNumber: boundary.number,
+        // The rendered text, precomputed as a STRING.
+        //
+        // The `text-field` used to be
+        //   ['concat', '#', ['to-string', ['get', 'wardNumber']]]
+        // which produced NO visible text at all: the disc rendered
+        // but the number inside it did not. A plain
+        // `['get', 'wardLabel']` — the pattern the activity map's
+        // numbered pins already use successfully — renders.
+        wardLabel: `#${boundary.number}`,
       },
       geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
     });
@@ -478,7 +511,7 @@ export default function MapView({
             type: 'symbol',
             source: WARD_LABEL_SOURCE_ID,
             layout: {
-              'text-field': ['concat', '#', ['to-string', ['get', 'wardNumber']]],
+              'text-field': ['get', 'wardLabel'],
               'text-size': 13,
               'text-font': [...SYMBOL_FONT],
               // The label must NOT wrap or shrink: `text-max-width`
@@ -497,6 +530,23 @@ export default function MapView({
           // The ACTIVE ward's label, drawn larger and in the
           // accent colour so the citizen can pick their own
           // section out of the mosaic at a glance.
+          //
+          // WHY IT IS OFFSET UPWARD
+          // ------------------------
+          // The active ward is, by definition, the ward the pin
+          // is in — so its label point and the pin are at the SAME
+          // coordinate. The pin is a `maplibregl.Marker`, which
+          // renders as a DOM element ABOVE the entire WebGL
+          // canvas. A label drawn at that coordinate is therefore
+          // never visible: the pin (28px) covers the disc (34px
+          // across) completely. The active ward's number — the
+          // one number the citizen most needs — was invisible.
+          //
+          // `circle-translate` moves the disc in PIXELS;
+          // `text-offset` moves the text in EMS. The two are
+          // converted from the same pixel distance so the disc and
+          // its number stay aligned. The offset clears the pin's
+          // 28px box plus its 3px border with room to spare.
           map.addLayer({
             id: WARD_ACTIVE_LABEL_DISC_LAYER_ID,
             type: 'circle',
@@ -507,6 +557,7 @@ export default function MapView({
               'circle-radius': 17,
               'circle-stroke-width': 3.5,
               'circle-stroke-color': MAP_PRIMARY_COLOR,
+              'circle-translate': [0, ACTIVE_LABEL_OFFSET_Y],
             },
           });
           map.addLayer({
@@ -515,12 +566,14 @@ export default function MapView({
             source: WARD_LABEL_SOURCE_ID,
             filter: ['==', ['get', 'wardId'], latestActiveWardRef.current ?? ''],
             layout: {
-              'text-field': ['concat', '#', ['to-string', ['get', 'wardNumber']]],
-              'text-size': 15,
+              'text-field': ['get', 'wardLabel'],
+              'text-size': ACTIVE_LABEL_TEXT_SIZE,
               'text-font': [...SYMBOL_FONT],
               'text-allow-overlap': true,
               'text-justify': 'center',
               'text-anchor': 'center',
+              // EMs, not pixels — see ACTIVE_LABEL_TEXT_SIZE.
+              'text-offset': [0, ACTIVE_LABEL_OFFSET_Y / ACTIVE_LABEL_TEXT_SIZE],
             },
             paint: {
               'text-color': MAP_PRIMARY_COLOR,
